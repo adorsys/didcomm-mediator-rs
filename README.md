@@ -6,7 +6,7 @@ DIDComm mediators work by storing the DIDs (decentralized identifiers) of mobile
 
 The following diagram displays some cloud services that can be provided by a DIDComm mediator. In particular, services that take care of routing and relaying messages among mobile agents.
 
-![sample cloud services](./docs/basic-arch.png)
+![sample cloud services](./mediator-server/docs/basic-arch.png)
 
 Even though both (proxy and gateway) functionalities are specified in the same component in the DIDComm ecosystem, it is important to distinguish between the proxy and the gateway service. This distinction is made in the same way as the distinction between an SMTP server (which sends out emails) and an IMAP server (which delivers emails).
 
