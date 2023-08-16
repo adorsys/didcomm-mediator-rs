@@ -1,3 +1,4 @@
+#[allow(unused)]
 const KEYSTORE_PATHSTR: &str = "storage/keystore";
 
 fn main() {}
@@ -33,7 +34,6 @@ mod tests2 {
     /// Integration test for loading a key from a keystore
     #[test]
     fn integration() {
-        // let dir = tempfile::tempdir().unwrap();
         let dir = Path::new(KEYSTORE_PATHSTR);
         let key_store = FsKeyStore::create_or_open(&dir).unwrap();
         let example_key = SigningKey::generate_pkcs8();

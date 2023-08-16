@@ -10,11 +10,15 @@ fn app() -> Router {
 
 #[tokio::main]
 async fn main() {
+    // Load dotenv-flow variables
+    dotenv_flow::dotenv_flow().ok();
+
     // Enable tracing
     config_tracing();
 
     // Start server
-    let addr: SocketAddr = "127.0.0.1:3000".parse().unwrap();
+    let port = std::env::var("SERVER_LOCAL_PORT").unwrap_or("3000".to_owned());
+    let addr: SocketAddr = format!("127.0.0.1:{port}").parse().unwrap();
     tracing::info!("listening on {addr}");
     Server::bind(&addr)
         .serve(app().into_make_service())
