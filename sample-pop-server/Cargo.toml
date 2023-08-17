@@ -23,5 +23,14 @@ tower-http = { version = "0.4.3", features = ["trace"] }
 tracing = "0.1.37"
 tracing-subscriber = { version = "0.3.17", features = ["json"] }
 
+# aries_vcx
+base64 = "0.21.2"
+bs58 = "0.5.0"
+hex = "0.4.3"
+pem = "2.0.1"
+serde = { version = "1.0.159", default-features = false, features = ["derive"] }
+uniresid = { version = "0.1.4", default-features = false, features = ["serde"] }
+url = { version = "2.3.1", features = ["serde"] }
+
 [dev-dependencies]
 tower = { version = "0.4.13", features = ["util"] }
