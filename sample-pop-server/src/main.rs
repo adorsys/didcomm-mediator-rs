@@ -1,4 +1,5 @@
 mod model;
+mod util;
 mod web;
 
 use axum::{Router, Server};
