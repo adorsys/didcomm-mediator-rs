@@ -3,11 +3,12 @@ use url::{ParseError, Url};
 
 /// Turns an HTTP(S) URL into a did:web id.
 pub fn url_to_did_web_id(url: &str) -> Result<String, Box<dyn Error>> {
-    if url.contains("://") && !url.trim_start().starts_with("http") {
-        return Err("Scheme not allowed")?;
-    }
+    let url = url.trim();
 
     let parsed = if url.contains("://") {
+        if ["http://", "https://"].iter().all(|x| !url.starts_with(x)) {
+            return Err("Scheme not allowed")?;
+        }
         Url::parse(url)?
     } else {
         Url::parse(&format!("http://{url}"))?
@@ -57,6 +58,7 @@ mod tests {
         );
 
         assert!(url_to_did_web_id("ftp://localhost").is_err());
+        assert!(url_to_did_web_id("httpss://localhost").is_err());
         assert!(url_to_did_web_id("urn:isbn:0451450523").is_err());
         assert!(url_to_did_web_id("https://127.0.0.1:8080").is_err());
 
