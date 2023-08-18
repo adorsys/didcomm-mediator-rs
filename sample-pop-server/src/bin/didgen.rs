@@ -1,6 +1,11 @@
-#[allow(unused)]
-const DIDDOC_DIR: &str = "storage";
-const KEYSTORE_DIR: &str = "storage/keystore";
+use std::collections::BTreeMap;
+
+use sample_pop_server::{util, DIDDOC_DIR, KEYSTORE_DIR};
+use serde_json::{json, Value};
+use ssi::did::{
+    Context, Contexts, DocumentBuilder, VerificationMethod, VerificationMethodMap, DEFAULT_CONTEXT,
+    DIDURL,
+};
 
 /// Program entry
 fn main() -> std::io::Result<()> {
@@ -35,8 +40,76 @@ fn main() -> std::io::Result<()> {
 
 /// Builds and persists DID document
 fn gen_diddoc(authentication_key: &String, assertion_key: &String) {
-    println!("authentication: {authentication_key}");
-    println!("assertion: {assertion_key}");
+    tracing::info!("Building DID document...");
+
+    // Prepare DID address
+
+    let public_domain = std::env::var("SERVER_PUBLIC_DOMAIN") //
+        .expect("Missing SERVER_PUBLIC_DOMAIN");
+    let did = util::url_to_did_web_id(&public_domain) //
+        .expect("Error deriving did:web address");
+
+    // Prepare authentication verification method
+
+    let authentication_method_id = DIDURL::try_from(did.clone() + "#keys-1").unwrap();
+
+    let mut authentication_property_set = BTreeMap::<String, Value>::new();
+    authentication_property_set.insert(
+        String::from("publicKeyMultibase"),
+        json!(authentication_key),
+    );
+
+    let authentication_method = VerificationMethodMap {
+        id: authentication_method_id.to_string(),
+        controller: did.clone(),
+        type_: String::from("Ed25519VerificationKey2020"),
+        property_set: Some(authentication_property_set),
+        ..Default::default()
+    };
+
+    // Prepare assertion verification method
+
+    let assertion_method_id = DIDURL::try_from(did.clone() + "#keys-2").unwrap();
+
+    let mut assertion_property_set = BTreeMap::<String, Value>::new();
+    assertion_property_set.insert(String::from("publicKeyMultibase"), json!(assertion_key));
+
+    let assertion_method = VerificationMethodMap {
+        id: assertion_method_id.to_string(),
+        controller: did.clone(),
+        type_: String::from("Ed25519VerificationKey2020"),
+        property_set: Some(assertion_property_set),
+        ..Default::default()
+    };
+
+    // Build document
+
+    let doc = DocumentBuilder::default()
+        .context(Contexts::Many(vec![
+            Context::URI(DEFAULT_CONTEXT.to_owned().into()),
+            Context::URI(
+                "https://w3id.org/security/suites/ed25519-2020/v1"
+                    .parse()
+                    .unwrap(),
+            ),
+        ]))
+        .id(did)
+        .authentication(vec![VerificationMethod::DIDURL(authentication_method_id)])
+        .assertion_method(vec![VerificationMethod::DIDURL(assertion_method_id)])
+        .verification_method(vec![
+            VerificationMethod::Map(authentication_method),
+            VerificationMethod::Map(assertion_method),
+        ])
+        .build()
+        .unwrap();
+
+    // Serialize and persist to file
+
+    let did_json = serde_json::to_string_pretty(&doc).unwrap();
+    std::fs::write(DIDDOC_DIR.to_owned() + "/did.json", &did_json)
+        .expect("Error persisting JSON document");
+    println!("{}", &did_json);
+    tracing::info!("Persisted DID document to file.");
 }
 
 mod keystore {
@@ -54,7 +127,7 @@ mod keystore {
 
     /// Generates and persists ed25519 keys for digital signatures.
     /// Returns multibase-encoded public key for convenience.
-    pub fn gen_signing_keys(store: &FileKeyStore, secret: &String) -> String {
+    pub fn gen_signing_keys(store: &FileKeyStore, _secret: &str) -> String {
         use ed25519_dalek::{
             pkcs8::{spki::der::pem::LineEnding, EncodePrivateKey},
             SigningKey,
@@ -66,7 +139,8 @@ mod keystore {
 
         // Encode
         let prvkey = signing_key
-            .to_pkcs8_encrypted_pem(OsRng, secret, LineEnding::LF)
+            // .to_pkcs8_encrypted_pem(OsRng, _secret, LineEnding::LF)
+            .to_pkcs8_pem(LineEnding::LF)
             .unwrap()
             .to_string();
         let pubkey = multibase::encode(Base58Btc, signing_key.verifying_key().to_bytes());

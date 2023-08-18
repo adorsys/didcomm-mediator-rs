@@ -1,12 +1,17 @@
 use axum::routing::get;
 use axum::{response::Json, Router};
+use hyper::StatusCode;
 use serde_json::{json, Value};
 
 use chrono::{DateTime, Utc};
 use std::time::SystemTime;
 
+use crate::DIDDOC_DIR;
+
 pub fn routes() -> Router {
-    Router::new().route("/", get(index))
+    Router::new()
+        .route("/", get(index))
+        .route("/.well-known/did.json", get(diddoc))
 }
 
 pub async fn index() -> Json<Value> {
@@ -17,6 +22,16 @@ pub async fn index() -> Json<Value> {
         "app": crate_name,
         "clk": now.to_rfc3339(),
     }))
+}
+
+pub async fn diddoc() -> (StatusCode, Json<Value>) {
+    match tokio::fs::read_to_string(DIDDOC_DIR.to_owned() + "/did.json").await {
+        Ok(content) => (
+            StatusCode::OK,
+            Json(serde_json::from_str(&content).unwrap()),
+        ),
+        Err(_) => (StatusCode::NOT_FOUND, Json(Value::Null)),
+    }
 }
 
 #[cfg(test)]

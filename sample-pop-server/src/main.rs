@@ -1,14 +1,7 @@
-mod model;
-mod util;
-mod web;
+use sample_pop_server::*;
 
-use axum::{Router, Server};
+use axum::Server;
 use std::net::SocketAddr;
-use tower_http::trace::TraceLayer;
-
-fn app() -> Router {
-    web::routes().layer(TraceLayer::new_for_http())
-}
 
 #[tokio::main]
 async fn main() {

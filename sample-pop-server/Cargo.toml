@@ -18,6 +18,7 @@ pkcs8 = { version = "0.10.2", features = ["encryption"] }
 rand = "0.8.5"
 rustbreak = { version = "2.0.0", features = ["yaml_enc"] }
 serde_json = "1.0.104"
+ssi = "0.7.0"
 tokio = { version = "1.30.0", features = ["full"] }
 tower-http = { version = "0.4.3", features = ["trace"] }
 tracing = "0.1.37"
