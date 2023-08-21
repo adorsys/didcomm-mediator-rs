@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 
-use sample_pop_server::{util, DIDDOC_DIR, KEYSTORE_DIR};
+use sample_pop_server::util::KeyStore;
+use sample_pop_server::{util, DIDDOC_DIR};
 use serde_json::{json, Value};
 use ssi::did::{
     Context, Contexts, DocumentBuilder, Service, ServiceEndpoint, VerificationMethod,
@@ -20,17 +21,16 @@ fn main() -> std::io::Result<()> {
     let secret = std::env::var("DIDGEN_SECRET").expect("Please provide a secret key.");
 
     // Init store with timestamp-aware path
-    let path = format!("{KEYSTORE_DIR}/{}.yaml", chrono::Utc::now().timestamp());
-    let store = keystore::init_store(&path);
-    tracing::info!("keystore: {path}");
+    let store = KeyStore::new();
+    tracing::info!("keystore: {}", store.path());
 
     // Generate authentication key
     tracing::info!("Generating authentication key...");
-    let authentication_key = keystore::gen_signing_keys(&store, &secret);
+    let authentication_key = store.gen_signing_keys(&secret);
 
     // Generate assertion key
     tracing::info!("Generating assertion key...");
-    let assertion_key = keystore::gen_signing_keys(&store, &secret);
+    let assertion_key = store.gen_signing_keys(&secret);
 
     // Build DID document
     gen_diddoc(&authentication_key, &assertion_key);
@@ -125,54 +125,6 @@ fn gen_diddoc(authentication_key: &String, assertion_key: &String) {
         .expect("Error persisting JSON document");
     println!("{}", &did_json);
     tracing::info!("Persisted DID document to file.");
-}
-
-mod keystore {
-    use multibase::Base::Base58Btc;
-    use rand::rngs::OsRng;
-    use rustbreak::{deser::Yaml, FileDatabase};
-    use std::collections::HashMap;
-
-    type FileKeyStore = FileDatabase<HashMap<String, String>, Yaml>;
-
-    /// Initializes file-based key-value store.
-    pub fn init_store(path: &str) -> FileKeyStore {
-        FileKeyStore::create_at_path(path, HashMap::new()).unwrap()
-    }
-
-    /// Generates and persists ed25519 keys for digital signatures.
-    /// Returns multibase-encoded public key for convenience.
-    pub fn gen_signing_keys(store: &FileKeyStore, _secret: &str) -> String {
-        use ed25519_dalek::{
-            pkcs8::{spki::der::pem::LineEnding, EncodePrivateKey},
-            SigningKey,
-        };
-
-        // Generate
-        let mut csprng = OsRng;
-        let signing_key: SigningKey = SigningKey::generate(&mut csprng);
-
-        // Encode
-        let prvkey = signing_key
-            // .to_pkcs8_encrypted_pem(OsRng, _secret, LineEnding::LF)
-            .to_pkcs8_pem(LineEnding::LF)
-            .unwrap()
-            .to_string();
-        let pubkey = multibase::encode(Base58Btc, signing_key.verifying_key().to_bytes());
-
-        // Add to store
-        store
-            .write(|db| {
-                db.insert(pubkey.clone(), prvkey);
-            })
-            .unwrap();
-
-        // Persist
-        store.save().expect("persist error");
-
-        // Return public key
-        pubkey
-    }
 }
 
 #[cfg(test)]

@@ -1,5 +1,8 @@
 #![allow(unused)]
 
+pub mod keystore;
+pub use keystore::KeyStore;
+
 use std::error::Error;
 use url::{ParseError, Url};
 
