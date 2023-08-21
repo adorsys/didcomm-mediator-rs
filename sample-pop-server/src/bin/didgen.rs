@@ -3,9 +3,10 @@ use std::collections::BTreeMap;
 use sample_pop_server::{util, DIDDOC_DIR, KEYSTORE_DIR};
 use serde_json::{json, Value};
 use ssi::did::{
-    Context, Contexts, DocumentBuilder, VerificationMethod, VerificationMethodMap, DEFAULT_CONTEXT,
-    DIDURL,
+    Context, Contexts, DocumentBuilder, Service, ServiceEndpoint, VerificationMethod,
+    VerificationMethodMap, DEFAULT_CONTEXT, DIDURL,
 };
+use ssi::one_or_many::OneOrMany;
 
 /// Program entry
 fn main() -> std::io::Result<()> {
@@ -82,6 +83,19 @@ fn gen_diddoc(authentication_key: &String, assertion_key: &String) {
         ..Default::default()
     };
 
+    // Prepare service endpoint
+
+    let service_id = DIDURL::try_from(did.clone() + "#pop-domain").unwrap();
+
+    let service = Service {
+        id: service_id.to_string(),
+        type_: OneOrMany::One(String::from("LinkedDomains")),
+        service_endpoint: Some(OneOrMany::One(ServiceEndpoint::URI(format!(
+            "{public_domain}/did/pop"
+        )))),
+        property_set: None,
+    };
+
     // Build document
 
     let doc = DocumentBuilder::default()
@@ -100,6 +114,7 @@ fn gen_diddoc(authentication_key: &String, assertion_key: &String) {
             VerificationMethod::Map(authentication_method),
             VerificationMethod::Map(assertion_method),
         ])
+        .service(vec![service])
         .build()
         .unwrap();
 
