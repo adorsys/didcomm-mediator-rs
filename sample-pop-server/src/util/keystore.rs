@@ -11,6 +11,10 @@ use ed25519_dalek::{
 
 use crate::KEYSTORE_DIR;
 
+// TODO!!!
+// Support for secret encryption is unpractical regarding time.
+// Should discuss an alternative implementation or how appropriate it is.
+
 type FileKeyStore = FileDatabase<HashMap<String, String>, Yaml>;
 pub struct KeyStore {
     path: String,
@@ -55,6 +59,7 @@ impl KeyStore {
         self.store
             .read(|db| {
                 result = match db.get(pubkey) {
+                    // Some(privkey) => SigningKey::from_pkcs8_encrypted_pem(privkey, _secret).ok(),
                     Some(privkey) => SigningKey::from_pkcs8_pem(privkey).ok(),
                     None => None,
                 }
@@ -73,7 +78,6 @@ impl KeyStore {
 
         // Encode
         let prvkey = signing_key
-            // TODO!!! This is too slow to run. Should discuss how appropriate it is.
             // .to_pkcs8_encrypted_pem(OsRng, _secret, LineEnding::LF)
             .to_pkcs8_pem(LineEnding::LF)
             .unwrap()
