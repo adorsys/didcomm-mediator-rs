@@ -131,8 +131,8 @@ pub async fn didpop(
         let message = json_canon::to_string(&tmp_vc).unwrap();
 
         // Compute digital signature
-        let signature = signing_key.sign(message.as_bytes()).to_string();
-        let signature = multibase::encode(Base58Btc, signature.as_bytes());
+        let signature = signing_key.sign(message.as_bytes()).to_bytes();
+        let signature = multibase::encode(Base58Btc, signature);
 
         // Add digital signature to proof
         proof.proof_value = Some(signature);
@@ -144,4 +144,90 @@ pub async fn didpop(
 
     // Output final verifiable credential
     Ok(Json(json!(vc)))
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::app;
+    use axum::{
+        body::Body,
+        http::{Request, StatusCode},
+    };
+    use ed25519_dalek::{Signature, Verifier, VerifyingKey};
+    use ssi::vc::{Credential, OneOrMany};
+    use tower::util::ServiceExt;
+
+    #[tokio::test]
+    async fn verify_didpop() {
+        let app = app();
+        dotenv_flow::dotenv_flow().ok();
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri(format!(
+                        "/.well-known/did/pop.json?challenge={}",
+                        uuid::Uuid::new_v4().to_string()
+                    ))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+        let mut vc: Credential = serde_json::from_slice(&body).unwrap();
+
+        // Extract proofs
+        let proofs = match vc.proof.unwrap() {
+            OneOrMany::Many(proof) => proof,
+            OneOrMany::One(proof) => vec![proof],
+        };
+
+        // Remove all proofs from VC
+        vc.proof = None;
+
+        // Verify all proofs
+        for proof in proofs {
+            let verification_method = proof.verification_method.as_ref().unwrap();
+            if let OneOrMany::One(credential_subject) = &vc.credential_subject {
+                let pubkey = credential_subject
+                    .property_set
+                    .as_ref()
+                    .unwrap()
+                    .get("verificationMethod")
+                    .unwrap()
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .find(|x| x.get("id").unwrap().as_str().unwrap() == verification_method)
+                    .map(|x| x.get("publicKeyMultibase").unwrap())
+                    .unwrap()
+                    .as_str()
+                    .unwrap();
+
+                let pubkey = multibase::decode(pubkey).unwrap().1;
+                let pubkey: [u8; 32] = pubkey[..32].try_into().unwrap();
+                let verifying_key = VerifyingKey::from_bytes(&pubkey).unwrap();
+
+                let mut tmp_proof = proof.clone();
+                tmp_proof.proof_value = None;
+                let mut tmp_vc = vc.clone();
+                tmp_vc.add_proof(tmp_proof);
+                let message = json_canon::to_string(&tmp_vc).unwrap();
+
+                let proof_value = proof.proof_value.as_ref().unwrap();
+                let signature = multibase::decode(proof_value).unwrap().1;
+                let signature: [u8; 64] = signature[..64].try_into().unwrap();
+
+                assert!(verifying_key
+                    .verify(message.as_bytes(), &Signature::from_bytes(&signature))
+                    .is_ok());
+            } else {
+                panic!();
+            }
+        }
+    }
 }
