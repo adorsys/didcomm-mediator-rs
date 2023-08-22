@@ -91,7 +91,7 @@ fn gen_diddoc(authentication_key: &String, assertion_key: &String) {
         id: service_id.to_string(),
         type_: OneOrMany::One(String::from("LinkedDomains")),
         service_endpoint: Some(OneOrMany::One(ServiceEndpoint::URI(format!(
-            "{public_domain}/did/pop"
+            "{public_domain}/.well-known/did/pop.json"
         )))),
         property_set: None,
     };
