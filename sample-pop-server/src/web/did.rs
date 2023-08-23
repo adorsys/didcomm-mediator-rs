@@ -125,10 +125,12 @@ pub async fn didpop(
             ..Proof::new(ProofSuiteType::DataIntegrityProof)
         };
 
-        // Add the incomplete proof block to the credential and produce a canonical form
-        let mut tmp_vc = vc.clone();
-        tmp_vc.add_proof(proof.clone());
-        let message = sha256(json_canon::to_string(&tmp_vc).unwrap().as_bytes());
+        // Build hash message to sign
+        let message = [
+            sha256(json_canon::to_string(&vc).unwrap().as_bytes()),
+            sha256(json_canon::to_string(&proof).unwrap().as_bytes()),
+        ]
+        .concat();
 
         // Compute digital signature
         let signature = signing_key.sign(&message).to_bytes();
@@ -156,6 +158,7 @@ mod tests {
     use ed25519_dalek::{Signature, Verifier, VerifyingKey};
     use ssi::{
         hash::sha256::sha256,
+        ldp::Proof,
         vc::{Credential, OneOrMany},
     };
     use tower::util::ServiceExt;
@@ -215,11 +218,18 @@ mod tests {
                 let pubkey: [u8; 32] = pubkey[..32].try_into().unwrap();
                 let verifying_key = VerifyingKey::from_bytes(&pubkey).unwrap();
 
-                let mut tmp_proof = proof.clone();
-                tmp_proof.proof_value = None;
-                let mut tmp_vc = vc.clone();
-                tmp_vc.add_proof(tmp_proof);
-                let message = sha256(json_canon::to_string(&tmp_vc).unwrap().as_bytes());
+                let message = [
+                    sha256(json_canon::to_string(&vc).unwrap().as_bytes()),
+                    sha256(
+                        json_canon::to_string(&Proof {
+                            proof_value: None,
+                            ..proof
+                        })
+                        .unwrap()
+                        .as_bytes(),
+                    ),
+                ]
+                .concat();
 
                 let proof_value = proof.proof_value.as_ref().unwrap();
                 let signature = multibase::decode(proof_value).unwrap().1;
