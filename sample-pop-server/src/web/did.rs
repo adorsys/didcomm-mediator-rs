@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use axum::{extract::Query, response::Json, routing::get, Router};
 use ed25519_dalek::Signer;
 use hyper::StatusCode;
@@ -7,12 +5,14 @@ use multibase::Base::Base58Btc;
 use serde_json::{json, Value};
 use ssi::{
     did::VerificationRelationship,
+    hash::sha256::sha256,
     ldp::{dataintegrity::DataIntegrityCryptoSuite, Proof, ProofSuiteType},
     vc::{
         Context, Contexts, Credential, CredentialSubject, Issuer, OneOrMany, StringOrURI,
         DEFAULT_CONTEXT_V2, URI,
     },
 };
+use std::collections::HashMap;
 
 use crate::util::keystore::KeyStore;
 use crate::DIDDOC_DIR;
@@ -128,10 +128,10 @@ pub async fn didpop(
         // Add the incomplete proof block to the credential and produce a canonical form
         let mut tmp_vc = vc.clone();
         tmp_vc.add_proof(proof.clone());
-        let message = json_canon::to_string(&tmp_vc).unwrap();
+        let message = sha256(json_canon::to_string(&tmp_vc).unwrap().as_bytes());
 
         // Compute digital signature
-        let signature = signing_key.sign(message.as_bytes()).to_bytes();
+        let signature = signing_key.sign(&message).to_bytes();
         let signature = multibase::encode(Base58Btc, signature);
 
         // Add digital signature to proof
@@ -154,7 +154,10 @@ mod tests {
         http::{Request, StatusCode},
     };
     use ed25519_dalek::{Signature, Verifier, VerifyingKey};
-    use ssi::vc::{Credential, OneOrMany};
+    use ssi::{
+        hash::sha256::sha256,
+        vc::{Credential, OneOrMany},
+    };
     use tower::util::ServiceExt;
 
     #[tokio::test]
@@ -216,14 +219,14 @@ mod tests {
                 tmp_proof.proof_value = None;
                 let mut tmp_vc = vc.clone();
                 tmp_vc.add_proof(tmp_proof);
-                let message = json_canon::to_string(&tmp_vc).unwrap();
+                let message = sha256(json_canon::to_string(&tmp_vc).unwrap().as_bytes());
 
                 let proof_value = proof.proof_value.as_ref().unwrap();
                 let signature = multibase::decode(proof_value).unwrap().1;
                 let signature: [u8; 64] = signature[..64].try_into().unwrap();
 
                 assert!(verifying_key
-                    .verify(message.as_bytes(), &Signature::from_bytes(&signature))
+                    .verify(&message, &Signature::from_bytes(&signature))
                     .is_ok());
             } else {
                 panic!();
