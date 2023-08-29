@@ -1,4 +1,3 @@
-
 /// The length of an ed25519 `PublicKey`, in bytes.
 pub const BYTES_LENGTH_32: usize = 32;
 
@@ -21,15 +20,15 @@ pub fn generate_seed(initial_seed: &[u8]) -> Result<[u8; BYTES_LENGTH_32], &str>
 pub fn copy_slice_to_array(slice: &[u8]) -> Option<[u8; BYTES_LENGTH_32]> {
     if slice.len() != BYTES_LENGTH_32 {
         // Return None if the slice length is not as expected
-        return None; 
+        return None;
     }
 
     // Create a new array of the expected length
-    let mut array = [0u8; BYTES_LENGTH_32]; 
+    let mut array = [0u8; BYTES_LENGTH_32];
 
     // Copy the data from the slice into the array
     array.copy_from_slice(slice);
 
     // Return the array as an Option
-    Some(array) 
+    Some(array)
 }

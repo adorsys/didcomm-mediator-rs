@@ -43,4 +43,3 @@ pub trait ECDH {
     /// Perform key exchange operation
     fn key_exchange(&self, their_public: &Self) -> Vec<u8>;
 }
-

@@ -151,7 +151,7 @@ pub struct Jwk {
 #[serde(untagged)]
 pub enum Authentication {
     Reference(String),
-    Embedded(VerificationMethod),
+    Embedded(Box<VerificationMethod>),
 }
 
 // === Assertion Method ===
@@ -159,7 +159,7 @@ pub enum Authentication {
 #[serde(untagged)]
 pub enum AssertionMethod {
     Reference(String),
-    Embedded(VerificationMethod),
+    Embedded(Box<VerificationMethod>),
 }
 
 // === Capability Delegation ===
@@ -167,7 +167,7 @@ pub enum AssertionMethod {
 #[serde(untagged)]
 pub enum CapabilityDelegation {
     Reference(String),
-    Embedded(VerificationMethod),
+    Embedded(Box<VerificationMethod>),
 }
 
 // === Capability Invocation ===
@@ -175,7 +175,7 @@ pub enum CapabilityDelegation {
 #[serde(untagged)]
 pub enum CapabilityInvocation {
     Reference(String),
-    Embedded(VerificationMethod),
+    Embedded(Box<VerificationMethod>),
 }
 
 // === Key Agreement ===
@@ -183,7 +183,7 @@ pub enum CapabilityInvocation {
 #[serde(untagged)]
 pub enum KeyAgreement {
     Reference(String),
-    Embedded(VerificationMethod),
+    Embedded(Box<VerificationMethod>),
 }
 
 impl VerificationMethod {
@@ -287,7 +287,7 @@ pub mod tests {
     }
 
     // Verification methods using publicKeyJwk and publicKeyMultibase
-    // TODO: verify that the same key is not used in two verification methods.!!! 
+    // TODO: verify that the same key is not used in two verification methods.!!!
     // As, A verification method MUST NOT contain multiple verification material properties for the same material.
     // TODO: verify that the types are supported verification methods.
     // See https://www.w3.org/TR/did-core/#example-various-verification-method-types
@@ -391,7 +391,6 @@ pub mod tests {
         let document: super::Document = serde_json::from_str(&did_document).unwrap();
 
         let canonicalized = json_canon::to_string(&document).unwrap();
-        println!("{}", canonicalized);
 
         let expected = std::fs::read_to_string(canon_path)?;
         assert_eq!(expected, canonicalized);

@@ -1,7 +1,11 @@
 use x25519_dalek::{PublicKey, StaticSecret};
 
-use super::{AsymmetricKey, traits::{Generate, KeyMaterial, ECDH}, ed25519::Ed25519KeyPair};
-use super::utils::{BYTES_LENGTH_32, copy_slice_to_array, generate_seed};
+use super::utils::{copy_slice_to_array, generate_seed, BYTES_LENGTH_32};
+use super::{
+    ed25519::Ed25519KeyPair,
+    traits::{Generate, KeyMaterial, ECDH},
+    AsymmetricKey,
+};
 
 pub type X25519KeyPair = AsymmetricKey<PublicKey, StaticSecret>;
 
@@ -76,15 +80,14 @@ impl From<Ed25519KeyPair> for X25519KeyPair {
     }
 }
 
-
 #[cfg(test)]
 pub mod tests {
     // use ed25519_dalek::{Signature, Verifier};
 
     use x25519_dalek::{EphemeralSecret, PublicKey};
 
-    use crate::crypto::{traits::{Generate, KeyMaterial, ECDH}, utils::{BYTES_LENGTH_32, generate_seed}};
     use super::X25519KeyPair;
+    use crate::crypto::traits::{Generate, KeyMaterial, ECDH};
 
     // A test to create a new X25519KeyPair and check that bytes of both private and public key from
     // key material is 32 bytes long.
@@ -141,8 +144,12 @@ pub mod tests {
         // === Recipient ===
         // Construct EphPublicKey from message header
         // let eph_secret_at_recipient = EphemeralSecret::from(&eph_public_key);
-        let shared_secret_at_recipient = decryption_keypair_at_recipient.secret_key.as_ref().unwrap().diffie_hellman(&eph_public_key_in_transport);
-        
+        let shared_secret_at_recipient = decryption_keypair_at_recipient
+            .secret_key
+            .as_ref()
+            .unwrap()
+            .diffie_hellman(&eph_public_key_in_transport);
+
         let eph_public_key_at_recipient = X25519KeyPair::from_public_key(eph_public_key_in_transport.as_bytes());
         decryption_keypair_at_recipient.key_exchange(&eph_public_key_at_recipient);
         let symmetric_key_at_recipient = shared_secret_at_recipient.as_bytes();
@@ -150,5 +157,4 @@ pub mod tests {
         // Both equals assumes that encrypted payload will be successfuly decrypted.
         assert_eq!(symmetric_key_at_sender, symmetric_key_at_recipient);
     }
-
 }

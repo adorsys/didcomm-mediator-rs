@@ -1,2 +1,2 @@
-pub mod didcore;
 pub mod crypto;
+pub mod didcore;

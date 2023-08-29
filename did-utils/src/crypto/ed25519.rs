@@ -1,10 +1,10 @@
 use super::traits::{CoreSign, Error, Generate, KeyMaterial};
-use super::utils::{BYTES_LENGTH_32, copy_slice_to_array, generate_seed};
-use super::AsymmetricKey;
+use super::utils::{copy_slice_to_array, generate_seed, BYTES_LENGTH_32};
 use super::x25519::X25519KeyPair;
+use super::AsymmetricKey;
 use curve25519_dalek::edwards::CompressedEdwardsY;
 use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
-use sha2::{Sha512, Digest};
+use sha2::{Digest, Sha512};
 
 pub type Ed25519KeyPair = AsymmetricKey<VerifyingKey, SigningKey>;
 
@@ -90,7 +90,7 @@ impl CoreSign for Ed25519KeyPair {
 
 impl Ed25519KeyPair {
     pub fn get_x25519(&self) -> X25519KeyPair {
-        match &self.secret_key {            
+        match &self.secret_key {
             Some(sk) => {
                 let bytes: [u8; BYTES_LENGTH_32] = sk.to_bytes();
                 let mut hasher = Sha512::new();
@@ -113,14 +113,13 @@ impl Ed25519KeyPair {
             }
         }
     }
-
 }
 
 #[cfg(test)]
 pub mod tests {
     use ed25519_dalek::{Signature, Verifier};
 
-    use crate::crypto::traits::{Generate, KeyMaterial, CoreSign};
+    use crate::crypto::traits::{CoreSign, Generate, KeyMaterial};
 
     use super::Ed25519KeyPair;
 
@@ -152,7 +151,7 @@ pub mod tests {
     // - Generate a key pair
     // - load the file test_resources/crypto_ed25519_test_sign_verify.json
     // - sign the content of the file wiht the key pair
-    // - Verify the signature 
+    // - Verify the signature
     #[test]
     fn test_sign_verify() {
         let keypair = Ed25519KeyPair::new();
@@ -168,5 +167,4 @@ pub mod tests {
         let verified = verifying_key.verify(json_data.as_bytes(), &sig);
         assert!(verified.is_ok());
     }
-
 }
