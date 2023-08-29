@@ -1,7 +1,10 @@
 use super::traits::{CoreSign, Error, Generate, KeyMaterial};
+use super::utils::{BYTES_LENGTH_32, copy_slice_to_array, generate_seed};
 use super::AsymmetricKey;
-use arrayref::array_ref;
-use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey, PUBLIC_KEY_LENGTH};
+use super::x25519::X25519KeyPair;
+use curve25519_dalek::edwards::CompressedEdwardsY;
+use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
+use sha2::{Sha512, Digest};
 
 pub type Ed25519KeyPair = AsymmetricKey<VerifyingKey, SigningKey>;
 
@@ -27,7 +30,7 @@ impl Generate for Ed25519KeyPair {
     }
 
     fn new_with_seed(seed: &[u8]) -> Ed25519KeyPair {
-        let secret_seed = crate::crypto::utils::generate_seed(seed).expect("invalid seed");
+        let secret_seed = generate_seed(seed).expect("invalid seed");
 
         let sk: SigningKey = SigningKey::from_bytes(&secret_seed); //.expect("cannot generate secret key");
         let pk: VerifyingKey = (&sk).try_into().expect("cannot generate public key");
@@ -39,21 +42,24 @@ impl Generate for Ed25519KeyPair {
     }
 
     fn from_public_key(public_key: &[u8]) -> Ed25519KeyPair {
-        let public_key_fix: &[u8; PUBLIC_KEY_LENGTH] = array_ref!(public_key, 0, 32);
+        let mut pk: [u8; BYTES_LENGTH_32] = [0; BYTES_LENGTH_32];
+        pk.clone_from_slice(public_key);
+
         Ed25519KeyPair {
-            public_key: VerifyingKey::from_bytes(public_key_fix).expect("invalid byte data"),
+            public_key: VerifyingKey::from_bytes(&pk).expect("invalid byte data"),
             secret_key: None,
         }
     }
 
     fn from_secret_key(secret_key: &[u8]) -> Ed25519KeyPair {
-        let secret_key_fix: &[u8; PUBLIC_KEY_LENGTH] = array_ref!(secret_key, 0, 32);
-        let sk: SigningKey = SigningKey::from_bytes(secret_key_fix);
+        let sized_data: [u8; BYTES_LENGTH_32] = copy_slice_to_array(&secret_key[..BYTES_LENGTH_32]).expect("Invalid byte length");
+
+        let sk: SigningKey = SigningKey::from_bytes(&sized_data);
         let pk: VerifyingKey = (&sk).try_into().expect("cannot generate public key");
 
         Ed25519KeyPair {
-            secret_key: Some(sk),
             public_key: pk,
+            secret_key: Some(sk),
         }
     }
 }
@@ -80,6 +86,34 @@ impl CoreSign for Ed25519KeyPair {
             _ => Err(Error::Unknown("verify failed".into())),
         }
     }
+}
+
+impl Ed25519KeyPair {
+    pub fn get_x25519(&self) -> X25519KeyPair {
+        match &self.secret_key {            
+            Some(sk) => {
+                let bytes: [u8; BYTES_LENGTH_32] = sk.to_bytes();
+                let mut hasher = Sha512::new();
+                hasher.update(bytes);
+                let hash = hasher.finalize();
+                let mut output = [0u8; BYTES_LENGTH_32];
+                output.copy_from_slice(&hash[..BYTES_LENGTH_32]);
+                output[0] &= 248;
+                output[31] &= 127;
+                output[31] |= 64;
+
+                X25519KeyPair::new_with_seed(&output)
+            }
+            None => {
+                let var_name: [u8; BYTES_LENGTH_32] = self.public_key.as_bytes().to_vec().as_slice().try_into().unwrap();
+                let compressed = CompressedEdwardsY(var_name).decompress().unwrap();
+                let montgomery = compressed.to_montgomery();
+
+                X25519KeyPair::from_public_key(montgomery.as_bytes())
+            }
+        }
+    }
+
 }
 
 #[cfg(test)]
@@ -116,7 +150,7 @@ pub mod tests {
 
     // Creat a test that:
     // - Generate a key pair
-    // - load the file test_resources/didcore_example_01.json
+    // - load the file test_resources/crypto_ed25519_test_sign_verify.json
     // - sign the content of the file wiht the key pair
     // - Verify the signature 
     #[test]
