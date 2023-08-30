@@ -3,6 +3,8 @@ use std::collections::HashMap;
 use serde::{ser::SerializeMap, Deserialize, Serialize, Serializer};
 use serde_json::Value;
 
+use crate::proof::model::Proof;
+
 // === Structure of a did document ===
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
@@ -57,7 +59,11 @@ pub struct Document {
     // === Dynamic Properties ===
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(flatten)]
-    additional_properties: Option<HashMap<String, Value>>,
+    pub additional_properties: Option<HashMap<String, Value>>,
+
+    // === Proof ===
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub proof: Option<Proofs>,
 }
 
 #[derive(Serialize, Debug, Clone, PartialEq, Deserialize)]
@@ -88,7 +94,7 @@ pub struct Service {
     // === Additional properties ===
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(flatten)]
-    additional_properties: Option<HashMap<String, Value>>,
+    pub additional_properties: Option<HashMap<String, Value>>,
 }
 
 #[derive(Serialize, Debug, Clone, PartialEq, Default, Deserialize)]
@@ -119,7 +125,7 @@ pub struct VerificationMethod {
     // === Additional properties ===
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(flatten)]
-    additional_properties: Option<HashMap<String, Value>>,
+    pub additional_properties: Option<HashMap<String, Value>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
@@ -235,6 +241,15 @@ impl VerificationMethod {
         }
     }
 }
+
+// === Proof ===
+#[derive(Serialize, Debug, Clone, PartialEq, Deserialize)]
+#[serde(untagged)]
+pub enum Proofs {
+    SingleProof(Box<Proof>),
+    SetOfProofs(Vec<Proof>),
+}
+
 
 #[cfg(test)]
 pub mod tests {
