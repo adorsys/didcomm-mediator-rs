@@ -6,8 +6,7 @@ use ssi::{
     jsonld::ContextLoader,
     ldp::{dataintegrity::DataIntegrityCryptoSuite, Proof, ProofSuiteType},
     vc::{
-        Context, Contexts, Credential, CredentialSubject, Issuer, LinkedDataProofOptions,
-        OneOrMany, StringOrURI, DEFAULT_CONTEXT_V2, URI,
+        Credential, CredentialSubject, LinkedDataProofOptions, OneOrMany, DEFAULT_CONTEXT_V2, URI,
     },
 };
 use std::collections::HashMap;
@@ -55,17 +54,6 @@ pub async fn didpop(
 
     // Prepare fields for verifiable credential
 
-    let context = Contexts::Many(vec![Context::URI(URI::String(
-        DEFAULT_CONTEXT_V2.to_owned(),
-    ))]);
-
-    let type_ = OneOrMany::Many(vec![
-        String::from("VerifiableCredential"),
-        String::from("DIDDocument"),
-    ]);
-
-    let issuer = Some(Issuer::URI(did_address.parse().unwrap()));
-
     let credential_subject = OneOrMany::One(CredentialSubject {
         id: None,
         property_set: serde_json::from_value(diddoc_value).unwrap(),
@@ -73,30 +61,15 @@ pub async fn didpop(
 
     // Build verifiable credential
 
-    let mut vc = Credential {
-        id: Some(StringOrURI::URI(URI::String(
-            "urn:uuid:".to_string() + &uuid::Uuid::new_v4().to_string(),
-        ))),
-        property_set: {
-            let mut map = HashMap::new();
-            map.insert(String::from("validFrom"), json!(ssi::ldp::now_ms()));
-            Some(map)
-        },
-        //
-        context,
-        type_,
-        issuer,
-        credential_subject,
-        //
-        proof: None,
-        issuance_date: None,
-        expiration_date: None,
-        credential_status: None,
-        terms_of_use: None,
-        evidence: None,
-        credential_schema: None,
-        refresh_service: None,
-    };
+    let mut vc: Credential = serde_json::from_value(json!({
+        "@context": DEFAULT_CONTEXT_V2,
+        "id": format!("urn:uuid:{}", uuid::Uuid::new_v4()),
+        "type": ["VerifiableCredential", "DIDDocument"],
+        "issuer": &did_address,
+        "validFrom": ssi::ldp::now_ms(),
+        "credentialSubject": credential_subject,
+    }))
+    .unwrap();
 
     // Generate proofs of possession
 
