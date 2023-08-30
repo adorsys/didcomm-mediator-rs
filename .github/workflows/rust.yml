@@ -19,8 +19,15 @@ jobs:
         toolchain: stable
         override: true
 
-    - name: Build and Test
+    - name: Build and Test Did Utils
       run: |
         cd did-utils
         cargo build --verbose
+        cargo test --verbose
+
+    - name: Build and Test Sample Pop Server
+      run: |
+        cd sample-pop-server
+        cargo build --verbose
+        cargo run --bin didgen
         cargo test --verbose
