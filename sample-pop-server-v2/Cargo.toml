@@ -7,6 +7,7 @@ edition = "2021"
 default-run = "sample-pop-server"
 
 [dependencies]
+async-trait = "0.1.73"
 axum = { version = "0.6.20" }
 chrono = "0.4.26"
 dotenv-flow = "0.15.0"
