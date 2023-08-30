@@ -95,6 +95,7 @@ pub async fn didpop(
             .expect("Verification methods should embed JWK public keys.");
         let jwk = keystore.find_keypair(pubkey).expect("Missing key");
 
+        // Amend LDP options with method-specific attributes
         options.verification_method = Some(URI::String(method.id.clone()));
         options.proof_purpose = inspect_vm_relationship(&diddoc, &method.id);
 
