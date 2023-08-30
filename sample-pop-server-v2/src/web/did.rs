@@ -61,12 +61,15 @@ pub async fn didpop(
 
     // Build verifiable credential
 
+    let now = ssi::ldp::now_ms();
+
     let mut vc: Credential = serde_json::from_value(json!({
         "@context": DEFAULT_CONTEXT_V2,
         "id": format!("urn:uuid:{}", uuid::Uuid::new_v4()),
         "type": ["VerifiableCredential", "DIDDocument"],
         "issuer": &did_address,
-        "validFrom": ssi::ldp::now_ms(),
+        "issuanceDate": now,
+        "validFrom": now,
         "credentialSubject": credential_subject,
     }))
     .unwrap();
