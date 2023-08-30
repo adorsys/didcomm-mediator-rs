@@ -35,6 +35,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Build DID document
     gen_diddoc(authentication_key, assertion_key);
 
+    // Mark successful completion
     tracing::info!("Successful completion.");
     Ok(())
 }
