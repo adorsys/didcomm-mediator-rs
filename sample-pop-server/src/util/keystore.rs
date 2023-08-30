@@ -1,101 +1,74 @@
-use multibase::Base::Base58Btc;
-use pkcs8::DecodePrivateKey;
-use rand::rngs::OsRng;
-use rustbreak::{deser::Yaml, FileDatabase, RustbreakError};
-use std::collections::HashMap;
-
-use ed25519_dalek::{
-    pkcs8::{spki::der::pem::LineEnding, EncodePrivateKey},
-    SigningKey,
-};
+use serde_json::Value;
+use ssi::jwk::{ECParams, Params, JWK};
+use std::error::Error;
 
 use crate::KEYSTORE_DIR;
 
-// TODO!!!
-// Support for secret encryption is unpractical regarding time.
-// Should discuss an alternative implementation or how appropriate it is.
-
-type FileKeyStore = FileDatabase<HashMap<String, String>, Yaml>;
 pub struct KeyStore {
     path: String,
-    store: FileKeyStore,
+    keys: Vec<JWK>,
 }
 
 impl KeyStore {
     /// Constructs file-based key-value store.
     pub fn new() -> Self {
-        let path = format!("{KEYSTORE_DIR}/{}.yaml", chrono::Utc::now().timestamp());
-
         Self {
-            path: path.clone(),
-            store: FileKeyStore::create_at_path(path, HashMap::new()).unwrap(),
+            path: format!("{KEYSTORE_DIR}/{}.json", chrono::Utc::now().timestamp()),
+            keys: vec![],
         }
     }
 
     /// Returns latest store on disk, if any.
     pub fn latest() -> Option<Self> {
+        let msg = "Error parsing keystore directory";
         let file = std::fs::read_dir(KEYSTORE_DIR)
-            .unwrap()
-            .map(|x| x.unwrap().path())
-            .filter(|p| p.to_str().unwrap().ends_with(".yaml"))
-            .max();
+            .expect(msg)
+            .map(|x| x.expect(msg).path().to_str().expect(msg).to_string())
+            .filter(|p| p.ends_with(".json"))
+            .max_by_key(|p| {
+                let p = p
+                    .trim_start_matches(&format!("{KEYSTORE_DIR}/"))
+                    .trim_end_matches(".json");
+                p.parse::<i32>().expect(msg)
+            });
 
-        file.map(|path| Self {
-            path: path.to_str().unwrap().to_owned(),
-            store: FileKeyStore::load_from_path(path).unwrap(),
-        })
+        match file {
+            None => None,
+            Some(path) => match std::fs::read_to_string(&path) {
+                Err(_) => None,
+                Ok(content) => match serde_json::from_str::<Vec<JWK>>(&content) {
+                    Err(_) => None,
+                    Ok(keys) => Some(Self { path, keys }),
+                },
+            },
+        }
     }
 
-    /// Returns internal store's path
+    /// Gets path
     pub fn path(&self) -> String {
         self.path.clone()
     }
 
-    /// Reads private key given public key
-    pub fn lookup_signing_key(&self, pubkey: &str, _secret: &str) -> Option<SigningKey> {
-        let mut result = None;
-
-        // Read encrypted signing key from store
-        self.store
-            .read(|db| {
-                result = match db.get(pubkey) {
-                    // Some(privkey) => SigningKey::from_pkcs8_encrypted_pem(privkey, _secret).ok(),
-                    Some(privkey) => SigningKey::from_pkcs8_pem(privkey).ok(),
-                    None => None,
-                }
-            })
-            .unwrap();
-
-        result
+    /// Persists store on disk
+    fn persist(&self) -> std::io::Result<()> {
+        std::fs::write(self.path.clone(), serde_json::to_string_pretty(&self.keys)?)
     }
 
-    /// Generates and persists ed25519 keys for digital signatures.
-    /// Returns multibase-encoded public key for convenience.
-    pub fn gen_signing_keys(&self, _secret: &str) -> String {
-        // Generate
-        let mut csprng = OsRng;
-        let signing_key: SigningKey = SigningKey::generate(&mut csprng);
+    /// Searches keypair given public key
+    pub fn find_keypair(&self, pubkey: &JWK) -> Option<JWK> {
+        self.keys.iter().find(|k| &k.to_public() == pubkey).cloned()
+    }
 
-        // Encode
-        let prvkey = signing_key
-            // .to_pkcs8_encrypted_pem(OsRng, _secret, LineEnding::LF)
-            .to_pkcs8_pem(LineEnding::LF)
-            .unwrap()
-            .to_string();
-        let pubkey = multibase::encode(Base58Btc, signing_key.verifying_key().to_bytes());
+    /// Generates and persists an ed25519 keypair for digital signatures.
+    /// Returns public JWK for convenience.
+    pub fn gen_ed25519_jwk(&mut self) -> Result<JWK, Box<dyn Error>> {
+        let jwk = JWK::generate_ed25519()?;
+        let pub_jwk = jwk.to_public();
 
-        // Add to store
-        self.store
-            .write(|db| {
-                db.insert(pubkey.clone(), prvkey);
-            })
-            .unwrap();
+        self.keys.push(jwk);
+        self.persist()?;
 
-        // Persist
-        self.store.save().expect("persist error");
-
-        // Return public key
-        pubkey
+        Ok(pub_jwk)
     }
 }
 
@@ -109,9 +82,22 @@ impl Default for KeyStore {
 mod tests {
     use super::*;
 
+    impl KeyStore {
+        fn destroy(self) {
+            std::fs::remove_file(self.path);
+        }
+    }
+
     #[test]
-    fn test_keystore_latest() {
-        let store = KeyStore::latest();
-        assert!(store.is_some());
+    fn test_keystore_flow() {
+        let mut store = KeyStore::new();
+
+        let jwk = store.gen_ed25519_jwk().unwrap();
+        assert!(store.find_keypair(&jwk).is_some());
+
+        let latest = KeyStore::latest();
+        assert!(latest.is_some());
+
+        store.destroy();
     }
 }
