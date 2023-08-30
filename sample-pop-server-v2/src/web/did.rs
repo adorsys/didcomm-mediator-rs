@@ -140,3 +140,45 @@ fn inspect_vm_relationship(
 
     None
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{app, util::resolver::StaticResolver};
+    use axum::{
+        body::Body,
+        http::{Request, StatusCode},
+    };
+    use serde_json::json;
+    use ssi::{jsonld::ContextLoader, vc::Credential};
+    use tower::util::ServiceExt;
+
+    #[tokio::test]
+    async fn verify_didpop() {
+        let app = app();
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri(format!(
+                        "/.well-known/did/pop.json?challenge={}",
+                        uuid::Uuid::new_v4().to_string()
+                    ))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+        let vc: Credential = serde_json::from_slice(&body).unwrap();
+        let diddoc = serde_json::from_value(json!(vc.credential_subject)).unwrap();
+
+        let mut context_loader = ContextLoader::default();
+        let verification_result = vc
+            .verify(None, &StaticResolver::new(&diddoc), &mut context_loader)
+            .await;
+        assert!(verification_result.errors.is_empty());
+    }
+}
