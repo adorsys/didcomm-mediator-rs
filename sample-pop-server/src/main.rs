@@ -1,4 +1,4 @@
-use sample_pop_server::*;
+use sample_pop_server::{app, didgen, util::KeyStore};
 
 use axum::Server;
 use std::net::SocketAddr;
@@ -10,6 +10,11 @@ async fn main() {
 
     // Enable tracing
     config_tracing();
+
+    // Generate keystore (and its DID document) if not available
+    if KeyStore::latest().is_none() {
+        didgen::didgen().expect("Failed to generate an initial keystore and its DID document.");
+    };
 
     // Start server
     let port = std::env::var("SERVER_LOCAL_PORT").unwrap_or("3000".to_owned());
