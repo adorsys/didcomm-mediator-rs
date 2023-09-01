@@ -1,5 +1,6 @@
+use super::traits::BYTES_LENGTH_32;
+
 /// The length of an ed25519 `PublicKey`, in bytes.
-pub const BYTES_LENGTH_32: usize = 32;
 
 // Generate 32 random bytes from the initial seed.
 // Only generate random bytes if the initial seed is empty or invalid.
@@ -16,19 +17,12 @@ pub fn generate_seed(initial_seed: &[u8]) -> Result<[u8; BYTES_LENGTH_32], &str>
     Ok(seed)
 }
 
-// Copy the data from a slice into an array.
-pub fn copy_slice_to_array(slice: &[u8]) -> Option<[u8; BYTES_LENGTH_32]> {
-    if slice.len() != BYTES_LENGTH_32 {
-        // Return None if the slice length is not as expected
-        return None;
-    }
-
+/// clone the content of the slice into a new array
+/// It is important to clone the data, as we don't want key material to be hazardously modified.
+pub fn clone_slice_to_array(slice: &[u8; BYTES_LENGTH_32]) -> [u8; BYTES_LENGTH_32] {
     // Create a new array of the expected length
-    let mut array = [0u8; BYTES_LENGTH_32];
-
-    // Copy the data from the slice into the array
-    array.copy_from_slice(slice);
-
-    // Return the array as an Option
-    Some(array)
+    let mut array: [u8; BYTES_LENGTH_32] = [0; BYTES_LENGTH_32];
+    // clone the data from the slice into the array
+    array.clone_from_slice(slice);
+    array
 }
