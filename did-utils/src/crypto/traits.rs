@@ -3,37 +3,45 @@
 // This module will design an interface common to all curves, so that we can change the curve
 // without altering consuming modules.
 
+pub const BYTES_LENGTH_32: usize = 32;
+
 #[derive(Debug)]
 pub enum Error {
+    InvalidKeyLength,
+    InvalidSecretKey,
+    InvalidSeed,
+    InvalidPublicKey,
+    ConNotComputePublicKey,
+    CanNotRetrieveSignature,
     SignatureError,
-    InvalidKey,
+    VerificationError,
     Unknown(String),
 }
 
 /// Return key material bytes
 pub trait KeyMaterial {
     /// Returns the public key bytes as slice
-    fn public_key_bytes(&self) -> Vec<u8>;
+    fn public_key_bytes(&self) -> Result<[u8; BYTES_LENGTH_32], Error>;
     /// Returns the secret key bytes as slice
-    fn private_key_bytes(&self) -> Vec<u8>;
+    fn private_key_bytes(&self) -> Result<[u8; BYTES_LENGTH_32], Error>;
 }
 
 /// Deterministic Key Generation
 pub trait Generate: KeyMaterial {
     /// Generate random key
-    fn new() -> Self;
+    fn new() -> Result<Self, Error> where Self: Sized;
     /// Generate key deterministically using a given seed
-    fn new_with_seed(seed: &[u8]) -> Self;
+    fn new_with_seed(seed: &[u8]) -> Result<Self, Error> where Self: Sized;
     /// Generate instance from existing public key
-    fn from_public_key(public_key: &[u8]) -> Self;
+    fn from_public_key(public_key: &[u8; BYTES_LENGTH_32]) -> Result<Self, Error> where Self: Sized;
     /// Generate instance from existing secret key
-    fn from_secret_key(private_key: &[u8]) -> Self;
+    fn from_secret_key(private_key: &[u8; BYTES_LENGTH_32]) -> Result<Self, Error> where Self: Sized;
 }
 
 /// ECDSA Interface
 pub trait CoreSign {
     /// Performs sign operation
-    fn sign(&self, payload: &[u8]) -> Vec<u8>;
+    fn sign(&self, payload: &[u8]) -> Option<Vec<u8>>;
     /// Performs verify operation
     fn verify(&self, payload: &[u8], signature: &[u8]) -> Result<(), Error>;
 }
@@ -41,5 +49,5 @@ pub trait CoreSign {
 /// ECDH Interface
 pub trait ECDH {
     /// Perform key exchange operation
-    fn key_exchange(&self, their_public: &Self) -> Vec<u8>;
+    fn key_exchange(&self, their_public: &Self) -> Option<Vec<u8>>;
 }

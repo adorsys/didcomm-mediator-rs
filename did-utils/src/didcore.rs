@@ -253,15 +253,6 @@ pub enum Proofs {
 
 #[cfg(test)]
 pub mod tests {
-    use super::KeyFormat;
-
-    #[test]
-    fn test_key_format() {
-        let key = KeyFormat::Base58("key-1".to_string());
-        let serialized = serde_json::to_string_pretty(&key).unwrap();
-
-        println!("{}", serialized)
-    }
 
     // A test that reads the file at ../test_resources/did_example_1.json, uses serde_json to convert
     // the content into a json string uses the json_canon library to canonicalize the json string.

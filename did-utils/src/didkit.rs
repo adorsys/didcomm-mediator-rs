@@ -100,18 +100,18 @@ pub mod tests {
         // Generate key for verification method
         let my_string = String::from("Sample seed bytes of thirtytwo!b");
         let seed: &[u8] = my_string.as_bytes();
-        let eddsa_key_pair = Ed25519KeyPair::new_with_seed(seed);
-        let ecdh_key_pair = eddsa_key_pair.get_x25519();
+        let eddsa_key_pair = Ed25519KeyPair::new_with_seed(seed).unwrap();
+        let ecdh_key_pair = eddsa_key_pair.get_x25519().unwrap();
 
         let mut private_eddsa_vm = VerificationMethod::new("did:example:123456789abcdefghi#keys-1".to_string(),
                                          "Ed25519VerificationKey2018".to_string(),
                                          "did:example:123456789abcdefghi".to_string());
         let mut public_eddsa_vm = private_eddsa_vm.clone();
 
-        let eddsa_private_key_multibase =  multibase::encode(Base58Btc, eddsa_key_pair.private_key_bytes());
+        let eddsa_private_key_multibase =  multibase::encode(Base58Btc, eddsa_key_pair.private_key_bytes().unwrap());
         private_eddsa_vm.private_key = Some(Multibase(eddsa_private_key_multibase));
         
-        let eddsa_public_key_multibase =  multibase::encode(Base58Btc, eddsa_key_pair.public_key_bytes());
+        let eddsa_public_key_multibase =  multibase::encode(Base58Btc, eddsa_key_pair.public_key_bytes().unwrap());
         public_eddsa_vm.public_key = Some(Multibase(eddsa_public_key_multibase));
 
         let mut private_ecdh_vm = VerificationMethod::new("did:example:123456789abcdefghi#keys-2".to_string(),
@@ -119,10 +119,10 @@ pub mod tests {
                                          "did:example:123456789abcdefghi".to_string());
         let mut public_ecdh_vm = private_ecdh_vm.clone();
 
-        let ecdh_private_key_multibase =  multibase::encode(Base58Btc, ecdh_key_pair.private_key_bytes());
+        let ecdh_private_key_multibase =  multibase::encode(Base58Btc, ecdh_key_pair.private_key_bytes().unwrap());
         private_ecdh_vm.private_key = Some(Multibase(ecdh_private_key_multibase));
         
-        let ecdh_public_key_multibase =  multibase::encode(Base58Btc, ecdh_key_pair.public_key_bytes());
+        let ecdh_public_key_multibase =  multibase::encode(Base58Btc, ecdh_key_pair.public_key_bytes().unwrap());
         public_ecdh_vm.public_key = Some(Multibase(ecdh_public_key_multibase));
 
         let private_verification_method = Some(vec![private_eddsa_vm, private_ecdh_vm]);
