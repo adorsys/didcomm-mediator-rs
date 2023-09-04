@@ -111,7 +111,10 @@ mod tests {
 
     #[test]
     fn test_keystore_flow() {
-        let mut store = KeyStore::new();
+        let mut store = KeyStore {
+            path: format!("{KEYSTORE_DIR}/0.json"),
+            ..Default::default()
+        };
 
         let jwk = store.gen_ed25519_jwk().unwrap();
         assert!(store.find_keypair(&jwk).is_some());
