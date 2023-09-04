@@ -1,8 +1,7 @@
 use sample_pop_server::didgen;
-use std::error::Error;
 
 /// Program entry
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Load dotenv-flow variables
     dotenv_flow::dotenv_flow().ok();
 
@@ -10,5 +9,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     tracing_subscriber::fmt::init();
 
     // Run didgen logic
-    didgen::didgen().map(|_| ())
+    didgen::didgen()?;
+    Ok(())
 }

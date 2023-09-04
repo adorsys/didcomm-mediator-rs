@@ -1,7 +1,7 @@
-use sample_pop_server::{app, didgen, util::KeyStore, DIDDOC_DIR};
+use sample_pop_server::{app, didgen};
 
 use axum::Server;
-use std::{net::SocketAddr, path::Path};
+use std::net::SocketAddr;
 
 #[tokio::main]
 async fn main() {
@@ -11,9 +11,8 @@ async fn main() {
     // Enable tracing
     config_tracing();
 
-    // Generate keystore (and its DID document) if necessary
-    let didpath = format!("{DIDDOC_DIR}/did.json");
-    if KeyStore::latest().is_none() || !Path::new(&didpath).exists() {
+    // Run `didgen` if necessary
+    if didgen::validate_diddoc().is_err() {
         didgen::didgen().expect("Failed to generate an initial keystore and its DID document.");
     };
 
