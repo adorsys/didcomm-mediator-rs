@@ -162,7 +162,7 @@ pub fn validate_diddoc() -> Result<(), String> {
             .iter()
             .filter_map(|x| match x {
                 VerificationMethod::Map(map) => Some(map),
-                _ => None,
+                _ => unreachable!()
             })
             .collect(),
     };
