@@ -110,10 +110,20 @@ pub async fn didpop(
 
         // Amend LDP options with method-specific attributes
         options.verification_method = Some(URI::String(method.id.clone()));
-        options.proof_purpose = inspect_vm_relationship(&diddoc, &method.id);
+        options.proof_purpose = match inspect_vm_relationship(&diddoc, &method.id) {
+            Some(vrel) => {
+                if matches!(vrel, VerificationRelationship::KeyAgreement) {
+                    // Do not provide proofs for key agreement methods
+                    continue;
+                }
+
+                Some(vrel)
+            }
+            None => panic!("Unsupported verification relationship"),
+        };
 
         // The domain property is here used with a nonce meaning
-        options.domain = Some(format!("nonce:{}", uuid::Uuid::new_v4().to_string()));
+        options.domain = Some(format!("nonce:{}", uuid::Uuid::new_v4()));
 
         // Generate proof
         let proof = vp
@@ -140,21 +150,25 @@ fn inspect_vm_relationship(
 ) -> Option<VerificationRelationship> {
     let vm_url = &DIDURL::try_from(verification_method_id.to_string()).unwrap();
 
-    if let Some(data) = &diddoc.authentication {
-        if data.iter().any(|x| match x {
-            VerificationMethod::DIDURL(url) => url == vm_url,
-            _ => false,
-        }) {
-            return Some(VerificationRelationship::Authentication);
-        }
-    }
+    let vrel_x = [
+        &diddoc.authentication,
+        &diddoc.assertion_method,
+        &diddoc.key_agreement,
+    ];
+    let vrel_y = [
+        VerificationRelationship::Authentication,
+        VerificationRelationship::AssertionMethod,
+        VerificationRelationship::KeyAgreement,
+    ];
 
-    if let Some(data) = &diddoc.assertion_method {
-        if data.iter().any(|x| match x {
-            VerificationMethod::DIDURL(url) => url == vm_url,
-            _ => false,
-        }) {
-            return Some(VerificationRelationship::AssertionMethod);
+    for i in 0..vrel_x.len() {
+        if let Some(data) = vrel_x[i] {
+            if data.iter().any(|x| match x {
+                VerificationMethod::DIDURL(url) => url == vm_url,
+                _ => false,
+            }) {
+                return Some(vrel_y[i].clone());
+            }
         }
     }
 

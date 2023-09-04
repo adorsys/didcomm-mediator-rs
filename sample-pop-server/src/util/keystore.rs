@@ -1,5 +1,9 @@
+use did_utils::crypto::{
+    traits::{Generate, KeyMaterial},
+    x25519::X25519KeyPair,
+};
 use serde_json::Value;
-use ssi::jwk::{ECParams, Params, JWK};
+use ssi::jwk::{Base64urlUInt, ECParams, OctetParams, Params, JWK};
 use std::error::Error;
 
 use crate::KEYSTORE_DIR;
@@ -70,6 +74,23 @@ impl KeyStore {
 
         Ok(pub_jwk)
     }
+
+    /// Generates and persists an x25519 keypair for digital signatures.
+    /// Returns public JWK for convenience.
+    pub fn gen_x25519_jwk(&mut self) -> Result<JWK, Box<dyn Error>> {
+        let keypair = X25519KeyPair::new().map_err(|_| "Failure to generate X25519 keypair")?;
+        let jwk = JWK::from(Params::OKP(OctetParams {
+            curve: "X25519".to_string(),
+            public_key: Base64urlUInt(keypair.public_key_bytes().unwrap().to_vec()),
+            private_key: Some(Base64urlUInt(keypair.private_key_bytes().unwrap().to_vec())),
+        }));
+        let pub_jwk = jwk.to_public();
+
+        self.keys.push(jwk);
+        self.persist()?;
+
+        Ok(pub_jwk)
+    }
 }
 
 impl Default for KeyStore {
@@ -93,6 +114,9 @@ mod tests {
         let mut store = KeyStore::new();
 
         let jwk = store.gen_ed25519_jwk().unwrap();
+        assert!(store.find_keypair(&jwk).is_some());
+
+        let jwk = store.gen_x25519_jwk().unwrap();
         assert!(store.find_keypair(&jwk).is_some());
 
         let latest = KeyStore::latest();

@@ -40,8 +40,14 @@ pub fn didgen() -> Result<String, Error> {
         .gen_ed25519_jwk()
         .map_err(|_| Error::KeyGenerationError)?;
 
+    // Generate agreement key
+    tracing::info!("Generating agreement key...");
+    let agreement_key = store
+        .gen_x25519_jwk()
+        .map_err(|_| Error::KeyGenerationError)?;
+
     // Build DID document
-    let diddoc = gen_diddoc(authentication_key, assertion_key)?;
+    let diddoc = gen_diddoc(authentication_key, assertion_key, agreement_key)?;
 
     // Mark successful completion
     tracing::info!("Successful completion.");
@@ -49,7 +55,11 @@ pub fn didgen() -> Result<String, Error> {
 }
 
 /// Builds and persists DID document
-fn gen_diddoc(authentication_key: JWK, assertion_key: JWK) -> Result<String, Error> {
+fn gen_diddoc(
+    authentication_key: JWK,
+    assertion_key: JWK,
+    agreement_key: JWK,
+) -> Result<String, Error> {
     tracing::info!("Building DID document...");
 
     // Prepare DID address
@@ -83,6 +93,18 @@ fn gen_diddoc(authentication_key: JWK, assertion_key: JWK) -> Result<String, Err
         ..Default::default()
     };
 
+    // Prepare key agreement verification method
+
+    let agreement_method_id = DIDURL::try_from(did.clone() + "#keys-3").unwrap();
+
+    let agreement_method = VerificationMethodMap {
+        id: agreement_method_id.to_string(),
+        controller: did.clone(),
+        type_: String::from("JsonWebKey2020"),
+        public_key_jwk: Some(agreement_key),
+        ..Default::default()
+    };
+
     // Prepare service endpoint
 
     let service_id = DIDURL::try_from(did.clone() + "#pop-domain").unwrap();
@@ -110,9 +132,11 @@ fn gen_diddoc(authentication_key: JWK, assertion_key: JWK) -> Result<String, Err
         .id(did)
         .authentication(vec![VerificationMethod::DIDURL(authentication_method_id)])
         .assertion_method(vec![VerificationMethod::DIDURL(assertion_method_id)])
+        .key_agreement(vec![VerificationMethod::DIDURL(agreement_method_id)])
         .verification_method(vec![
             VerificationMethod::Map(authentication_method),
             VerificationMethod::Map(assertion_method),
+            VerificationMethod::Map(agreement_method),
         ])
         .service(vec![service])
         .build()
@@ -162,7 +186,7 @@ pub fn validate_diddoc() -> Result<(), String> {
             .iter()
             .filter_map(|x| match x {
                 VerificationMethod::Map(map) => Some(map),
-                _ => unreachable!()
+                _ => unreachable!(),
             })
             .collect(),
     };
