@@ -26,7 +26,7 @@ pub enum Error {
 pub fn didgen() -> Result<String, Error> {
     // Create a new store, which is timestamp-aware
     let mut store = KeyStore::new();
-    tracing::info!("KeyStore: {}", store.path());
+    tracing::info!("Keystore: {}", store.path());
 
     // Generate authentication key
     tracing::info!("Generating authentication key...");
