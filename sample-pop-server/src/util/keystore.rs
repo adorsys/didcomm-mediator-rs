@@ -112,7 +112,12 @@ mod tests {
     #[test]
     fn test_keystore_flow() {
         let mut store = KeyStore {
-            path: format!("{KEYSTORE_DIR}/0.json"),
+            path: format!(
+                "{KEYSTORE_DIR}/{}.json",
+                // Subtract 1e9 to avoid clashes with non test keystores
+                // TODO! Mock filesystem
+                chrono::Utc::now().timestamp() - 1e9 as i64
+            ),
             ..Default::default()
         };
 
