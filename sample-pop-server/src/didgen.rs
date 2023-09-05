@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use crate::{
-    util::{convert, KeyStore},
+    util::{didweb, KeyStore},
     DIDDOC_DIR,
 };
 use ssi::{
@@ -66,7 +66,7 @@ fn gen_diddoc(
 
     let public_domain = std::env::var("SERVER_PUBLIC_DOMAIN") //
         .map_err(|_| Error::MissingServerPublicDomain)?;
-    let did = convert::url_to_did_web_id(&public_domain) //
+    let did = didweb::url_to_did_web_id(&public_domain) //
         .map_err(|_| Error::DidAddressDerivationError)?;
 
     // Prepare authentication verification method

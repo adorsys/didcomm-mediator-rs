@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-pub mod convert;
+pub mod didweb;
 pub mod resolver;
 
 mod keystore;
