@@ -171,10 +171,15 @@ pub fn validate_diddoc() -> Result<(), String> {
     };
 
     for method in diddoc.verification_method.unwrap_or(vec![]) {
-        let pubkey = method.public_key.as_ref().unwrap();
-        let pubkey: JWK = serde_json::from_value(json!(pubkey))
-            .map_err(|_| String::from("Unsupported key format"))?;
+        // TODO! Substitute by method.public_key once deserialization fixed
+        let properties = method
+            .additional_properties
+            .ok_or(String::from("Unsupported key format"))?;
+        let pubkey = properties
+            .get("publicKeyJwk")
+            .ok_or(String::from("Unsupported key format"))?;
 
+        let pubkey: JWK = serde_json::from_value(json!(pubkey)).unwrap();
         store
             .find_keypair(&pubkey)
             .ok_or(String::from("Keystore mismatch"))?;
