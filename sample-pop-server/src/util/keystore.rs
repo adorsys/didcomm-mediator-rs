@@ -3,7 +3,7 @@ use did_utils::crypto::{
     x25519::X25519KeyPair,
 };
 use serde_json::Value;
-use ssi::jwk::{Base64urlUInt, ECParams, OctetParams, Params, JWK};
+use ssi::jwk::{Base64urlUInt, OctetParams, Params, JWK};
 use std::error::Error;
 
 use crate::KEYSTORE_DIR;
@@ -13,25 +13,27 @@ pub struct KeyStore {
     keys: Vec<JWK>,
 }
 
-impl KeyStore {
-    /// Constructs file-based key-value store.
-    pub fn new() -> Self {
-        Self {
-            path: format!("{KEYSTORE_DIR}/{}.json", chrono::Utc::now().timestamp()),
+struct KeyStoreFactory {
+    location: String,
+}
+
+impl KeyStoreFactory {
+    fn create(&self) -> KeyStore {
+        KeyStore {
+            path: format!("{}/{}.json", self.location, chrono::Utc::now().timestamp()),
             keys: vec![],
         }
     }
 
-    /// Returns latest store on disk, if any.
-    pub fn latest() -> Option<Self> {
+    fn latest(&self) -> Option<KeyStore> {
         let msg = "Error parsing keystore directory";
-        let file = std::fs::read_dir(KEYSTORE_DIR)
+        let file = std::fs::read_dir(&self.location)
             .expect(msg)
             .map(|x| x.expect(msg).path().to_str().expect(msg).to_string())
             .filter(|p| p.ends_with(".json"))
             .max_by_key(|p| {
                 let p = p
-                    .trim_start_matches(&format!("{KEYSTORE_DIR}/"))
+                    .trim_start_matches(&format!("{}/", self.location))
                     .trim_end_matches(".json");
                 p.parse::<i32>().expect(msg)
             });
@@ -42,9 +44,28 @@ impl KeyStore {
                 Err(_) => None,
                 Ok(content) => match serde_json::from_str::<Vec<JWK>>(&content) {
                     Err(_) => None,
-                    Ok(keys) => Some(Self { path, keys }),
+                    Ok(keys) => Some(KeyStore { path, keys }),
                 },
             },
+        }
+    }
+}
+
+impl KeyStore {
+    /// Constructs file-based key-value store.
+    pub fn new() -> Self {
+        Self::factory(KEYSTORE_DIR).create()
+    }
+
+    /// Returns latest store on disk, if any.
+    pub fn latest() -> Option<Self> {
+        Self::factory(KEYSTORE_DIR).latest()
+    }
+
+    /// Returns location-aware builder
+    fn factory(location: &str) -> KeyStoreFactory {
+        KeyStoreFactory {
+            location: location.to_string(),
         }
     }
 
@@ -102,6 +123,8 @@ impl Default for KeyStore {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::util::crate_name;
+    use tempdir::TempDir;
 
     impl KeyStore {
         fn destroy(self) {
@@ -111,15 +134,10 @@ mod tests {
 
     #[test]
     fn test_keystore_flow() {
-        let mut store = KeyStore {
-            path: format!(
-                "{KEYSTORE_DIR}/{}.json",
-                // Subtract 1e9 to avoid clashes with non test keystores
-                // TODO! Mock filesystem
-                chrono::Utc::now().timestamp() - 1e9 as i64
-            ),
-            ..Default::default()
-        };
+        let location = TempDir::new(&crate_name()).unwrap();
+        let factory = KeyStore::factory(location.path().to_str().unwrap());
+
+        let mut store = factory.create();
 
         let jwk = store.gen_ed25519_jwk().unwrap();
         assert!(store.find_keypair(&jwk).is_some());
@@ -127,7 +145,7 @@ mod tests {
         let jwk = store.gen_x25519_jwk().unwrap();
         assert!(store.find_keypair(&jwk).is_some());
 
-        let latest = KeyStore::latest();
+        let latest = factory.latest();
         assert!(latest.is_some());
 
         store.destroy();
