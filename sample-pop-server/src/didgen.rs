@@ -1,17 +1,13 @@
-use std::path::Path;
-
 use crate::{
     util::{didweb, KeyStore},
     DIDDOC_DIR,
 };
-use ssi::{
-    did::{
-        Context, Contexts, Document, DocumentBuilder, Service, ServiceEndpoint, VerificationMethod,
-        VerificationMethodMap, DEFAULT_CONTEXT, DIDURL,
-    },
-    jwk::JWK,
-    one_or_many::OneOrMany,
+use did_utils::didcore::{
+    AssertionMethod, Authentication, Context, Document, KeyAgreement, Service, VerificationMethod,
 };
+use serde_json::json;
+use ssi::jwk::JWK;
+use std::path::Path;
 
 #[derive(Debug)]
 pub enum Error {
@@ -71,76 +67,70 @@ fn gen_diddoc(
 
     // Prepare authentication verification method
 
-    let authentication_method_id = DIDURL::try_from(did.clone() + "#keys-1").unwrap();
-
-    let authentication_method = VerificationMethodMap {
-        id: authentication_method_id.to_string(),
-        controller: did.clone(),
-        type_: String::from("JsonWebKey2020"),
-        public_key_jwk: Some(authentication_key),
-        ..Default::default()
+    let authentication_method = VerificationMethod {
+        public_key: serde_json::from_value(json!(authentication_key)).ok(),
+        ..VerificationMethod::new(
+            did.clone() + "#keys-1",
+            String::from("JsonWebKey2020"),
+            did.clone(),
+        )
     };
 
     // Prepare assertion verification method
 
-    let assertion_method_id = DIDURL::try_from(did.clone() + "#keys-2").unwrap();
-
-    let assertion_method = VerificationMethodMap {
-        id: assertion_method_id.to_string(),
-        controller: did.clone(),
-        type_: String::from("JsonWebKey2020"),
-        public_key_jwk: Some(assertion_key),
-        ..Default::default()
+    let assertion_method = VerificationMethod {
+        public_key: serde_json::from_value(json!(assertion_key)).ok(),
+        ..VerificationMethod::new(
+            did.clone() + "#keys-2",
+            String::from("JsonWebKey2020"),
+            did.clone(),
+        )
     };
 
     // Prepare key agreement verification method
 
-    let agreement_method_id = DIDURL::try_from(did.clone() + "#keys-3").unwrap();
-
-    let agreement_method = VerificationMethodMap {
-        id: agreement_method_id.to_string(),
-        controller: did.clone(),
-        type_: String::from("JsonWebKey2020"),
-        public_key_jwk: Some(agreement_key),
-        ..Default::default()
+    let agreement_method = VerificationMethod {
+        public_key: serde_json::from_value(json!(agreement_key)).ok(),
+        ..VerificationMethod::new(
+            did.clone() + "#keys-3",
+            String::from("JsonWebKey2020"),
+            did.clone(),
+        )
     };
 
     // Prepare service endpoint
 
-    let service_id = DIDURL::try_from(did.clone() + "#pop-domain").unwrap();
-
-    let service = Service {
-        id: service_id.to_string(),
-        type_: OneOrMany::One(String::from("LinkedDomains")),
-        service_endpoint: Some(OneOrMany::One(ServiceEndpoint::URI(format!(
-            "{public_domain}/.well-known/did/pop.json"
-        )))),
-        property_set: None,
-    };
+    let service = Service::new(
+        did.clone() + "#pop-domain",
+        String::from("LinkedDomains"),
+        format!("{public_domain}/.well-known/did/pop.json"),
+    );
 
     // Build document
 
-    let doc = DocumentBuilder::default()
-        .context(Contexts::Many(vec![
-            Context::URI(DEFAULT_CONTEXT.to_owned().into()),
-            Context::URI(
-                "https://w3id.org/security/suites/jws-2020/v1"
-                    .parse()
-                    .unwrap(),
-            ),
-        ]))
-        .id(did)
-        .authentication(vec![VerificationMethod::DIDURL(authentication_method_id)])
-        .assertion_method(vec![VerificationMethod::DIDURL(assertion_method_id)])
-        .key_agreement(vec![VerificationMethod::DIDURL(agreement_method_id)])
-        .verification_method(vec![
-            VerificationMethod::Map(authentication_method),
-            VerificationMethod::Map(assertion_method),
-            VerificationMethod::Map(agreement_method),
-        ])
-        .service(vec![service])
-        .build()
-        .unwrap();
+    let context = Context::SetOfString(vec![
+        String::from("https://www.w3.org/ns/did/v1"),
+        String::from("https://w3id.org/security/suites/jws-2020/v1"),
+    ]);
+
+    let doc = Document {
+        authentication: Some(vec![Authentication::Reference(
+            authentication_method.id.clone(), //
+        )]),
+        assertion_method: Some(vec![AssertionMethod::Reference(
+            assertion_method.id.clone(), //
+        )]),
+        key_agreement: Some(vec![KeyAgreement::Reference(
+            agreement_method.id.clone(), //
+        )]),
+        verification_method: Some(vec![
+            authentication_method,
+            assertion_method,
+            agreement_method,
+        ]),
+        service: Some(vec![service]),
+        ..Document::new(context, did)
+    };
 
     // Serialize and persist to file
 
@@ -180,21 +170,13 @@ pub fn validate_diddoc() -> Result<(), String> {
         }
     };
 
-    let methods = match &diddoc.verification_method {
-        None => vec![],
-        Some(data) => data
-            .iter()
-            .filter_map(|x| match x {
-                VerificationMethod::Map(map) => Some(map),
-                _ => unreachable!(),
-            })
-            .collect(),
-    };
+    for method in diddoc.verification_method.unwrap_or(vec![]) {
+        let pubkey = method.public_key.as_ref().unwrap();
+        let pubkey: JWK = serde_json::from_value(json!(pubkey))
+            .map_err(|_| String::from("Unsupported key format"))?;
 
-    for method in methods {
-        let pubkey = method.public_key_jwk.as_ref().unwrap();
         store
-            .find_keypair(pubkey)
+            .find_keypair(&pubkey)
             .ok_or(String::from("Keystore mismatch"))?;
     }
 
