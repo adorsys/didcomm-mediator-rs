@@ -62,7 +62,7 @@ impl KeyStore {
         Self::factory(KEYSTORE_DIR).latest()
     }
 
-    /// Returns location-aware builder
+    /// Returns location-aware factory
     fn factory(location: &str) -> KeyStoreFactory {
         KeyStoreFactory {
             location: location.to_string(),
