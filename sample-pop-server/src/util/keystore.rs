@@ -1,5 +1,9 @@
+use did_utils::crypto::{
+    traits::{Generate, KeyMaterial},
+    x25519::X25519KeyPair,
+};
 use serde_json::Value;
-use ssi::jwk::{ECParams, Params, JWK};
+use ssi::jwk::{Base64urlUInt, OctetParams, Params, JWK};
 use std::error::Error;
 
 use crate::KEYSTORE_DIR;
@@ -9,25 +13,27 @@ pub struct KeyStore {
     keys: Vec<JWK>,
 }
 
-impl KeyStore {
-    /// Constructs file-based key-value store.
-    pub fn new() -> Self {
-        Self {
-            path: format!("{KEYSTORE_DIR}/{}.json", chrono::Utc::now().timestamp()),
+struct KeyStoreFactory {
+    location: String,
+}
+
+impl KeyStoreFactory {
+    fn create(&self) -> KeyStore {
+        KeyStore {
+            path: format!("{}/{}.json", self.location, chrono::Utc::now().timestamp()),
             keys: vec![],
         }
     }
 
-    /// Returns latest store on disk, if any.
-    pub fn latest() -> Option<Self> {
+    fn latest(&self) -> Option<KeyStore> {
         let msg = "Error parsing keystore directory";
-        let file = std::fs::read_dir(KEYSTORE_DIR)
+        let file = std::fs::read_dir(&self.location)
             .expect(msg)
             .map(|x| x.expect(msg).path().to_str().expect(msg).to_string())
             .filter(|p| p.ends_with(".json"))
             .max_by_key(|p| {
                 let p = p
-                    .trim_start_matches(&format!("{KEYSTORE_DIR}/"))
+                    .trim_start_matches(&format!("{}/", self.location))
                     .trim_end_matches(".json");
                 p.parse::<i32>().expect(msg)
             });
@@ -38,9 +44,28 @@ impl KeyStore {
                 Err(_) => None,
                 Ok(content) => match serde_json::from_str::<Vec<JWK>>(&content) {
                     Err(_) => None,
-                    Ok(keys) => Some(Self { path, keys }),
+                    Ok(keys) => Some(KeyStore { path, keys }),
                 },
             },
+        }
+    }
+}
+
+impl KeyStore {
+    /// Constructs file-based key-value store.
+    pub fn new() -> Self {
+        Self::factory(KEYSTORE_DIR).create()
+    }
+
+    /// Returns latest store on disk, if any.
+    pub fn latest() -> Option<Self> {
+        Self::factory(KEYSTORE_DIR).latest()
+    }
+
+    /// Returns location-aware factory
+    fn factory(location: &str) -> KeyStoreFactory {
+        KeyStoreFactory {
+            location: location.to_string(),
         }
     }
 
@@ -70,6 +95,23 @@ impl KeyStore {
 
         Ok(pub_jwk)
     }
+
+    /// Generates and persists an x25519 keypair for digital signatures.
+    /// Returns public JWK for convenience.
+    pub fn gen_x25519_jwk(&mut self) -> Result<JWK, Box<dyn Error>> {
+        let keypair = X25519KeyPair::new().map_err(|_| "Failure to generate X25519 keypair")?;
+        let jwk = JWK::from(Params::OKP(OctetParams {
+            curve: "X25519".to_string(),
+            public_key: Base64urlUInt(keypair.public_key_bytes().unwrap().to_vec()),
+            private_key: Some(Base64urlUInt(keypair.private_key_bytes().unwrap().to_vec())),
+        }));
+        let pub_jwk = jwk.to_public();
+
+        self.keys.push(jwk);
+        self.persist()?;
+
+        Ok(pub_jwk)
+    }
 }
 
 impl Default for KeyStore {
@@ -81,6 +123,8 @@ impl Default for KeyStore {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::util::crate_name;
+    use tempdir::TempDir;
 
     impl KeyStore {
         fn destroy(self) {
@@ -90,12 +134,18 @@ mod tests {
 
     #[test]
     fn test_keystore_flow() {
-        let mut store = KeyStore::new();
+        let location = TempDir::new(&crate_name()).unwrap();
+        let factory = KeyStore::factory(location.path().to_str().unwrap());
+
+        let mut store = factory.create();
 
         let jwk = store.gen_ed25519_jwk().unwrap();
         assert!(store.find_keypair(&jwk).is_some());
 
-        let latest = KeyStore::latest();
+        let jwk = store.gen_x25519_jwk().unwrap();
+        assert!(store.find_keypair(&jwk).is_some());
+
+        let latest = factory.latest();
         assert!(latest.is_some());
 
         store.destroy();

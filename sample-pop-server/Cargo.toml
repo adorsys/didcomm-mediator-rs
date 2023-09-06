@@ -10,6 +10,7 @@ default-run = "sample-pop-server"
 async-trait = "0.1.73"
 axum = { version = "0.6.20" }
 chrono = "0.4.26"
+did-utils = { path = "../did-utils" }
 dotenv-flow = "0.15.0"
 hyper = { version = "0.14.27", features = ["full"] }
 serde_json = "1.0.104"
@@ -22,4 +23,5 @@ url = "2.4.0"
 uuid = { version = "1.4.1", features = ["v4"] }
 
 [dev-dependencies]
+tempdir = "0.3.7"
 tower = { version = "0.4.13", features = ["util"] }
