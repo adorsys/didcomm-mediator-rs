@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use serde::{ser::SerializeMap, Deserialize, Serialize, Serializer};
+use serde::{ser::SerializeMap, Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 
 use crate::proof::model::Proof;
@@ -107,18 +107,14 @@ pub struct VerificationMethod {
     pub controller: String,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(alias = "publicKeyBase58")]
-    #[serde(alias = "publicKeyMultibase")]
-    #[serde(alias = "publicKeyJwk")]
     #[serde(serialize_with = "VerificationMethod::serialize_public_key_format")]
+    #[serde(deserialize_with = "VerificationMethod::deserialize_public_key_format")]
     #[serde(flatten)]
     pub public_key: Option<KeyFormat>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(alias = "privateKeyBase58")]
-    #[serde(alias = "privateKeyMultibase")]
-    #[serde(alias = "privateKeyJwk")]
     #[serde(serialize_with = "VerificationMethod::serialize_private_key_format")]
+    #[serde(deserialize_with = "VerificationMethod::deserialize_private_key_format")]
     #[serde(flatten)]
     pub private_key: Option<KeyFormat>,
 
@@ -240,6 +236,64 @@ impl VerificationMethod {
             None => serializer.serialize_none(),
         }
     }
+
+    pub fn deserialize_public_key_format<'de, D>(deserializer: D) -> Result<Option<KeyFormat>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize, Debug)]
+        #[serde(rename_all = "camelCase")]
+        struct PublicKeyFormat {
+            public_key_base58: Option<String>,
+            public_key_multibase: Option<String>,
+            public_key_jwk: Option<Jwk>,
+        }
+
+        let s: PublicKeyFormat = PublicKeyFormat::deserialize(deserializer)?;
+
+        if s.public_key_base58.is_some() {
+            return Ok(Some(KeyFormat::Base58(s.public_key_base58.unwrap())));
+        }
+
+        if s.public_key_multibase.is_some() {
+            return Ok(Some(KeyFormat::Multibase(s.public_key_multibase.unwrap())));
+        }
+
+        if s.public_key_jwk.is_some() {
+            return Ok(Some(KeyFormat::Jwk(s.public_key_jwk.unwrap())));
+        }
+
+        Ok(None)
+    }
+
+    pub fn deserialize_private_key_format<'de, D>(deserializer: D) -> Result<Option<KeyFormat>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize, Debug)]
+        #[serde(rename_all = "camelCase")]
+        struct PrivateKeyFormat {
+            private_key_base58: Option<String>,
+            private_key_multibase: Option<String>,
+            private_key_jwk: Option<Jwk>,
+        }
+
+        let s: PrivateKeyFormat = PrivateKeyFormat::deserialize(deserializer)?;
+
+        if s.private_key_base58.is_some() {
+            return Ok(Some(KeyFormat::Base58(s.private_key_base58.unwrap())));
+        }
+
+        if s.private_key_multibase.is_some() {
+            return Ok(Some(KeyFormat::Multibase(s.private_key_multibase.unwrap())));
+        }
+
+        if s.private_key_jwk.is_some() {
+            return Ok(Some(KeyFormat::Jwk(s.private_key_jwk.unwrap())));
+        }
+
+        Ok(None)
+    }
 }
 
 // === Proof ===
@@ -250,9 +304,9 @@ pub enum Proofs {
     SetOfProofs(Vec<Proof>),
 }
 
-
 #[cfg(test)]
 pub mod tests {
+    use super::*;
 
     // A test that reads the file at ../test_resources/did_example_1.json, uses serde_json to convert
     // the content into a json string uses the json_canon library to canonicalize the json string.
@@ -388,6 +442,61 @@ pub mod tests {
             "test_resources/didcore_example_20_canonicalized.json",
         )
         .unwrap();
+    }
+
+    // Tests that verification methods are properly deserialized
+    // with regard to public/private keys
+    #[test]
+    fn test_deserialize_verification_method() {
+        let vm: VerificationMethod = serde_json::from_str(
+            r#"{
+                "id": "did:web:localhost#keys-1",
+                "type": "JsonWebKey2020",
+                "controller": "did:web:localhost",
+                "publicKeyMultibase": "zH3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV",
+                "privateKeyBase58": "H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV"
+            }"#,
+        )
+        .unwrap();
+
+        assert!(vm.public_key.is_some());
+        assert!(matches!(vm.public_key.unwrap(), KeyFormat::Multibase(_)));
+
+        assert!(vm.private_key.is_some());
+        assert!(matches!(vm.private_key.unwrap(), KeyFormat::Base58(_)));
+
+        let vm: VerificationMethod = serde_json::from_str(
+            r#"{
+                "id": "did:web:localhost#keys-1",
+                "type": "JsonWebKey2020",
+                "controller": "did:web:localhost",
+                "publicKeyJwk": {
+                    "kty": "OKP",
+                    "crv": "X25519",
+                    "x": "psQvZbwHAW4z2wrTKGbl4mFyzSIGy_Cw7ov-ep0TWAM"
+                },
+                "privateKeyJwk": {
+                    "kty": "OKP",
+                    "crv": "X25519",
+                    "x": "psQvZbwHAW4z2wrTKGbl4mFyzSIGy_Cw7ov-ep0TWAM",
+                    "d": "bBuzzQqaC29xi78lZUWLcByvm7vKgTJqsZ8m7T7KSOw"
+                }
+            }"#,
+        )
+        .unwrap();
+
+        assert!(vm.public_key.is_some());
+        assert!(vm.private_key.is_some());
+
+        match vm.public_key.unwrap() {
+            KeyFormat::Jwk(jwk) => assert_eq!(jwk.x.unwrap(), "psQvZbwHAW4z2wrTKGbl4mFyzSIGy_Cw7ov-ep0TWAM"),
+            _ => panic!("Deserialized into wrong KeyFormat"),
+        }
+
+        match vm.private_key.unwrap() {
+            KeyFormat::Jwk(jwk) => assert_eq!(jwk.d.unwrap(), "bBuzzQqaC29xi78lZUWLcByvm7vKgTJqsZ8m7T7KSOw"),
+            _ => panic!("Deserialized into wrong KeyFormat"),
+        }
     }
 
     // read a file given the path as method param and write content to console
