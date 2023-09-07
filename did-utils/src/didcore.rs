@@ -72,6 +72,25 @@ pub struct Document {
 pub enum Context {
     SingleString(String),
     SetOfString(Vec<String>),
+    JsonObject(JsonObject),
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub enum JsonObject {
+    SingleItem(JsonItem),
+    MultipleItems(Vec<JsonItem>),
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub enum JsonItem {
+    SingleString(String),
+    JsonObject(Vec<JsonKeyValuePair>),
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct JsonKeyValuePair {
+    pub key: String,
+    pub value: JsonItem,
 }
 
 #[derive(Serialize, Debug, Clone, PartialEq, Deserialize)]
