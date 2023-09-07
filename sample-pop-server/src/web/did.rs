@@ -1,5 +1,17 @@
 use axum::{extract::Query, response::Json, routing::get, Router};
+use chrono::Utc;
+use did_utils::{
+    didcore::Jwk,
+    proof::{
+        eddsa_jcs_2022::{
+            EdDsaJcs2022, CRYPRO_SUITE_EDDSA_JCS_2022, PROOF_TYPE_DATA_INTEGRITY_PROOF,
+        },
+        model::Proof as UtilProof,
+        traits::CryptoProof,
+    },
+};
 use hyper::StatusCode;
+use multibase::Base;
 use serde_json::{json, Value};
 use ssi::{
     did::{Document, VerificationMethod, VerificationRelationship, DIDURL},
@@ -83,22 +95,21 @@ pub async fn didpop(
         "type": "VerifiablePresentation",
         "holder": &did_address,
         "verifiableCredential": vec![vc],
-        "proof": [],
+        // "proof": [],
     }))
     .unwrap();
 
     // Generate proofs of possession
 
-    let mut vec_proof: Vec<Proof> = vec![];
+    let mut vec_proof: Vec<UtilProof> = vec![];
 
-    let resolver = StaticResolver::new(&diddoc);
-    let mut context_loader = ContextLoader::default();
-    let mut options = LinkedDataProofOptions {
-        type_: Some(ProofSuiteType::DataIntegrityProof),
-        cryptosuite: Some(DataIntegrityCryptoSuite::JcsEddsa2022),
-        challenge: Some(challenge.to_string()),
-        ..Default::default()
-    };
+    let mut options: UtilProof = serde_json::from_value(json!({
+        "type": PROOF_TYPE_DATA_INTEGRITY_PROOF,
+        "challenge": challenge,
+        "proofPurpose": "",
+        "verificationMethod": "",
+    }))
+    .unwrap();
 
     for method in methods {
         // Lookup keypair from keystore
@@ -107,36 +118,43 @@ pub async fn didpop(
             .as_ref()
             .expect("Verification methods should embed JWK public keys.");
         let jwk = keystore.find_keypair(pubkey).expect("Missing key");
+        let jwk: Jwk = serde_json::from_value(json!(jwk)).unwrap();
 
         // Amend LDP options with method-specific attributes
-        options.verification_method = Some(URI::String(method.id.clone()));
+        options.nonce = Some(uuid::Uuid::new_v4().to_string());
+        options.verification_method = method.id.clone();
         options.proof_purpose = match inspect_vm_relationship(&diddoc, &method.id) {
             Some(vrel) => {
-                if matches!(vrel, VerificationRelationship::KeyAgreement) {
+                if vrel == "keyAgreement" {
                     // Do not provide proofs for key agreement methods
                     continue;
                 }
 
-                Some(vrel)
+                vrel
             }
             None => panic!("Unsupported verification relationship"),
         };
 
-        // The domain property is here used with a nonce meaning
-        options.domain = Some(format!("nonce:{}", uuid::Uuid::new_v4()));
-
         // Generate proof
-        let proof = vp
-            .generate_proof(&jwk, &options, &resolver, &mut context_loader)
-            .await
-            .expect("Error generating proof");
+        let prover = EdDsaJcs2022 {
+            proof: options.clone(),
+            key_pair: jwk.try_into().expect("Failure to convert to KeyPair"),
+            proof_value_codec: Some(Base::Base58Btc),
+        };
+
+        let mut proof = prover.proof(json!(vp)).expect("Error generating proof");
+
+        // TODO! Remove this
+        proof.cryptosuite = Some(String::from("json-eddsa-2022"));
 
         // Carry proof
         vec_proof.push(proof);
     }
 
     // Insert all proofs
-    vp.proof = Some(OneOrMany::Many(vec_proof));
+    vp.proof = Some(OneOrMany::Many(
+        serde_json::from_value(json!(vec_proof)).unwrap(),
+    ));
 
     // Output final verifiable credential
     Ok(Json(json!(vp)))
@@ -144,10 +162,7 @@ pub async fn didpop(
 
 /// Inspects in a DID document the relationship of
 /// a verification method based on its identifier
-fn inspect_vm_relationship(
-    diddoc: &Document,
-    verification_method_id: &str,
-) -> Option<VerificationRelationship> {
+fn inspect_vm_relationship(diddoc: &Document, verification_method_id: &str) -> Option<String> {
     let vm_url = &DIDURL::try_from(verification_method_id.to_string()).unwrap();
 
     let vrel_x = [
@@ -156,9 +171,9 @@ fn inspect_vm_relationship(
         &diddoc.key_agreement,
     ];
     let vrel_y = [
-        VerificationRelationship::Authentication,
-        VerificationRelationship::AssertionMethod,
-        VerificationRelationship::KeyAgreement,
+        String::from("authentication"),
+        String::from("assertionMethod"),
+        String::from("keyAgreement"),
     ];
 
     for i in 0..vrel_x.len() {
