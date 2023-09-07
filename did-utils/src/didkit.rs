@@ -1,5 +1,5 @@
 // Module: didkit
-use crate::didcore::{Document, Context, VerificationMethod, Authentication, AssertionMethod, KeyAgreement, Service};
+use crate::{didcore::{Document, VerificationMethod, Authentication, AssertionMethod, KeyAgreement, Service}, ldmodel::Context};
 
 
 impl VerificationMethod {
