@@ -16,6 +16,8 @@ pub enum Error {
     InvalidPublicKey,
     SignatureError,
     VerificationError,
+    InvalidProof,
+    InvalidCall(String),
     Unsupported,
     Unknown(String),
 }
@@ -43,7 +45,7 @@ pub trait Generate: KeyMaterial {
 /// ECDSA Interface
 pub trait CoreSign {
     /// Performs sign operation
-    fn sign(&self, payload: &[u8]) -> Option<Vec<u8>>;
+    fn sign(&self, payload: &[u8]) -> Result<Vec<u8>, Error>;
     /// Performs verify operation
     fn verify(&self, payload: &[u8], signature: &[u8]) -> Result<(), Error>;
 }

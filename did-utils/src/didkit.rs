@@ -8,6 +8,7 @@ impl VerificationMethod {
             id,
             key_type,
             controller,
+            revoked: None,
             public_key: None,
             private_key: None,
             additional_properties: None,

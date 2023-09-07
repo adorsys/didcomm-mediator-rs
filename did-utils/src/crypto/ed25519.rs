@@ -77,15 +77,15 @@ impl Generate for Ed25519KeyPair {
 }
 
 impl CoreSign for Ed25519KeyPair {
-    fn sign(&self, payload: &[u8]) -> Option<Vec<u8>> {
+    fn sign(&self, payload: &[u8]) -> Result<Vec<u8>, Error> {
         match &self.secret_key {
             Some(sk) => {
                 match sk.try_sign(payload) {
-                    Ok(signature) => Some(signature.to_bytes().to_vec()),
-                    Err(_) => None,
+                    Ok(signature) => Ok(signature.to_bytes().to_vec()),
+                    Err(_) => Err(Error::SignatureError),
                 }
             },
-            None => None,
+            None => Err(Error::InvalidSecretKey),
         }
     }
 

@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use chrono::{DateTime, Utc};
 use serde::{ser::SerializeMap, Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 
@@ -105,6 +106,9 @@ pub struct VerificationMethod {
     pub key_type: String,
 
     pub controller: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub revoked: Option<DateTime<Utc>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(serialize_with = "VerificationMethod::serialize_public_key_format")]
