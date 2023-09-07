@@ -1,7 +1,7 @@
 use did_utils::{
     crypto::{
         traits::{Generate, KeyMaterial},
-        x25519::X25519KeyPair,
+        x25519::X25519KeyPair, ed25519::Ed25519KeyPair,
     },
     didcore::Jwk,
 };
@@ -90,7 +90,12 @@ impl KeyStore {
     /// Generates and persists an ed25519 keypair for digital signatures.
     /// Returns public JWK for convenience.
     pub fn gen_ed25519_jwk(&mut self) -> Result<JWK, Box<dyn Error>> {
-        let jwk = JWK::generate_ed25519()?;
+        let keypair = Ed25519KeyPair::new().map_err(|_| "Failure to generate Ed25519 keypair")?;
+        let jwk: Jwk = keypair
+            .try_into()
+            .map_err(|_| "Failure to map to JWK format")?;
+
+        let jwk: JWK = serde_json::from_value(json!(jwk)).unwrap();
         let pub_jwk = jwk.to_public();
 
         self.keys.push(jwk);
