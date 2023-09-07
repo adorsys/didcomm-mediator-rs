@@ -1,8 +1,11 @@
-use did_utils::crypto::{
-    traits::{Generate, KeyMaterial},
-    x25519::X25519KeyPair,
+use did_utils::{
+    crypto::{
+        traits::{Generate, KeyMaterial},
+        x25519::X25519KeyPair,
+    },
+    didcore::Jwk,
 };
-use serde_json::Value;
+use serde_json::{json, Value};
 use ssi::jwk::{Base64urlUInt, OctetParams, Params, JWK};
 use std::error::Error;
 
@@ -100,11 +103,11 @@ impl KeyStore {
     /// Returns public JWK for convenience.
     pub fn gen_x25519_jwk(&mut self) -> Result<JWK, Box<dyn Error>> {
         let keypair = X25519KeyPair::new().map_err(|_| "Failure to generate X25519 keypair")?;
-        let jwk = JWK::from(Params::OKP(OctetParams {
-            curve: "X25519".to_string(),
-            public_key: Base64urlUInt(keypair.public_key_bytes().unwrap().to_vec()),
-            private_key: Some(Base64urlUInt(keypair.private_key_bytes().unwrap().to_vec())),
-        }));
+        let jwk: Jwk = keypair
+            .try_into()
+            .map_err(|_| "Failure to map to JWK format")?;
+
+        let jwk: JWK = serde_json::from_value(json!(jwk)).unwrap();
         let pub_jwk = jwk.to_public();
 
         self.keys.push(jwk);

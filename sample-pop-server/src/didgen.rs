@@ -2,9 +2,9 @@ use crate::{
     util::{didweb, KeyStore},
     DIDDOC_DIR,
 };
-use did_utils::{didcore::{
-    AssertionMethod, Authentication, Document, KeyAgreement, Service, VerificationMethod,
-}, ldmodel::Context};
+use did_utils::didcore::{
+    AssertionMethod, Authentication, Context, Document, KeyAgreement, Service, VerificationMethod, KeyFormat,
+};
 use serde_json::json;
 use ssi::jwk::JWK;
 use std::path::Path;
@@ -171,13 +171,11 @@ pub fn validate_diddoc() -> Result<(), String> {
     };
 
     for method in diddoc.verification_method.unwrap_or(vec![]) {
-        // TODO! Substitute by method.public_key once deserialization fixed
-        let properties = method
-            .additional_properties
-            .ok_or(String::from("Unsupported key format"))?;
-        let pubkey = properties
-            .get("publicKeyJwk")
-            .ok_or(String::from("Unsupported key format"))?;
+        let pubkey = method.public_key.ok_or(String::from("Missing key"))?;
+        let pubkey = match pubkey {
+            KeyFormat::Jwk(jwk) => jwk,
+            _ => return Err(String::from("Unsupported key format")),
+        };
 
         let pubkey: JWK = serde_json::from_value(json!(pubkey)).unwrap();
         store
