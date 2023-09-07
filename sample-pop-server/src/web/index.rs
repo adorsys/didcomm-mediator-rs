@@ -1,9 +1,9 @@
-use axum::routing::get;
-use axum::{response::Json, Router};
-use serde_json::{json, Value};
-
+use axum::{response::Json, routing::get, Router};
 use chrono::{DateTime, Utc};
+use serde_json::{json, Value};
 use std::time::SystemTime;
+
+use crate::util::crate_name;
 
 pub fn routes() -> Router {
     Router::new() //
@@ -11,18 +11,17 @@ pub fn routes() -> Router {
 }
 
 pub async fn index() -> Json<Value> {
-    let crate_name = std::env::var("CARGO_PKG_NAME").unwrap();
     let now: DateTime<Utc> = SystemTime::now().into();
 
     Json(json!({
-        "app": crate_name,
+        "app": crate_name(),
         "clk": now.to_rfc3339(),
     }))
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::app;
+    use crate::{app, util::crate_name};
     use axum::{
         body::Body,
         http::{Request, StatusCode},
@@ -44,7 +43,6 @@ mod tests {
         let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
         let body: Value = serde_json::from_slice(&body).unwrap();
 
-        let crate_name = std::env::var("CARGO_PKG_NAME").unwrap();
-        assert_eq!(body.get("app").unwrap(), &crate_name);
+        assert_eq!(body.get("app").unwrap(), &crate_name());
     }
 }

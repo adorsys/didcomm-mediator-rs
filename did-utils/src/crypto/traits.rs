@@ -7,16 +7,18 @@ pub const BYTES_LENGTH_32: usize = 32;
 
 #[derive(Debug)]
 pub enum Error {
+    CanNotComputePublicKey,
+    CanNotRetrieveSignature,
+    InvalidCurve,
     InvalidKeyLength,
     InvalidSecretKey,
     InvalidSeed,
     InvalidPublicKey,
-    ConNotComputePublicKey,
-    CanNotRetrieveSignature,
     SignatureError,
     VerificationError,
     InvalidProof,
     InvalidCall(String),
+    Unsupported,
     Unknown(String),
 }
 

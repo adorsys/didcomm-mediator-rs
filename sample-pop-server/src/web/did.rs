@@ -6,7 +6,8 @@ use ssi::{
     jsonld::ContextLoader,
     ldp::{dataintegrity::DataIntegrityCryptoSuite, Proof, ProofSuiteType},
     vc::{
-        Credential, CredentialSubject, LinkedDataProofOptions, OneOrMany, DEFAULT_CONTEXT_V2, URI,
+        Credential, CredentialSubject, LinkedDataProofOptions, OneOrMany, Presentation,
+        DEFAULT_CONTEXT_V2, URI,
     },
 };
 use std::collections::HashMap;
@@ -59,18 +60,30 @@ pub async fn didpop(
         property_set: serde_json::from_value(diddoc_value).unwrap(),
     });
 
-    // Build verifiable credential
+    // Build verifiable credential (VC)
 
     let now = ssi::ldp::now_ms();
 
-    let mut vc: Credential = serde_json::from_value(json!({
+    let vc: Credential = serde_json::from_value(json!({
         "@context": DEFAULT_CONTEXT_V2,
-        "id": format!("urn:uuid:{}", uuid::Uuid::new_v4()),
         "type": ["VerifiableCredential", "DIDDocument"],
         "issuer": &did_address,
         "issuanceDate": now,
         "validFrom": now,
         "credentialSubject": credential_subject,
+        "proof": [],
+    }))
+    .unwrap();
+
+    // Embed VC into a verifiable presentation (VP)
+
+    let mut vp: Presentation = serde_json::from_value(json!({
+        "@context": DEFAULT_CONTEXT_V2,
+        "id": format!("urn:uuid:{}", uuid::Uuid::new_v4()),
+        "type": "VerifiablePresentation",
+        "holder": &did_address,
+        "verifiableCredential": vec![vc],
+        "proof": [],
     }))
     .unwrap();
 
@@ -97,10 +110,23 @@ pub async fn didpop(
 
         // Amend LDP options with method-specific attributes
         options.verification_method = Some(URI::String(method.id.clone()));
-        options.proof_purpose = inspect_vm_relationship(&diddoc, &method.id);
+        options.proof_purpose = match inspect_vm_relationship(&diddoc, &method.id) {
+            Some(vrel) => {
+                if matches!(vrel, VerificationRelationship::KeyAgreement) {
+                    // Do not provide proofs for key agreement methods
+                    continue;
+                }
+
+                Some(vrel)
+            }
+            None => panic!("Unsupported verification relationship"),
+        };
+
+        // The domain property is here used with a nonce meaning
+        options.domain = Some(format!("nonce:{}", uuid::Uuid::new_v4()));
 
         // Generate proof
-        let proof = vc
+        let proof = vp
             .generate_proof(&jwk, &options, &resolver, &mut context_loader)
             .await
             .expect("Error generating proof");
@@ -110,10 +136,10 @@ pub async fn didpop(
     }
 
     // Insert all proofs
-    vc.proof = Some(OneOrMany::Many(vec_proof));
+    vp.proof = Some(OneOrMany::Many(vec_proof));
 
     // Output final verifiable credential
-    Ok(Json(json!(vc)))
+    Ok(Json(json!(vp)))
 }
 
 /// Inspects in a DID document the relationship of
@@ -124,21 +150,25 @@ fn inspect_vm_relationship(
 ) -> Option<VerificationRelationship> {
     let vm_url = &DIDURL::try_from(verification_method_id.to_string()).unwrap();
 
-    if let Some(data) = &diddoc.authentication {
-        if data.iter().any(|x| match x {
-            VerificationMethod::DIDURL(url) => url == vm_url,
-            _ => false,
-        }) {
-            return Some(VerificationRelationship::Authentication);
-        }
-    }
+    let vrel_x = [
+        &diddoc.authentication,
+        &diddoc.assertion_method,
+        &diddoc.key_agreement,
+    ];
+    let vrel_y = [
+        VerificationRelationship::Authentication,
+        VerificationRelationship::AssertionMethod,
+        VerificationRelationship::KeyAgreement,
+    ];
 
-    if let Some(data) = &diddoc.assertion_method {
-        if data.iter().any(|x| match x {
-            VerificationMethod::DIDURL(url) => url == vm_url,
-            _ => false,
-        }) {
-            return Some(VerificationRelationship::AssertionMethod);
+    for i in 0..vrel_x.len() {
+        if let Some(data) = vrel_x[i] {
+            if data.iter().any(|x| match x {
+                VerificationMethod::DIDURL(url) => url == vm_url,
+                _ => false,
+            }) {
+                return Some(vrel_y[i].clone());
+            }
         }
     }
 
@@ -153,7 +183,10 @@ mod tests {
         http::{Request, StatusCode},
     };
     use serde_json::json;
-    use ssi::{jsonld::ContextLoader, vc::Credential};
+    use ssi::{
+        jsonld::ContextLoader,
+        vc::{CredentialOrJWT, OneOrMany, Presentation},
+    };
     use tower::util::ServiceExt;
 
     #[tokio::test]
@@ -176,11 +209,18 @@ mod tests {
         assert_eq!(response.status(), StatusCode::OK);
 
         let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
-        let vc: Credential = serde_json::from_slice(&body).unwrap();
+        let vp: Presentation = serde_json::from_slice(&body).unwrap();
+        assert!(vp.validate().is_ok());
+
+        // Extract diddoc from vp
+        let Some(OneOrMany::Many(vc)) = &vp.verifiable_credential else {unreachable!()};
+        let vc = vc.get(0).unwrap();
+        let CredentialOrJWT::Credential(vc) = vc else {unreachable!()};
+        assert!(vc.validate().is_ok());
         let diddoc = serde_json::from_value(json!(vc.credential_subject)).unwrap();
 
         let mut context_loader = ContextLoader::default();
-        let verification_result = vc
+        let verification_result = vp
             .verify(None, &StaticResolver::new(&diddoc), &mut context_loader)
             .await;
         assert!(verification_result.errors.is_empty());
