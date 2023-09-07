@@ -1,3 +1,4 @@
+pub mod didgen;
 pub mod model;
 pub mod util;
 pub mod web;
