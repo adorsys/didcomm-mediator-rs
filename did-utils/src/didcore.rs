@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 use serde::{ser::SerializeMap, Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 
-use crate::proof::model::Proof;
+use crate::{ldmodel::Context, proof::model::Proof};
 
 // === Structure of a did document ===
 
@@ -65,32 +65,6 @@ pub struct Document {
     // === Proof ===
     #[serde(skip_serializing_if = "Option::is_none")]
     pub proof: Option<Proofs>,
-}
-
-#[derive(Serialize, Debug, Clone, PartialEq, Deserialize)]
-#[serde(untagged)]
-pub enum Context {
-    SingleString(String),
-    SetOfString(Vec<String>),
-    JsonObject(JsonObject),
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub enum JsonObject {
-    SingleItem(JsonItem),
-    MultipleItems(Vec<JsonItem>),
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub enum JsonItem {
-    SingleString(String),
-    JsonObject(Vec<JsonKeyValuePair>),
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub struct JsonKeyValuePair {
-    pub key: String,
-    pub value: JsonItem,
 }
 
 #[derive(Serialize, Debug, Clone, PartialEq, Deserialize)]
