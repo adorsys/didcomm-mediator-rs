@@ -92,9 +92,7 @@ pub async fn didpop(
             _ => panic!("Unexpected key format"),
         };
 
-        let jwk = keystore
-            .find_keypair(&jwk)
-            .expect("Missing key");
+        let jwk = keystore.find_keypair(jwk).expect("Missing key");
 
         // Amend options for linked data proof with method-specific attributes
 
