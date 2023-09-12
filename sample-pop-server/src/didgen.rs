@@ -2,8 +2,12 @@ use crate::{
     util::{didweb, KeyStore},
     DIDDOC_DIR,
 };
-use did_utils::didcore::{
-    AssertionMethod, Authentication, Context, Document, KeyAgreement, Service, VerificationMethod, KeyFormat,
+use did_utils::{
+    didcore::{
+        AssertionMethod, Authentication, Document, KeyAgreement, KeyFormat, Service,
+        VerificationMethod,
+    },
+    ldmodel::Context,
 };
 use serde_json::json;
 use ssi::jwk::JWK;
