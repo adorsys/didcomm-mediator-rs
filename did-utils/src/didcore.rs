@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 use serde::{ser::SerializeMap, Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 
-use crate::{proof::model::Proof, ldmodel::Context};
+use crate::{ldmodel::Context, proof::model::Proof};
 
 // === Structure of a did document ===
 
