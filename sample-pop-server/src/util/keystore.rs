@@ -1,12 +1,13 @@
 use did_utils::{
     crypto::{
+        ed25519::Ed25519KeyPair,
         traits::{Generate, KeyMaterial},
-        x25519::X25519KeyPair, ed25519::Ed25519KeyPair,
+        x25519::X25519KeyPair,
     },
     didcore::Jwk,
 };
 use serde_json::{json, Value};
-use ssi::jwk::{Base64urlUInt, OctetParams, Params, JWK};
+use ssi::jwk::JWK;
 use std::error::Error;
 
 use crate::KEYSTORE_DIR;
