@@ -1,0 +1,8 @@
+{
+    "@context": [
+        {"title": "https://schema.org/title"},
+        "https://w3id.org/security/data-integrity/v1"
+      ],
+    "id": "did:example:123456789abcdefghi",
+    "controller": "did:example:bcehfew7h32f32h7af3"
+}

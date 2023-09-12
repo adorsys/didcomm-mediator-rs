@@ -331,7 +331,7 @@ pub mod tests {
     }
 
     // DID document with a controller property
-    // The context entry in this case is not a list but a single string value.
+    // The context entry in this case is a single string value.
     // The json document is non conform, has it is carying a trailing comma. Must be cleaned before processing.
     // See https://www.w3.org/TR/did-core/#example-did-document-with-a-controller-property
     #[test]
@@ -339,6 +339,45 @@ pub mod tests {
         read_write_did(
             "test_resources/didcore_example_11.json",
             "test_resources/didcore_example_11_canonicalized.json",
+        )
+        .unwrap();
+    }
+
+    // DID document with a controller property
+    // The context entry in this case is an object and a string
+    // The json document is non conform, has it is carying a trailing comma. Must be cleaned before processing.
+    // See https://www.w3.org/TR/did-core/#example-did-document-with-a-controller-property
+    #[test]
+    fn test_canonicalize_didcore_example_12() {
+        read_write_did(
+            "test_resources/didcore_example_12_context_object.json",
+            "test_resources/didcore_example_12_context_object_canonicalized.json",
+        )
+        .unwrap();
+    }
+
+    // DID document with a controller property
+    // The context entry in this case just an object
+    // The json document is non conform, has it is carying a trailing comma. Must be cleaned before processing.
+    // See https://www.w3.org/TR/did-core/#example-did-document-with-a-controller-property
+    #[test]
+    fn test_canonicalize_didcore_example_12_1() {
+        read_write_did(
+            "test_resources/didcore_example_12_1_context_object.json",
+            "test_resources/didcore_example_12_1_context_object_canonicalized.json",
+        )
+        .unwrap();
+    }
+
+    // DID document with a controller property
+    // The context entry in this case is a multiple string values.
+    // The json document is non conform, has it is carying a trailing comma. Must be cleaned before processing.
+    // See https://www.w3.org/TR/did-core/#example-did-document-with-a-controller-property
+    #[test]
+    fn test_canonicalize_didcore_example_12_2() {
+        read_write_did(
+            "test_resources/didcore_example_12_2_context_multiple_strings.json",
+            "test_resources/didcore_example_12_2_context_multiple_strings_canonicalized.json",
         )
         .unwrap();
     }
