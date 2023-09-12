@@ -1,7 +1,7 @@
 use axum::{extract::Query, response::Json, routing::get, Router};
 use chrono::Utc;
 use did_utils::{
-    didcore::{Document, Jwk, KeyFormat, Proofs},
+    didcore::{Document, KeyFormat, Proofs},
     proof::{
         eddsa_jcs_2022::{EdDsaJcs2022, PROOF_TYPE_DATA_INTEGRITY_PROOF},
         model::Proof,
@@ -93,9 +93,8 @@ pub async fn didpop(
         };
 
         let jwk = keystore
-            .find_keypair(&serde_json::from_value(json!(jwk)).unwrap())
+            .find_keypair(&jwk)
             .expect("Missing key");
-        let jwk: Jwk = serde_json::from_value(json!(jwk)).unwrap();
 
         // Amend options for linked data proof with method-specific attributes
 
