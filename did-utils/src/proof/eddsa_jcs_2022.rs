@@ -58,10 +58,10 @@ impl CryptoProof for EdDsaJcs2022 {
                 // Compute hash to sign
                 let hash = [sha256_hash(canon_proof.as_bytes()), sha256_hash(canon_doc.as_bytes())].concat();
 
-                return self.key_pair.sign(&hash[..]).map(|signature| Proof {
+                self.key_pair.sign(&hash[..]).map(|signature| Proof {
                     proof_value: Some(multibase::encode(self.proof_value_codec.unwrap(), signature)),
                     ..normalized_proof
-                });
+                })
             }
         }
     }
@@ -98,9 +98,9 @@ impl CryptoProof for EdDsaJcs2022 {
                 // Compute hash to verify
                 let hash = [sha256_hash(canon_proof.as_bytes()), sha256_hash(canon_doc.as_bytes())].concat();
 
-                return multibase::decode(proof_value)
+                multibase::decode(proof_value)
                     .map_err(|_| Error::InvalidProof)
-                    .and_then(|signature| self.key_pair.verify(&hash, &(signature.1)));
+                    .and_then(|signature| self.key_pair.verify(&hash, &(signature.1)))
             }
         }
     }
