@@ -1,0 +1,19 @@
+[package]
+name = "did_resolver_web"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+hyper = { version = "0.14.12", features = ["http1", "server", "tcp"] }
+tokio = { version = "1", features = ["full"] }
+percent-encoding = "2"
+
+[lib]
+name = "did_resolver_web"
+crate-type = ["cdylib"]
+
+[[bin]]
+name = "lib"  # This should match the filename of your main.rs or other binary file.
+path = "src/lib.rs"  # Adjust the path to match the location of your main binary file.
