@@ -5,5 +5,9 @@
 //!
 //! See https://w3c-ccg.github.io/did-method-key
 
+pub mod alg;
 pub mod method;
 pub mod resolver;
+
+pub use alg::Algorithm;
+pub use method::DIDKeyMethod;
