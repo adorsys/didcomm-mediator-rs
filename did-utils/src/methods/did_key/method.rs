@@ -88,10 +88,10 @@ impl DIDKeyMethod {
         let alg = Algorithm::from_muticodec_prefix(multicodec_prefix).ok_or(DIDResolutionError::InvalidDID)?;
 
         // Run algorithm for signature verification method expansion
-        let signature_verification_method = self.derive_signature_verification_method(&alg, multibase_value, raw_public_key_bytes)?;
+        let signature_verification_method = self.derive_signature_verification_method(alg, multibase_value, raw_public_key_bytes)?;
 
         // Build DID document
-        let diddoc = DIDDocument {
+        let mut diddoc = DIDDocument {
             context: Context::SetOfString(self.guess_context_property(&alg)),
             id: did.to_string(),
             controller: None,
@@ -115,6 +115,18 @@ impl DIDKeyMethod {
             proof: None,
         };
 
+        if self.enable_encryption_key_derivation {
+            // Run algorithm for encryption verification method derivation if opted in
+            let encryption_verification_method = self.derive_encryption_verification_method(alg, multibase_value, raw_public_key_bytes)?;
+
+            // Amend DID document accordingly
+            let verification_method = diddoc.verification_method.as_mut().unwrap();
+            verification_method.push(encryption_verification_method.clone());
+            diddoc.key_agreement = Some(vec![didcore::KeyAgreement::Reference(
+                encryption_verification_method.id.clone(), //
+            )]);
+        }
+
         Ok(diddoc)
     }
 
@@ -123,10 +135,16 @@ impl DIDKeyMethod {
 
         match self.key_format {
             PublicKeyFormat::Multikey => match alg {
-                Algorithm::Ed25519 => context.push("https://w3id.org/security/suites/ed25519-2020/v1"),
+                Algorithm::Ed25519 => {
+                    context.push("https://w3id.org/security/suites/ed25519-2020/v1");
+                    if self.enable_encryption_key_derivation {
+                        context.push("https://w3id.org/security/suites/x25519-2020/v1");
+                    }
+                }
                 Algorithm::X25519 => context.push("https://w3id.org/security/suites/x25519-2020/v1"),
                 _ => (),
             },
+
             PublicKeyFormat::Jwk => context.push("https://w3id.org/security/suites/jws-2020/v1"),
         }
 
@@ -136,7 +154,7 @@ impl DIDKeyMethod {
     // See https://w3c-ccg.github.io/did-method-key/#signature-method-creation-algorithm
     fn derive_signature_verification_method(
         &self,
-        alg: &Algorithm,
+        alg: Algorithm,
         multibase_value: &str,
         raw_public_key_bytes: &[u8],
     ) -> Result<VerificationMethod, DIDResolutionError> {
@@ -161,7 +179,41 @@ impl DIDKeyMethod {
                 PublicKeyFormat::Multikey => KeyFormat::Multibase(String::from(multibase_value)),
                 PublicKeyFormat::Jwk => KeyFormat::Jwk(alg.build_jwk(raw_public_key_bytes)),
             }),
-            ..VerificationMethod::default()
+            ..Default::default()
+        })
+    }
+
+    // See https://w3c-ccg.github.io/did-method-key/#encryption-method-creation-algorithm
+    fn derive_encryption_verification_method(
+        &self,
+        alg: Algorithm,
+        multibase_value: &str,
+        raw_public_key_bytes: &[u8],
+    ) -> Result<VerificationMethod, DIDResolutionError> {
+        if alg != Algorithm::Ed25519 {
+            return Err(DIDResolutionError::InternalError);
+        }
+
+        let raw_public_key_bytes: [u8; 32] = raw_public_key_bytes.try_into().unwrap();
+        let ed25519_keypair = Ed25519KeyPair::from_public_key(&raw_public_key_bytes).map_err(|_| DIDResolutionError::InternalError)?;
+        let x25519_keypair = ed25519_keypair.get_x25519().map_err(|_| DIDResolutionError::InternalError)?;
+
+        let alg = Algorithm::X25519;
+        let encryption_raw_public_key_bytes = &x25519_keypair.public_key_bytes().unwrap()[..];
+        let encryption_multibase_value = multibase::encode(Base58Btc, [&alg.muticodec_prefix(), encryption_raw_public_key_bytes].concat());
+
+        Ok(VerificationMethod {
+            id: format!("did:key:{multibase_value}#{encryption_multibase_value}"),
+            key_type: String::from(match self.key_format {
+                PublicKeyFormat::Multikey => "X25519KeyAgreementKey2020",
+                PublicKeyFormat::Jwk => "JsonWebKey2020",
+            }),
+            controller: format!("did:key:{multibase_value}"),
+            public_key: Some(match self.key_format {
+                PublicKeyFormat::Multikey => KeyFormat::Multibase(encryption_multibase_value),
+                PublicKeyFormat::Jwk => KeyFormat::Jwk(alg.build_jwk(encryption_raw_public_key_bytes)),
+            }),
+            ..Default::default()
         })
     }
 }
@@ -169,8 +221,8 @@ impl DIDKeyMethod {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::Value;
     use crate::didcore::Jwk;
+    use serde_json::Value;
 
     #[test]
     fn test_did_key_generation() {
@@ -289,6 +341,53 @@ mod tests {
                 "assertionMethod": ["did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK#z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"],
                 "capabilityDelegation": ["did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK#z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"],
                 "capabilityInvocation": ["did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK#z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"]
+            }"#,
+        )
+        .unwrap();
+
+        let diddoc = did_method.expand(did).unwrap();
+
+        assert_eq!(
+            json_canon::to_string(&diddoc).unwrap(),   //
+            json_canon::to_string(&expected).unwrap(), //
+        );
+    }
+
+    #[test]
+    fn test_did_key_expansion_multikey_with_encryption_derivation() {
+        let did_method = DIDKeyMethod {
+            enable_encryption_key_derivation: true,
+            ..Default::default()
+        };
+
+        let did = "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK";
+        let expected: Value = serde_json::from_str(
+            r#"{
+                "@context": [
+                    "https://www.w3.org/ns/did/v1",
+                    "https://w3id.org/security/suites/ed25519-2020/v1",
+                    "https://w3id.org/security/suites/x25519-2020/v1"
+                ],
+                "id": "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+                "verificationMethod": [
+                    {
+                        "id": "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK#z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+                        "type": "Ed25519VerificationKey2020",
+                        "controller": "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+                        "publicKeyMultibase": "z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"
+                    },
+                    {
+                        "id": "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK#z6LSj72tK8brWgZja8NLRwPigth2T9QRiG1uH9oKZuKjdh9p",
+                        "type": "X25519KeyAgreementKey2020",
+                        "controller": "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+                        "publicKeyMultibase": "z6LSj72tK8brWgZja8NLRwPigth2T9QRiG1uH9oKZuKjdh9p"
+                    }
+                ],
+                "authentication": ["did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK#z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"],
+                "assertionMethod": ["did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK#z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"],
+                "capabilityDelegation": ["did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK#z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"],
+                "capabilityInvocation": ["did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK#z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"],
+                "keyAgreement": ["did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK#z6LSj72tK8brWgZja8NLRwPigth2T9QRiG1uH9oKZuKjdh9p"]
             }"#,
         )
         .unwrap();

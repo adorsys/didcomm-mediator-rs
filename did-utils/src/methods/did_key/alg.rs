@@ -2,7 +2,7 @@ use multibase::Base::Base64Url;
 
 use crate::didcore::Jwk;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 #[allow(unused, clippy::upper_case_acronyms)]
 pub enum Algorithm {
     Ed25519,
