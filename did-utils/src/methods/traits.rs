@@ -46,7 +46,7 @@ pub trait DIDMethod: DIDResolver {
 #[async_trait]
 pub trait DIDResolver {
     /// Resolves a DID address into its corresponding DID document.
-    async fn resolve(&self, did: &str, options: &DIDResolutionOptions) -> Result<ResolutionOutput, DIDResolutionError>;
+    async fn resolve(&self, did: &str, options: &DIDResolutionOptions) -> ResolutionOutput;
 }
 
 /// DID Resolution Options.
@@ -88,16 +88,12 @@ pub struct ResolutionOutput {
     #[serde(rename = "@context")]
     pub context: Context,
     // See https://www.w3.org/TR/did-core/#dfn-diddocument
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub did_document: Option<DIDDocument>,
     // See https://www.w3.org/TR/did-core/#dfn-didresolutionmetadata
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub did_resolution_metadata: Option<DIDResolutionMetadata>,
     // See https://www.w3.org/TR/did-core/#dfn-diddocumentmetadata
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub did_document_metadata: Option<DIDDocumentMetadata>,
     // Dynamic properties
-    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(flatten)]
     pub additional_properties: Option<HashMap<String, Value>>,
 }
@@ -113,7 +109,7 @@ pub struct DIDResolutionMetadata {
     pub error: Option<DIDResolutionError>,
     #[serde(skip_serializing_if = "Option::is_none")]
     // See https://www.w3.org/TR/did-spec-registries/#contenttype
-    pub content_type: Option<MediaType>,
+    pub content_type: Option<String>,
     // Dynamic properties
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(flatten)]
