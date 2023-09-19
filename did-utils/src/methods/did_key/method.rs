@@ -89,7 +89,7 @@ mod tests {
     }
 
     #[test]
-    fn test_did_key_generation_from_given_key_material() {
+    fn test_did_key_generation_from_given_raw_public_key_bytes() {
         let entries = [
             (
                 Algorithm::Ed25519,
@@ -106,6 +106,11 @@ mod tests {
                 hex::decode("03874c15c7fda20e539c6e5ba573c139884c351188799f5458b4b41f7924f235cd").unwrap(),
                 "did:key:zQ3shokFTS3brHcDQrn82RUDfCZESWL1ZdCEJwekUDPQiYBme",
             ),
+            (
+                Algorithm::P521,
+                hex::decode("020125073ccca272143441b1d9f687cdc7f978cbb96e9dc9f97de28ba373a92769d26d9a02ee67dfa258f9bb2eece8a48a5c59a7356c46278d883ab8d9e3baaac2ac92").unwrap(),
+                "did:key:z2J9gaYxrKVpdoG9A4gRnmpnRCcxU6agDtFVVBVdn1JedouoZN7SzcyREXXzWgt3gGiwpoHq7K68X4m32D8HgzG8wv3sY5j7",
+            )
         ];
 
         for entry in entries {
