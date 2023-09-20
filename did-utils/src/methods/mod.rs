@@ -1,5 +1,6 @@
 pub mod errors;
 pub mod traits;
 
-mod did_key;
-pub use did_key::method::DIDKeyMethod;
+pub mod did_key;
+
+mod utils;

@@ -69,15 +69,15 @@ impl DIDKeyMethod {
     /// See https://w3c-ccg.github.io/did-method-key/#create
     pub fn expand(&self, did: &str) -> Result<DIDDocument, DIDResolutionError> {
         if !did.starts_with("did:key:") {
-            return Err(DIDResolutionError::InvalidDID);
+            return Err(DIDResolutionError::InvalidDid);
         }
 
         let multibase_value = did.strip_prefix("did:key:").unwrap();
-        let (base, multicodec) = multibase::decode(multibase_value).map_err(|_| DIDResolutionError::InvalidDID)?;
+        let (base, multicodec) = multibase::decode(multibase_value).map_err(|_| DIDResolutionError::InvalidDid)?;
 
         // Validate decoded multibase value
         if base != Base58Btc || multicodec.len() < 2 {
-            return Err(DIDResolutionError::InvalidDID);
+            return Err(DIDResolutionError::InvalidDid);
         }
 
         // Partition multicodec value
@@ -85,7 +85,7 @@ impl DIDKeyMethod {
         let raw_public_key_bytes = &multicodec[2..];
 
         // Derive algorithm from multicodec prefix
-        let alg = Algorithm::from_muticodec_prefix(multicodec_prefix).ok_or(DIDResolutionError::InvalidDID)?;
+        let alg = Algorithm::from_muticodec_prefix(multicodec_prefix).ok_or(DIDResolutionError::InvalidDid)?;
 
         // Run algorithm for signature verification method expansion
         let signature_verification_method = self.derive_signature_verification_method(alg, multibase_value, raw_public_key_bytes)?;
@@ -405,10 +405,10 @@ mod tests {
         let did_method = DIDKeyMethod::default();
 
         let did = "did:key:Z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK";
-        assert_eq!(did_method.expand(did).unwrap_err(), DIDResolutionError::InvalidDID);
+        assert_eq!(did_method.expand(did).unwrap_err(), DIDResolutionError::InvalidDid);
 
         let did = "did:key:z6MkhaXgBZDvotDkL5257####tiGiC2QtKLGpbnnEGta2doK";
-        assert_eq!(did_method.expand(did).unwrap_err(), DIDResolutionError::InvalidDID);
+        assert_eq!(did_method.expand(did).unwrap_err(), DIDResolutionError::InvalidDid);
 
         let did = "did:key:zQebt6zPwbE4Vw5GFAjjARHrNXFALofERVv4q6Z4db8cnDRQm";
         assert_eq!(did_method.expand(did).unwrap_err(), DIDResolutionError::InvalidPublicKeyLength);

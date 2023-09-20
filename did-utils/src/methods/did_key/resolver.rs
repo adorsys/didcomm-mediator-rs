@@ -5,9 +5,10 @@ use crate::{
     methods::{
         errors::DIDResolutionError,
         traits::{DIDResolutionMetadata, DIDResolutionOptions, DIDResolver, MediaType, ResolutionOutput},
-        DIDKeyMethod,
     },
 };
+
+use super::DIDKeyMethod;
 
 #[async_trait]
 impl DIDResolver for DIDKeyMethod {
@@ -49,6 +50,7 @@ impl DIDResolver for DIDKeyMethod {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::methods::traits::DereferencingOptions;
     use serde_json::Value;
 
     #[async_std::test]
@@ -115,7 +117,7 @@ mod tests {
                 "@context": "https://w3id.org/did-resolution/v1",
                 "didDocument": null,
                 "didResolutionMetadata": {
-                    "error": "invalidDID"
+                    "error": "invalidDid"
                 },
                 "didDocumentMetadata": null
             }"#,
@@ -123,6 +125,39 @@ mod tests {
         .unwrap();
 
         let output = did_method.resolve(did, &DIDResolutionOptions::default()).await;
+
+        assert_eq!(
+            json_canon::to_string(&output).unwrap(),   //
+            json_canon::to_string(&expected).unwrap(), //
+        );
+    }
+
+    #[async_std::test]
+    async fn test_dereferencing_did_key_url() {
+        let did_method = DIDKeyMethod {
+            enable_encryption_key_derivation: true,
+            ..Default::default()
+        };
+
+        let did_url = "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK#z6LSj72tK8brWgZja8NLRwPigth2T9QRiG1uH9oKZuKjdh9p";
+        let expected: Value = serde_json::from_str(
+            r#"{
+                "@context": "https://w3id.org/did-resolution/v1",
+                "content": {
+                    "id": "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK#z6LSj72tK8brWgZja8NLRwPigth2T9QRiG1uH9oKZuKjdh9p",
+                    "type": "X25519KeyAgreementKey2020",
+                    "controller": "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+                    "publicKeyMultibase": "z6LSj72tK8brWgZja8NLRwPigth2T9QRiG1uH9oKZuKjdh9p"
+                },
+                "dereferencingMetadata": {
+                    "contentType": "application/json"
+                },
+                "contentMetadata": null
+            }"#,
+        )
+        .unwrap();
+
+        let output = did_method.dereference(did_url, &DereferencingOptions::default()).await;
 
         assert_eq!(
             json_canon::to_string(&output).unwrap(),   //

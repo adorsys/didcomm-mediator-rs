@@ -8,8 +8,10 @@ use thiserror::Error;
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Error)]
 #[serde(rename_all = "camelCase")]
 pub enum DIDResolutionError {
-    #[error("invalidDID")]
-    InvalidDID,
+    #[error("invalidDid")]
+    InvalidDid,
+    #[error("invalidDidUrl")]
+    InvalidDidUrl,
     #[error("notFound")]
     NotFound,
     #[error("representationNotSupported")]
