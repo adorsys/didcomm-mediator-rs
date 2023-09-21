@@ -79,7 +79,7 @@ impl Algorithm {
                 d: None,
             },
             // TODO! Extend implementation to other algorithms
-            _ => unimplemented!(),
+            _ => unimplemented!("JWK conversion is not yet supported for this algorithm."),
         }
     }
 }
