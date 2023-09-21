@@ -42,7 +42,7 @@ pub trait DIDMethod: DIDResolver {
 
 /// Abstract contract for DID resolution.
 ///
-/// TODO! Add support for dereferencing.
+/// See https://w3c-ccg.github.io/did-resolution.
 #[async_trait]
 pub trait DIDResolver {
     /// Resolves a DID address into its corresponding DID document.
@@ -97,7 +97,7 @@ pub trait DIDResolver {
         };
 
         match dereference_did_document(diddoc, &query, &fragment) {
-            Some(content) => DereferencingOutput {
+            Ok(content) => DereferencingOutput {
                 context,
                 content: Some(content.clone()),
                 dereferencing_metadata: Some(DereferencingMetadata {
@@ -117,11 +117,11 @@ pub trait DIDResolver {
                 content_metadata: None,
                 additional_properties: None,
             },
-            None => DereferencingOutput {
+            Err(err) => DereferencingOutput {
                 context,
                 content: None,
                 dereferencing_metadata: Some(DereferencingMetadata {
-                    error: Some(DIDResolutionError::NotFound),
+                    error: Some(err),
                     content_type: None,
                     additional_properties: None,
                 }),
@@ -298,14 +298,52 @@ impl Display for MediaType {
 }
 
 /// Serves derefencing query given a DID document
-fn dereference_did_document(diddoc: &DIDDocument, query: &HashMap<String, String>, fragment: &Option<String>) -> Option<Content> {
-    if !query.is_empty() {
-        // TODO: Currently, only fragment dereferencing is supported
-        unimplemented!()
+fn dereference_did_document(diddoc: &DIDDocument, query: &HashMap<String, String>, fragment: &Option<String>) -> Result<Content, DIDResolutionError> {
+    // Primary resource
+    if query.contains_key("service") {
+        let mut found = vec![];
+
+        let service = query.get("service").unwrap();
+        for entry in diddoc.service.clone().unwrap_or(vec![]) {
+            if entry.id.ends_with(&format!("#{service}")) {
+                found.push(entry.service_endpoint);
+            }
+        }
+
+        if found.is_empty() {
+            return Err(DIDResolutionError::NotFound);
+        }
+
+        if found.len() > 1 {
+            return Err(DIDResolutionError::NotAllowedLocalDuplicateKey);
+        }
+
+        let found = &found[0];
+        let relative_ref = query.get("relativeRef");
+        if (fragment.is_some() || relative_ref.is_some()) && found.contains('#') {
+            return Err(DIDResolutionError::InternalError);
+        }
+
+        return Ok(Content::URL(format!(
+            "{found}{}{}",
+            match relative_ref {
+                Some(val) => val,
+                None => "",
+            },
+            match fragment {
+                Some(frag) => format!("#{frag}"),
+                None => String::new(),
+            }
+        )));
+    } else if !query.is_empty() {
+        // Resort to returning whole DID document as other query parameters
+        // are not supported by this default dereferencing implementation.
+        return Ok(Content::DIDDocument(diddoc.clone()));
     }
 
-    // Find verification method resource
+    // Secondary resource without primary resource
     if fragment.is_some() {
+        let mut found = vec![];
         let needle = format!("{}#{}", diddoc.id, fragment.as_ref().unwrap());
 
         let haystack = [
@@ -313,20 +351,135 @@ fn dereference_did_document(diddoc: &DIDDocument, query: &HashMap<String, String
             json!(diddoc.assertion_method.clone().unwrap_or(vec![])),
             json!(diddoc.key_agreement.clone().unwrap_or(vec![])),
             json!(diddoc.verification_method.clone().unwrap_or(vec![])),
+            json!(diddoc.service.clone().unwrap_or(vec![])),
         ];
 
         for entry in haystack {
             for vm in entry.as_array().unwrap() {
                 let id = vm.get("id");
                 if id.is_some() && id.unwrap().as_str().unwrap() == needle {
-                    return Some(Content::Data(vm.clone()));
+                    found.push(vm.clone());
                 }
             }
         }
 
-        return None;
+        if found.is_empty() {
+            return Err(DIDResolutionError::NotFound);
+        }
+
+        if found.len() > 1 {
+            return Err(DIDResolutionError::NotAllowedLocalDuplicateKey);
+        }
+
+        return Ok(Content::Data(found.into_iter().next().unwrap()));
     }
 
     // Resort to returning whole DID document
-    Some(Content::DIDDocument(diddoc.clone()))
+    Ok(Content::DIDDocument(diddoc.clone()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::methods::utils::parse_did_url;
+
+    #[async_std::test]
+    async fn test_dereferencing_did_url() {
+        let diddoc: DIDDocument = serde_json::from_str(
+            r#"{
+                "@context": "https://www.w3.org/ns/did/v1",
+                "id": "did:example:123456789abcdefghi",
+                "verificationMethod": [{
+                    "id": "did:example:123456789abcdefghi#keys-1",
+                    "type": "Ed25519VerificationKey2018",
+                    "controller": "did:example:123456789abcdefghi",
+                    "publicKeyBase58": "H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV"
+                }],
+                "service": [
+                    {
+                        "id": "did:example:123456789abcdefghi#agent",
+                        "type": "AgentService",
+                        "serviceEndpoint": "https://agent.example.com/8377464"
+                    },
+                    {
+                        "id": "did:example:123456789abcdefghi#agent",
+                        "type": "DuplicateAgentService",
+                        "serviceEndpoint": "https://agent.example.com/8377465"
+                    },
+                    {
+                        "id": "did:example:123456789abcdefghi#client",
+                        "type": "ClientService",
+                        "serviceEndpoint": "https://client.example.com/8377467#real"
+                    },
+                    {
+                        "id": "did:example:123456789abcdefghi#messages",
+                        "type": "MessagingService",
+                        "serviceEndpoint": "https://example.com/messages/8377464"
+                    }
+                ]
+            }"#,
+        )
+        .unwrap();
+
+        let happy_cases = [
+            (
+                "did:example:123456789abcdefghi#keys-1",
+                r#"{
+                    "id": "did:example:123456789abcdefghi#keys-1",
+                    "type": "Ed25519VerificationKey2018",
+                    "controller": "did:example:123456789abcdefghi",
+                    "publicKeyBase58": "H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV"
+                }"#,
+            ),
+            (
+                "did:example:123456789abcdefghi#client",
+                r#"{
+                    "id": "did:example:123456789abcdefghi#client",
+                    "type": "ClientService",
+                    "serviceEndpoint": "https://client.example.com/8377467#real"
+                }"#,
+            ),
+            (
+                "did:example:123456789abcdefghi?service=messages&relativeRef=%2Fsome%2Fpath%3Fquery#frag",
+                r#""https://example.com/messages/8377464/some/path?query#frag""#,
+            ),
+        ];
+
+        for (did_url, expected) in happy_cases {
+            let expected: Value = serde_json::from_str(expected).unwrap();
+
+            let (_, query, fragment) = parse_did_url(did_url).unwrap();
+            let output = dereference_did_document(&diddoc, &query, &fragment).unwrap();
+
+            assert_eq!(
+                json_canon::to_string(&output).unwrap(),   //
+                json_canon::to_string(&expected).unwrap(), //
+            );
+        }
+
+        let corner_cases = [
+            ("did:example:123456789abcdefghi#unknown", DIDResolutionError::NotFound),
+            ("did:example:123456789abcdefghi?service=unknown", DIDResolutionError::NotFound),
+            ("did:example:123456789abcdefghi#agent", DIDResolutionError::NotAllowedLocalDuplicateKey),
+            (
+                "did:example:123456789abcdefghi?service=agent",
+                DIDResolutionError::NotAllowedLocalDuplicateKey,
+            ),
+            (
+                "did:example:123456789abcdefghi?service=client&relativeRef=something",
+                DIDResolutionError::InternalError,
+            ),
+            (
+                "did:example:123456789abcdefghi?service=client#something",
+                DIDResolutionError::InternalError,
+            ),
+        ];
+
+        for (did_url, expected) in corner_cases {
+            let (_, query, fragment) = parse_did_url(did_url).unwrap();
+            let output = dereference_did_document(&diddoc, &query, &fragment).unwrap_err();
+
+            assert_eq!(output, expected);
+        }
+    }
 }
