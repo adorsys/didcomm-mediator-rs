@@ -1,16 +1,19 @@
-use did_utils::crypto::{
-    traits::{Generate, KeyMaterial},
-    x25519::X25519KeyPair,
+use did_utils::{
+    crypto::{
+        ed25519::Ed25519KeyPair,
+        traits::{Generate, KeyMaterial},
+        x25519::X25519KeyPair,
+    },
+    didcore::Jwk,
 };
-use serde_json::Value;
-use ssi::jwk::{Base64urlUInt, OctetParams, Params, JWK};
+use serde_json::{json, Value};
 use std::error::Error;
 
 use crate::KEYSTORE_DIR;
 
 pub struct KeyStore {
     path: String,
-    keys: Vec<JWK>,
+    keys: Vec<Jwk>,
 }
 
 struct KeyStoreFactory {
@@ -42,7 +45,7 @@ impl KeyStoreFactory {
             None => None,
             Some(path) => match std::fs::read_to_string(&path) {
                 Err(_) => None,
-                Ok(content) => match serde_json::from_str::<Vec<JWK>>(&content) {
+                Ok(content) => match serde_json::from_str::<Vec<Jwk>>(&content) {
                     Err(_) => None,
                     Ok(keys) => Some(KeyStore { path, keys }),
                 },
@@ -80,14 +83,17 @@ impl KeyStore {
     }
 
     /// Searches keypair given public key
-    pub fn find_keypair(&self, pubkey: &JWK) -> Option<JWK> {
+    pub fn find_keypair(&self, pubkey: &Jwk) -> Option<Jwk> {
         self.keys.iter().find(|k| &k.to_public() == pubkey).cloned()
     }
 
     /// Generates and persists an ed25519 keypair for digital signatures.
-    /// Returns public JWK for convenience.
-    pub fn gen_ed25519_jwk(&mut self) -> Result<JWK, Box<dyn Error>> {
-        let jwk = JWK::generate_ed25519()?;
+    /// Returns public Jwk for convenience.
+    pub fn gen_ed25519_jwk(&mut self) -> Result<Jwk, Box<dyn Error>> {
+        let keypair = Ed25519KeyPair::new().map_err(|_| "Failure to generate Ed25519 keypair")?;
+        let jwk: Jwk = keypair
+            .try_into()
+            .map_err(|_| "Failure to map to Jwk format")?;
         let pub_jwk = jwk.to_public();
 
         self.keys.push(jwk);
@@ -97,14 +103,12 @@ impl KeyStore {
     }
 
     /// Generates and persists an x25519 keypair for digital signatures.
-    /// Returns public JWK for convenience.
-    pub fn gen_x25519_jwk(&mut self) -> Result<JWK, Box<dyn Error>> {
+    /// Returns public Jwk for convenience.
+    pub fn gen_x25519_jwk(&mut self) -> Result<Jwk, Box<dyn Error>> {
         let keypair = X25519KeyPair::new().map_err(|_| "Failure to generate X25519 keypair")?;
-        let jwk = JWK::from(Params::OKP(OctetParams {
-            curve: "X25519".to_string(),
-            public_key: Base64urlUInt(keypair.public_key_bytes().unwrap().to_vec()),
-            private_key: Some(Base64urlUInt(keypair.private_key_bytes().unwrap().to_vec())),
-        }));
+        let jwk: Jwk = keypair
+            .try_into()
+            .map_err(|_| "Failure to map to Jwk format")?;
         let pub_jwk = jwk.to_public();
 
         self.keys.push(jwk);
@@ -117,6 +121,19 @@ impl KeyStore {
 impl Default for KeyStore {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+trait ToPublic {
+    fn to_public(&self) -> Self;
+}
+
+impl ToPublic for Jwk {
+    fn to_public(&self) -> Self {
+        Jwk {
+            d: None,
+            ..self.clone()
+        }
     }
 }
 

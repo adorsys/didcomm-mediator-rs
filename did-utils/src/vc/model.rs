@@ -52,9 +52,9 @@ pub struct VerifiableCredential {
     pub additional_properties: Option<HashMap<String, Value>>,
 
     // Set of proofs
-    // We allow a vc to created without the proof block. 
+    // We allow a vc to created without the proof block.
     // Event though it is required. As we want to produce
-    // the unsecured vesion before proof production or proof 
+    // the unsecured vesion before proof production or proof
     // verification.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub proof: Option<Proofs>,
@@ -109,8 +109,8 @@ pub enum CredentialSubjects {
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct CredentialSubject {
-    // Identifies the subject of the verifiable credential 
-    // (the thing the claims are about) and 
+    // Identifies the subject of the verifiable credential
+    // (the thing the claims are about) and
     // uses a decentralized identifier, also known as a DID
     // see https://www.w3.org/TR/vc-data-model-2.0/#identifiers
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -273,9 +273,9 @@ pub struct VerifiablePresentation {
     pub holder: Option<String>,
 
     // Set of proofs
-    // We allow a VP to created without the proof block. 
+    // We allow a VP to created without the proof block.
     // Event though it is required. As we want to produce
-    // the unsecured vesion before proof production or proof 
+    // the unsecured vesion before proof production or proof
     // verification.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub proof: Option<Proofs>,
@@ -329,7 +329,6 @@ mod tests {
             proof: crate::proof::model::Proofs::SingleProof(Box::new(secured_proof)),
         };
         let vc_canon = json_canon::to_string(&secured_doc).unwrap();
-        println!("{}", vc_canon);
         assert_eq!(SECURED_VC, vc_canon);
     }
 
@@ -357,7 +356,7 @@ mod tests {
 
         // Initialize with zeros or any default value
         let mut public_key_bytes_slice: [u8; 32] = [0; 32];
-        public_key_bytes_slice.copy_from_slice(public_key_bytes_vector.1.as_slice());        
+        public_key_bytes_slice.copy_from_slice(public_key_bytes_vector.1.as_slice());
         let ed_dsa_jcs_2022_verifier = EdDsaJcs2022 {
             proof: *secured_proof,
             key_pair: Ed25519KeyPair::from_public_key(&public_key_bytes_slice).unwrap(),
@@ -379,7 +378,7 @@ mod tests {
     const CONTEXTS: &[&str] = &[
         "https://www.w3.org/ns/credentials/v2",
         "https://www.w3.org/ns/credentials/examples/v2",
-    ];    
+    ];
 
     fn make_context() -> Context {
         let mut contexts: Vec<String> = Vec::new();
@@ -423,7 +422,7 @@ mod tests {
             credential_schemas: None,
             related_resource: None,
             refresh_service: None,
-        }        
+        }
     }
 
     fn make_vp(vc: VerifiableCredential) -> VerifiablePresentation {
@@ -470,9 +469,9 @@ mod tests {
             proof_value: None,
             previous_proof: None,
             nonce: Some("1234567890".to_string()),
-        }        
+        }
     }
 
-    const SECURED_VC: &str = r#"{"@context":["https://www.w3.org/ns/credentials/v2","https://www.w3.org/ns/credentials/examples/v2"],"credentialSubject":{"alumniOf":{"id":"did:key#z38w6kKWT7hesyxuuVUSH4LsxbcRof4ra1QBDtR1qrc1q","name":"Example University"},"id":"did:key#z38w6kKWT7hesyxuuVUSH4LsxbcRof4ra1QBDtR1qrc1q"},"description":"Graduated from Example University","id":"http://university.example/credentials/3732","issuer":"did:key#z7dNyxjs9BUfsbX11VG4BGDMB3Wg1Pq2NqhSwTBT8UuRC","name":"Jayden Doe","proof":{"challenge":"523452345234asfdasdfasdfa","created":"2023-03-05T19:23:24Z","cryptosuite":"eddsa-jcs-2022","domain":"vc-demo.adorsys.com","nonce":"1234567890","proofPurpose":"assertionMethod","proofValue":"z2dCvjLCkbA9sCqx3NzP7YVQBPTcvdgVjgQVJDYircHho4mjL8wbwqCWS2oPzpwvWMRDRGp5qmD4Ktab6M76kp7Vi","type":"DataIntegrityProof","verificationMethod":"did:key#z7dNyxjs9BUfsbX11VG4BGDMB3Wg1Pq2NqhSwTBT8UuRC"},"type":["VerifiableCredential","AlumniCredential"],"validFrom":"2023-03-05T19:23:24Z","validUntil":"2023-12-31T19:23:24Z"}"#;
-    
+    const SECURED_VC: &str = r#"{"@context":["https://www.w3.org/ns/credentials/v2","https://www.w3.org/ns/credentials/examples/v2"],"credentialSubject":{"alumniOf":{"id":"did:key#z38w6kKWT7hesyxuuVUSH4LsxbcRof4ra1QBDtR1qrc1q","name":"Example University"},"id":"did:key#z38w6kKWT7hesyxuuVUSH4LsxbcRof4ra1QBDtR1qrc1q"},"description":"Graduated from Example University","id":"http://university.example/credentials/3732","issuer":"did:key#z7dNyxjs9BUfsbX11VG4BGDMB3Wg1Pq2NqhSwTBT8UuRC","name":"Jayden Doe","proof":{"challenge":"523452345234asfdasdfasdfa","created":"2023-03-05T19:23:24Z","cryptosuite":"eddsa-jcs-2022","domain":"vc-demo.adorsys.com","nonce":"1234567890","proofPurpose":"assertionMethod","proofValue":"z4DEMwgRCZnRddGPPevbaafihRwj4ng3dn5EwmnnaeMVMp25niKWZ3cW1rdfWMtfp5dpCmNEjfJtvbnnpUsZcy9c6","type":"DataIntegrityProof","verificationMethod":"did:key#z7dNyxjs9BUfsbX11VG4BGDMB3Wg1Pq2NqhSwTBT8UuRC"},"type":["VerifiableCredential","AlumniCredential"],"validFrom":"2023-03-05T19:23:24Z","validUntil":"2023-12-31T19:23:24Z"}"#;
+
 }

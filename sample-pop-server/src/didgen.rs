@@ -2,11 +2,13 @@ use crate::{
     util::{didweb, KeyStore},
     DIDDOC_DIR,
 };
-use did_utils::{didcore::{
-    AssertionMethod, Authentication, Document, KeyAgreement, Service, VerificationMethod,
-}, ldmodel::Context};
-use serde_json::json;
-use ssi::jwk::JWK;
+use did_utils::{
+    didcore::{
+        AssertionMethod, Authentication, Document, Jwk, KeyAgreement, KeyFormat, Service,
+        VerificationMethod,
+    },
+    ldmodel::Context,
+};
 use std::path::Path;
 
 #[derive(Debug)]
@@ -52,9 +54,9 @@ pub fn didgen() -> Result<String, Error> {
 
 /// Builds and persists DID document
 fn gen_diddoc(
-    authentication_key: JWK,
-    assertion_key: JWK,
-    agreement_key: JWK,
+    authentication_key: Jwk,
+    assertion_key: Jwk,
+    agreement_key: Jwk,
 ) -> Result<String, Error> {
     tracing::info!("Building DID document...");
 
@@ -68,7 +70,7 @@ fn gen_diddoc(
     // Prepare authentication verification method
 
     let authentication_method = VerificationMethod {
-        public_key: serde_json::from_value(json!(authentication_key)).ok(),
+        public_key: Some(KeyFormat::Jwk(authentication_key)),
         ..VerificationMethod::new(
             did.clone() + "#keys-1",
             String::from("JsonWebKey2020"),
@@ -79,7 +81,7 @@ fn gen_diddoc(
     // Prepare assertion verification method
 
     let assertion_method = VerificationMethod {
-        public_key: serde_json::from_value(json!(assertion_key)).ok(),
+        public_key: Some(KeyFormat::Jwk(assertion_key)),
         ..VerificationMethod::new(
             did.clone() + "#keys-2",
             String::from("JsonWebKey2020"),
@@ -90,7 +92,7 @@ fn gen_diddoc(
     // Prepare key agreement verification method
 
     let agreement_method = VerificationMethod {
-        public_key: serde_json::from_value(json!(agreement_key)).ok(),
+        public_key: Some(KeyFormat::Jwk(agreement_key)),
         ..VerificationMethod::new(
             did.clone() + "#keys-3",
             String::from("JsonWebKey2020"),
@@ -171,15 +173,12 @@ pub fn validate_diddoc() -> Result<(), String> {
     };
 
     for method in diddoc.verification_method.unwrap_or(vec![]) {
-        // TODO! Substitute by method.public_key once deserialization fixed
-        let properties = method
-            .additional_properties
-            .ok_or(String::from("Unsupported key format"))?;
-        let pubkey = properties
-            .get("publicKeyJwk")
-            .ok_or(String::from("Unsupported key format"))?;
+        let pubkey = method.public_key.ok_or(String::from("Missing key"))?;
+        let pubkey = match pubkey {
+            KeyFormat::Jwk(jwk) => jwk,
+            _ => return Err(String::from("Unsupported key format")),
+        };
 
-        let pubkey: JWK = serde_json::from_value(json!(pubkey)).unwrap();
         store
             .find_keypair(&pubkey)
             .ok_or(String::from("Keystore mismatch"))?;

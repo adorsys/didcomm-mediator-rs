@@ -1,33 +1,36 @@
 use multibase::Base;
 
-use crate::crypto::{ed25519::Ed25519KeyPair, traits::{CoreSign, Error}, sha256_hash::sha256_hash};
+use crate::crypto::{
+    ed25519::Ed25519KeyPair,
+    sha256_hash::sha256_hash,
+    traits::{CoreSign, Error},
+};
 
-use super::{model::{Proof, UnsecuredDocument}, traits::CryptoProof};
-
+use super::{model::Proof, traits::CryptoProof};
 
 pub const CRYPRO_SUITE_EDDSA_JCS_2022: &str = "eddsa-jcs-2022";
-pub const PROOF_TYPE_DATA_INTEGRITY_PROOF: &str ="DataIntegrityProof";
+pub const PROOF_TYPE_DATA_INTEGRITY_PROOF: &str = "DataIntegrityProof";
 
 pub struct EdDsaJcs2022 {
     /// The proof object
-    /// 
-    /// In a proof creation process, it does not contain the proof value, but 
+    ///
+    /// In a proof creation process, it does not contain the proof value, but
     ///   carries info like challenge, nonce, etc.
-    /// 
-    /// In a proof verification process, it contains the proof as found in the 
+    ///
+    /// In a proof verification process, it contains the proof as found in the
     ///   secured document, including the proof value
     pub proof: Proof,
 
     /// The keypair used to sreate the proof: in which case the signing key must be present.
-    /// 
+    ///
     /// The keypair used to verify the proof: in which case only the public key must be present.
-    /// 
+    ///
     /// This module does not perform resolution of the verification method. Module assumes calles
     /// extracted the public key prior to calling this module.
     pub key_pair: Ed25519KeyPair,
 
     /// The proof value codec. This is important for the encoding of the proof.
-    /// 
+    ///
     /// For the decoding, codec is automaticaly infered from the string.
     pub proof_value_codec: Option<Base>,
 }
@@ -45,37 +48,28 @@ impl CryptoProof for EdDsaJcs2022 {
                         None => Some(chrono::Utc::now()),
                     },
                     proof_value: None,
-                    .. self.proof.clone()
+                    ..self.proof.clone()
                 };
-        
-                // Create the unsecure document
-                let unsecured_document = UnsecuredDocument {
-                    content: payload,
-                    proof: super::model::Proofs::SingleProof(Box::new(normalized_proof.clone())),
-                };
-        
-                // let hash = transform(unsecured_document);
-                // JCS unsecure document
-                json_canon::to_string(&unsecured_document)
-                    .map_err(|_| Error::InvalidProof)
-                    .and_then(|canonicalized_doc| {
-                        let hash = sha256_hash(canonicalized_doc.as_bytes());
-                        self.key_pair.sign(&hash[..])
-                        .map(|signature| Proof {
-                                    proof_value: Some(multibase::encode(self.proof_value_codec.unwrap(), signature)),
-                                    ..normalized_proof
-                                })
-                    })
+
+                // Canonicalization
+                let canon_proof = json_canon::to_string(&normalized_proof).map_err(|_| Error::InvalidProof)?;
+                let canon_doc = json_canon::to_string(&payload).map_err(|_| Error::InvalidProof)?;
+
+                // Compute hash to sign
+                let hash = [sha256_hash(canon_proof.as_bytes()), sha256_hash(canon_doc.as_bytes())].concat();
+
+                self.key_pair.sign(&hash[..]).map(|signature| Proof {
+                    proof_value: Some(multibase::encode(self.proof_value_codec.unwrap(), signature)),
+                    ..normalized_proof
+                })
             }
         }
-
     }
 
     fn verify(&self, payload: serde_json::Value) -> Result<(), Error> {
         match self.proof.proof_value.clone() {
             None => Err(Error::InvalidProof),
             Some(proof_value) => {
-
                 // Clone the proof
                 // - droping the proof value
                 // - normalyzing proof type fields
@@ -94,29 +88,21 @@ impl CryptoProof for EdDsaJcs2022 {
                         let mut naked_payload = payload.clone();
                         naked_payload.as_object_mut().unwrap().remove("proof");
                         naked_payload
-                    },
+                    }
                 };
 
-                // Create the unsecure document
-                let unsecured_document = UnsecuredDocument {
-                    content: naked_payload,
-                    proof: super::model::Proofs::SingleProof(Box::new(normalized_proof)),
-                };
+                // Canonicalization
+                let canon_proof = json_canon::to_string(&normalized_proof).map_err(|_| Error::InvalidProof)?;
+                let canon_doc = json_canon::to_string(&naked_payload).map_err(|_| Error::InvalidProof)?;
 
-                // JCS unsecure document
-                json_canon::to_string(&unsecured_document)
+                // Compute hash to verify
+                let hash = [sha256_hash(canon_proof.as_bytes()), sha256_hash(canon_doc.as_bytes())].concat();
+
+                multibase::decode(proof_value)
                     .map_err(|_| Error::InvalidProof)
-                    .and_then(|canonicalized_doc| {
-                        // hash
-                        let hash = sha256_hash(canonicalized_doc.as_bytes());
-                        // decode the signature
-                        multibase::decode(proof_value)
-                            .map_err(|_| Error::InvalidProof)
-                            .and_then(|signature| self.key_pair.verify(&hash, &(signature.1)))
-                    })
+                    .and_then(|signature| self.key_pair.verify(&hash, &(signature.1)))
             }
         }
-
     }
 }
 
@@ -125,7 +111,7 @@ impl CryptoProof for EdDsaJcs2022 {
 mod tests {
     use serde_json::Value;
 
-    use crate::crypto::traits::Generate;
+    use crate::{crypto::traits::Generate, proof::model::UnsecuredDocument};
 
     // create an EdDsaJcs2022 object and use it to produce a proof.
     // The proof is then verified.
@@ -177,8 +163,8 @@ mod tests {
             content: payload,
             proof: crate::proof::model::Proofs::SingleProof(Box::new(secured_proof.clone())),
         };
-        
-        let expected_canonicalized_proof = r#"{"challenge":"523452345234asfdasdfasdfa","created":"2023-03-05T19:23:24Z","cryptosuite":"eddsa-jcs-2022","domain":"vc-demo.adorsys.com","nonce":"1234567890","proofPurpose":"assertionMethod","proofValue":"z3EK3FRmocPnbnrQCKWYiaG9dTUgVKLgefb1EmLEZPUVW4RXpL9HBuxpD27zAVESfjvjTDJ7PmCPBP4MBT7oVFdbH","type":"DataIntegrityProof","verificationMethod":"https://di.example/issuer#z6MkjLrk3gKS2nnkeWcmcxiZPGskmesDpuwRBorgHxUXfxnG"}"#;
+
+        let expected_canonicalized_proof = r#"{"challenge":"523452345234asfdasdfasdfa","created":"2023-03-05T19:23:24Z","cryptosuite":"eddsa-jcs-2022","domain":"vc-demo.adorsys.com","nonce":"1234567890","proofPurpose":"assertionMethod","proofValue":"z2DbDNkE47SquDQ7wM6p3RjNdFB1FG7Num2w9kprZjUB2gNZvz7bYgcT5XCe3TdjfxxWfKkup1ZdrRhfEMLsk2kmr","type":"DataIntegrityProof","verificationMethod":"https://di.example/issuer#z6MkjLrk3gKS2nnkeWcmcxiZPGskmesDpuwRBorgHxUXfxnG"}"#;
         let canonicalized_proof = json_canon::to_string(&secured_proof).unwrap();
         assert_eq!(expected_canonicalized_proof, canonicalized_proof);
 
