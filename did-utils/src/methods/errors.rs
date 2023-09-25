@@ -12,6 +12,12 @@ pub enum DIDResolutionError {
     InvalidDid,
     #[error("invalidDidUrl")]
     InvalidDidUrl,
+    #[error("invalidDidUrlPrefix")]
+    InvalidDidUrlPrefix,
+    #[error("invalidDidUrlFormat")]
+    InvalidDidUrlFormat,
+    #[error("didUrlPartLengthTooShort")]
+    DidUrlPartLengthTooShort,
     #[error("notFound")]
     NotFound,
     #[error("representationNotSupported")]
