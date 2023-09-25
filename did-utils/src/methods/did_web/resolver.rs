@@ -1,67 +1,17 @@
+use async_trait::async_trait;
 use hyper::{
     client::{connect::Connect, HttpConnector},
     http::uri::Scheme,
-    service::{make_service_fn, service_fn},
-    Body, Client, Request, Response, Server,
+    Body, Client, Uri,
 };
-use std::convert::Infallible;
-use std::net::SocketAddr;
-
 use hyper_tls::HttpsConnector;
 
-const DID_DOCUMENT: &'static str = r##"
-{
-  "@context": [
-    "https://www.w3.org/ns/did/v1",
-    "https://w3id.org/security/suites/jws-2020/v1"
-  ],
-  "id": "did:web:example.com",
-  "verificationMethod": [
-    {
-      "id": "did:web:example.com#key-0",
-      "type": "JsonWebKey2020",
-      "controller": "did:web:example.com",
-      "publicKeyJwk": {
-        "kty": "OKP",
-        "crv": "Ed25519",
-        "x": "0-e2i2_Ua1S5HbTYnVB0lj2Z2ytXu2-tYmDFf8f5NjU"
-      }
-    },
-    {
-      "id": "did:web:example.com#key-1",
-      "type": "JsonWebKey2020",
-      "controller": "did:web:example.com",
-      "publicKeyJwk": {
-        "kty": "OKP",
-        "crv": "X25519",
-        "x": "9GXjPGGvmRq9F6Ng5dQQ_s31mfhxrcNZxRGONrmH30k"
-      }
-    },
-    {
-      "id": "did:web:example.com#key-2",
-      "type": "JsonWebKey2020",
-      "controller": "did:web:example.com",
-      "publicKeyJwk": {
-        "kty": "EC",
-        "crv": "P-256",
-        "x": "38M1FDts7Oea7urmseiugGW7tWc3mLpJh6rKe7xINZ8",
-        "y": "nDQW6XZ7b_u2Sy9slofYLlG03sOEoug3I0aAPQ0exs4"
-      }
-    }
-  ],
-  "authentication": [
-    "did:web:example.com#key-0",
-    "did:web:example.com#key-2"
-  ],
-  "assertionMethod": [
-    "did:web:example.com#key-0",
-    "did:web:example.com#key-2"
-  ],
-  "keyAgreement": [
-    "did:web:example.com#key-1",
-    "did:web:example.com#key-2"
-  ]
-}"##;
+use crate::methods::{
+    errors::DidWebError,
+    traits::{DIDResolutionOptions, DIDResolver, ResolutionOutput},
+};
+
+use crate::ldmodel::Context;
 
 pub struct DidWebResolver<C>
 where
@@ -89,24 +39,36 @@ impl DidWebResolver<HttpsConnector<HttpConnector>> {
     }
 }
 
-async fn mock_server_handler(req: Request<Body>) -> Result<Response<Body>, Infallible> {
-    let response = match req.uri().path() {
-        "/.well-known/did.json" => Response::new(Body::from(DID_DOCUMENT)),
-        _ => Response::builder().status(404).body(Body::from("Not Found")).unwrap(),
-    };
+impl<C> DidWebResolver<C>
+where
+    C: Connect + Send + Sync + Clone + 'static,
+{
+    async fn fetch_did_document(&self, url: Uri) -> Result<String, DidWebError> {
+        let res = self.client.get(url).await?;
 
-    Ok(response)
+        if !res.status().is_success() {
+            return Err(DidWebError::NonSuccessResponse(res.status()));
+        }
+
+        let body = hyper::body::to_bytes(res.into_body()).await?;
+
+        String::from_utf8(body.to_vec()).map_err(|err| err.into())
+    }
 }
 
-async fn create_mock_server(port: u16) -> String {
-    let make_svc = make_service_fn(|_conn| async { Ok::<_, Infallible>(service_fn(mock_server_handler)) });
-
-    let addr = SocketAddr::from(([127, 0, 0, 1], port));
-    let server = Server::bind(&addr).serve(make_svc);
-
-    tokio::spawn(async move {
-        server.await.unwrap();
-    });
-
-    "localhost".to_string()
+#[async_trait]
+impl<C> DIDResolver for DidWebResolver<C>
+where
+    C: Connect + Send + Sync + Clone + 'static,
+{
+    async fn resolve(&self, did: &str, _options: &DIDResolutionOptions) -> ResolutionOutput {
+        let context = Context::SingleString(String::from("https://w3id.org/did-resolution/v1"));
+        ResolutionOutput {
+            context: context,
+            did_document: None,
+            did_resolution_metadata: None,
+            did_document_metadata: None,
+            additional_properties: None,
+        }
+    }
 }

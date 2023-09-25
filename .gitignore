@@ -17,4 +17,7 @@ Cargo.lock
 .rust-analyzer/
 
 # setting json
-*/.vscode/settings.json
+.vscode/settings.json
+
+# Mac OS X Finder metadata
+.DS_Store
