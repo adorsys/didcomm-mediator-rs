@@ -17,6 +17,9 @@ pub enum Algorithm {
 
 use Algorithm::*;
 
+// See:
+// - https://w3c-ccg.github.io/did-method-key/#signature-method-creation-algorithm
+// - https://w3c-ccg.github.io/did-method-key/#encryption-method-creation-algorithm
 impl Algorithm {
     pub fn muticodec_prefix(&self) -> [u8; 2] {
         match self {

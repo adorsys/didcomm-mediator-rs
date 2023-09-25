@@ -72,6 +72,7 @@ impl DIDKeyMethod {
             return Err(DIDResolutionError::InvalidDid);
         }
 
+        // See https://w3c-ccg.github.io/did-method-key/#format
         let multibase_value = did.strip_prefix("did:key:").unwrap();
         let (base, multicodec) = multibase::decode(multibase_value).map_err(|_| DIDResolutionError::InvalidDid)?;
 
@@ -194,7 +195,7 @@ impl DIDKeyMethod {
             return Err(DIDResolutionError::InternalError);
         }
 
-        let raw_public_key_bytes: [u8; 32] = raw_public_key_bytes.try_into().unwrap();
+        let raw_public_key_bytes: [u8; 32] = raw_public_key_bytes.try_into().map_err(|_| DIDResolutionError::InvalidPublicKeyLength)?;
         let ed25519_keypair = Ed25519KeyPair::from_public_key(&raw_public_key_bytes).map_err(|_| DIDResolutionError::InternalError)?;
         let x25519_keypair = ed25519_keypair.get_x25519().map_err(|_| DIDResolutionError::InternalError)?;
 
