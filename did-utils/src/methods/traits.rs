@@ -300,15 +300,13 @@ impl Display for MediaType {
 /// Serves derefencing query given a DID document
 fn dereference_did_document(diddoc: &DIDDocument, query: &HashMap<String, String>, fragment: &Option<String>) -> Result<Content, DIDResolutionError> {
     // Primary resource
-    if query.contains_key("service") {
-        let mut found = vec![];
-
-        let service = query.get("service").unwrap();
-        for entry in diddoc.service.clone().unwrap_or(vec![]) {
-            if entry.id.ends_with(&format!("#{service}")) {
-                found.push(entry.service_endpoint);
-            }
-        }
+    if let Some(service) = query.get("service") {
+        let entries = diddoc.service.clone().unwrap_or_default();
+        let found: Vec<_> = entries
+            .iter()
+            .filter(|entry| entry.id.ends_with(&format!("#{}", service)))
+            .map(|entry| entry.service_endpoint.clone())
+            .collect();
 
         if found.is_empty() {
             return Err(DIDResolutionError::NotFound);
@@ -325,15 +323,10 @@ fn dereference_did_document(diddoc: &DIDDocument, query: &HashMap<String, String
         }
 
         return Ok(Content::URL(format!(
-            "{found}{}{}",
-            match relative_ref {
-                Some(val) => val,
-                None => "",
-            },
-            match fragment {
-                Some(frag) => format!("#{frag}"),
-                None => String::new(),
-            }
+            "{}{}{}",
+            found,
+            relative_ref.unwrap_or(&String::new()),
+            fragment.as_ref().map_or(String::new(), |frag| format!("#{frag}"))
         )));
     } else if !query.is_empty() {
         // Resort to returning whole DID document as other query parameters
@@ -342,26 +335,19 @@ fn dereference_did_document(diddoc: &DIDDocument, query: &HashMap<String, String
     }
 
     // Secondary resource without primary resource
-    if fragment.is_some() {
-        let mut found = vec![];
-        let needle = format!("{}#{}", diddoc.id, fragment.as_ref().unwrap());
+    if let Some(fragment) = fragment {
+        let needle = format!("{}#{}", diddoc.id, fragment);
 
         let haystack = [
-            json!(diddoc.authentication.clone().unwrap_or(vec![])),
-            json!(diddoc.assertion_method.clone().unwrap_or(vec![])),
-            json!(diddoc.key_agreement.clone().unwrap_or(vec![])),
-            json!(diddoc.verification_method.clone().unwrap_or(vec![])),
-            json!(diddoc.service.clone().unwrap_or(vec![])),
+            json!(diddoc.authentication.as_ref().unwrap_or(&vec![])),
+            json!(diddoc.assertion_method.as_ref().unwrap_or(&vec![])),
+            json!(diddoc.key_agreement.as_ref().unwrap_or(&vec![])),
+            json!(diddoc.verification_method.as_ref().unwrap_or(&vec![])),
+            json!(diddoc.service.as_ref().unwrap_or(&vec![])),
         ];
 
-        for entry in haystack {
-            for vm in entry.as_array().unwrap() {
-                let id = vm.get("id");
-                if id.is_some() && id.unwrap().as_str().unwrap() == needle {
-                    found.push(vm.clone());
-                }
-            }
-        }
+        let flat_haystack = haystack.iter().flat_map(|x| x.as_array().unwrap());
+        let found: Vec<_> = flat_haystack.filter(|vm| vm.get("id") == Some(&json!(&needle))).collect();
 
         if found.is_empty() {
             return Err(DIDResolutionError::NotFound);
@@ -371,7 +357,7 @@ fn dereference_did_document(diddoc: &DIDDocument, query: &HashMap<String, String
             return Err(DIDResolutionError::NotAllowedLocalDuplicateKey);
         }
 
-        return Ok(Content::Data(found.into_iter().next().unwrap()));
+        return Ok(Content::Data(found[0].clone()));
     }
 
     // Resort to returning whole DID document
@@ -383,64 +369,215 @@ mod tests {
     use super::*;
     use crate::methods::utils::parse_did_url;
 
-    #[async_std::test]
-    async fn test_dereferencing_did_url() {
-        let diddoc: DIDDocument = serde_json::from_str(
-            r#"{
-                "@context": "https://www.w3.org/ns/did/v1",
-                "id": "did:example:123456789abcdefghi",
-                "verificationMethod": [{
-                    "id": "did:example:123456789abcdefghi#keys-1",
-                    "type": "Ed25519VerificationKey2018",
-                    "controller": "did:example:123456789abcdefghi",
-                    "publicKeyBase58": "H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV"
-                }],
-                "service": [
-                    {
-                        "id": "did:example:123456789abcdefghi#agent",
-                        "type": "AgentService",
-                        "serviceEndpoint": "https://agent.example.com/8377464"
-                    },
-                    {
-                        "id": "did:example:123456789abcdefghi#agent",
-                        "type": "DuplicateAgentService",
-                        "serviceEndpoint": "https://agent.example.com/8377465"
-                    },
-                    {
-                        "id": "did:example:123456789abcdefghi#client",
-                        "type": "ClientService",
-                        "serviceEndpoint": "https://client.example.com/8377467#real"
-                    },
-                    {
-                        "id": "did:example:123456789abcdefghi#messages",
-                        "type": "MessagingService",
-                        "serviceEndpoint": "https://example.com/messages/8377464"
-                    }
-                ]
-            }"#,
-        )
-        .unwrap();
+    #[test]
+    fn test_dereference_did_document_primary_resource() {
+        let diddoc = create_sample_did_document();
+
+        let query = [("service".to_string(), "service-1".to_string())].into_iter().collect();
+        let fragment: Option<String> = None;
+
+        let result = dereference_did_document(&diddoc, &query, &fragment);
+        assert_eq!(result.unwrap(), Content::URL("https://example.com/service-1".to_string()));
+    }
+
+    #[test]
+    fn test_dereference_did_document_primary_resource_not_found() {
+        let diddoc = create_sample_did_document();
+
+        let query = [("service".to_string(), "non-existent".to_string())].into_iter().collect();
+        let fragment: Option<String> = None;
+
+        let result = dereference_did_document(&diddoc, &query, &fragment);
+        assert!(matches!(result, Err(DIDResolutionError::NotFound)));
+    }
+
+    #[test]
+    fn test_dereference_did_document_primary_resource_duplicate_key() {
+        let diddoc = create_sample_did_document();
+
+        let query = [("service".to_string(), "service-dup".to_string())].into_iter().collect();
+        let fragment: Option<String> = None;
+
+        let result = dereference_did_document(&diddoc, &query, &fragment);
+        assert!(matches!(result, Err(DIDResolutionError::NotAllowedLocalDuplicateKey)));
+    }
+
+    #[test]
+    fn test_dereference_did_document_primary_resource_with_relative_ref() {
+        let diddoc = create_sample_did_document();
+
+        let query = [
+            ("service".to_string(), "service-1".to_string()),
+            ("relativeRef".to_string(), "/some/path?k=v".to_string()),
+        ]
+        .into_iter()
+        .collect();
+        let fragment: Option<String> = None;
+
+        let result = dereference_did_document(&diddoc, &query, &fragment);
+        assert_eq!(result.unwrap(), Content::URL("https://example.com/service-1/some/path?k=v".to_string()));
+    }
+
+    #[test]
+    fn test_dereference_did_document_primary_resource_with_fragment() {
+        let diddoc = create_sample_did_document();
+
+        let query = [("service".to_string(), "service-1".to_string())].into_iter().collect();
+        let fragment: Option<String> = Some("frag".to_string());
+
+        let result = dereference_did_document(&diddoc, &query, &fragment);
+        assert_eq!(result.unwrap(), Content::URL("https://example.com/service-1#frag".to_string()));
+    }
+
+    #[test]
+    fn test_dereference_did_document_primary_resource_with_relative_ref_and_fragment() {
+        let diddoc = create_sample_did_document();
+
+        let query = [
+            ("service".to_string(), "service-1".to_string()),
+            ("relativeRef".to_string(), "/some/path?k=v".to_string()),
+        ]
+        .into_iter()
+        .collect();
+        let fragment: Option<String> = Some("frag".to_string());
+
+        let result = dereference_did_document(&diddoc, &query, &fragment);
+        assert_eq!(
+            result.unwrap(),
+            Content::URL("https://example.com/service-1/some/path?k=v#frag".to_string())
+        );
+    }
+
+    #[test]
+    fn test_dereference_did_document_primary_resource_with_unappendable_fragment() {
+        let diddoc = create_sample_did_document();
+
+        let query = [("service".to_string(), "client".to_string())].into_iter().collect();
+        let fragment: Option<String> = Some("fragment-1".to_string());
+
+        let result = dereference_did_document(&diddoc, &query, &fragment);
+        assert!(matches!(result, Err(DIDResolutionError::InternalError)));
+    }
+
+    #[test]
+    fn test_dereference_did_document_primary_resource_with_unappendable_relative_ref() {
+        let diddoc = create_sample_did_document();
+
+        let query = [
+            ("service".to_string(), "client".to_string()),
+            ("relativeRef".to_string(), "?k=v".to_string()),
+        ]
+        .into_iter()
+        .collect();
+        let fragment: Option<String> = None;
+
+        let result = dereference_did_document(&diddoc, &query, &fragment);
+        assert!(matches!(result, Err(DIDResolutionError::InternalError)));
+    }
+
+    #[test]
+    fn test_dereference_did_document_primary_resource_with_no_service_parameter() {
+        let diddoc = create_sample_did_document();
+
+        let query = [("key".to_string(), "value".to_string())].into_iter().collect();
+        let fragment: Option<String> = None;
+
+        let result = dereference_did_document(&diddoc, &query, &fragment);
+        assert!(matches!(result, Ok(Content::DIDDocument(_))));
+        assert_eq!(
+            json_canon::to_string(&result.unwrap()).unwrap(), //
+            json_canon::to_string(&diddoc).unwrap(),          //
+        );
+    }
+
+    #[test]
+    fn test_dereference_did_document_primary_resource_with_neither_query_nor_fragment() {
+        let diddoc = create_sample_did_document();
+
+        let query = HashMap::new();
+        let fragment: Option<String> = None;
+
+        let result = dereference_did_document(&diddoc, &query, &fragment);
+        assert!(matches!(result, Ok(Content::DIDDocument(_))));
+        assert_eq!(
+            json_canon::to_string(&result.unwrap()).unwrap(), //
+            json_canon::to_string(&diddoc).unwrap(),          //
+        );
+    }
+
+    #[test]
+    fn test_dereference_did_document_secondary_resource() {
+        let diddoc = create_sample_did_document();
+
+        let cases = [
+            (
+                "auth-1",
+                r#"{"id": "did:example:123#auth-1", "type": "Ed25519VerificationKey2020", "controller": "did:example:123"}"#,
+            ),
+            (
+                "keys-1",
+                r#"{"id": "did:example:123#keys-1", "type": "Ed25519VerificationKey2018", "controller": "did:example:123"}"#,
+            ),
+        ];
+
+        for (fragment, expected) in cases {
+            let fragment: Option<String> = Some(fragment.to_string());
+            let expected: Value = serde_json::from_str(expected).unwrap();
+
+            let result = dereference_did_document(&diddoc, &HashMap::new(), &fragment);
+            assert!(matches!(result, Ok(Content::Data(_))));
+            assert_eq!(
+                json_canon::to_string(&result.unwrap()).unwrap(), //
+                json_canon::to_string(&expected).unwrap(),        //
+            );
+        }
+    }
+
+    #[test]
+    fn test_dereference_did_document_secondary_resource_not_found() {
+        let diddoc = create_sample_did_document();
+
+        let query = HashMap::new();
+        let fragment: Option<String> = Some("non-existent".to_string());
+
+        let result = dereference_did_document(&diddoc, &query, &fragment);
+        assert!(matches!(result, Err(DIDResolutionError::NotFound)));
+    }
+
+    #[test]
+    fn test_dereference_did_document_secondary_resource_duplicate_key() {
+        let diddoc = create_sample_did_document();
+
+        let query = HashMap::new();
+        let fragment: Option<String> = Some("keys-dup".to_string());
+
+        let result = dereference_did_document(&diddoc, &query, &fragment);
+        assert!(matches!(result, Err(DIDResolutionError::NotAllowedLocalDuplicateKey)));
+    }
+
+    #[test]
+    fn test_dereferencing_did_url() {
+        let diddoc = create_sample_did_document();
 
         let happy_cases = [
             (
-                "did:example:123456789abcdefghi#keys-1",
+                "did:example:123#keys-1",
                 r#"{
-                    "id": "did:example:123456789abcdefghi#keys-1",
+                    "id": "did:example:123#keys-1",
                     "type": "Ed25519VerificationKey2018",
-                    "controller": "did:example:123456789abcdefghi",
-                    "publicKeyBase58": "H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV"
+                    "controller": "did:example:123"
                 }"#,
             ),
             (
-                "did:example:123456789abcdefghi#client",
+                "did:example:123#client",
                 r#"{
-                    "id": "did:example:123456789abcdefghi#client",
+                    "id": "did:example:123#client",
                     "type": "ClientService",
                     "serviceEndpoint": "https://client.example.com/8377467#real"
                 }"#,
             ),
             (
-                "did:example:123456789abcdefghi?service=messages&relativeRef=%2Fsome%2Fpath%3Fquery#frag",
+                "did:example:123?service=messages&relativeRef=%2Fsome%2Fpath%3Fquery#frag",
                 r#""https://example.com/messages/8377464/some/path?query#frag""#,
             ),
         ];
@@ -458,21 +595,12 @@ mod tests {
         }
 
         let corner_cases = [
-            ("did:example:123456789abcdefghi#unknown", DIDResolutionError::NotFound),
-            ("did:example:123456789abcdefghi?service=unknown", DIDResolutionError::NotFound),
-            ("did:example:123456789abcdefghi#agent", DIDResolutionError::NotAllowedLocalDuplicateKey),
-            (
-                "did:example:123456789abcdefghi?service=agent",
-                DIDResolutionError::NotAllowedLocalDuplicateKey,
-            ),
-            (
-                "did:example:123456789abcdefghi?service=client&relativeRef=something",
-                DIDResolutionError::InternalError,
-            ),
-            (
-                "did:example:123456789abcdefghi?service=client#something",
-                DIDResolutionError::InternalError,
-            ),
+            ("did:example:123#unknown", DIDResolutionError::NotFound),
+            ("did:example:123?service=unknown", DIDResolutionError::NotFound),
+            ("did:example:123#agent", DIDResolutionError::NotAllowedLocalDuplicateKey),
+            ("did:example:123?service=agent", DIDResolutionError::NotAllowedLocalDuplicateKey),
+            ("did:example:123?service=client&relativeRef=something", DIDResolutionError::InternalError),
+            ("did:example:123?service=client#something", DIDResolutionError::InternalError),
         ];
 
         for (did_url, expected) in corner_cases {
@@ -481,5 +609,77 @@ mod tests {
 
             assert_eq!(output, expected);
         }
+    }
+
+    // Helper function to create a sample DID document for testing
+    fn create_sample_did_document() -> DIDDocument {
+        serde_json::from_str(
+            r#"{
+                "@context": "https://www.w3.org/ns/did/v1",
+                "id": "did:example:123",
+                "authentication": [
+                    "did:example:123#keys-1",
+                    { "id": "did:example:123#auth-1", "type": "Ed25519VerificationKey2020", "controller": "did:example:123"},
+                    { "id": "did:example:123#auth-2", "type": "Ed25519VerificationKey2020", "controller": "did:example:123"},
+                    { "id": "did:example:123#keys-dup", "type": "Ed25519VerificationKey2020", "controller": "did:example:123"}
+                ],
+                "assertionMethod": [
+                    "did:example:123#keys-1",
+                    { "id": "did:example:123#assert-1", "type": "Ed25519VerificationKey2020", "controller": "did:example:123"},
+                    { "id": "did:example:123#assert-2", "type": "Ed25519VerificationKey2020", "controller": "did:example:123"}
+                ],
+                "keyAgreement": [
+                    { "id": "did:example:123#key-agree-1", "type": "X25519VerificationKey2020", "controller": "did:example:123"},
+                    { "id": "did:example:123#key-agree-2", "type": "X25519VerificationKey2020", "controller": "did:example:123"}
+                ],
+                "verificationMethod": [
+                    { "id": "did:example:123#keys-1", "type": "Ed25519VerificationKey2018", "controller": "did:example:123"},
+                    { "id": "did:example:123#keys-dup", "type": "Ed25519VerificationKey2018", "controller": "did:example:123"}
+                ],
+                "service": [
+                    {
+                        "id": "did:example:123#service-1",
+                        "type": "ExampleService",
+                        "serviceEndpoint": "https://example.com/service-1"
+                    },
+                    {
+                        "id": "did:example:123#service-2",
+                        "type": "ExampleService",
+                        "serviceEndpoint": "https://example.com/service-2"
+                    },
+                    {
+                        "id": "did:example:123#service-dup",
+                        "type": "ExampleService",
+                        "serviceEndpoint": "https://example.com/service-dup-1"
+                    },
+                    {
+                        "id": "did:example:123#service-dup",
+                        "type": "ExampleService",
+                        "serviceEndpoint": "https://example.com/service-dup-2"
+                    },
+                    {
+                        "id": "did:example:123#agent",
+                        "type": "AgentService",
+                        "serviceEndpoint": "https://agent.example.com/8377464"
+                    },
+                    {
+                        "id": "did:example:123#agent",
+                        "type": "DuplicateAgentService",
+                        "serviceEndpoint": "https://agent.example.com/8377465"
+                    },
+                    {
+                        "id": "did:example:123#client",
+                        "type": "ClientService",
+                        "serviceEndpoint": "https://client.example.com/8377467#real"
+                    },
+                    {
+                        "id": "did:example:123#messages",
+                        "type": "MessagingService",
+                        "serviceEndpoint": "https://example.com/messages/8377464"
+                    }
+                ]
+            }"#,
+        )
+        .unwrap()
     }
 }
