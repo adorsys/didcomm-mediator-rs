@@ -8,27 +8,28 @@ pub type ParsedDIDUrl = (String, HashMap<String, String>, Option<String>);
 
 /// Parses DID URL into (did, query, fragment)
 pub fn parse_did_url(did_url: &str) -> Result<ParsedDIDUrl, DIDResolutionError> {
-    if !did_url.starts_with("did:") || did_url.contains("%%") {
-        return Err(DIDResolutionError::InvalidDidUrl);
+    if !did_url.starts_with("did:") {
+        return Err(DIDResolutionError::InvalidDidUrlPrefix);
     }
 
-    let parts: Vec<_> = did_url.split(':').collect();
-    if parts.len() < 3 {
-        return Err(DIDResolutionError::InvalidDidUrl);
+    if did_url.contains("%%") {
+        return Err(DIDResolutionError::InvalidDidUrlFormat);
     }
 
-    let url = did_url.replace(':', "%%");
-    let url = Url::parse(&format!("scheme://{}", url)).map_err(|_| DIDResolutionError::InvalidDidUrl)?;
-    let domain = url.domain().ok_or(DIDResolutionError::InvalidDidUrl)?;
+    if did_url.split(':').filter(|x| !x.is_empty()).count() < 3 {
+        return Err(DIDResolutionError::DidUrlPartLengthTooShort);
+    }
+
+    let url = format!("scheme://{}", did_url.replace(':', "%%"));
+    let url = Url::parse(&url).map_err(|_| DIDResolutionError::InvalidDidUrlFormat)?;
+    let domain = url.domain().ok_or(DIDResolutionError::InvalidDidUrlFormat)?;
 
     let did = domain.replace("%%", ":");
-    let query = {
-        let mut map = HashMap::new();
-        for (key, value) in url.query_pairs() {
-            map.insert(key.to_string(), value.to_string());
-        }
-        map
-    };
+    if did.split(':').filter(|x| !x.is_empty()).count() < 3 {
+        return Err(DIDResolutionError::DidUrlPartLengthTooShort);
+    }
+
+    let query = url.query_pairs().map(|(key, val)| (key.to_string(), val.to_string())).collect();
     let fragment = url.fragment().map(|x| x.to_string());
 
     Ok((did, query, fragment))
@@ -50,5 +51,23 @@ mod tests {
         assert_eq!(did, "did:web:example.com:a:b");
         assert_eq!(query.get("m").unwrap(), "hello world");
         assert!(fragment.is_none());
+    }
+
+    #[test]
+    fn test_did_url_parsing_fails_as_expected() {
+        let entries = [
+            ("dxd:key:abcd", DIDResolutionError::InvalidDidUrlPrefix),
+            ("did:key:a%%d", DIDResolutionError::InvalidDidUrlFormat),
+            ("did:key", DIDResolutionError::DidUrlPartLengthTooShort),
+            ("did:key:", DIDResolutionError::DidUrlPartLengthTooShort),
+            ("did:key:?k=v", DIDResolutionError::DidUrlPartLengthTooShort),
+            ("did:key:ab\\cd", DIDResolutionError::InvalidDidUrlFormat),
+            ("did:key:abcd|80", DIDResolutionError::InvalidDidUrlFormat),
+            ("did:key:abcd[80]", DIDResolutionError::InvalidDidUrlFormat),
+        ];
+
+        for (did_url, err) in entries {
+            assert_eq!(parse_did_url(did_url).unwrap_err(), err);
+        }
     }
 }
