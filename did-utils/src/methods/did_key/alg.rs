@@ -218,6 +218,20 @@ mod tests {
         )
     }
 
+    #[test]
+    fn test_key_decompression_fails_on_invalid_key_length() {
+        let bytes = hex::decode("023d4de48a477e309548a0ed8ceee086d1aaeceb11f0a8e3a0ffb3e5f44602de1800").unwrap();
+        let uncompressed = P256.uncompress_public_key(&bytes);
+        assert!(matches!(uncompressed.unwrap_err(), CryptoError::InvalidKeyLength));
+    }
+
+    #[test]
+    fn test_key_decompression_fails_on_invalid_sign_byte() {
+        let bytes = hex::decode("113d4de48a477e309548a0ed8ceee086d1aaeceb11f0a8e3a0ffb3e5f44602de18").unwrap();
+        let uncompressed = P256.uncompress_public_key(&bytes);
+        assert!(matches!(uncompressed.unwrap_err(), CryptoError::InvalidPublicKey));
+    }
+
     fn decode_multibase_key(key: &str) -> (Algorithm, Vec<u8>) {
         let (_, multicodec) = multibase::decode(key).unwrap();
 
