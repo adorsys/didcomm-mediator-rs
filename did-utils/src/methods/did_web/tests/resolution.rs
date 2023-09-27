@@ -1,8 +1,11 @@
+use crate::methods::{
+    did_web::{self, resolver::DidWebResolver},
+    traits::{DIDResolutionOptions, DIDResolver, ResolutionOutput},
+};
+
 use hyper::{
-    client::{connect::Connect, HttpConnector},
-    http::uri::Scheme,
     service::{make_service_fn, service_fn},
-    Body, Client, Request, Response, Server, Uri,
+    Body, Request, Response, Server,
 };
 use std::convert::Infallible;
 use std::net::SocketAddr;
@@ -81,4 +84,24 @@ async fn create_mock_server(port: u16) -> String {
     });
 
     "localhost".to_string()
+}
+
+fn add(a: i32, b: i32) -> i32 {
+    a + b
+}
+
+const did: &str = "did:web:example.com";
+
+#[tokio::test]
+async fn resolves_document() {
+    let port = 3000;
+    let host = create_mock_server(port).await;
+
+    let did_web_resolver = DidWebResolver::https();
+
+    let output: ResolutionOutput = did_web_resolver.resolve(did, &DIDResolutionOptions::default()).await;
+
+    println!("Output: {:?}", output);
+
+    assert_eq!(add(2, 3), 5);
 }
