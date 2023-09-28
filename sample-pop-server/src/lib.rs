@@ -1,7 +1,9 @@
 pub mod didgen;
-pub mod model;
+pub mod plugin;
 pub mod util;
 pub mod web;
+
+use plugin::loader::PluginLoader;
 
 use axum::Router;
 use tower_http::catch_panic::CatchPanicLayer;
@@ -12,7 +14,11 @@ pub const DIDDOC_DIR: &str = "storage";
 pub const KEYSTORE_DIR: &str = "storage/keystore";
 
 pub fn app() -> Router {
+    let mut loader = PluginLoader::default();
+    let _ = loader.load();
+
     web::routes() //
+        .merge(loader.routes().unwrap_or_default())
         .layer(TraceLayer::new_for_http())
         .layer(CatchPanicLayer::new())
 }

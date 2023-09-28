@@ -1,0 +1,22 @@
+mod web;
+
+use axum::Router;
+
+use super::traits::{Plugin, PluginError};
+
+#[derive(Default)]
+pub struct IndexPlugin;
+
+impl Plugin for IndexPlugin {
+    fn name(&self) -> &'static str {
+        "index"
+    }
+
+    fn initialize(&self) -> Result<(), PluginError> {
+        Ok(())
+    }
+
+    fn routes(&self) -> Router {
+        web::routes()
+    }
+}
