@@ -103,7 +103,7 @@ impl Algorithm {
                 })
             }
             // TODO! Extend implementation to other algorithms
-            _ => unimplemented!("JWK conversion is not yet supported for this algorithm."),
+            _ => Err(CryptoError::Unsupported),
         }
     }
 
@@ -216,6 +216,43 @@ mod tests {
             json_canon::to_string(&jwk).unwrap(),      //
             json_canon::to_string(&expected).unwrap(), //
         )
+    }
+
+    #[test]
+    fn test_cannot_build_unsupported_jwk() {
+        let multibase_keys = [
+            (
+                BLS12381, //
+                concat!(
+                    "zUC7K4ndUaGZgV7Cp2yJy6JtMoUHY6u7tkcSYUvPrEidqBmLCTLmi6d5WvwnUqejscAk",
+                    "ERJ3bfjEiSYtdPkRSE8kSa11hFBr4sTgnbZ95SJj19PN2jdvJjyzpSZgxkyyxNnBNnY"
+                ),
+            ),
+            (
+                P384, //
+                "z82Lm1MpAkeJcix9K8TMiLd5NMAhnwkjjCBeWHXyu3U4oT2MVJJKXkcVBgjGhnLBn2Kaau9",
+            ),
+            (
+                P521, //
+                "z2J9gaYxrKVpdoG9A4gRnmpnRCcxU6agDtFVVBVdn1JedouoZN7SzcyREXXzWgt3gGiwpoHq7K68X4m32D8HgzG8wv3sY5j7",
+            ),
+            (
+                RSA, //
+                concat!(
+                    "z4MXj1wBzi9jUstyPMS4jQqB6KdJaiatPkAtVtGc6bQEQEEsKTic4G7Rou3iBf9vPmT5dbkm9qsZsu",
+                    "VNjq8HCuW1w24nhBFGkRE4cd2Uf2tfrB3N7h4mnyPp1BF3ZttHTYv3DLUPi1zMdkULiow3M1GfXkoC",
+                    "6DoxDUm1jmN6GBj22SjVsr6dxezRVQc7aj9TxE7JLbMH1wh5X3kA58H3DFW8rnYMakFGbca5CB2Jf6",
+                    "CnGQZmL7o5uJAdTwXfy2iiiyPxXEGerMhHwhjTA1mKYobyk2CpeEcmvynADfNZ5MBvcCS7m3XkFCMN",
+                    "UYBS9NQ3fze6vMSUPsNa6GVYmKx2x6JrdEjCk3qRMMmyjnjCMfR4pXbRMZa3i"
+                ),
+            ),
+        ];
+
+        for (expected_alg, multibase_key) in multibase_keys {
+            let (alg, bytes) = decode_multibase_key(multibase_key);
+            assert_eq!(alg, expected_alg);
+            assert!(matches!(alg.build_jwk(&bytes).unwrap_err(), CryptoError::Unsupported));
+        }
     }
 
     #[test]
