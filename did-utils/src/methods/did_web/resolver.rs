@@ -1,24 +1,29 @@
 use async_trait::async_trait;
 use hyper::{
-    client::{connect::Connect, HttpConnector},
-    http::uri::{self, Scheme},
-    Body, Client, Uri,
+    client::{ connect::Connect, HttpConnector },
+    http::uri::{ self, Scheme },
+    Body,
+    Client,
+    Uri,
 };
 use hyper_tls::HttpsConnector;
 
 use crate::methods::{
     errors::DidWebError,
-    traits::{DIDResolutionMetadata, DIDResolutionOptions, DIDResolver, MediaType, ResolutionOutput},
+    traits::{
+        DIDResolutionMetadata,
+        DIDResolutionOptions,
+        DIDResolver,
+        MediaType,
+        ResolutionOutput,
+    },
 };
 
 use crate::ldmodel::Context;
 
 use crate::didcore::Document as DIDDocument;
 
-pub struct DidWebResolver<C>
-where
-    C: Connect + Send + Sync + Clone + 'static,
-{
+pub struct DidWebResolver<C> where C: Connect + Send + Sync + Clone + 'static {
     client: Client<C>,
     scheme: Scheme,
 }
@@ -41,10 +46,7 @@ impl DidWebResolver<HttpsConnector<HttpConnector>> {
     }
 }
 
-impl<C> DidWebResolver<C>
-where
-    C: Connect + Send + Sync + Clone + 'static,
-{
+impl<C> DidWebResolver<C> where C: Connect + Send + Sync + Clone + 'static {
     async fn fetch_did_document(&self, url: Uri) -> Result<String, DidWebError> {
         let res = self.client.get(url).await?;
 
@@ -58,10 +60,7 @@ where
     }
 }
 
-impl<C> DidWebResolver<C>
-where
-    C: Connect + Send + Sync + Clone + 'static,
-{
+impl<C> DidWebResolver<C> where C: Connect + Send + Sync + Clone + 'static {
     async fn resolver_fetcher(&self, did: &str) -> Result<DIDDocument, DidWebError> {
         let (path, domain_name) = match parse_did_web_url(did) {
             Ok((path, domain_name)) => (path, domain_name),
@@ -70,11 +69,13 @@ where
             }
         };
 
-        let url: Uri = match uri::Builder::new()
-            .scheme(self.scheme.clone())
-            .authority(domain_name)
-            .path_and_query(path)
-            .build()
+        let url: Uri = match
+            uri::Builder
+                ::new()
+                .scheme(self.scheme.clone())
+                .authority(domain_name)
+                .path_and_query(path)
+                .build()
         {
             Ok(url) => url,
             Err(err) => {
@@ -100,7 +101,7 @@ where
     }
 }
 
-fn parse_did_web_url(did: &str) -> Result<(String, String), DidWebError> {
+pub fn parse_did_web_url(did: &str) -> Result<(String, String), DidWebError> {
     let mut parts = did.split(':').peekable();
     let domain_name = match (parts.next(), parts.next(), parts.next()) {
         (Some("did"), Some("web"), Some(domain_name)) => domain_name.replacen("%3A", ":", 1),
@@ -120,32 +121,31 @@ fn parse_did_web_url(did: &str) -> Result<(String, String), DidWebError> {
 }
 
 #[async_trait]
-impl<C> DIDResolver for DidWebResolver<C>
-where
-    C: Connect + Send + Sync + Clone + 'static,
-{
+impl<C> DIDResolver for DidWebResolver<C> where C: Connect + Send + Sync + Clone + 'static {
     async fn resolve(&self, did: &str, _options: &DIDResolutionOptions) -> ResolutionOutput {
         let context = Context::SingleString(String::from("https://www.w3.org/ns/did/v1"));
 
         match self.resolver_fetcher(did).await {
-            Ok(diddoc) => ResolutionOutput {
-                context,
-                did_document: Some(diddoc),
-                did_resolution_metadata: Some(DIDResolutionMetadata {
-                    error: None,
-                    content_type: Some(MediaType::DidLdJson.to_string()),
+            Ok(diddoc) =>
+                ResolutionOutput {
+                    context,
+                    did_document: Some(diddoc),
+                    did_resolution_metadata: Some(DIDResolutionMetadata {
+                        error: None,
+                        content_type: Some(MediaType::DidLdJson.to_string()),
+                        additional_properties: None,
+                    }),
+                    did_document_metadata: None,
                     additional_properties: None,
-                }),
-                did_document_metadata: None,
-                additional_properties: None,
-            },
-            Err(_err) => ResolutionOutput {
-                context,
-                did_document: None,
-                did_resolution_metadata: None,
-                did_document_metadata: None,
-                additional_properties: None,
-            },
+                },
+            Err(_err) =>
+                ResolutionOutput {
+                    context,
+                    did_document: None,
+                    did_resolution_metadata: None,
+                    did_document_metadata: None,
+                    additional_properties: None,
+                },
         }
     }
 }
