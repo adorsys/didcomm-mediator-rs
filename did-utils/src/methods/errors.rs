@@ -1,6 +1,5 @@
 use hyper::StatusCode;
 use serde::{Deserialize, Serialize};
-use std::error::Error;
 use thiserror::Error;
 
 /// Registry for error types found across the DID core specification,
@@ -92,22 +91,3 @@ impl From<std::string::FromUtf8Error> for DidWebError {
         DidWebError::ParsingError(ParsingErrorSource::Utf8Error(error))
     }
 }
-
-use std::fmt;
-
-#[derive(Debug)]
-pub enum ParseError {
-    InvalidInput(&'static str),
-}
-
-impl std::error::Error for ParseError {}
-
-impl fmt::Display for ParseError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            ParseError::InvalidInput(input) => write!(f, "Invalid input: {}", input),
-        }
-    }
-}
-
-pub type GenericError = Box<dyn Error + Send + Sync + 'static>;

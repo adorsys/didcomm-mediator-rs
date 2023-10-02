@@ -7,7 +7,7 @@ use hyper::{
 use hyper_tls::HttpsConnector;
 
 use crate::methods::{
-    errors::{DIDResolutionError, DidWebError, GenericError},
+    errors::DidWebError,
     traits::{DIDResolutionMetadata, DIDResolutionOptions, DIDResolver, MediaType, ResolutionOutput},
 };
 
@@ -62,17 +62,61 @@ impl<C> DidWebResolver<C>
 where
     C: Connect + Send + Sync + Clone + 'static,
 {
-    async fn resolver_fetcher(&self, domain: String, path_and_query: String) -> Result<DIDDocument, GenericError> {
-        let url: Uri = uri::Builder::new()
-            .scheme("Test")
-            .authority(domain)
-            .path_and_query(path_and_query)
-            .build()?;
+    async fn resolver_fetcher(&self, did: &str) -> Result<DIDDocument, DidWebError> {
+        let (path, domain_name) = match parse_did_web_url(did) {
+            Ok((path, domain_name)) => (path, domain_name),
+            Err(err) => {
+                return Err(DidWebError::RepresentationNotSupported(err.to_string()));
+            }
+        };
 
-        let did_document: DIDDocument = serde_json::from_str(&self.fetch_did_document(url).await?)?;
+        let url: Uri = match uri::Builder::new()
+            .scheme(self.scheme.clone())
+            .authority(domain_name)
+            .path_and_query(path)
+            .build()
+        {
+            Ok(url) => url,
+            Err(err) => {
+                return Err(DidWebError::RepresentationNotSupported(err.to_string()));
+            }
+        };
+
+        let json_string = match self.fetch_did_document(url).await {
+            Ok(json) => json,
+            Err(err) => {
+                return Err(err);
+            }
+        };
+
+        let did_document: DIDDocument = match serde_json::from_str(&json_string) {
+            Ok(document) => document,
+            Err(err) => {
+                return Err(DidWebError::RepresentationNotSupported(err.to_string()));
+            }
+        };
 
         Ok(did_document)
     }
+}
+
+fn parse_did_web_url(did: &str) -> Result<(String, String), DidWebError> {
+    let mut parts = did.split(':').peekable();
+    let domain_name = match (parts.next(), parts.next(), parts.next()) {
+        (Some("did"), Some("web"), Some(domain_name)) => domain_name.replacen("%3A", ":", 1),
+        _ => {
+            return Err(DidWebError::InvalidDid("Invalid DID".to_string()));
+        }
+    };
+
+    let mut path = match parts.peek() {
+        Some(_) => parts.collect::<Vec<&str>>().join("/"),
+        None => ".well-known".to_string(),
+    };
+
+    path = format!("/{}/did.json", path);
+
+    Ok((path, domain_name))
 }
 
 #[async_trait]
@@ -81,22 +125,9 @@ where
     C: Connect + Send + Sync + Clone + 'static,
 {
     async fn resolve(&self, did: &str, _options: &DIDResolutionOptions) -> ResolutionOutput {
-        // Split the DID string by ':' and collect the parts into a vector.
-        let did_parts: Vec<&str> = did.split(':').collect::<Vec<&str>>();
+        let context = Context::SingleString(String::from("https://www.w3.org/ns/did/v1"));
 
-        let domain: String = did_parts[0].replace("%3A", ":");
-
-        let path_parts = &did_parts[1..];
-        let path_and_query = if path_parts.is_empty() {
-            "/.well-known/did.json".to_string()
-        } else {
-            let path = path_parts.join("/");
-            format!("/{}/did.json", path)
-        };
-
-        let context = Context::SingleString(String::from("https://w3id.org/did-resolution/v1"));
-
-        match self.resolver_fetcher(domain, path_and_query).await {
+        match self.resolver_fetcher(did).await {
             Ok(diddoc) => ResolutionOutput {
                 context,
                 did_document: Some(diddoc),
@@ -108,7 +139,7 @@ where
                 did_document_metadata: None,
                 additional_properties: None,
             },
-            Err(err) => ResolutionOutput {
+            Err(_err) => ResolutionOutput {
                 context,
                 did_document: None,
                 did_resolution_metadata: None,
