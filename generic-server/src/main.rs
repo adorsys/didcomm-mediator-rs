@@ -1,4 +1,4 @@
-use sample_pop_server::app;
+use generic_server::app;
 
 use axum::Server;
 use std::net::SocketAddr;

@@ -1,5 +1,5 @@
 #[cfg(feature = "plugin-didpop")]
-use sample_pop_server::plugin::didpop::didgen;
+use generic_server::plugin::didpop::didgen;
 
 /// Program entry
 fn main() -> Result<(), Box<dyn std::error::Error>> {
