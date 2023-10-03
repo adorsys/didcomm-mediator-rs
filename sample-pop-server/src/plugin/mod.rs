@@ -1,9 +1,10 @@
-pub mod loader;
+pub mod container;
 pub mod traits;
 
 use lazy_static::lazy_static;
 use traits::Plugin;
 
+#[cfg(feature = "plugin.index")]
 mod index;
 
 lazy_static! {

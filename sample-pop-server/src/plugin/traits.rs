@@ -1,10 +1,13 @@
-use std::hash::{Hash, Hasher};
+use std::{
+    fmt::Debug,
+    hash::{Hash, Hasher},
+};
 
 use axum::Router;
 
+#[derive(Debug, PartialEq)]
 pub enum PluginError {
     InitError,
-    Unloaded,
 }
 
 pub trait Plugin: Sync {
@@ -12,7 +15,10 @@ pub trait Plugin: Sync {
     fn name(&self) -> &'static str;
 
     /// Provide initialization actions as needed
-    fn initialize(&self) -> Result<(), PluginError>;
+    fn mount(&self) -> Result<(), PluginError>;
+
+    /// Reverse initialization actions as needed
+    fn unmount(&self) -> Result<(), PluginError>;
 
     /// Export managed endpoints
     fn routes(&self) -> Router;

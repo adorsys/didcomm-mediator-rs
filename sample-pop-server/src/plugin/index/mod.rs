@@ -12,7 +12,11 @@ impl Plugin for IndexPlugin {
         "index"
     }
 
-    fn initialize(&self) -> Result<(), PluginError> {
+    fn mount(&self) -> Result<(), PluginError> {
+        Ok(())
+    }
+
+    fn unmount(&self) -> Result<(), PluginError> {
         Ok(())
     }
 

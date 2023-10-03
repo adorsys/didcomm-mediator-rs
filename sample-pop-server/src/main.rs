@@ -32,10 +32,9 @@ fn config_tracing() {
 
     let tracing_layer = tracing_subscriber::fmt::layer();
     let filter = filter::Targets::new()
-        .with_target("tower_http::trace::on_response", Level::DEBUG)
-        .with_target("tower_http::trace::on_request", Level::DEBUG)
-        .with_target("tower_http::trace::make_span", Level::DEBUG)
-        .with_default(Level::INFO);
+        .with_target("hyper::proto", Level::INFO)
+        .with_target("tower_http::trace", Level::DEBUG)
+        .with_default(Level::DEBUG);
 
     tracing_subscriber::registry()
         .with(tracing_layer)

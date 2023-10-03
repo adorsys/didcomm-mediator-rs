@@ -3,7 +3,7 @@ pub mod plugin;
 pub mod util;
 pub mod web;
 
-use plugin::loader::PluginLoader;
+use plugin::container::PluginContainer;
 
 use axum::Router;
 use tower_http::catch_panic::CatchPanicLayer;
@@ -14,7 +14,7 @@ pub const DIDDOC_DIR: &str = "storage";
 pub const KEYSTORE_DIR: &str = "storage/keystore";
 
 pub fn app() -> Router {
-    let mut loader = PluginLoader::default();
+    let mut loader = PluginContainer::default();
     let _ = loader.load();
 
     web::routes() //
