@@ -1,4 +1,4 @@
-use sample_pop_server::{app, didgen};
+use sample_pop_server::app;
 
 use axum::Server;
 use std::net::SocketAddr;
@@ -8,13 +8,8 @@ async fn main() {
     // Load dotenv-flow variables
     dotenv_flow::dotenv_flow().ok();
 
-    // Enable tracing
+    // Enable logging
     config_tracing();
-
-    // Run `didgen` if necessary
-    if didgen::validate_diddoc().is_err() {
-        didgen::didgen().expect("Failed to generate an initial keystore and its DID document.");
-    };
 
     // Start server
     let port = std::env::var("SERVER_LOCAL_PORT").unwrap_or("3000".to_owned());

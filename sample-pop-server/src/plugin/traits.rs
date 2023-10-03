@@ -17,7 +17,7 @@ pub trait Plugin: Sync {
     /// Provide initialization actions as needed
     fn mount(&self) -> Result<(), PluginError>;
 
-    /// Reverse initialization actions as needed
+    /// Revert initialization actions as needed
     fn unmount(&self) -> Result<(), PluginError>;
 
     /// Export managed endpoints

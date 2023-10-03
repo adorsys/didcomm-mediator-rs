@@ -1,4 +1,4 @@
-use crate::{
+use crate::plugin::didpop::{
     util::{didweb, KeyStore},
     DIDDOC_DIR,
 };
@@ -11,35 +11,40 @@ use did_utils::{
 };
 use std::path::Path;
 
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum Error {
+    #[error("KeyGenerationError")]
     KeyGenerationError,
+    #[error("MissingServerPublicDomain")]
     MissingServerPublicDomain,
+    #[error("DidAddressDerivationError")]
     DidAddressDerivationError,
+    #[error("PersistenceError")]
     PersistenceError,
-    Unknown(String),
+    #[error("Generic: {0}")]
+    Generic(String),
 }
 
 /// Generates keys and forward them for DID generation
 pub fn didgen() -> Result<String, Error> {
     // Create a new store, which is timestamp-aware
     let mut store = KeyStore::new();
-    tracing::info!("Keystore: {}", store.path());
+    tracing::info!("keystore: {}", store.path());
 
     // Generate authentication key
-    tracing::info!("Generating authentication key...");
+    tracing::debug!("generating authentication key");
     let authentication_key = store
         .gen_ed25519_jwk()
         .map_err(|_| Error::KeyGenerationError)?;
 
     // Generate assertion key
-    tracing::info!("Generating assertion key...");
+    tracing::debug!("generating assertion key");
     let assertion_key = store
         .gen_ed25519_jwk()
         .map_err(|_| Error::KeyGenerationError)?;
 
     // Generate agreement key
-    tracing::info!("Generating agreement key...");
+    tracing::debug!("generating agreement key");
     let agreement_key = store
         .gen_x25519_jwk()
         .map_err(|_| Error::KeyGenerationError)?;
@@ -48,7 +53,7 @@ pub fn didgen() -> Result<String, Error> {
     let diddoc = gen_diddoc(authentication_key, assertion_key, agreement_key)?;
 
     // Mark successful completion
-    tracing::info!("Successful completion.");
+    tracing::debug!("successful completion");
     Ok(diddoc)
 }
 
@@ -58,7 +63,7 @@ fn gen_diddoc(
     assertion_key: Jwk,
     agreement_key: Jwk,
 ) -> Result<String, Error> {
-    tracing::info!("Building DID document...");
+    tracing::info!("building DID document");
 
     // Prepare DID address
 
@@ -141,7 +146,7 @@ fn gen_diddoc(
     std::fs::write(format!("{DIDDOC_DIR}/did.json"), &did_json)
         .map_err(|_| Error::PersistenceError)?;
 
-    tracing::info!("Persisted DID document to file.");
+    tracing::info!("persisted DID document to disk");
     Ok(did_json)
 }
 
@@ -185,12 +190,4 @@ pub fn validate_diddoc() -> Result<(), String> {
     }
 
     Ok(())
-}
-
-impl std::error::Error for Error {}
-
-impl std::fmt::Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{self:?}")
-    }
 }

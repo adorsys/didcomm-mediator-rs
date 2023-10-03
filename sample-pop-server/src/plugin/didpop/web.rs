@@ -14,7 +14,7 @@ use multibase::Base;
 use serde_json::{json, Value};
 use std::collections::HashMap;
 
-use crate::{util::KeyStore, DIDDOC_DIR};
+use crate::plugin::didpop::{util::KeyStore, DIDDOC_DIR};
 
 const DEFAULT_CONTEXT_V2: &str = "https://www.w3.org/ns/credentials/v2";
 

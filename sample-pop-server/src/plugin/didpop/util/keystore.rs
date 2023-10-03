@@ -1,15 +1,10 @@
 use did_utils::{
-    crypto::{
-        ed25519::Ed25519KeyPair,
-        traits::{Generate, KeyMaterial},
-        x25519::X25519KeyPair,
-    },
+    crypto::{ed25519::Ed25519KeyPair, traits::Generate, x25519::X25519KeyPair},
     didcore::Jwk,
 };
-use serde_json::{json, Value};
 use std::error::Error;
 
-use crate::KEYSTORE_DIR;
+use crate::plugin::didpop::KEYSTORE_DIR;
 
 pub struct KeyStore {
     path: String,
@@ -145,7 +140,7 @@ mod tests {
 
     impl KeyStore {
         fn destroy(self) {
-            std::fs::remove_file(self.path);
+            let _ = std::fs::remove_file(self.path);
         }
     }
 

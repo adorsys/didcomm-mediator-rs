@@ -265,6 +265,9 @@ mod tests {
             plugins: &vec![Box::new(FirstPlugin {}), Box::new(SecondPlugin {})],
         };
 
-        assert_eq!(container.routes().unwrap_err(), PluginContainerError::Unloaded);
+        assert_eq!(
+            container.routes().unwrap_err(),
+            PluginContainerError::Unloaded
+        );
     }
 }
