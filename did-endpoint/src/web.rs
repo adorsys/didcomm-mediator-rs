@@ -14,7 +14,7 @@ use multibase::Base;
 use serde_json::{json, Value};
 use std::collections::HashMap;
 
-use crate::plugin::didpop::{util::KeyStore, DIDDOC_DIR};
+use crate::util::KeyStore;
 
 const DEFAULT_CONTEXT_V2: &str = "https://www.w3.org/ns/credentials/v2";
 
@@ -25,7 +25,12 @@ pub fn routes() -> Router {
 }
 
 pub async fn diddoc() -> Result<Json<Value>, StatusCode> {
-    match tokio::fs::read_to_string(&format!("{DIDDOC_DIR}/did.json")).await {
+    let storage_dirpath = std::env::var("STORAGE_DIRPATH").map_err(|_| {
+        tracing::error!("STORAGE_DIRPATH env variable required");
+        StatusCode::NOT_FOUND
+    })?;
+
+    match tokio::fs::read_to_string(&format!("{storage_dirpath}/did.json")).await {
         Ok(content) => Ok(Json(serde_json::from_str(&content).unwrap())),
         Err(_) => Err(StatusCode::NOT_FOUND),
     }
@@ -35,7 +40,14 @@ pub async fn didpop(
     Query(params): Query<HashMap<String, String>>,
 ) -> Result<Json<Value>, StatusCode> {
     let challenge = params.get("challenge").ok_or(StatusCode::BAD_REQUEST)?;
-    let keystore = KeyStore::latest().expect("Keystore file probably missing");
+
+    // Retrieve keystore
+
+    let storage_dirpath = std::env::var("STORAGE_DIRPATH").map_err(|_| {
+        tracing::error!("STORAGE_DIRPATH env variable required");
+        StatusCode::NOT_FOUND
+    })?;
+    let keystore = KeyStore::latest(&storage_dirpath).expect("Keystore file probably missing");
 
     // Load DID document and its verification methods
 
@@ -164,7 +176,8 @@ fn inspect_vm_relationship(diddoc: &Document, vm_id: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use crate::app;
+    use super::*;
+
     use axum::{
         body::Body,
         http::{Request, StatusCode},
@@ -179,7 +192,7 @@ mod tests {
 
     #[tokio::test]
     async fn verify_didpop() {
-        let app = app();
+        let app = routes();
 
         let response = app
             .oneshot(

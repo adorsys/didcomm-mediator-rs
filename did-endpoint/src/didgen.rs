@@ -1,7 +1,4 @@
-use crate::plugin::didpop::{
-    util::{didweb, KeyStore},
-    DIDDOC_DIR,
-};
+use crate::util::{didweb, KeyStore};
 use did_utils::{
     didcore::{
         AssertionMethod, Authentication, Document, Jwk, KeyAgreement, KeyFormat, Service,
@@ -26,9 +23,11 @@ pub enum Error {
 }
 
 /// Generates keys and forward them for DID generation
-pub fn didgen() -> Result<String, Error> {
+///
+/// All persistence is handled at `storage_dirpath`.
+pub fn didgen(storage_dirpath: &str, server_public_domain: &str) -> Result<String, Error> {
     // Create a new store, which is timestamp-aware
-    let mut store = KeyStore::new();
+    let mut store = KeyStore::new(storage_dirpath);
     tracing::info!("keystore: {}", store.path());
 
     // Generate authentication key
@@ -50,7 +49,13 @@ pub fn didgen() -> Result<String, Error> {
         .map_err(|_| Error::KeyGenerationError)?;
 
     // Build DID document
-    let diddoc = gen_diddoc(authentication_key, assertion_key, agreement_key)?;
+    let diddoc = gen_diddoc(
+        storage_dirpath,
+        server_public_domain,
+        authentication_key,
+        assertion_key,
+        agreement_key,
+    )?;
 
     // Mark successful completion
     tracing::debug!("successful completion");
@@ -59,6 +64,8 @@ pub fn didgen() -> Result<String, Error> {
 
 /// Builds and persists DID document
 fn gen_diddoc(
+    storage_dirpath: &str,
+    server_public_domain: &str,
     authentication_key: Jwk,
     assertion_key: Jwk,
     agreement_key: Jwk,
@@ -67,9 +74,7 @@ fn gen_diddoc(
 
     // Prepare DID address
 
-    let public_domain = std::env::var("SERVER_PUBLIC_DOMAIN") //
-        .map_err(|_| Error::MissingServerPublicDomain)?;
-    let did = didweb::url_to_did_web_id(&public_domain) //
+    let did = didweb::url_to_did_web_id(server_public_domain)
         .map_err(|_| Error::DidAddressDerivationError)?;
 
     // Prepare authentication verification method
@@ -110,7 +115,7 @@ fn gen_diddoc(
     let service = Service::new(
         did.clone() + "#pop-domain",
         String::from("LinkedDomains"),
-        format!("{public_domain}/.well-known/did/pop.json"),
+        format!("{server_public_domain}/.well-known/did/pop.json"),
     );
 
     // Build document
@@ -143,7 +148,8 @@ fn gen_diddoc(
 
     let did_json = serde_json::to_string_pretty(&doc).unwrap();
 
-    std::fs::write(format!("{DIDDOC_DIR}/did.json"), &did_json)
+    std::fs::create_dir_all(storage_dirpath).map_err(|_| Error::PersistenceError)?;
+    std::fs::write(format!("{storage_dirpath}/did.json"), &did_json)
         .map_err(|_| Error::PersistenceError)?;
 
     tracing::info!("persisted DID document to disk");
@@ -151,17 +157,17 @@ fn gen_diddoc(
 }
 
 /// Validates the integrity of the persisted diddoc
-pub fn validate_diddoc() -> Result<(), String> {
+pub fn validate_diddoc(storage_dirpath: &str) -> Result<(), String> {
     // Validate that did.json exists
 
-    let didpath = format!("{DIDDOC_DIR}/did.json");
+    let didpath = format!("{storage_dirpath}/did.json");
     if !Path::new(&didpath).exists() {
         return Err(String::from("Missing did.json"));
     };
 
     // Validate that keystore exists
 
-    let store = KeyStore::latest();
+    let store = KeyStore::latest(storage_dirpath);
     if store.is_none() {
         return Err(String::from("Missing keystore"));
     }

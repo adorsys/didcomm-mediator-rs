@@ -1,14 +1,46 @@
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
-}
+pub mod didgen;
+mod util;
+mod web;
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+use axum::Router;
+use generic_server::plugin::traits::{Plugin, PluginError};
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
+#[derive(Default)]
+pub struct DidPopPlugin;
+
+impl Plugin for DidPopPlugin {
+    fn name(&self) -> &'static str {
+        "didpop"
+    }
+
+    fn mount(&self) -> Result<(), PluginError> {
+        let storage_dirpath = std::env::var("STORAGE_DIRPATH").map_err(|_| {
+            tracing::error!("STORAGE_DIRPATH env variable required");
+            PluginError::InitError
+        })?;
+
+        if didgen::validate_diddoc(&storage_dirpath).is_err() {
+            tracing::debug!("diddoc validation failed, will generate one");
+
+            let server_public_domain = std::env::var("SERVER_PUBLIC_DOMAIN").map_err(|_| {
+                tracing::error!("SERVER_PUBLIC_DOMAIN env variable required");
+                PluginError::InitError
+            })?;
+
+            didgen::didgen(&storage_dirpath, &server_public_domain).map_err(|_| {
+                tracing::error!("failed to generate an initial keystore and its DID document");
+                PluginError::InitError
+            })?;
+        };
+
+        Ok(())
+    }
+
+    fn unmount(&self) -> Result<(), PluginError> {
+        Ok(())
+    }
+
+    fn routes(&self) -> Router {
+        web::routes()
     }
 }
