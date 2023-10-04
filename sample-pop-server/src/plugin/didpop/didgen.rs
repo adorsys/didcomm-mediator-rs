@@ -191,3 +191,110 @@ pub fn validate_diddoc() -> Result<(), String> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    fn setup() {
+        std::env::set_var("SERVER_PUBLIC_DOMAIN", "example.com");
+    }
+    
+    // Verifies that the didgen function returns a DID document.
+    // Does not validate the DID document.
+    #[test]
+    fn test_didgen() {
+        setup();
+        let diddoc = didgen().unwrap();
+        assert_ne!(diddoc, "");
+    }
+
+    // Produces did doc from keys and validate that corresponding verification methods are present.
+    #[test]
+    fn test_gen_diddoc() {
+        setup();
+        let authentication_key = Jwk {
+            key_id: None,
+            key_type: String::from("OKP"),
+            curve: String::from("Ed25519"),
+            x: Some(String::from("d75a980182b10ab2463c5b1be1b4d97e06ec21ebac8552059996bd962d77f259")),
+            y: None,
+            d: None,
+        };
+
+        let assertion_key = Jwk {
+            key_id: None,
+            key_type: String::from("OKP"),
+            curve: String::from("Ed25519"),
+            x: Some(String::from("d75a980182b10ab2463c5b1be1b4d97e06ec21ebac8552059996bd962d77f259")),
+            y: None,
+            d: None,
+        };
+
+        let agreement_key = Jwk {
+            key_id: None,
+            key_type: String::from("OKP"),
+            curve: String::from("X25519"),
+            x: Some(String::from("d75a980182b10ab2463c5b1be1b4d97e06ec21ebac8552059996bd962d77f259")),
+            y: None,
+            d: None,
+        };
+
+        let diddoc = gen_diddoc(authentication_key.clone(), assertion_key.clone(), agreement_key.clone()).unwrap();
+        assert_ne!(diddoc, "");
+
+        let diddoc_value: Document = serde_json::from_str(&diddoc).unwrap();
+
+        // Verify that the DID contains exactly the defined verification methods.
+        let expected_verification_methods = vec![
+            VerificationMethod {
+                id: "did:web:example.com#keys-1".to_string(),
+                public_key: Some(KeyFormat::Jwk(authentication_key)),
+                ..VerificationMethod::new("did:web:example.com#keys-1".to_string(), String::from("JsonWebKey2020"), "did:web:example.com".to_string())
+            },
+            VerificationMethod {
+                id: "did:web:example.com#keys-2".to_string(),
+                public_key: Some(KeyFormat::Jwk(assertion_key)),
+                ..VerificationMethod::new("did:web:example.com#keys-2".to_string(), String::from("JsonWebKey2020"), "did:web:example.com".to_string())
+            },
+            VerificationMethod {
+                id: "did:web:example.com#keys-3".to_string(),
+                public_key: Some(KeyFormat::Jwk(agreement_key)),
+                ..VerificationMethod::new("did:web:example.com#keys-3".to_string(), String::from("JsonWebKey2020"), "did:web:example.com".to_string())
+            },
+        ];
+
+        let actual_verification_methods = diddoc_value.verification_method.unwrap();
+
+        let actual = json_canon::to_string(&actual_verification_methods).unwrap();
+        let expected = json_canon::to_string(&expected_verification_methods).unwrap();
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn test_validate_diddoc() {
+        setup();
+        // Create a new store, which is timestamp-aware
+        let mut store = KeyStore::new();
+        tracing::info!("keystore: {}", store.path());
+
+        // Generate authentication key
+        tracing::debug!("generating authentication key");
+        let authentication_key = store.gen_ed25519_jwk().map_err(|_| Error::KeyGenerationError).unwrap();
+
+        // Generate assertion key
+        tracing::debug!("generating assertion key");
+        let assertion_key = store.gen_ed25519_jwk().map_err(|_| Error::KeyGenerationError).unwrap();
+
+        // Generate agreement key
+        tracing::debug!("generating agreement key");
+        let agreement_key = store.gen_x25519_jwk().map_err(|_| Error::KeyGenerationError).unwrap();
+
+        // Build DID document
+        let did_json = gen_diddoc(authentication_key, assertion_key, agreement_key).unwrap();
+
+        std::fs::write(format!("{DIDDOC_DIR}/did.json"), &did_json).unwrap();
+
+        // Validate DID document
+        assert!(validate_diddoc().is_ok());
+    }
+}
