@@ -1,5 +1,5 @@
 #![allow(unused_imports)]
-use crate::methods::{
+use did_utils::methods::{
     did_web::resolver::DidWebResolver,
     traits::{ DIDResolutionOptions, DIDResolver, ResolutionOutput },
 };
@@ -102,8 +102,8 @@ async fn resolves_document() {
     assert_eq!(json_canon::to_string(&output).unwrap(), json_canon::to_string(&expected).unwrap());
 }
 
-use crate::methods::did_web::resolver;
-use crate::methods::errors::DidWebError;
+use did_utils::methods::did_web::resolver;
+use did_utils::methods::errors::DidWebError;
 
 #[test]
 fn test_parse_did_web_url() {
