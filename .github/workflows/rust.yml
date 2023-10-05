@@ -22,25 +22,23 @@ jobs:
     - name: Build and Test Did Utils
       run: |
         cd did-utils
-        cargo build --verbose
-        cargo test --verbose
+        cargo build
+        cargo test
 
     - name: Build and Test Did Endpoint
       run: |
         cd did-endpoint
-        cargo build --verbose
-        cargo test --verbose
+        cargo build
+        cargo test
 
     - name: Build and Test Generic Server
       run: |
         cd generic-server
-        cargo build --verbose
-        cargo run --bin didgen
-        cargo test --verbose
+        cargo build
+        cargo test
 
     - name: Build and Mediator Server
       run: |
         cd mediator-server
-        cargo build --verbose
-        cargo run --bin didgen
-        cargo test --verbose
+        cargo build
+        cargo test
