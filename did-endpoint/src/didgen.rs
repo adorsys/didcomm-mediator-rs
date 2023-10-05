@@ -25,7 +25,7 @@ pub enum Error {
 /// Generates keys and forward them for DID generation
 ///
 /// All persistence is handled at `storage_dirpath`.
-pub fn didgen(storage_dirpath: &str, server_public_domain: &str) -> Result<String, Error> {
+pub fn didgen(storage_dirpath: &str, server_public_domain: &str) -> Result<Document, Error> {
     // Create a new store, which is timestamp-aware
     let mut store = KeyStore::new(storage_dirpath);
     tracing::info!("keystore: {}", store.path());
@@ -69,7 +69,7 @@ fn gen_diddoc(
     authentication_key: Jwk,
     assertion_key: Jwk,
     agreement_key: Jwk,
-) -> Result<String, Error> {
+) -> Result<Document, Error> {
     tracing::info!("building DID document");
 
     // Prepare DID address
@@ -125,7 +125,7 @@ fn gen_diddoc(
         String::from("https://w3id.org/security/suites/jws-2020/v1"),
     ]);
 
-    let doc = Document {
+    let diddoc = Document {
         authentication: Some(vec![Authentication::Reference(
             authentication_method.id.clone(), //
         )]),
@@ -146,14 +146,14 @@ fn gen_diddoc(
 
     // Serialize and persist to file
 
-    let did_json = serde_json::to_string_pretty(&doc).unwrap();
+    let did_json = serde_json::to_string_pretty(&diddoc).unwrap();
 
     std::fs::create_dir_all(storage_dirpath).map_err(|_| Error::PersistenceError)?;
-    std::fs::write(format!("{storage_dirpath}/did.json"), &did_json)
+    std::fs::write(format!("{storage_dirpath}/did.json"), did_json)
         .map_err(|_| Error::PersistenceError)?;
 
     tracing::info!("persisted DID document to disk");
-    Ok(did_json)
+    Ok(diddoc)
 }
 
 /// Validates the integrity of the persisted diddoc

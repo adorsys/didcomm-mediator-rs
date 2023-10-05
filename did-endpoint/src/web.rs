@@ -177,6 +177,7 @@ fn inspect_vm_relationship(diddoc: &Document, vm_id: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::didgen;
 
     use axum::{
         body::Body,
@@ -192,8 +193,10 @@ mod tests {
 
     #[tokio::test]
     async fn verify_didpop() {
-        let app = routes();
+        // Generate test-restricted did.json
+        let (storage_dirpath, expected_diddoc) = gen_ephemeral_diddoc();
 
+        let app = routes();
         let response = app
             .oneshot(
                 Request::builder()
@@ -215,6 +218,11 @@ mod tests {
         let vc = vp.verifiable_credential.get(0).unwrap();
         let diddoc = serde_json::from_value(json!(vc.credential_subject)).unwrap();
 
+        assert_eq!(
+            json_canon::to_string(&diddoc).unwrap(),
+            json_canon::to_string(&expected_diddoc).unwrap()
+        );
+
         let Some(proofs) = &vp.proof else { panic!("Verifiable presentation carries no proof") };
         let Proofs::SetOfProofs(proofs) = proofs else { unreachable!() };
         for proof in proofs {
@@ -228,6 +236,23 @@ mod tests {
 
             assert!(verifier.verify(json!(vp)).is_ok());
         }
+
+        // cleanup
+        std::fs::remove_dir_all(&storage_dirpath).unwrap();
+    }
+
+    fn gen_ephemeral_diddoc() -> (String, Document) {
+        dotenv_flow::dotenv_flow().ok();
+
+        let storage_dirpath = std::env::var("STORAGE_DIRPATH")
+            .map(|p| format!("{}/{}", p, uuid::Uuid::new_v4()))
+            .unwrap();
+        let server_public_domain = std::env::var("SERVER_PUBLIC_DOMAIN").unwrap();
+
+        let diddoc = didgen::didgen(&storage_dirpath, &server_public_domain).unwrap();
+
+        std::env::set_var("STORAGE_DIRPATH", &storage_dirpath);
+        (storage_dirpath, diddoc)
     }
 
     fn resolve_vm_for_public_key(diddoc: &Document, vm_id: &str) -> Option<Jwk> {
