@@ -24,7 +24,7 @@ pub fn routes() -> Router {
         .route("/.well-known/did/pop.json", get(didpop))
 }
 
-pub async fn diddoc() -> Result<Json<Value>, StatusCode> {
+async fn diddoc() -> Result<Json<Value>, StatusCode> {
     let storage_dirpath = std::env::var("STORAGE_DIRPATH").map_err(|_| {
         tracing::error!("STORAGE_DIRPATH env variable required");
         StatusCode::NOT_FOUND
@@ -36,7 +36,7 @@ pub async fn diddoc() -> Result<Json<Value>, StatusCode> {
     }
 }
 
-pub async fn didpop(
+async fn didpop(
     Query(params): Query<HashMap<String, String>>,
 ) -> Result<Json<Value>, StatusCode> {
     let challenge = params.get("challenge").ok_or(StatusCode::BAD_REQUEST)?;

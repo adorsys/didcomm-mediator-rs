@@ -11,7 +11,6 @@ axum = { version = "0.6.20" }
 chrono = { version = "0.4.26" }
 did-utils = { path = "../did-utils"}
 dotenv-flow = "0.15.0"
-generic-server = { path = "../generic-server", default-features = false }
 hyper = { version = "0.14.27", features = ["full"] }
 lazy_static = "1.4.0"
 multibase = { version = "0.8.0" } # earlier version due to 'did-utils'
