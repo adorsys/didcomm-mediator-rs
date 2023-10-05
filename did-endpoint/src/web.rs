@@ -36,9 +36,7 @@ async fn diddoc() -> Result<Json<Value>, StatusCode> {
     }
 }
 
-async fn didpop(
-    Query(params): Query<HashMap<String, String>>,
-) -> Result<Json<Value>, StatusCode> {
+async fn didpop(Query(params): Query<HashMap<String, String>>) -> Result<Json<Value>, StatusCode> {
     let challenge = params.get("challenge").ok_or(StatusCode::BAD_REQUEST)?;
 
     // Retrieve keystore
@@ -177,7 +175,7 @@ fn inspect_vm_relationship(diddoc: &Document, vm_id: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::didgen;
+    use crate::{didgen, util::dotenv_flow_read};
 
     use axum::{
         body::Body,
@@ -191,10 +189,31 @@ mod tests {
     use serde_json::json;
     use tower::util::ServiceExt;
 
+    fn setup_ephemeral_diddoc() -> (String, Document) {
+        let storage_dirpath = dotenv_flow_read("STORAGE_DIRPATH")
+            .map(|p| format!("{}/{}", p, uuid::Uuid::new_v4()))
+            .unwrap();
+
+        let server_public_domain = dotenv_flow_read("SERVER_PUBLIC_DOMAIN").unwrap();
+
+        // Run didgen logic
+        let diddoc = didgen::didgen(&storage_dirpath, &server_public_domain).unwrap();
+
+        // TODO! Find a race-free way to accomodate this. Maybe a test mutex?
+        std::env::set_var("STORAGE_DIRPATH", &storage_dirpath);
+
+        (storage_dirpath, diddoc)
+    }
+
+    fn cleanup(storage_dirpath: &str) {
+        std::env::remove_var("STORAGE_DIRPATH");
+        std::fs::remove_dir_all(storage_dirpath).unwrap();
+    }
+
     #[tokio::test]
     async fn verify_didpop() {
         // Generate test-restricted did.json
-        let (storage_dirpath, expected_diddoc) = gen_ephemeral_diddoc();
+        let (storage_dirpath, expected_diddoc) = setup_ephemeral_diddoc();
 
         let app = routes();
         let response = app
@@ -237,22 +256,7 @@ mod tests {
             assert!(verifier.verify(json!(vp)).is_ok());
         }
 
-        // cleanup
-        std::fs::remove_dir_all(&storage_dirpath).unwrap();
-    }
-
-    fn gen_ephemeral_diddoc() -> (String, Document) {
-        dotenv_flow::dotenv_flow().ok();
-
-        let storage_dirpath = std::env::var("STORAGE_DIRPATH")
-            .map(|p| format!("{}/{}", p, uuid::Uuid::new_v4()))
-            .unwrap();
-        let server_public_domain = std::env::var("SERVER_PUBLIC_DOMAIN").unwrap();
-
-        let diddoc = didgen::didgen(&storage_dirpath, &server_public_domain).unwrap();
-
-        std::env::set_var("STORAGE_DIRPATH", &storage_dirpath);
-        (storage_dirpath, diddoc)
+        cleanup(&storage_dirpath);
     }
 
     fn resolve_vm_for_public_key(diddoc: &Document, vm_id: &str) -> Option<Jwk> {

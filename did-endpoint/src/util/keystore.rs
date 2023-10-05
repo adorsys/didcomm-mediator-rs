@@ -122,13 +122,21 @@ impl ToPublic for Jwk {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::util::dotenv_flow_read;
+
+    fn setup() -> String {
+        dotenv_flow_read("STORAGE_DIRPATH")
+            .map(|p| format!("{}/{}", p, uuid::Uuid::new_v4()))
+            .unwrap()
+    }
+
+    fn cleanup(storage_dirpath: &str) {
+        std::fs::remove_dir_all(storage_dirpath).unwrap();
+    }
 
     #[test]
     fn test_keystore_flow() {
-        dotenv_flow::dotenv_flow().ok();
-        let storage_dirpath = std::env::var("STORAGE_DIRPATH")
-            .map(|p| format!("{}/{}", p, uuid::Uuid::new_v4()))
-            .unwrap();
+        let storage_dirpath = setup();
 
         let mut store = KeyStore::new(&storage_dirpath);
 
@@ -141,7 +149,6 @@ mod tests {
         let latest = KeyStore::latest(&storage_dirpath);
         assert!(latest.is_some());
 
-        // cleanup
-        std::fs::remove_dir_all(&storage_dirpath).unwrap();
+        cleanup(&storage_dirpath);
     }
 }

@@ -197,3 +197,132 @@ pub fn validate_diddoc(storage_dirpath: &str) -> Result<(), String> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::util::dotenv_flow_read;
+
+    fn setup() -> (String, String) {
+        let storage_dirpath = dotenv_flow_read("STORAGE_DIRPATH")
+            .map(|p| format!("{}/{}", p, uuid::Uuid::new_v4()))
+            .unwrap();
+
+        let server_public_domain = dotenv_flow_read("SERVER_PUBLIC_DOMAIN").unwrap();
+
+        (storage_dirpath, server_public_domain)
+    }
+
+    fn cleanup(storage_dirpath: &str) {
+        std::fs::remove_dir_all(storage_dirpath).unwrap();
+    }
+
+    // Verifies that the didgen function returns a DID document.
+    // Does not validate the DID document.
+    #[test]
+    fn test_didgen() {
+        let (storage_dirpath, server_public_domain) = setup();
+
+        let diddoc = didgen(&storage_dirpath, &server_public_domain).unwrap();
+        assert_eq!(diddoc.id, "did:web:example.com");
+
+        cleanup(&storage_dirpath);
+    }
+
+    // Produces did doc from keys and validate that corresponding verification methods are present.
+    #[test]
+    fn test_gen_diddoc() {
+        let (storage_dirpath, server_public_domain) = setup();
+
+        let authentication_key = Jwk {
+            key_id: None,
+            key_type: String::from("OKP"),
+            curve: String::from("Ed25519"),
+            x: Some(String::from(
+                "d75a980182b10ab2463c5b1be1b4d97e06ec21ebac8552059996bd962d77f259",
+            )),
+            y: None,
+            d: None,
+        };
+
+        let assertion_key = Jwk {
+            key_id: None,
+            key_type: String::from("OKP"),
+            curve: String::from("Ed25519"),
+            x: Some(String::from(
+                "d75a980182b10ab2463c5b1be1b4d97e06ec21ebac8552059996bd962d77f259",
+            )),
+            y: None,
+            d: None,
+        };
+
+        let agreement_key = Jwk {
+            key_id: None,
+            key_type: String::from("OKP"),
+            curve: String::from("X25519"),
+            x: Some(String::from(
+                "d75a980182b10ab2463c5b1be1b4d97e06ec21ebac8552059996bd962d77f259",
+            )),
+            y: None,
+            d: None,
+        };
+
+        let diddoc = gen_diddoc(
+            &storage_dirpath,
+            &server_public_domain,
+            authentication_key.clone(),
+            assertion_key.clone(),
+            agreement_key.clone(),
+        )
+        .unwrap();
+
+        // Verify that the DID contains exactly the defined verification methods.
+        let expected_verification_methods = vec![
+            VerificationMethod {
+                id: "did:web:example.com#keys-1".to_string(),
+                public_key: Some(KeyFormat::Jwk(authentication_key)),
+                ..VerificationMethod::new(
+                    "did:web:example.com#keys-1".to_string(),
+                    String::from("JsonWebKey2020"),
+                    "did:web:example.com".to_string(),
+                )
+            },
+            VerificationMethod {
+                id: "did:web:example.com#keys-2".to_string(),
+                public_key: Some(KeyFormat::Jwk(assertion_key)),
+                ..VerificationMethod::new(
+                    "did:web:example.com#keys-2".to_string(),
+                    String::from("JsonWebKey2020"),
+                    "did:web:example.com".to_string(),
+                )
+            },
+            VerificationMethod {
+                id: "did:web:example.com#keys-3".to_string(),
+                public_key: Some(KeyFormat::Jwk(agreement_key)),
+                ..VerificationMethod::new(
+                    "did:web:example.com#keys-3".to_string(),
+                    String::from("JsonWebKey2020"),
+                    "did:web:example.com".to_string(),
+                )
+            },
+        ];
+
+        let actual_verification_methods = diddoc.verification_method.unwrap();
+
+        let actual = json_canon::to_string(&actual_verification_methods).unwrap();
+        let expected = json_canon::to_string(&expected_verification_methods).unwrap();
+        assert_eq!(expected, actual);
+
+        cleanup(&storage_dirpath);
+    }
+
+    #[test]
+    fn test_validate_diddoc() {
+        let (storage_dirpath, server_public_domain) = setup();
+
+        didgen(&storage_dirpath, &server_public_domain).unwrap();
+        assert!(validate_diddoc(&storage_dirpath).is_ok());
+
+        cleanup(&storage_dirpath);
+    }
+}
