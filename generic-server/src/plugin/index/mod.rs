@@ -1,8 +1,7 @@
 mod web;
 
 use axum::Router;
-
-use super::traits::{Plugin, PluginError};
+use server_plugin::{Plugin, PluginError};
 
 #[derive(Default)]
 pub struct IndexPlugin;
