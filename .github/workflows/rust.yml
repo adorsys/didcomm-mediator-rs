@@ -25,9 +25,22 @@ jobs:
         cargo build --verbose
         cargo test --verbose
 
-    - name: Build and Test Sample Pop Server
+    - name: Build and Test Did Endpoint
       run: |
-        cd sample-pop-server
+        cd did-endpoint
+        cargo build --verbose
+        cargo test --verbose
+
+    - name: Build and Test Generic Server
+      run: |
+        cd generic-server
+        cargo build --verbose
+        cargo run --bin didgen
+        cargo test --verbose
+
+    - name: Build and Mediator Server
+      run: |
+        cd mediator-server
         cargo build --verbose
         cargo run --bin didgen
         cargo test --verbose
