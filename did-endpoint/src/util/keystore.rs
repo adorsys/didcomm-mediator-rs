@@ -4,6 +4,7 @@ use did_utils::{
     didcore::Jwk,
 };
 use std::error::Error;
+use zeroize::Zeroize;
 
 pub struct KeyStore {
     dirpath: String,
@@ -103,6 +104,14 @@ impl KeyStore {
         self.persist()?;
 
         Ok(pub_jwk)
+    }
+}
+
+impl Drop for KeyStore {
+    fn drop(&mut self) {
+        for jwk in &mut self.keys {
+            jwk.d.zeroize();
+        };
     }
 }
 
