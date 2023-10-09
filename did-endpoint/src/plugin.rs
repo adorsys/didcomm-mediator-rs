@@ -1,7 +1,6 @@
 use axum::Router;
-use did_endpoint::{didgen, web};
-
-use super::traits::{Plugin, PluginError};
+use super::{didgen, web};
+use server_plugin::{Plugin, PluginError};
 
 #[derive(Default)]
 pub struct DidEndpointPlugin;

@@ -1,11 +1,9 @@
 use std::collections::{HashMap, HashSet};
 
 use axum::Router;
+use server_plugin::{Plugin, PluginError};
 
-use super::{
-    traits::{Plugin, PluginError},
-    PLUGINS,
-};
+use super::PLUGINS;
 
 #[derive(Debug, PartialEq)]
 pub enum PluginContainerError {
