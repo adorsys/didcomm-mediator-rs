@@ -1,4 +1,4 @@
-use sample_pop_server::{app, didgen};
+use generic_server::app;
 
 use axum::Server;
 use std::net::SocketAddr;
@@ -8,13 +8,8 @@ async fn main() {
     // Load dotenv-flow variables
     dotenv_flow::dotenv_flow().ok();
 
-    // Enable tracing
+    // Enable logging
     config_tracing();
-
-    // Run `didgen` if necessary
-    if didgen::validate_diddoc().is_err() {
-        didgen::didgen().expect("Failed to generate an initial keystore and its DID document.");
-    };
 
     // Start server
     let port = std::env::var("SERVER_LOCAL_PORT").unwrap_or("3000".to_owned());
@@ -32,10 +27,9 @@ fn config_tracing() {
 
     let tracing_layer = tracing_subscriber::fmt::layer();
     let filter = filter::Targets::new()
-        .with_target("tower_http::trace::on_response", Level::DEBUG)
-        .with_target("tower_http::trace::on_request", Level::DEBUG)
-        .with_target("tower_http::trace::make_span", Level::DEBUG)
-        .with_default(Level::INFO);
+        .with_target("hyper::proto", Level::INFO)
+        .with_target("tower_http::trace", Level::DEBUG)
+        .with_default(Level::DEBUG);
 
     tracing_subscriber::registry()
         .with(tracing_layer)

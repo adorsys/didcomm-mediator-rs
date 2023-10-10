@@ -21,7 +21,9 @@ pub async fn index() -> Json<Value> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{app, util::crate_name};
+    use super::*;
+    use crate::util::crate_name;
+
     use axum::{
         body::Body,
         http::{Request, StatusCode},
@@ -31,7 +33,7 @@ mod tests {
 
     #[tokio::test]
     async fn index() {
-        let app = app();
+        let app = routes();
 
         let response = app
             .oneshot(Request::builder().uri("/").body(Body::empty()).unwrap())

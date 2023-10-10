@@ -14,7 +14,7 @@ use multibase::Base;
 use serde_json::{json, Value};
 use std::collections::HashMap;
 
-use crate::{util::KeyStore, DIDDOC_DIR};
+use crate::util::KeyStore;
 
 const DEFAULT_CONTEXT_V2: &str = "https://www.w3.org/ns/credentials/v2";
 
@@ -24,18 +24,28 @@ pub fn routes() -> Router {
         .route("/.well-known/did/pop.json", get(didpop))
 }
 
-pub async fn diddoc() -> Result<Json<Value>, StatusCode> {
-    match tokio::fs::read_to_string(&format!("{DIDDOC_DIR}/did.json")).await {
+async fn diddoc() -> Result<Json<Value>, StatusCode> {
+    let storage_dirpath = std::env::var("STORAGE_DIRPATH").map_err(|_| {
+        tracing::error!("STORAGE_DIRPATH env variable required");
+        StatusCode::NOT_FOUND
+    })?;
+
+    match tokio::fs::read_to_string(&format!("{storage_dirpath}/did.json")).await {
         Ok(content) => Ok(Json(serde_json::from_str(&content).unwrap())),
         Err(_) => Err(StatusCode::NOT_FOUND),
     }
 }
 
-pub async fn didpop(
-    Query(params): Query<HashMap<String, String>>,
-) -> Result<Json<Value>, StatusCode> {
+async fn didpop(Query(params): Query<HashMap<String, String>>) -> Result<Json<Value>, StatusCode> {
     let challenge = params.get("challenge").ok_or(StatusCode::BAD_REQUEST)?;
-    let keystore = KeyStore::latest().expect("Keystore file probably missing");
+
+    // Retrieve keystore
+
+    let storage_dirpath = std::env::var("STORAGE_DIRPATH").map_err(|_| {
+        tracing::error!("STORAGE_DIRPATH env variable required");
+        StatusCode::NOT_FOUND
+    })?;
+    let keystore = KeyStore::latest(&storage_dirpath).expect("Keystore file probably missing");
 
     // Load DID document and its verification methods
 
@@ -164,7 +174,9 @@ fn inspect_vm_relationship(diddoc: &Document, vm_id: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use crate::app;
+    use super::*;
+    use crate::{didgen, util::dotenv_flow_read};
+
     use axum::{
         body::Body,
         http::{Request, StatusCode},
@@ -177,10 +189,33 @@ mod tests {
     use serde_json::json;
     use tower::util::ServiceExt;
 
+    fn setup_ephemeral_diddoc() -> (String, Document) {
+        let storage_dirpath = dotenv_flow_read("STORAGE_DIRPATH")
+            .map(|p| format!("{}/{}", p, uuid::Uuid::new_v4()))
+            .unwrap();
+
+        let server_public_domain = dotenv_flow_read("SERVER_PUBLIC_DOMAIN").unwrap();
+
+        // Run didgen logic
+        let diddoc = didgen::didgen(&storage_dirpath, &server_public_domain).unwrap();
+
+        // TODO! Find a race-free way to accomodate this. Maybe a test mutex?
+        std::env::set_var("STORAGE_DIRPATH", &storage_dirpath);
+
+        (storage_dirpath, diddoc)
+    }
+
+    fn cleanup(storage_dirpath: &str) {
+        std::env::remove_var("STORAGE_DIRPATH");
+        std::fs::remove_dir_all(storage_dirpath).unwrap();
+    }
+
     #[tokio::test]
     async fn verify_didpop() {
-        let app = app();
+        // Generate test-restricted did.json
+        let (storage_dirpath, expected_diddoc) = setup_ephemeral_diddoc();
 
+        let app = routes();
         let response = app
             .oneshot(
                 Request::builder()
@@ -202,6 +237,11 @@ mod tests {
         let vc = vp.verifiable_credential.get(0).unwrap();
         let diddoc = serde_json::from_value(json!(vc.credential_subject)).unwrap();
 
+        assert_eq!(
+            json_canon::to_string(&diddoc).unwrap(),
+            json_canon::to_string(&expected_diddoc).unwrap()
+        );
+
         let Some(proofs) = &vp.proof else { panic!("Verifiable presentation carries no proof") };
         let Proofs::SetOfProofs(proofs) = proofs else { unreachable!() };
         for proof in proofs {
@@ -215,6 +255,8 @@ mod tests {
 
             assert!(verifier.verify(json!(vp)).is_ok());
         }
+
+        cleanup(&storage_dirpath);
     }
 
     fn resolve_vm_for_public_key(diddoc: &Document, vm_id: &str) -> Option<Jwk> {

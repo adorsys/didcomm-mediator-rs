@@ -1,42 +1,39 @@
+use chrono::Utc;
 use did_utils::{
-    crypto::{
-        ed25519::Ed25519KeyPair,
-        traits::{Generate, KeyMaterial},
-        x25519::X25519KeyPair,
-    },
+    crypto::{ed25519::Ed25519KeyPair, traits::Generate, x25519::X25519KeyPair},
     didcore::Jwk,
 };
-use serde_json::{json, Value};
 use std::error::Error;
-
-use crate::KEYSTORE_DIR;
+use zeroize::Zeroize;
 
 pub struct KeyStore {
-    path: String,
+    dirpath: String,
+    filename: String,
     keys: Vec<Jwk>,
 }
 
-struct KeyStoreFactory {
-    location: String,
-}
-
-impl KeyStoreFactory {
-    fn create(&self) -> KeyStore {
-        KeyStore {
-            path: format!("{}/{}.json", self.location, chrono::Utc::now().timestamp()),
+impl KeyStore {
+    /// Constructs file-based key-value store.
+    pub fn new(storage_dirpath: &str) -> Self {
+        Self {
+            dirpath: format!("{storage_dirpath}/keystore"),
+            filename: format!("{}.json", Utc::now().timestamp()),
             keys: vec![],
         }
     }
 
-    fn latest(&self) -> Option<KeyStore> {
+    /// Returns latest store on disk, if any.
+    pub fn latest(storage_dirpath: &str) -> Option<Self> {
+        let dirpath = format!("{storage_dirpath}/keystore");
+
         let msg = "Error parsing keystore directory";
-        let file = std::fs::read_dir(&self.location)
+        let file = std::fs::read_dir(&dirpath)
             .expect(msg)
             .map(|x| x.expect(msg).path().to_str().expect(msg).to_string())
             .filter(|p| p.ends_with(".json"))
             .max_by_key(|p| {
                 let p = p
-                    .trim_start_matches(&format!("{}/", self.location))
+                    .trim_start_matches(&format!("{}/", &dirpath))
                     .trim_end_matches(".json");
                 p.parse::<i32>().expect(msg)
             });
@@ -47,39 +44,31 @@ impl KeyStoreFactory {
                 Err(_) => None,
                 Ok(content) => match serde_json::from_str::<Vec<Jwk>>(&content) {
                     Err(_) => None,
-                    Ok(keys) => Some(KeyStore { path, keys }),
+                    Ok(keys) => {
+                        let filename = path
+                            .trim_start_matches(&format!("{}/", &dirpath))
+                            .to_string();
+
+                        Some(KeyStore {
+                            dirpath,
+                            filename,
+                            keys,
+                        })
+                    }
                 },
             },
-        }
-    }
-}
-
-impl KeyStore {
-    /// Constructs file-based key-value store.
-    pub fn new() -> Self {
-        Self::factory(KEYSTORE_DIR).create()
-    }
-
-    /// Returns latest store on disk, if any.
-    pub fn latest() -> Option<Self> {
-        Self::factory(KEYSTORE_DIR).latest()
-    }
-
-    /// Returns location-aware factory
-    fn factory(location: &str) -> KeyStoreFactory {
-        KeyStoreFactory {
-            location: location.to_string(),
         }
     }
 
     /// Gets path
     pub fn path(&self) -> String {
-        self.path.clone()
+        format!("{}/{}", self.dirpath, self.filename)
     }
 
     /// Persists store on disk
     fn persist(&self) -> std::io::Result<()> {
-        std::fs::write(self.path.clone(), serde_json::to_string_pretty(&self.keys)?)
+        std::fs::create_dir_all(&self.dirpath)?;
+        std::fs::write(self.path(), serde_json::to_string_pretty(&self.keys)?)
     }
 
     /// Searches keypair given public key
@@ -118,9 +107,11 @@ impl KeyStore {
     }
 }
 
-impl Default for KeyStore {
-    fn default() -> Self {
-        Self::new()
+impl Drop for KeyStore {
+    fn drop(&mut self) {
+        for jwk in &mut self.keys {
+            jwk.d.zeroize();
+        };
     }
 }
 
@@ -140,21 +131,23 @@ impl ToPublic for Jwk {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::util::crate_name;
-    use tempdir::TempDir;
+    use crate::util::dotenv_flow_read;
 
-    impl KeyStore {
-        fn destroy(self) {
-            std::fs::remove_file(self.path);
-        }
+    fn setup() -> String {
+        dotenv_flow_read("STORAGE_DIRPATH")
+            .map(|p| format!("{}/{}", p, uuid::Uuid::new_v4()))
+            .unwrap()
+    }
+
+    fn cleanup(storage_dirpath: &str) {
+        std::fs::remove_dir_all(storage_dirpath).unwrap();
     }
 
     #[test]
     fn test_keystore_flow() {
-        let location = TempDir::new(&crate_name()).unwrap();
-        let factory = KeyStore::factory(location.path().to_str().unwrap());
+        let storage_dirpath = setup();
 
-        let mut store = factory.create();
+        let mut store = KeyStore::new(&storage_dirpath);
 
         let jwk = store.gen_ed25519_jwk().unwrap();
         assert!(store.find_keypair(&jwk).is_some());
@@ -162,9 +155,9 @@ mod tests {
         let jwk = store.gen_x25519_jwk().unwrap();
         assert!(store.find_keypair(&jwk).is_some());
 
-        let latest = factory.latest();
+        let latest = KeyStore::latest(&storage_dirpath);
         assert!(latest.is_some());
 
-        store.destroy();
+        cleanup(&storage_dirpath);
     }
 }
