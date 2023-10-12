@@ -1,5 +1,3 @@
-// SPDX-FileCopyrightText: 2022 Profian Inc. <opensource@profian.com>
-// SPDX-License-Identifier: Apache-2.0 OR MIT
 extern crate alloc;
 
 use zeroize::Zeroize;
@@ -17,8 +15,6 @@ use core::str::FromStr;
 use base64ct::{ Base64UrlUnpadded, Encoding };
 use base64ct::Error as DecodeError;
 use serde::{ de::Error as _, Deserialize, Deserializer, Serialize, Serializer };
-
-// use crate::stream::Error;
 
 /// A serde wrapper for base64-encoded bytes.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]

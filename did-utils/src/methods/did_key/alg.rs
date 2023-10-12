@@ -1,7 +1,15 @@
 use multibase::Base::Base64Url;
-use num_bigint::{BigInt, Sign};
+use num_bigint::{ BigInt, Sign };
 
-use crate::{crypto::traits::Error as CryptoError, didcore::Jwk};
+use crate::{
+    crypto::traits::Error as CryptoError,
+    didcore::Jwk,
+    key::key::Key,
+    key::ec::Ec,
+    key::ec::EcCurves,
+    key::okp::Okp,
+    key::okp::OkpCurves,
+};
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 #[allow(unused, clippy::upper_case_acronyms)]
@@ -64,50 +72,197 @@ impl Algorithm {
 
     pub fn build_jwk(&self, raw_public_key_bytes: &[u8]) -> Result<Jwk, CryptoError> {
         match self {
-            Ed25519 => Ok(Jwk {
-                key_id: None,
-                key_type: String::from("OKP"),
-                curve: String::from("Ed25519"),
-                x: Some(Base64Url.encode(raw_public_key_bytes)),
-                y: None,
-                d: None,
-            }),
-            X25519 => Ok(Jwk {
-                key_id: None,
-                key_type: String::from("OKP"),
-                curve: String::from("X25519"),
-                x: Some(Base64Url.encode(raw_public_key_bytes)),
-                y: None,
-                d: None,
-            }),
+            // Ed25519 => Ok(Jwk {
+            //     key_id: None,
+            //     key_type: String::from("OKP"),
+            //     curve: String::from("Ed25519"),
+            //     x: Some(Base64Url.encode(raw_public_key_bytes)),
+            //     y: None,
+            //     d: None,
+            // }),
+            X25519 =>
+                Ok(Jwk {
+                    key_id: None,
+                    key_type: Key::Okp(Okp {
+                        crv: OkpCurves::Ed25519,
+                        d: Some(
+                            vec![
+                                157,
+                                97,
+                                177,
+                                157,
+                                239,
+                                253,
+                                90,
+                                96,
+                                186,
+                                132,
+                                74,
+                                244,
+                                146,
+                                236,
+                                44,
+                                196,
+                                68,
+                                73,
+                                197,
+                                105,
+                                123,
+                                50,
+                                105,
+                                25,
+                                112,
+                                59,
+                                172,
+                                3,
+                                28,
+                                174,
+                                127,
+                                96
+                            ].into()
+                        ),
+                        x: vec![
+                            215,
+                            90,
+                            152,
+                            1,
+                            130,
+                            177,
+                            10,
+                            183,
+                            213,
+                            75,
+                            254,
+                            211,
+                            201,
+                            100,
+                            7,
+                            58,
+                            14,
+                            225,
+                            114,
+                            243,
+                            218,
+                            166,
+                            35,
+                            37,
+                            175,
+                            2,
+                            26,
+                            104,
+                            247,
+                            7,
+                            81,
+                            26
+                        ].into(),
+                    }),
+                    curve: String::from("X25519"),
+                    x: Some(Base64Url.encode(raw_public_key_bytes)),
+                    y: None,
+                    d: None,
+                }),
             Secp256k1 => {
                 let uncompressed = self.uncompress_public_key(raw_public_key_bytes)?;
                 Ok(Jwk {
                     key_id: None,
-                    key_type: String::from("EC"),
+                    key_type: Key::Ec(Ec {
+                        crv: EcCurves::P256,
+                        d: None,
+                        x: vec![
+                            48,
+                            160,
+                            66,
+                            76,
+                            210,
+                            28,
+                            41,
+                            68,
+                            131,
+                            138,
+                            45,
+                            117,
+                            201,
+                            43,
+                            55,
+                            231,
+                            110,
+                            162,
+                            13,
+                            159,
+                            0,
+                            137,
+                            58,
+                            59,
+                            78,
+                            238,
+                            138,
+                            60,
+                            10,
+                            175,
+                            236,
+                            62
+                        ].into(),
+                        y: vec![
+                            224,
+                            75,
+                            101,
+                            233,
+                            36,
+                            86,
+                            217,
+                            136,
+                            139,
+                            82,
+                            179,
+                            121,
+                            189,
+                            251,
+                            213,
+                            30,
+                            232,
+                            105,
+                            239,
+                            31,
+                            15,
+                            198,
+                            91,
+                            102,
+                            89,
+                            105,
+                            91,
+                            108,
+                            206,
+                            8,
+                            23,
+                            35
+                        ].into(),
+                    }),
                     curve: String::from("secp256k1"),
                     x: Some(Base64Url.encode(&uncompressed[1..33])),
                     y: Some(Base64Url.encode(&uncompressed[33..])),
                     d: None,
                 })
             }
-            P256 => {
-                let uncompressed = self.uncompress_public_key(raw_public_key_bytes)?;
-                Ok(Jwk {
-                    key_id: None,
-                    key_type: String::from("EC"),
-                    curve: String::from("P-256"),
-                    x: Some(Base64Url.encode(&uncompressed[1..33])),
-                    y: Some(Base64Url.encode(&uncompressed[33..])),
-                    d: None,
-                })
-            }
+            // P256 => {
+            //     let uncompressed = self.uncompress_public_key(raw_public_key_bytes)?;
+            //     Ok(Jwk {
+            //         key_id: None,
+            //         key_type: String::from("EC"),
+            //         curve: String::from("P-256"),
+            //         x: Some(Base64Url.encode(&uncompressed[1..33])),
+            //         y: Some(Base64Url.encode(&uncompressed[33..])),
+            //         d: None,
+            //     })
+            // }
             // TODO! Extend implementation to other algorithms
             _ => Err(CryptoError::Unsupported),
         }
     }
 
-    pub fn uncompress_public_key(&self, compressed_key_bytes: &[u8]) -> Result<Vec<u8>, CryptoError> {
+    pub fn uncompress_public_key(
+        &self,
+        compressed_key_bytes: &[u8]
+    ) -> Result<Vec<u8>, CryptoError> {
         if let Some(required_length) = self.public_key_length() {
             if required_length != compressed_key_bytes.len() {
                 return Err(CryptoError::InvalidKeyLength);
@@ -119,7 +274,9 @@ impl Algorithm {
             let sign = match sign_byte {
                 0x02 => 0u8,
                 0x03 => 1u8,
-                _ => return Err(CryptoError::InvalidPublicKey),
+                _ => {
+                    return Err(CryptoError::InvalidPublicKey);
+                }
             };
 
             let x = BigInt::from_bytes_be(Sign::Plus, &compressed_key_bytes[1..]);
@@ -170,51 +327,57 @@ mod tests {
 
     #[test]
     fn test_can_build_secp256k1_jwk() {
-        let (alg, bytes) = decode_multibase_key("zQ3shokFTS3brHcDQrn82RUDfCZESWL1ZdCEJwekUDPQiYBme");
+        let (alg, bytes) = decode_multibase_key(
+            "zQ3shokFTS3brHcDQrn82RUDfCZESWL1ZdCEJwekUDPQiYBme"
+        );
         assert_eq!(alg, Secp256k1);
 
         let uncompressed = alg.uncompress_public_key(&bytes).unwrap();
         assert_eq!(uncompressed.len(), 65);
 
         let jwk = alg.build_jwk(&bytes).unwrap();
-        let expected: Value = serde_json::from_str(
-            r#"{
+        let expected: Value = serde_json
+            ::from_str(
+                r#"{
                 "kty": "EC",
                 "crv": "secp256k1",
                 "x": "h0wVx_2iDlOcblulc8E5iEw1EYh5n1RYtLQfeSTyNc0",
                 "y": "O2EATIGbu6DezKFptj5scAIRntgfecanVNXxat1rnwE"
-            }"#,
-        )
-        .unwrap();
+            }"#
+            )
+            .unwrap();
 
         assert_eq!(
-            json_canon::to_string(&jwk).unwrap(),      //
-            json_canon::to_string(&expected).unwrap(), //
+            json_canon::to_string(&jwk).unwrap(), //
+            json_canon::to_string(&expected).unwrap() //
         )
     }
 
     #[test]
     fn test_can_build_p256_jwk() {
-        let (alg, bytes) = decode_multibase_key("zDnaerDaTF5BXEavCrfRZEk316dpbLsfPDZ3WJ5hRTPFU2169");
+        let (alg, bytes) = decode_multibase_key(
+            "zDnaerDaTF5BXEavCrfRZEk316dpbLsfPDZ3WJ5hRTPFU2169"
+        );
         assert_eq!(alg, P256);
 
         let uncompressed = alg.uncompress_public_key(&bytes).unwrap();
         assert_eq!(uncompressed.len(), 65);
 
         let jwk = alg.build_jwk(&bytes).unwrap();
-        let expected: Value = serde_json::from_str(
-            r#"{
+        let expected: Value = serde_json
+            ::from_str(
+                r#"{
                 "kty": "EC",
                 "crv": "P-256",
                 "x": "fyNYMN0976ci7xqiSdag3buk-ZCwgXU4kz9XNkBlNUI",
                 "y": "hW2ojTNfH7Jbi8--CJUo3OCbH3y5n91g-IMA9MLMbTU"
-            }"#,
-        )
-        .unwrap();
+            }"#
+            )
+            .unwrap();
 
         assert_eq!(
-            json_canon::to_string(&jwk).unwrap(),      //
-            json_canon::to_string(&expected).unwrap(), //
+            json_canon::to_string(&jwk).unwrap(), //
+            json_canon::to_string(&expected).unwrap() //
         )
     }
 
@@ -257,14 +420,18 @@ mod tests {
 
     #[test]
     fn test_key_decompression_fails_on_invalid_key_length() {
-        let bytes = hex::decode("023d4de48a477e309548a0ed8ceee086d1aaeceb11f0a8e3a0ffb3e5f44602de1800").unwrap();
+        let bytes = hex
+            ::decode("023d4de48a477e309548a0ed8ceee086d1aaeceb11f0a8e3a0ffb3e5f44602de1800")
+            .unwrap();
         let uncompressed = P256.uncompress_public_key(&bytes);
         assert!(matches!(uncompressed.unwrap_err(), CryptoError::InvalidKeyLength));
     }
 
     #[test]
     fn test_key_decompression_fails_on_invalid_sign_byte() {
-        let bytes = hex::decode("113d4de48a477e309548a0ed8ceee086d1aaeceb11f0a8e3a0ffb3e5f44602de18").unwrap();
+        let bytes = hex
+            ::decode("113d4de48a477e309548a0ed8ceee086d1aaeceb11f0a8e3a0ffb3e5f44602de18")
+            .unwrap();
         let uncompressed = P256.uncompress_public_key(&bytes);
         assert!(matches!(uncompressed.unwrap_err(), CryptoError::InvalidPublicKey));
     }

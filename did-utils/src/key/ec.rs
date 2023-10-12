@@ -1,6 +1,7 @@
 use serde::{ Deserialize, Serialize };
 
 use crate::key::bytes::Bytes;
+use crate::key::secret::Secret;
 
 /// An elliptic-curve key.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -14,8 +15,10 @@ pub struct Ec {
     /// The public y coordinate.
     pub y: Bytes,
 
+    /// The private key.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     //A secret is like the [`Bytes`] type, but can be expanded to include additional protections:
-    pub d: Bytes,
+    pub d: Option<Secret>,
 }
 
 /// The elliptic curve.
