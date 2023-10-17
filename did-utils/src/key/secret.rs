@@ -1,5 +1,6 @@
-use alloc::boxed::Box;
 extern crate alloc;
+use alloc::boxed::Box;
+
 use core::fmt::Debug;
 use core::ops::{ Deref, DerefMut };
 

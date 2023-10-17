@@ -1,14 +1,12 @@
-use multibase::Base::Base64Url;
 use num_bigint::{ BigInt, Sign };
 
 use crate::{
     crypto::traits::Error as CryptoError,
     didcore::Jwk,
     key::key::Key,
-    key::ec::Ec,
-    key::ec::EcCurves,
-    key::okp::Okp,
-    key::okp::OkpCurves,
+    key::ec::{ Ec, EcCurves },
+    key::okp::{ Okp, OkpCurves },
+    key::Bytes,
 };
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -72,188 +70,48 @@ impl Algorithm {
 
     pub fn build_jwk(&self, raw_public_key_bytes: &[u8]) -> Result<Jwk, CryptoError> {
         match self {
-            // Ed25519 => Ok(Jwk {
-            //     key_id: None,
-            //     key_type: String::from("OKP"),
-            //     curve: String::from("Ed25519"),
-            //     x: Some(Base64Url.encode(raw_public_key_bytes)),
-            //     y: None,
-            //     d: None,
-            // }),
-            X25519 =>
+            Ed25519 =>
                 Ok(Jwk {
                     key_id: None,
                     key_type: Key::Okp(Okp {
                         crv: OkpCurves::Ed25519,
-                        d: Some(
-                            vec![
-                                157,
-                                97,
-                                177,
-                                157,
-                                239,
-                                253,
-                                90,
-                                96,
-                                186,
-                                132,
-                                74,
-                                244,
-                                146,
-                                236,
-                                44,
-                                196,
-                                68,
-                                73,
-                                197,
-                                105,
-                                123,
-                                50,
-                                105,
-                                25,
-                                112,
-                                59,
-                                172,
-                                3,
-                                28,
-                                174,
-                                127,
-                                96
-                            ].into()
-                        ),
-                        x: vec![
-                            215,
-                            90,
-                            152,
-                            1,
-                            130,
-                            177,
-                            10,
-                            183,
-                            213,
-                            75,
-                            254,
-                            211,
-                            201,
-                            100,
-                            7,
-                            58,
-                            14,
-                            225,
-                            114,
-                            243,
-                            218,
-                            166,
-                            35,
-                            37,
-                            175,
-                            2,
-                            26,
-                            104,
-                            247,
-                            7,
-                            81,
-                            26
-                        ].into(),
+                        x: Bytes::from(raw_public_key_bytes.to_vec()),
+                        d: None,
                     }),
-                    // curve: String::from("X25519"),
-                    // x: Some(Base64Url.encode(raw_public_key_bytes)),
-                    // y: None,
-                    // d: None,
+                }),
+            X25519 =>
+                Ok(Jwk {
+                    key_id: None,
+                    key_type: Key::Okp(Okp {
+                        crv: OkpCurves::X25519,
+                        x: Bytes::from(raw_public_key_bytes.to_vec()),
+                        d: None,
+                    }),
                 }),
             Secp256k1 => {
                 let uncompressed = self.uncompress_public_key(raw_public_key_bytes)?;
                 Ok(Jwk {
                     key_id: None,
                     key_type: Key::Ec(Ec {
-                        crv: EcCurves::P256,
+                        crv: EcCurves::P256K,
                         d: None,
-                        x: vec![
-                            48,
-                            160,
-                            66,
-                            76,
-                            210,
-                            28,
-                            41,
-                            68,
-                            131,
-                            138,
-                            45,
-                            117,
-                            201,
-                            43,
-                            55,
-                            231,
-                            110,
-                            162,
-                            13,
-                            159,
-                            0,
-                            137,
-                            58,
-                            59,
-                            78,
-                            238,
-                            138,
-                            60,
-                            10,
-                            175,
-                            236,
-                            62
-                        ].into(),
-                        y: vec![
-                            224,
-                            75,
-                            101,
-                            233,
-                            36,
-                            86,
-                            217,
-                            136,
-                            139,
-                            82,
-                            179,
-                            121,
-                            189,
-                            251,
-                            213,
-                            30,
-                            232,
-                            105,
-                            239,
-                            31,
-                            15,
-                            198,
-                            91,
-                            102,
-                            89,
-                            105,
-                            91,
-                            108,
-                            206,
-                            8,
-                            23,
-                            35
-                        ].into(),
+                        x: Bytes::from(uncompressed[1..33].to_vec()),
+                        y: Bytes::from(uncompressed[33..].to_vec()),
                     }),
-                    // curve: String::from("secp256k1"),
-                    // x: Some(Base64Url.encode(&uncompressed[1..33])),
-                    // y: Some(Base64Url.encode(&uncompressed[33..])),
-                    // d: None,
                 })
             }
-            // P256 => {
-            //     let uncompressed = self.uncompress_public_key(raw_public_key_bytes)?;
-            //     Ok(Jwk {
-            //         key_id: None,
-            //         key_type: String::from("EC"),
-            //         curve: String::from("P-256"),
-            //         x: Some(Base64Url.encode(&uncompressed[1..33])),
-            //         y: Some(Base64Url.encode(&uncompressed[33..])),
-            //         d: None,
-            //     })
-            // }
+            P256 => {
+                let uncompressed = self.uncompress_public_key(raw_public_key_bytes)?;
+                Ok(Jwk {
+                    key_id: None,
+                    key_type: Key::Ec(Ec {
+                        crv: EcCurves::P256,
+                        d: None,
+                        x: Bytes::from(uncompressed[1..33].to_vec()),
+                        y: Bytes::from(uncompressed[33..].to_vec()),
+                    }),
+                })
+            }
             // TODO! Extend implementation to other algorithms
             _ => Err(CryptoError::Unsupported),
         }

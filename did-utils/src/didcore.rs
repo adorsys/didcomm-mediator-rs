@@ -133,7 +133,7 @@ pub enum KeyFormat {
 pub struct Jwk {
     #[serde(rename = "kid", skip_serializing_if = "Option::is_none")]
     pub key_id: Option<String>,
-    #[serde(rename = "kty")]
+    #[serde(flatten)]
     pub key_type: Key,
     // #[serde(rename = "crv")]
     // pub curve: String,

@@ -6,9 +6,9 @@ use crate::{
     },
     didcore::Jwk,
 };
-use jose_b64::serde::{ Bytes, Secret };
+
 use multibase::Base::Base64Url;
-use crate::key::{ key::Key, okp::OkpCurves, okp::Okp };
+use crate::key::{ key::Key, okp::OkpCurves, okp::Okp, Bytes, secret::Secret };
 
 impl TryFrom<Ed25519KeyPair> for Jwk {
     type Error = CryptoError;
@@ -102,6 +102,7 @@ impl TryFrom<Jwk> for X25519KeyPair {
     }
 }
 
+#[allow(dead_code)]
 fn base64url_to_bytes(key: &str) -> Result<[u8; BYTES_LENGTH_32], ()> {
     let key: Vec<u8> = Base64Url.decode(key).map_err(|_| ())?;
     let key: [u8; BYTES_LENGTH_32] = key.try_into().map_err(|_| ())?;
