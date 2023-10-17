@@ -156,10 +156,10 @@ impl Algorithm {
                             26
                         ].into(),
                     }),
-                    curve: String::from("X25519"),
-                    x: Some(Base64Url.encode(raw_public_key_bytes)),
-                    y: None,
-                    d: None,
+                    // curve: String::from("X25519"),
+                    // x: Some(Base64Url.encode(raw_public_key_bytes)),
+                    // y: None,
+                    // d: None,
                 }),
             Secp256k1 => {
                 let uncompressed = self.uncompress_public_key(raw_public_key_bytes)?;
@@ -237,10 +237,10 @@ impl Algorithm {
                             35
                         ].into(),
                     }),
-                    curve: String::from("secp256k1"),
-                    x: Some(Base64Url.encode(&uncompressed[1..33])),
-                    y: Some(Base64Url.encode(&uncompressed[33..])),
-                    d: None,
+                    // curve: String::from("secp256k1"),
+                    // x: Some(Base64Url.encode(&uncompressed[1..33])),
+                    // y: Some(Base64Url.encode(&uncompressed[33..])),
+                    // d: None,
                 })
             }
             // P256 => {
