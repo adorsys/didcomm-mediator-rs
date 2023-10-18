@@ -14,10 +14,9 @@ use crate::key::{ key::Key, okp::OkpCurves, okp::Okp, Bytes, secret::Secret };
 impl TryFrom<Ed25519KeyPair> for Jwk {
     type Error = CryptoError;
 
-    // To - do, hande errors gracefully:
     fn try_from(keypair: Ed25519KeyPair) -> Result<Self, Self::Error> {
         Ok(Jwk {
-            key_type: Key::Okp(Okp {
+            key: Key::Okp(Okp {
                 crv: OkpCurves::Ed25519,
                 x: Bytes::from(keypair.public_key_bytes()?.to_vec()),
                 d: Some(Secret::from(keypair.private_key_bytes()?.to_vec())),
@@ -31,7 +30,7 @@ impl TryFrom<Jwk> for Ed25519KeyPair {
     type Error = CryptoError;
 
     fn try_from(jwk: Jwk) -> Result<Self, Self::Error> {
-        match jwk.key_type {
+        match jwk.key {
             Key::Okp(okp) => {
                 if okp.crv != OkpCurves::Ed25519 {
                     return Err(CryptoError::InvalidCurve);
@@ -63,7 +62,7 @@ impl TryFrom<X25519KeyPair> for Jwk {
 
     fn try_from(keypair: X25519KeyPair) -> Result<Self, Self::Error> {
         Ok(Jwk {
-            key_type: Key::Okp(Okp {
+            key: Key::Okp(Okp {
                 crv: OkpCurves::X25519,
                 x: Bytes::from(keypair.public_key_bytes()?.to_vec()),
                 d: Some(Secret::from(keypair.private_key_bytes()?.to_vec())),
@@ -77,7 +76,7 @@ impl TryFrom<Jwk> for X25519KeyPair {
     type Error = CryptoError;
 
     fn try_from(jwk: Jwk) -> Result<Self, Self::Error> {
-        match jwk.key_type {
+        match jwk.key {
             Key::Okp(okp) => {
                 if okp.crv != OkpCurves::X25519 {
                     return Err(CryptoError::InvalidCurve);
