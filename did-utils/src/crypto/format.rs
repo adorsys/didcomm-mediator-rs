@@ -4,7 +4,8 @@ use crate::{
         traits::{ Error as CryptoError, Generate, KeyMaterial, BYTES_LENGTH_32 },
         x25519::X25519KeyPair,
     },
-    didcore::Jwk,
+    key::jwk::Jwk,
+    key::prm::Parameters,
 };
 
 use multibase::Base::Base64Url;
@@ -16,12 +17,12 @@ impl TryFrom<Ed25519KeyPair> for Jwk {
     // To - do, hande errors gracefully:
     fn try_from(keypair: Ed25519KeyPair) -> Result<Self, Self::Error> {
         Ok(Jwk {
-            key_id: None,
             key_type: Key::Okp(Okp {
                 crv: OkpCurves::Ed25519,
                 x: Bytes::from(keypair.public_key_bytes()?.to_vec()),
                 d: Some(Secret::from(keypair.private_key_bytes()?.to_vec())),
             }),
+            prm: Parameters::default(),
         })
     }
 }
@@ -62,12 +63,12 @@ impl TryFrom<X25519KeyPair> for Jwk {
 
     fn try_from(keypair: X25519KeyPair) -> Result<Self, Self::Error> {
         Ok(Jwk {
-            key_id: None,
             key_type: Key::Okp(Okp {
                 crv: OkpCurves::X25519,
                 x: Bytes::from(keypair.public_key_bytes()?.to_vec()),
                 d: Some(Secret::from(keypair.private_key_bytes()?.to_vec())),
             }),
+            prm: Parameters::default(),
         })
     }
 }

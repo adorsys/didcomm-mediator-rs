@@ -4,7 +4,7 @@ use chrono::{ DateTime, Utc };
 use serde::{ ser::SerializeMap, Deserialize, Deserializer, Serialize, Serializer };
 use serde_json::Value;
 
-use crate::{ ldmodel::Context, proof::model::Proof, key::key::Key };
+use crate::{ ldmodel::Context, proof::model::Proof, key::jwk::Jwk };
 
 // === Structure of a did document ===
 
@@ -127,22 +127,6 @@ pub enum KeyFormat {
     Base58(String),
     Multibase(String),
     Jwk(Jwk),
-}
-
-#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
-pub struct Jwk {
-    #[serde(rename = "kid", skip_serializing_if = "Option::is_none")]
-    pub key_id: Option<String>,
-    #[serde(flatten)]
-    pub key_type: Key,
-    // #[serde(rename = "crv")]
-    // pub curve: String,
-    // #[serde(skip_serializing_if = "Option::is_none")]
-    // pub x: Option<String>,
-    // #[serde(skip_serializing_if = "Option::is_none")]
-    // pub y: Option<String>,
-    // #[serde(skip_serializing_if = "Option::is_none")]
-    // pub d: Option<String>,
 }
 
 // === Authentication ===

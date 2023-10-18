@@ -2,11 +2,12 @@ use num_bigint::{ BigInt, Sign };
 
 use crate::{
     crypto::traits::Error as CryptoError,
-    didcore::Jwk,
+    key::jwk::Jwk,
     key::key::Key,
     key::ec::{ Ec, EcCurves },
     key::okp::{ Okp, OkpCurves },
     key::Bytes,
+    key::prm::Parameters,
 };
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -72,44 +73,44 @@ impl Algorithm {
         match self {
             Ed25519 =>
                 Ok(Jwk {
-                    key_id: None,
                     key_type: Key::Okp(Okp {
                         crv: OkpCurves::Ed25519,
                         x: Bytes::from(raw_public_key_bytes.to_vec()),
                         d: None,
                     }),
+                    prm: Parameters::default(),
                 }),
             X25519 =>
                 Ok(Jwk {
-                    key_id: None,
                     key_type: Key::Okp(Okp {
                         crv: OkpCurves::X25519,
                         x: Bytes::from(raw_public_key_bytes.to_vec()),
                         d: None,
                     }),
+                    prm: Parameters::default(),
                 }),
             Secp256k1 => {
                 let uncompressed = self.uncompress_public_key(raw_public_key_bytes)?;
                 Ok(Jwk {
-                    key_id: None,
                     key_type: Key::Ec(Ec {
                         crv: EcCurves::P256K,
                         d: None,
                         x: Bytes::from(uncompressed[1..33].to_vec()),
                         y: Bytes::from(uncompressed[33..].to_vec()),
                     }),
+                    prm: Parameters::default(),
                 })
             }
             P256 => {
                 let uncompressed = self.uncompress_public_key(raw_public_key_bytes)?;
                 Ok(Jwk {
-                    key_id: None,
                     key_type: Key::Ec(Ec {
                         crv: EcCurves::P256,
                         d: None,
                         x: Bytes::from(uncompressed[1..33].to_vec()),
                         y: Bytes::from(uncompressed[33..].to_vec()),
                     }),
+                    prm: Parameters::default(),
                 })
             }
             // TODO! Extend implementation to other algorithms
