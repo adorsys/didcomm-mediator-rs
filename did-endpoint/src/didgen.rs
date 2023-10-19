@@ -1,10 +1,16 @@
-use crate::util::{didweb, KeyStore};
+use crate::util::{ didweb, KeyStore };
 use did_utils::{
     didcore::{
-        AssertionMethod, Authentication, Document, Jwk, KeyAgreement, KeyFormat, Service,
+        AssertionMethod,
+        Authentication,
+        Document,
+        KeyAgreement,
+        KeyFormat,
+        Service,
         VerificationMethod,
     },
     ldmodel::Context,
+    key::{ jwk::Jwk },
 };
 use std::path::Path;
 
@@ -18,8 +24,7 @@ pub enum Error {
     DidAddressDerivationError,
     #[error("PersistenceError")]
     PersistenceError,
-    #[error("Generic: {0}")]
-    Generic(String),
+    #[error("Generic: {0}")] Generic(String),
 }
 
 /// Generates keys and forward them for DID generation
@@ -32,21 +37,15 @@ pub fn didgen(storage_dirpath: &str, server_public_domain: &str) -> Result<Docum
 
     // Generate authentication key
     tracing::debug!("generating authentication key");
-    let authentication_key = store
-        .gen_ed25519_jwk()
-        .map_err(|_| Error::KeyGenerationError)?;
+    let authentication_key = store.gen_ed25519_jwk().map_err(|_| Error::KeyGenerationError)?;
 
     // Generate assertion key
     tracing::debug!("generating assertion key");
-    let assertion_key = store
-        .gen_ed25519_jwk()
-        .map_err(|_| Error::KeyGenerationError)?;
+    let assertion_key = store.gen_ed25519_jwk().map_err(|_| Error::KeyGenerationError)?;
 
     // Generate agreement key
     tracing::debug!("generating agreement key");
-    let agreement_key = store
-        .gen_x25519_jwk()
-        .map_err(|_| Error::KeyGenerationError)?;
+    let agreement_key = store.gen_x25519_jwk().map_err(|_| Error::KeyGenerationError)?;
 
     // Build DID document
     let diddoc = gen_diddoc(
@@ -54,7 +53,7 @@ pub fn didgen(storage_dirpath: &str, server_public_domain: &str) -> Result<Docum
         server_public_domain,
         authentication_key,
         assertion_key,
-        agreement_key,
+        agreement_key
     )?;
 
     // Mark successful completion
@@ -68,13 +67,14 @@ fn gen_diddoc(
     server_public_domain: &str,
     authentication_key: Jwk,
     assertion_key: Jwk,
-    agreement_key: Jwk,
+    agreement_key: Jwk
 ) -> Result<Document, Error> {
     tracing::info!("building DID document");
 
     // Prepare DID address
 
-    let did = didweb::url_to_did_web_id(server_public_domain)
+    let did = didweb
+        ::url_to_did_web_id(server_public_domain)
         .map_err(|_| Error::DidAddressDerivationError)?;
 
     // Prepare authentication verification method
@@ -84,7 +84,7 @@ fn gen_diddoc(
         ..VerificationMethod::new(
             did.clone() + "#keys-1",
             String::from("JsonWebKey2020"),
-            did.clone(),
+            did.clone()
         )
     };
 
@@ -95,7 +95,7 @@ fn gen_diddoc(
         ..VerificationMethod::new(
             did.clone() + "#keys-2",
             String::from("JsonWebKey2020"),
-            did.clone(),
+            did.clone()
         )
     };
 
@@ -106,7 +106,7 @@ fn gen_diddoc(
         ..VerificationMethod::new(
             did.clone() + "#keys-3",
             String::from("JsonWebKey2020"),
-            did.clone(),
+            did.clone()
         )
     };
 
@@ -115,31 +115,41 @@ fn gen_diddoc(
     let service = Service::new(
         did.clone() + "#pop-domain",
         String::from("LinkedDomains"),
-        format!("{server_public_domain}/.well-known/did/pop.json"),
+        format!("{server_public_domain}/.well-known/did/pop.json")
     );
 
     // Build document
 
-    let context = Context::SetOfString(vec![
-        String::from("https://www.w3.org/ns/did/v1"),
-        String::from("https://w3id.org/security/suites/jws-2020/v1"),
-    ]);
+    let context = Context::SetOfString(
+        vec![
+            String::from("https://www.w3.org/ns/did/v1"),
+            String::from("https://w3id.org/security/suites/jws-2020/v1")
+        ]
+    );
 
     let diddoc = Document {
-        authentication: Some(vec![Authentication::Reference(
-            authentication_method.id.clone(), //
-        )]),
-        assertion_method: Some(vec![AssertionMethod::Reference(
-            assertion_method.id.clone(), //
-        )]),
-        key_agreement: Some(vec![KeyAgreement::Reference(
-            agreement_method.id.clone(), //
-        )]),
-        verification_method: Some(vec![
-            authentication_method,
-            assertion_method,
-            agreement_method,
-        ]),
+        authentication: Some(
+            vec![
+                Authentication::Reference(
+                    authentication_method.id.clone() //
+                )
+            ]
+        ),
+        assertion_method: Some(
+            vec![
+                AssertionMethod::Reference(
+                    assertion_method.id.clone() //
+                )
+            ]
+        ),
+        key_agreement: Some(
+            vec![
+                KeyAgreement::Reference(
+                    agreement_method.id.clone() //
+                )
+            ]
+        ),
+        verification_method: Some(vec![authentication_method, assertion_method, agreement_method]),
         service: Some(vec![service]),
         ..Document::new(context, did)
     };
@@ -149,7 +159,8 @@ fn gen_diddoc(
     let did_json = serde_json::to_string_pretty(&diddoc).unwrap();
 
     std::fs::create_dir_all(storage_dirpath).map_err(|_| Error::PersistenceError)?;
-    std::fs::write(format!("{storage_dirpath}/did.json"), did_json)
+    std::fs
+        ::write(format!("{storage_dirpath}/did.json"), did_json)
         .map_err(|_| Error::PersistenceError)?;
 
     tracing::info!("persisted DID document to disk");
@@ -163,7 +174,7 @@ pub fn validate_diddoc(storage_dirpath: &str) -> Result<(), String> {
     let didpath = format!("{storage_dirpath}/did.json");
     if !Path::new(&didpath).exists() {
         return Err(String::from("Missing did.json"));
-    };
+    }
 
     // Validate that keystore exists
 
@@ -177,7 +188,9 @@ pub fn validate_diddoc(storage_dirpath: &str) -> Result<(), String> {
     let store = store.unwrap();
 
     let diddoc: Document = match std::fs::read_to_string(didpath) {
-        Err(_) => return Err(String::from("Unreadable did.json")),
+        Err(_) => {
+            return Err(String::from("Unreadable did.json"));
+        }
         Ok(content) => {
             serde_json::from_str(&content).map_err(|_| String::from("Unparseable did.json"))?
         }
@@ -187,12 +200,12 @@ pub fn validate_diddoc(storage_dirpath: &str) -> Result<(), String> {
         let pubkey = method.public_key.ok_or(String::from("Missing key"))?;
         let pubkey = match pubkey {
             KeyFormat::Jwk(jwk) => jwk,
-            _ => return Err(String::from("Unsupported key format")),
+            _ => {
+                return Err(String::from("Unsupported key format"));
+            }
         };
 
-        store
-            .find_keypair(&pubkey)
-            .ok_or(String::from("Keystore mismatch"))?;
+        store.find_keypair(&pubkey).ok_or(String::from("Keystore mismatch"))?;
     }
 
     Ok(())
@@ -202,6 +215,14 @@ pub fn validate_diddoc(storage_dirpath: &str) -> Result<(), String> {
 mod tests {
     use super::*;
     use crate::util::dotenv_flow_read;
+    use did_utils::key::{
+        jwk::Jwk,
+        prm::Parameters,
+        key::Key,
+        bytes::Bytes,
+        okp::Okp,
+        okp::OkpCurves,
+    };
 
     fn setup() -> (String, String) {
         let storage_dirpath = dotenv_flow_read("STORAGE_DIRPATH")
@@ -235,36 +256,42 @@ mod tests {
         let (storage_dirpath, server_public_domain) = setup();
 
         let authentication_key = Jwk {
-            key_id: None,
-            key_type: String::from("OKP"),
-            curve: String::from("Ed25519"),
-            x: Some(String::from(
-                "d75a980182b10ab2463c5b1be1b4d97e06ec21ebac8552059996bd962d77f259",
-            )),
-            y: None,
-            d: None,
+            key: Key::Okp(Okp {
+                crv: OkpCurves::Ed25519,
+                x: Bytes::from(
+                    String::from(
+                        "d75a980182b10ab2463c5b1be1b4d97e06ec21ebac8552059996bd962d77f259"
+                    ).into_bytes()
+                ),
+                d: None,
+            }),
+            prm: Parameters::default(),
         };
 
         let assertion_key = Jwk {
-            key_id: None,
-            key_type: String::from("OKP"),
-            curve: String::from("Ed25519"),
-            x: Some(String::from(
-                "d75a980182b10ab2463c5b1be1b4d97e06ec21ebac8552059996bd962d77f259",
-            )),
-            y: None,
-            d: None,
+            key: Key::Okp(Okp {
+                crv: OkpCurves::Ed25519,
+                x: Bytes::from(
+                    String::from(
+                        "d75a980182b10ab2463c5b1be1b4d97e06ec21ebac8552059996bd962d77f259"
+                    ).into_bytes()
+                ),
+                d: None,
+            }),
+            prm: Parameters::default(),
         };
 
         let agreement_key = Jwk {
-            key_id: None,
-            key_type: String::from("OKP"),
-            curve: String::from("X25519"),
-            x: Some(String::from(
-                "d75a980182b10ab2463c5b1be1b4d97e06ec21ebac8552059996bd962d77f259",
-            )),
-            y: None,
-            d: None,
+            key: Key::Okp(Okp {
+                crv: OkpCurves::X25519,
+                x: Bytes::from(
+                    String::from(
+                        "d75a980182b10ab2463c5b1be1b4d97e06ec21ebac8552059996bd962d77f259"
+                    ).into_bytes()
+                ),
+                d: None,
+            }),
+            prm: Parameters::default(),
         };
 
         let diddoc = gen_diddoc(
@@ -272,9 +299,8 @@ mod tests {
             &server_public_domain,
             authentication_key.clone(),
             assertion_key.clone(),
-            agreement_key.clone(),
-        )
-        .unwrap();
+            agreement_key.clone()
+        ).unwrap();
 
         // Verify that the DID contains exactly the defined verification methods.
         let expected_verification_methods = vec![
@@ -284,7 +310,7 @@ mod tests {
                 ..VerificationMethod::new(
                     "did:web:example.com#keys-1".to_string(),
                     String::from("JsonWebKey2020"),
-                    "did:web:example.com".to_string(),
+                    "did:web:example.com".to_string()
                 )
             },
             VerificationMethod {
@@ -293,7 +319,7 @@ mod tests {
                 ..VerificationMethod::new(
                     "did:web:example.com#keys-2".to_string(),
                     String::from("JsonWebKey2020"),
-                    "did:web:example.com".to_string(),
+                    "did:web:example.com".to_string()
                 )
             },
             VerificationMethod {
@@ -302,9 +328,9 @@ mod tests {
                 ..VerificationMethod::new(
                     "did:web:example.com#keys-3".to_string(),
                     String::from("JsonWebKey2020"),
-                    "did:web:example.com".to_string(),
+                    "did:web:example.com".to_string()
                 )
-            },
+            }
         ];
 
         let actual_verification_methods = diddoc.verification_method.unwrap();

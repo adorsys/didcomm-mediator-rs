@@ -74,3 +74,9 @@ impl<T: Zeroize + AsRef<[u8]>, E> PartialEq for Secret<T, E> {
         self.ct_eq(other).unwrap_u8() == 1
     }
 }
+
+impl<T: Zeroize + Default, E> Default for Secret<T, E> {
+    fn default() -> Self {
+        Self(Zeroizing::new(Bytes::default()))
+    }
+}

@@ -1,17 +1,17 @@
-use axum::{extract::Query, response::Json, routing::get, Router};
+use axum::{ extract::Query, response::Json, routing::get, Router };
 use chrono::Utc;
 use did_utils::{
-    didcore::{Document, KeyFormat, Proofs},
+    didcore::{ Document, KeyFormat, Proofs },
     proof::{
-        eddsa_jcs_2022::{EdDsaJcs2022, PROOF_TYPE_DATA_INTEGRITY_PROOF},
+        eddsa_jcs_2022::{ EdDsaJcs2022, PROOF_TYPE_DATA_INTEGRITY_PROOF },
         model::Proof,
         traits::CryptoProof,
     },
-    vc::model::{VerifiableCredential, VerifiablePresentation},
+    vc::model::{ VerifiableCredential, VerifiablePresentation },
 };
 use hyper::StatusCode;
 use multibase::Base;
-use serde_json::{json, Value};
+use serde_json::{ json, Value };
 use std::collections::HashMap;
 
 use crate::util::KeyStore;
@@ -57,43 +57,51 @@ async fn didpop(Query(params): Query<HashMap<String, String>>) -> Result<Json<Va
 
     // Build verifiable credential (VC)
 
-    let vc: VerifiableCredential = serde_json::from_value(json!({
+    let vc: VerifiableCredential = serde_json
+        ::from_value(
+            json!({
         "@context": DEFAULT_CONTEXT_V2,
         "type": ["VerifiableCredential", "DIDDocument"],
         "issuer": &did_address,
         "validFrom": Utc::now(),
         "credentialSubject": diddoc_value,
-    }))
-    .unwrap();
+    })
+        )
+        .unwrap();
 
     // Embed VC into a verifiable presentation (VP)
 
-    let mut vp: VerifiablePresentation = serde_json::from_value(json!({
+    let mut vp: VerifiablePresentation = serde_json
+        ::from_value(
+            json!({
         "@context": DEFAULT_CONTEXT_V2,
         "id": format!("urn:uuid:{}", uuid::Uuid::new_v4()),
         "type": ["VerifiablePresentation"],
         "holder": &did_address,
         "verifiableCredential": [vc],
-    }))
-    .unwrap();
+    })
+        )
+        .unwrap();
 
     // Generate proofs of possession
 
     let mut vec_proof: Vec<Proof> = vec![];
 
-    let options: Proof = serde_json::from_value(json!({
+    let options: Proof = serde_json
+        ::from_value(
+            json!({
         "type": PROOF_TYPE_DATA_INTEGRITY_PROOF,
         "challenge": challenge,
         "proofPurpose": "",
         "verificationMethod": "",
-    }))
-    .unwrap();
+    })
+        )
+        .unwrap();
 
     for method in methods {
         // Lookup keypair from keystore
 
-        let pubkey = method
-            .public_key
+        let pubkey = method.public_key
             .as_ref()
             .expect("Verification methods should embed public keys.");
 
@@ -110,8 +118,9 @@ async fn didpop(Query(params): Query<HashMap<String, String>>) -> Result<Json<Va
             nonce: Some(uuid::Uuid::new_v4().to_string()),
             verification_method: method.id.clone(),
             proof_purpose: {
-                let vrel = inspect_vm_relationship(&diddoc, &method.id)
-                    .expect("Unsupported verification relationship");
+                let vrel = inspect_vm_relationship(&diddoc, &method.id).expect(
+                    "Unsupported verification relationship"
+                );
 
                 // Do not provide proofs for key agreement methods
                 if vrel == "keyAgreement" {
@@ -146,25 +155,24 @@ async fn didpop(Query(params): Query<HashMap<String, String>>) -> Result<Json<Va
 /// a verification method based on its identifier
 fn inspect_vm_relationship(diddoc: &Document, vm_id: &str) -> Option<String> {
     let vrel = [
-        (
-            json!(diddoc.authentication.clone().unwrap_or(vec![])),
-            String::from("authentication"),
-        ),
-        (
-            json!(diddoc.assertion_method.clone().unwrap_or(vec![])),
-            String::from("assertionMethod"),
-        ),
-        (
-            json!(diddoc.key_agreement.clone().unwrap_or(vec![])),
-            String::from("keyAgreement"),
-        ),
+        (json!(diddoc.authentication.clone().unwrap_or(vec![])), String::from("authentication")),
+        (json!(diddoc.assertion_method.clone().unwrap_or(vec![])), String::from("assertionMethod")),
+        (json!(diddoc.key_agreement.clone().unwrap_or(vec![])), String::from("keyAgreement")),
     ];
 
     for (k, v) in vrel {
-        if k.as_array().unwrap().iter().any(|x| {
-            let Some(id) = x.as_str() else { return false };
-            id == vm_id
-        }) {
+        if
+            k
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|x| {
+                    let Some(id) = x.as_str() else {
+                        return false;
+                    };
+                    id == vm_id
+                })
+        {
             return Some(v.clone());
         }
     }
@@ -175,16 +183,14 @@ fn inspect_vm_relationship(diddoc: &Document, vm_id: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{didgen, util::dotenv_flow_read};
+    use crate::{ didgen, util::dotenv_flow_read };
 
-    use axum::{
-        body::Body,
-        http::{Request, StatusCode},
-    };
+    use axum::{ body::Body, http::{ Request, StatusCode } };
     use did_utils::{
-        didcore::{Document, Jwk, KeyFormat, Proofs},
-        proof::{eddsa_jcs_2022::EdDsaJcs2022, traits::CryptoProof},
+        didcore::{ Document, KeyFormat, Proofs },
+        proof::{ eddsa_jcs_2022::EdDsaJcs2022, traits::CryptoProof },
         vc::model::VerifiablePresentation,
+        key::jwk::Jwk,
     };
     use serde_json::json;
     use tower::util::ServiceExt;
@@ -219,14 +225,15 @@ mod tests {
         let response = app
             .oneshot(
                 Request::builder()
-                    .uri(format!(
-                        "/.well-known/did/pop.json?challenge={}",
-                        uuid::Uuid::new_v4().to_string()
-                    ))
+                    .uri(
+                        format!(
+                            "/.well-known/did/pop.json?challenge={}",
+                            uuid::Uuid::new_v4().to_string()
+                        )
+                    )
                     .body(Body::empty())
-                    .unwrap(),
-            )
-            .await
+                    .unwrap()
+            ).await
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
@@ -245,8 +252,9 @@ mod tests {
         let Some(proofs) = &vp.proof else { panic!("Verifiable presentation carries no proof") };
         let Proofs::SetOfProofs(proofs) = proofs else { unreachable!() };
         for proof in proofs {
-            let pubkey = resolve_vm_for_public_key(&diddoc, &proof.verification_method)
-                .expect("ResolutionError");
+            let pubkey = resolve_vm_for_public_key(&diddoc, &proof.verification_method).expect(
+                "ResolutionError"
+            );
             let verifier = EdDsaJcs2022 {
                 proof: proof.clone(),
                 key_pair: pubkey.try_into().expect("Failure to convert to KeyPair"),
@@ -260,14 +268,20 @@ mod tests {
     }
 
     fn resolve_vm_for_public_key(diddoc: &Document, vm_id: &str) -> Option<Jwk> {
-        let Some(methods) = &diddoc.verification_method else { return None };
+        let Some(methods) = &diddoc.verification_method else {
+            return None;
+        };
         let method = methods.iter().find(|m| m.id == vm_id);
 
         match method {
             None => None,
             Some(m) => {
-                let Some(key) = &m.public_key else { return None };
-                let KeyFormat::Jwk(jwk) = key else { return None };
+                let Some(key) = &m.public_key else {
+                    return None;
+                };
+                let KeyFormat::Jwk(jwk) = key else {
+                    return None;
+                };
                 Some(jwk.clone())
             }
         }

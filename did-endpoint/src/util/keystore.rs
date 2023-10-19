@@ -1,10 +1,15 @@
 use chrono::Utc;
 use did_utils::{
-    crypto::{ed25519::Ed25519KeyPair, traits::Generate, x25519::X25519KeyPair},
-    didcore::Jwk,
+    crypto::{ ed25519::Ed25519KeyPair, traits::Generate, x25519::X25519KeyPair },
+    key::jwk::Jwk,
+    key::key::Key,
+    key::ec::Ec,
+    key::rsa::Rsa,
+    key::oct::Oct,
+    key::okp::Okp,
+    key::secret::Secret,
 };
 use std::error::Error;
-use zeroize::Zeroize;
 
 pub struct KeyStore {
     dirpath: String,
@@ -27,36 +32,37 @@ impl KeyStore {
         let dirpath = format!("{storage_dirpath}/keystore");
 
         let msg = "Error parsing keystore directory";
-        let file = std::fs::read_dir(&dirpath)
+        let file = std::fs
+            ::read_dir(&dirpath)
             .expect(msg)
             .map(|x| x.expect(msg).path().to_str().expect(msg).to_string())
             .filter(|p| p.ends_with(".json"))
             .max_by_key(|p| {
-                let p = p
-                    .trim_start_matches(&format!("{}/", &dirpath))
-                    .trim_end_matches(".json");
+                let p = p.trim_start_matches(&format!("{}/", &dirpath)).trim_end_matches(".json");
                 p.parse::<i32>().expect(msg)
             });
 
         match file {
             None => None,
-            Some(path) => match std::fs::read_to_string(&path) {
-                Err(_) => None,
-                Ok(content) => match serde_json::from_str::<Vec<Jwk>>(&content) {
+            Some(path) =>
+                match std::fs::read_to_string(&path) {
                     Err(_) => None,
-                    Ok(keys) => {
-                        let filename = path
-                            .trim_start_matches(&format!("{}/", &dirpath))
-                            .to_string();
+                    Ok(content) =>
+                        match serde_json::from_str::<Vec<Jwk>>(&content) {
+                            Err(_) => None,
+                            Ok(keys) => {
+                                let filename = path
+                                    .trim_start_matches(&format!("{}/", &dirpath))
+                                    .to_string();
 
-                        Some(KeyStore {
-                            dirpath,
-                            filename,
-                            keys,
-                        })
-                    }
-                },
-            },
+                                Some(KeyStore {
+                                    dirpath,
+                                    filename,
+                                    keys,
+                                })
+                            }
+                        }
+                }
         }
     }
 
@@ -73,16 +79,17 @@ impl KeyStore {
 
     /// Searches keypair given public key
     pub fn find_keypair(&self, pubkey: &Jwk) -> Option<Jwk> {
-        self.keys.iter().find(|k| &k.to_public() == pubkey).cloned()
+        self.keys
+            .iter()
+            .find(|k| &k.to_public() == pubkey)
+            .cloned()
     }
 
     /// Generates and persists an ed25519 keypair for digital signatures.
     /// Returns public Jwk for convenience.
     pub fn gen_ed25519_jwk(&mut self) -> Result<Jwk, Box<dyn Error>> {
         let keypair = Ed25519KeyPair::new().map_err(|_| "Failure to generate Ed25519 keypair")?;
-        let jwk: Jwk = keypair
-            .try_into()
-            .map_err(|_| "Failure to map to Jwk format")?;
+        let jwk: Jwk = keypair.try_into().map_err(|_| "Failure to map to Jwk format")?;
         let pub_jwk = jwk.to_public();
 
         self.keys.push(jwk);
@@ -95,9 +102,7 @@ impl KeyStore {
     /// Returns public Jwk for convenience.
     pub fn gen_x25519_jwk(&mut self) -> Result<Jwk, Box<dyn Error>> {
         let keypair = X25519KeyPair::new().map_err(|_| "Failure to generate X25519 keypair")?;
-        let jwk: Jwk = keypair
-            .try_into()
-            .map_err(|_| "Failure to map to Jwk format")?;
+        let jwk: Jwk = keypair.try_into().map_err(|_| "Failure to map to Jwk format")?;
         let pub_jwk = jwk.to_public();
 
         self.keys.push(jwk);
@@ -107,23 +112,44 @@ impl KeyStore {
     }
 }
 
-impl Drop for KeyStore {
-    fn drop(&mut self) {
-        for jwk in &mut self.keys {
-            jwk.d.zeroize();
-        };
-    }
-}
-
-trait ToPublic {
+pub trait ToPublic {
     fn to_public(&self) -> Self;
 }
 
 impl ToPublic for Jwk {
     fn to_public(&self) -> Self {
+        let public_key = match &self.key {
+            Key::Ec(ec) =>
+                Key::Ec(Ec {
+                    crv: ec.crv.clone(),
+                    x: ec.x.clone(),
+                    y: ec.y.clone(),
+                    d: None,
+                }),
+            Key::Rsa(rsa) =>
+                Key::Rsa(Rsa {
+                    prv: None,
+                    e: rsa.e.clone(),
+                    n: rsa.n.clone(),
+                }),
+            Key::Oct(_oct) =>
+                Key::Oct(Oct {
+                    k: Secret::default(),
+                }),
+            Key::Okp(okp) =>
+                Key::Okp(Okp {
+                    d: None,
+                    crv: okp.crv.clone(),
+                    x: okp.x.clone(),
+                }),
+            _ => {
+                return self.clone();
+            }
+        };
+
         Jwk {
-            d: None,
-            ..self.clone()
+            key: public_key,
+            prm: self.prm.clone(),
         }
     }
 }

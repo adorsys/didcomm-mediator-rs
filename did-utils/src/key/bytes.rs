@@ -145,3 +145,12 @@ impl<'de, E: Encoding, const N: usize> Deserialize<'de> for Bytes<[u8; N], E> {
         Ok(array.map_err(|_| D::Error::custom("invalid base64 length"))?.into())
     }
 }
+
+impl<T: Default, E> Default for Bytes<T, E> {
+    fn default() -> Self {
+        Self {
+            buf: T::default(),
+            cfg: PhantomData,
+        }
+    }
+}
