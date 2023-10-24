@@ -46,13 +46,18 @@ We will be designing DIC by directly applying the use case of agent to agent int
 
 # Registration
 
-In order to interact comfortably with other agents, an edge agend need one or more accounts with cloud agents. -**Outbox**: Edge agent will be able to deposit messages to cloud agent for forward to other agents, thus controlling which network components sees network metadata of the edge agent (privacy) -**Inbox**: Other agents can send messages to the edge agent, by forwarding those message to a receptioning cloud agent specified by the edge agent.
+In order to interact comfortably with other agents, an edge agend need one or more accounts with cloud agents. 
+
+* **Outbox**: Edge agent will be able to deposit messages to cloud agent for forward to other agents, thus controlling which network components sees network metadata of the edge agent (privacy)
+* **Inbox**: Other agents can send messages to the edge agent, by forwarding those message to a receptioning cloud agent specified by the edge agent.
 
 During the registration process, the **Cloud Agent** will give a dedicated interaction channel (DIC) to the edge agent.
 
-Dedicated channel are important here, as - the **Outbox Cloud Agent** does not want to be spammed by any network component. Therefore, each message to the **Outbox** will be authenticated as such by the **Edge Agent DIC**
+Dedicated channel are important here, as 
 
-- the **Inbox Cloud Agent** would like to receive only messages authorized for reception by the edge agent. In order to authorize a message for reception, the **Edge Agent** will give a **Delegate Dedicated Interaction Channel (DDIC)** to the sending agent.
+* **Outbox Cloud Agent** does not want to be spammed by any network component. Therefore, each message to the **Outbox** will be authenticated as such with the **Edge Agent Outbox DIC**
+
+* **Inbox Cloud Agent** would like to receive only messages authorized for reception by the edge agent. In order to authorize a message for reception, the **Edge Agent** will give a **Delegate Dedicated Interaction Channel (DDIC)** to the sending agent.
 
 ## Structure of a DIC
 
@@ -62,7 +67,7 @@ If instead of storing the public key, we just returning a **Signed Credential (V
 
 ## Structure of a DDIC
 
-In the same stream, we can allow a DIC holder to delegate some capabilities to another agent by producing a DDIC for that agent. A DDIC is a **Verifiable Credential (VC)** produced by the DIC holder, that contains the **Encrypted Original DIC**. The DDIC discloses no information on the content of the DIC, but allow the cloud agent to reception command from delegated agents.
+In the same stream, we can allow a DIC holder to delegate some capabilities to another agent by producing a DDIC for that agent. A DDIC is a **Verifiable Credential (VC)** produced by the DIC holder, that contains the **Encrypted Original DIC**. The DDIC discloses no information on the content of the DIC, but allows the cloud agent to reception command from delegated agents.
 
 ## Sample Cloud Agent DID
 
@@ -142,9 +147,9 @@ We can only protect a server providing such a service by implementing some sort 
 The sender of this request must also provide a public key he will be using to produce authenticating/asserting presentations
 
 **Confidentiality**
-Response to this message will contain information that is destinated solely to the sender of the request. In this case, request must also contain a public key that can be use for encryption key exchange.
+Response to this message will contain information that is destinated solely to the sender of the request. In this case, request must also contain a public key that can be used for encryption key exchange.
 
-For authentication, assertion and key exchange, a DID is provide all essential component. Therefore, adding a appropriate DID of the sender to the request will be sufficient in that case.
+For authentication, assertion and key exchange, a DID provide all essential components. Therefore, adding a appropriate DID of the sender to the request will be sufficient in that case.
 
 The resulting request would look like:
 
@@ -262,7 +267,7 @@ The positive response of a mediation request is a mediation grant. It is general
 }
 ```
 
-Whenever the edge agent uses this key to encrypt a communication, the cloud agent will know that the message is from this very edge agent. The routing key entry has following components:
+Whenever the edge agent uses this key to encrypt a communication, the cloud agent will know that the message is from this very edge agent.
 
 ## Mediation Deny
 
@@ -275,6 +280,116 @@ A deny response will look like:
 }
 ```
 
-## Discard DDIC
+## Protocol Integration
+In general, proper messaging design always requires a message to have a header and a payload. The header consists of meta-information used to manage the mesage transport and storage. The message header is in general limited in sized, allows the consumer of a message to read process information on a message without consuming too much resources, and to do this prior to consuming the message payload.
 
-An edge agent can issuer a DDIC to the contact, so that the contact deposits a message on behalf of the edge agent. In some cases before the DDIC expires, the issuer might want to discard it. In that case, the issuer send a discard message to the cloud agent, with the DDIC to discard.
+### Authorization Header
+As didcomm messages are generically [JWMs (JSON Web Messages)](https://tools.ietf.org/html/draft-looker-jwm-01) we assume they all have headers. A generic JVM message will look like:
+
+```json
+{
+  "id": "1234567890",
+  "type": "<message-type-uri>",
+  "from": "did:of:sender",
+  "to": ["did:web:mediators-r-us.com:base64(dic)"],
+  "created_time": 1516269022,
+  "expires_time": 1516385931,
+  "body": {
+    "message_type_specific_attribute": "and its value",
+    "another_attribute": "and its value"
+  },
+  "attachments": []
+}
+```
+
+In this message, every information, except ```"body"``` and ```"attachments"`` are control information. We wil be defining an authentication tag named auth, that produces a presentation containing all JVM controll informations. 
+
+The payload to be presented is:
+
+```json
+{
+  "id": "1234567890",
+  "type": "<message-type-uri>",
+  "from": "did:of:sender",
+  "to": ["did:web:mediators-r-us.com:base64(dic)"],
+  "created_time": 1516269022,
+  "expires_time": 1516385931
+}
+```
+
+Such a presentation can be:
+
+* a JWT access token: in which case the token content will be the payload to be presented and the token will be signed using the public key derived from the ```"from"``` attribute of the message.
+* a W3C verifiable presentation: in which case the credential subject will be the payload to be presented and the sender will produce the proof using the public key derived from the ```"from"``` attribute of the message.
+
+If a message is being sent over a protocol that support header information, the sender shall drop the produced authorization information in the header field provided by the given protocol. If for example the message is bein sent over http, the sender can drop the produced presentation in the http ```Authorization bearer ejyxxxx``` header. For the case of email DKIM-Signature could present an alternative.
+
+If a message is wrapped in another message, the enveloping JVM could embed the presentation, either as a w3c verifiable presentation, or as a detached JWT:
+
+In the first case of a vp:
+
+```json
+{
+  "id": "1234567890",
+  "type": "<message-type-uri>",
+  "from": "did:of:sender",
+  "to": ["did:web:mediators-r-us.com:base64(dic)"],
+  "created_time": 1516269022,
+  "expires_time": 1516385931,
+  "Authorization": {"vp": "A veirfiable presentation of those control info"}
+}
+```
+
+in the case of a token, the payload will be the base 64 encoded value of the JCS canonicalized value of all controll information, without the Authorization field.
+
+```json
+{
+  "id": "1234567890",
+  "type": "<message-type-uri>",
+  "from": "did:of:sender",
+  "to": ["did:web:mediators-r-us.com:base64(dic)"],
+  "created_time": 1516269022,
+  "expires_time": 1516385931,
+  "Authorization": {"bearer": "eyJ0eXAiOiJKV1QiLA0KICJhbGciOiJIUzI1NiJ9..dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"}
+}
+```
+
+### Recipient
+The ```"to"``` field of the message contains recipient information. In general, following information shall be derivable from the recipient field of the message:
+
+* **Recipient Endpoint**: The endpoint of the recipient. This is the first part of the recipient address e.g. ```"did:web:mediators-r-us.com"```. This can also be used to retrieve the did of the receiving cloud agent.
+* **Anti Spam Token**: This is the dic document provided by the final sender of this message. This information can be processed by the receiving cloud agent to determine if the sending agent is legitimated to send a message to this channel. In our current case, this is either an OUTBOX DIC, or a delegated INBOX  DIC. In a future case, this could be a crypto coin.
+
+The outbox DIC is used only by a sender to deposit message for sending with his trusted mediator.
+
+### Deleagting DIC
+
+The inbox DIC is used by a contact agent to send messages to the DIC owner. For this purpose, the DIC owner will produce a new dic of the form
+
+```json
+{
+  "delegate": "did:of:sender",
+  "dic": {
+    "@context": [
+      "https://www.w3.org/ns/credentials/v2",
+      "https://www.dial.com/ns/a-spam/v1"
+    ],
+    "type": ["VerifiableCredential", "Inbox-Channel"],
+    "credentialSubject": {
+      "id": "did of edge agent",
+      "service-level": "gold"
+    },
+    "id": "https://www.dial.com//37325264562435234asdfas",
+    "issuer": "did of cloud agent",
+    "proof": ["proof of cloud agent"]
+  }
+}
+```
+
+This delegated DIC will be encrypted using a public key of the medaitor. Resulting document will be a JWE that can be attached to the ```did.web``` of the cloud agent, resulting in a string looking like: ```"to": ["did:web:mediators-r-us.com:jwe_delegated_dic"]```. In order to send a message to this mediator, the sender edge agent resolves the key of the recipient agent using the did uri ```did:web:mediators-r-us.com``` then extract key information used to prepare the message to be relayed.
+
+* **Problem-1**: resolving the did of an unknown cloud agent might result in the edge agent disclosing to much information.
+  * **Solution**: cloud agent might provide a resolver interface so they can resolve dids on behalf of their subscribers.
+  * **Solution**: did.web url shall have a mechanism to embed verification information in a did.uri, such that thrid party resolution can be verified for their integrity.
+* **Problem-2**: dns provider could also supply requesters with manipulated did.
+  * **Solution**: Same as above. Integriti protected did.
