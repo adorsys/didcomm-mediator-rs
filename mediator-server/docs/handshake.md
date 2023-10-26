@@ -121,6 +121,7 @@ Sample services provided by a mediator are:
   * in most cases, the file cached will be encrypted for the recipient. A jwk needed to decrypt the file will then be available as separate qrcode as well.
     ```json
     {
+      
       "kty": "OKP",
       "crv": "Ed25519",
       "d": "private_key_of_recipient",
@@ -150,7 +151,7 @@ In order to allow Bob to be able to deposit a reply at alice-mediator, Alice nee
 {
   "delegate": "did:key:bob_invitation_pub_produced_by_alice",
   "dic": "alice_in_opaque_dic",
-  "proof":["proof from alice_identity_pub@alice_mediator" - see did core capability delegation]
+  "proof":["proof from alice_identity_pub@alice_mediator - see did core capability delegation"]
 }
 ```
 
