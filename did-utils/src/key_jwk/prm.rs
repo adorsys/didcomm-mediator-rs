@@ -1,10 +1,10 @@
-use serde::{ Deserialize, Serialize };
+use serde::{Deserialize, Serialize};
 
 use super::secret::Secret;
 extern crate alloc;
-use alloc::{ boxed::Box, collections::BTreeSet, string::String, vec::Vec };
-use base64ct::Base64;
 use super::Bytes;
+use alloc::{boxed::Box, collections::BTreeSet, string::String, vec::Vec};
+use base64ct::Base64;
 use core::fmt;
 
 /// A symmetric octet key.
@@ -201,21 +201,7 @@ mod tests {
         use Signing::*;
 
         let input = vec![
-            EdDsa,
-            Es256,
-            Es256K,
-            Es384,
-            Es512,
-            Hs256,
-            Hs384,
-            Hs512,
-            Ps256,
-            Ps384,
-            Ps512,
-            Rs256,
-            Rs384,
-            Rs512,
-            Null
+            EdDsa, Es256, Es256K, Es384, Es512, Hs256, Hs384, Hs512, Ps256, Ps384, Ps512, Rs256, Rs384, Rs512, Null,
         ];
         let ser = serde_json::to_string(&input).expect("serialization failed");
 
@@ -224,9 +210,6 @@ mod tests {
             r#"["EdDSA","ES256","ES256K","ES384","ES512","HS256","HS384","HS512","PS256","PS384","PS512","RS256","RS384","RS512","none"]"#
         );
 
-        assert_eq!(
-            serde_json::from_str::<Vec<Signing>>(&ser).expect("deserialization failed"),
-            input
-        );
+        assert_eq!(serde_json::from_str::<Vec<Signing>>(&ser).expect("deserialization failed"), input);
     }
 }

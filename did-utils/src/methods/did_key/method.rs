@@ -1,10 +1,13 @@
 use multibase::Base::Base58Btc;
 
 use crate::{
-    crypto::{ ed25519::Ed25519KeyPair, traits::{ Error as CryptoError, Generate, KeyMaterial } },
-    didcore::{ self, Document as DIDDocument, KeyFormat, VerificationMethod },
+    crypto::{
+        ed25519::Ed25519KeyPair,
+        traits::{Error as CryptoError, Generate, KeyMaterial},
+    },
+    didcore::{self, Document as DIDDocument, KeyFormat, VerificationMethod},
     ldmodel::Context,
-    methods::{ errors::DIDResolutionError, traits::DIDMethod },
+    methods::{errors::DIDResolutionError, traits::DIDMethod},
 };
 
 use super::alg::Algorithm;
@@ -42,10 +45,7 @@ impl DIDKeyMethod {
     pub fn from_ed25519_keypair(keypair: &Ed25519KeyPair) -> Result<String, CryptoError> {
         let multibase_value = multibase::encode(
             Base58Btc,
-            [
-                &Algorithm::Ed25519.muticodec_prefix(),
-                keypair.public_key_bytes()?.as_slice(),
-            ].concat()
+            [&Algorithm::Ed25519.muticodec_prefix(), keypair.public_key_bytes()?.as_slice()].concat(),
         );
 
         Ok(format!("did:key:{}", multibase_value))
@@ -59,10 +59,7 @@ impl DIDKeyMethod {
             }
         }
 
-        let multibase_value = multibase::encode(
-            Base58Btc,
-            [&alg.muticodec_prefix(), bytes].concat()
-        );
+        let multibase_value = multibase::encode(Base58Btc, [&alg.muticodec_prefix(), bytes].concat());
 
         Ok(format!("did:key:{}", multibase_value))
     }
@@ -77,9 +74,7 @@ impl DIDKeyMethod {
 
         // See https://w3c-ccg.github.io/did-method-key/#format
         let multibase_value = did.strip_prefix("did:key:").unwrap();
-        let (base, multicodec) = multibase
-            ::decode(multibase_value)
-            .map_err(|_| DIDResolutionError::InvalidDid)?;
+        let (base, multicodec) = multibase::decode(multibase_value).map_err(|_| DIDResolutionError::InvalidDid)?;
 
         // Validate decoded multibase value
         if base != Base58Btc || multicodec.len() < 2 {
@@ -91,16 +86,10 @@ impl DIDKeyMethod {
         let raw_public_key_bytes = &multicodec[2..];
 
         // Derive algorithm from multicodec prefix
-        let alg = Algorithm::from_muticodec_prefix(multicodec_prefix).ok_or(
-            DIDResolutionError::InvalidDid
-        )?;
+        let alg = Algorithm::from_muticodec_prefix(multicodec_prefix).ok_or(DIDResolutionError::InvalidDid)?;
 
         // Run algorithm for signature verification method expansion
-        let signature_verification_method = self.derive_signature_verification_method(
-            alg,
-            multibase_value,
-            raw_public_key_bytes
-        )?;
+        let signature_verification_method = self.derive_signature_verification_method(alg, multibase_value, raw_public_key_bytes)?;
 
         // Build DID document
         let mut diddoc = DIDDocument {
@@ -109,34 +98,18 @@ impl DIDKeyMethod {
             controller: None,
             also_known_as: None,
             verification_method: Some(vec![signature_verification_method.clone()]),
-            authentication: Some(
-                vec![
-                    didcore::Authentication::Reference(
-                        signature_verification_method.id.clone() //
-                    )
-                ]
-            ),
-            assertion_method: Some(
-                vec![
-                    didcore::AssertionMethod::Reference(
-                        signature_verification_method.id.clone() //
-                    )
-                ]
-            ),
-            capability_delegation: Some(
-                vec![
-                    didcore::CapabilityDelegation::Reference(
-                        signature_verification_method.id.clone() //
-                    )
-                ]
-            ),
-            capability_invocation: Some(
-                vec![
-                    didcore::CapabilityInvocation::Reference(
-                        signature_verification_method.id.clone() //
-                    )
-                ]
-            ),
+            authentication: Some(vec![didcore::Authentication::Reference(
+                signature_verification_method.id.clone(), //
+            )]),
+            assertion_method: Some(vec![didcore::AssertionMethod::Reference(
+                signature_verification_method.id.clone(), //
+            )]),
+            capability_delegation: Some(vec![didcore::CapabilityDelegation::Reference(
+                signature_verification_method.id.clone(), //
+            )]),
+            capability_invocation: Some(vec![didcore::CapabilityInvocation::Reference(
+                signature_verification_method.id.clone(), //
+            )]),
             key_agreement: None,
             service: None,
             additional_properties: None,
@@ -145,22 +118,14 @@ impl DIDKeyMethod {
 
         if self.enable_encryption_key_derivation {
             // Run algorithm for encryption verification method derivation if opted in
-            let encryption_verification_method = self.derive_encryption_verification_method(
-                alg,
-                multibase_value,
-                raw_public_key_bytes
-            )?;
+            let encryption_verification_method = self.derive_encryption_verification_method(alg, multibase_value, raw_public_key_bytes)?;
 
             // Amend DID document accordingly
             let verification_method = diddoc.verification_method.as_mut().unwrap();
             verification_method.push(encryption_verification_method.clone());
-            diddoc.key_agreement = Some(
-                vec![
-                    didcore::KeyAgreement::Reference(
-                        encryption_verification_method.id.clone() //
-                    )
-                ]
-            );
+            diddoc.key_agreement = Some(vec![didcore::KeyAgreement::Reference(
+                encryption_verification_method.id.clone(), //
+            )]);
         }
 
         Ok(diddoc)
@@ -170,26 +135,21 @@ impl DIDKeyMethod {
         let mut context = vec!["https://www.w3.org/ns/did/v1"];
 
         match self.key_format {
-            PublicKeyFormat::Multikey =>
-                match alg {
-                    Algorithm::Ed25519 => {
-                        context.push("https://w3id.org/security/suites/ed25519-2020/v1");
-                        if self.enable_encryption_key_derivation {
-                            context.push("https://w3id.org/security/suites/x25519-2020/v1");
-                        }
+            PublicKeyFormat::Multikey => match alg {
+                Algorithm::Ed25519 => {
+                    context.push("https://w3id.org/security/suites/ed25519-2020/v1");
+                    if self.enable_encryption_key_derivation {
+                        context.push("https://w3id.org/security/suites/x25519-2020/v1");
                     }
-                    Algorithm::X25519 =>
-                        context.push("https://w3id.org/security/suites/x25519-2020/v1"),
-                    _ => (),
                 }
+                Algorithm::X25519 => context.push("https://w3id.org/security/suites/x25519-2020/v1"),
+                _ => (),
+            },
 
             PublicKeyFormat::Jwk => context.push("https://w3id.org/security/suites/jws-2020/v1"),
         }
 
-        context
-            .iter()
-            .map(|x| x.to_string())
-            .collect()
+        context.iter().map(|x| x.to_string()).collect()
     }
 
     // See https://w3c-ccg.github.io/did-method-key/#signature-method-creation-algorithm
@@ -197,7 +157,7 @@ impl DIDKeyMethod {
         &self,
         alg: Algorithm,
         multibase_value: &str,
-        raw_public_key_bytes: &[u8]
+        raw_public_key_bytes: &[u8],
     ) -> Result<VerificationMethod, DIDResolutionError> {
         if let Some(required_length) = alg.public_key_length() {
             if required_length != raw_public_key_bytes.len() {
@@ -208,23 +168,20 @@ impl DIDKeyMethod {
         Ok(VerificationMethod {
             id: format!("did:key:{multibase_value}#{multibase_value}"),
             key_type: String::from(match self.key_format {
-                PublicKeyFormat::Multikey =>
-                    match alg {
-                        Algorithm::Ed25519 => "Ed25519VerificationKey2020",
-                        Algorithm::X25519 => "X25519KeyAgreementKey2020",
-                        _ => "Multikey",
-                    }
+                PublicKeyFormat::Multikey => match alg {
+                    Algorithm::Ed25519 => "Ed25519VerificationKey2020",
+                    Algorithm::X25519 => "X25519KeyAgreementKey2020",
+                    _ => "Multikey",
+                },
                 PublicKeyFormat::Jwk => "JsonWebKey2020",
             }),
             controller: format!("did:key:{multibase_value}"),
             public_key: Some(match self.key_format {
                 PublicKeyFormat::Multikey => KeyFormat::Multibase(String::from(multibase_value)),
-                PublicKeyFormat::Jwk =>
-                    KeyFormat::Jwk(
-                        alg
-                            .build_jwk(raw_public_key_bytes) //
-                            .map_err(|_| DIDResolutionError::InternalError)?
-                    ),
+                PublicKeyFormat::Jwk => KeyFormat::Jwk(
+                    alg.build_jwk(raw_public_key_bytes) //
+                        .map_err(|_| DIDResolutionError::InternalError)?,
+                ),
             }),
             ..Default::default()
         })
@@ -235,28 +192,19 @@ impl DIDKeyMethod {
         &self,
         alg: Algorithm,
         multibase_value: &str,
-        raw_public_key_bytes: &[u8]
+        raw_public_key_bytes: &[u8],
     ) -> Result<VerificationMethod, DIDResolutionError> {
         if alg != Algorithm::Ed25519 {
             return Err(DIDResolutionError::InternalError);
         }
 
-        let raw_public_key_bytes: [u8; 32] = raw_public_key_bytes
-            .try_into()
-            .map_err(|_| DIDResolutionError::InvalidPublicKeyLength)?;
-        let ed25519_keypair = Ed25519KeyPair::from_public_key(&raw_public_key_bytes).map_err(
-            |_| DIDResolutionError::InternalError
-        )?;
-        let x25519_keypair = ed25519_keypair
-            .get_x25519()
-            .map_err(|_| DIDResolutionError::InternalError)?;
+        let raw_public_key_bytes: [u8; 32] = raw_public_key_bytes.try_into().map_err(|_| DIDResolutionError::InvalidPublicKeyLength)?;
+        let ed25519_keypair = Ed25519KeyPair::from_public_key(&raw_public_key_bytes).map_err(|_| DIDResolutionError::InternalError)?;
+        let x25519_keypair = ed25519_keypair.get_x25519().map_err(|_| DIDResolutionError::InternalError)?;
 
         let alg = Algorithm::X25519;
         let encryption_raw_public_key_bytes = &x25519_keypair.public_key_bytes().unwrap()[..];
-        let encryption_multibase_value = multibase::encode(
-            Base58Btc,
-            [&alg.muticodec_prefix(), encryption_raw_public_key_bytes].concat()
-        );
+        let encryption_multibase_value = multibase::encode(Base58Btc, [&alg.muticodec_prefix(), encryption_raw_public_key_bytes].concat());
 
         Ok(VerificationMethod {
             id: format!("did:key:{multibase_value}#{encryption_multibase_value}"),
@@ -267,12 +215,10 @@ impl DIDKeyMethod {
             controller: format!("did:key:{multibase_value}"),
             public_key: Some(match self.key_format {
                 PublicKeyFormat::Multikey => KeyFormat::Multibase(encryption_multibase_value),
-                PublicKeyFormat::Jwk =>
-                    KeyFormat::Jwk(
-                        alg
-                            .build_jwk(encryption_raw_public_key_bytes)
-                            .map_err(|_| DIDResolutionError::InternalError)?
-                    ),
+                PublicKeyFormat::Jwk => KeyFormat::Jwk(
+                    alg.build_jwk(encryption_raw_public_key_bytes)
+                        .map_err(|_| DIDResolutionError::InternalError)?,
+                ),
             }),
             ..Default::default()
         })
@@ -293,15 +239,14 @@ mod tests {
 
     #[test]
     fn test_did_key_generation_from_given_jwk() {
-        let jwk: Jwk = serde_json
-            ::from_str(
-                r#"{
+        let jwk: Jwk = serde_json::from_str(
+            r#"{
                 "kty": "OKP",
                 "crv": "Ed25519",
                 "x": "O2onvM62pC1io6jQKm8Nc2UyFXcd4kOmOsBIoYtZ2ik"
-            }"#
-            )
-            .unwrap();
+            }"#,
+        )
+        .unwrap();
         let keypair: Ed25519KeyPair = jwk.try_into().unwrap();
 
         let did = DIDKeyMethod::from_ed25519_keypair(&keypair);
@@ -355,9 +300,8 @@ mod tests {
         let did_method = DIDKeyMethod::default();
 
         let did = "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK";
-        let expected: Value = serde_json
-            ::from_str(
-                r#"{
+        let expected: Value = serde_json::from_str(
+            r#"{
                 "@context": [
                     "https://www.w3.org/ns/did/v1",
                     "https://w3id.org/security/suites/ed25519-2020/v1"
@@ -373,15 +317,15 @@ mod tests {
                 "assertionMethod": ["did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK#z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"],
                 "capabilityDelegation": ["did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK#z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"],
                 "capabilityInvocation": ["did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK#z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"]
-            }"#
-            )
-            .unwrap();
+            }"#,
+        )
+        .unwrap();
 
         let diddoc = did_method.expand(did).unwrap();
 
         assert_eq!(
-            json_canon::to_string(&diddoc).unwrap(), //
-            json_canon::to_string(&expected).unwrap() //
+            json_canon::to_string(&diddoc).unwrap(),   //
+            json_canon::to_string(&expected).unwrap()  //
         );
     }
 
@@ -393,9 +337,8 @@ mod tests {
         };
 
         let did = "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK";
-        let expected: Value = serde_json
-            ::from_str(
-                r#"{
+        let expected: Value = serde_json::from_str(
+            r#"{
                 "@context": [
                     "https://www.w3.org/ns/did/v1",
                     "https://w3id.org/security/suites/jws-2020/v1"
@@ -415,15 +358,15 @@ mod tests {
                 "assertionMethod": ["did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK#z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"],
                 "capabilityDelegation": ["did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK#z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"],
                 "capabilityInvocation": ["did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK#z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"]
-            }"#
-            )
-            .unwrap();
+            }"#,
+        )
+        .unwrap();
 
         let diddoc = did_method.expand(did).unwrap();
 
         assert_eq!(
-            json_canon::to_string(&diddoc).unwrap(), //
-            json_canon::to_string(&expected).unwrap() //
+            json_canon::to_string(&diddoc).unwrap(),   //
+            json_canon::to_string(&expected).unwrap()  //
         );
     }
 
@@ -435,9 +378,8 @@ mod tests {
         };
 
         let did = "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK";
-        let expected: Value = serde_json
-            ::from_str(
-                r#"{
+        let expected: Value = serde_json::from_str(
+            r#"{
                 "@context": [
                     "https://www.w3.org/ns/did/v1",
                     "https://w3id.org/security/suites/ed25519-2020/v1",
@@ -463,15 +405,15 @@ mod tests {
                 "capabilityDelegation": ["did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK#z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"],
                 "capabilityInvocation": ["did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK#z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"],
                 "keyAgreement": ["did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK#z6LSj72tK8brWgZja8NLRwPigth2T9QRiG1uH9oKZuKjdh9p"]
-            }"#
-            )
-            .unwrap();
+            }"#,
+        )
+        .unwrap();
 
         let diddoc = did_method.expand(did).unwrap();
 
         assert_eq!(
-            json_canon::to_string(&diddoc).unwrap(), //
-            json_canon::to_string(&expected).unwrap() //
+            json_canon::to_string(&diddoc).unwrap(),   //
+            json_canon::to_string(&expected).unwrap()  //
         );
     }
 

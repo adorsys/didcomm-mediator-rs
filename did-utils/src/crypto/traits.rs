@@ -33,13 +33,21 @@ pub trait KeyMaterial {
 /// Deterministic Key Generation
 pub trait Generate: KeyMaterial {
     /// Generate random key
-    fn new() -> Result<Self, Error> where Self: Sized;
+    fn new() -> Result<Self, Error>
+    where
+        Self: Sized;
     /// Generate key deterministically using a given seed
-    fn new_with_seed(seed: &[u8]) -> Result<Self, Error> where Self: Sized;
+    fn new_with_seed(seed: &[u8]) -> Result<Self, Error>
+    where
+        Self: Sized;
     /// Generate instance from existing public key
-    fn from_public_key(public_key: &[u8; BYTES_LENGTH_32]) -> Result<Self, Error> where Self: Sized;
+    fn from_public_key(public_key: &[u8; BYTES_LENGTH_32]) -> Result<Self, Error>
+    where
+        Self: Sized;
     /// Generate instance from existing secret key
-    fn from_secret_key(private_key: &[u8; BYTES_LENGTH_32]) -> Result<Self, Error> where Self: Sized;
+    fn from_secret_key(private_key: &[u8; BYTES_LENGTH_32]) -> Result<Self, Error>
+    where
+        Self: Sized;
 }
 
 /// ECDSA Interface

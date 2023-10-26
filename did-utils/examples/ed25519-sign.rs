@@ -1,6 +1,8 @@
 extern crate did_utils;
-use did_utils::crypto::{ed25519::Ed25519KeyPair, traits::{Generate, CoreSign}};
-
+use did_utils::crypto::{
+    ed25519::Ed25519KeyPair,
+    traits::{CoreSign, Generate},
+};
 
 fn main() {
     let keypair = Ed25519KeyPair::new().unwrap();
@@ -11,6 +13,6 @@ fn main() {
     let signature = keypair.sign(json_data.as_bytes()).unwrap();
 
     // Verify the signature
-    let verified  = keypair.verify(json_data.as_bytes(), &signature);
+    let verified = keypair.verify(json_data.as_bytes(), &signature);
     assert!(verified.is_ok());
 }

@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
-use chrono::{ DateTime, Utc };
-use serde::{ ser::SerializeMap, Deserialize, Deserializer, Serialize, Serializer };
+use chrono::{DateTime, Utc};
+use serde::{ser::SerializeMap, Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 
-use crate::{ ldmodel::Context, proof::model::Proof, key_jwk::jwk::Jwk };
+use crate::{key_jwk::jwk::Jwk, ldmodel::Context, proof::model::Proof};
 
 // === Structure of a did document ===
 
@@ -170,11 +170,9 @@ pub enum KeyAgreement {
 }
 
 impl VerificationMethod {
-    fn serialize_private_key_format<S>(
-        value: &Option<KeyFormat>,
-        serializer: S
-    ) -> Result<S::Ok, S::Error>
-        where S: Serializer
+    fn serialize_private_key_format<S>(value: &Option<KeyFormat>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
     {
         match value {
             Some(KeyFormat::Base58(s)) => {
@@ -196,11 +194,9 @@ impl VerificationMethod {
         }
     }
 
-    fn serialize_public_key_format<S>(
-        value: &Option<KeyFormat>,
-        serializer: S
-    ) -> Result<S::Ok, S::Error>
-        where S: Serializer
+    fn serialize_public_key_format<S>(value: &Option<KeyFormat>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
     {
         match value {
             Some(KeyFormat::Base58(s)) => {
@@ -222,10 +218,9 @@ impl VerificationMethod {
         }
     }
 
-    pub fn deserialize_public_key_format<'de, D>(
-        deserializer: D
-    ) -> Result<Option<KeyFormat>, D::Error>
-        where D: Deserializer<'de>
+    pub fn deserialize_public_key_format<'de, D>(deserializer: D) -> Result<Option<KeyFormat>, D::Error>
+    where
+        D: Deserializer<'de>,
     {
         #[derive(Deserialize, Debug)]
         #[serde(rename_all = "camelCase")]
@@ -252,10 +247,9 @@ impl VerificationMethod {
         Ok(None)
     }
 
-    pub fn deserialize_private_key_format<'de, D>(
-        deserializer: D
-    ) -> Result<Option<KeyFormat>, D::Error>
-        where D: Deserializer<'de>
+    pub fn deserialize_private_key_format<'de, D>(deserializer: D) -> Result<Option<KeyFormat>, D::Error>
+    where
+        D: Deserializer<'de>,
     {
         #[derive(Deserialize, Debug)]
         #[serde(rename_all = "camelCase")]
@@ -304,8 +298,9 @@ pub mod tests {
     fn test_canonicalize_didcore_example_01() {
         read_write_did(
             "test_resources/didcore_example_01.json",
-            "test_resources/didcore_example_01_canonicalized.json"
-        ).unwrap();
+            "test_resources/didcore_example_01_canonicalized.json",
+        )
+        .unwrap();
     }
 
     // An example of a relative DID URL used to reference a verification method in a DID document.
@@ -314,8 +309,9 @@ pub mod tests {
     fn test_canonicalize_didcore_example_09() {
         read_write_did(
             "test_resources/didcore_example_09.json",
-            "test_resources/didcore_example_09_canonicalized.json"
-        ).unwrap();
+            "test_resources/didcore_example_09_canonicalized.json",
+        )
+        .unwrap();
     }
 
     // DID document with a controller property
@@ -326,8 +322,9 @@ pub mod tests {
     fn test_canonicalize_didcore_example_11() {
         read_write_did(
             "test_resources/didcore_example_11.json",
-            "test_resources/didcore_example_11_canonicalized.json"
-        ).unwrap();
+            "test_resources/didcore_example_11_canonicalized.json",
+        )
+        .unwrap();
     }
 
     // DID document with a controller property
@@ -338,8 +335,9 @@ pub mod tests {
     fn test_canonicalize_didcore_example_12() {
         read_write_did(
             "test_resources/didcore_example_12_context_object.json",
-            "test_resources/didcore_example_12_context_object_canonicalized.json"
-        ).unwrap();
+            "test_resources/didcore_example_12_context_object_canonicalized.json",
+        )
+        .unwrap();
     }
 
     // DID document with a controller property
@@ -350,8 +348,9 @@ pub mod tests {
     fn test_canonicalize_didcore_example_12_1() {
         read_write_did(
             "test_resources/didcore_example_12_1_context_object.json",
-            "test_resources/didcore_example_12_1_context_object_canonicalized.json"
-        ).unwrap();
+            "test_resources/didcore_example_12_1_context_object_canonicalized.json",
+        )
+        .unwrap();
     }
 
     // DID document with a controller property
@@ -362,8 +361,9 @@ pub mod tests {
     fn test_canonicalize_didcore_example_12_2() {
         read_write_did(
             "test_resources/didcore_example_12_2_context_multiple_strings.json",
-            "test_resources/didcore_example_12_2_context_multiple_strings_canonicalized.json"
-        ).unwrap();
+            "test_resources/didcore_example_12_2_context_multiple_strings_canonicalized.json",
+        )
+        .unwrap();
     }
 
     // Verification methods using publicKeyJwk and publicKeyMultibase
@@ -375,8 +375,9 @@ pub mod tests {
     fn test_canonicalize_didcore_example_13() {
         read_write_did(
             "test_resources/didcore_example_13.json",
-            "test_resources/didcore_example_13_canonicalized.json"
-        ).unwrap();
+            "test_resources/didcore_example_13_canonicalized.json",
+        )
+        .unwrap();
     }
 
     // Embedding and referencing verification methods
@@ -390,8 +391,9 @@ pub mod tests {
     fn test_canonicalize_didcore_example_14() {
         read_write_did(
             "test_resources/didcore_example_14.json",
-            "test_resources/didcore_example_14_canonicalized.json"
-        ).unwrap();
+            "test_resources/didcore_example_14_canonicalized.json",
+        )
+        .unwrap();
     }
 
     // Assertion method property containing two verification methods
@@ -403,8 +405,9 @@ pub mod tests {
     fn test_canonicalize_didcore_example_16() {
         read_write_did(
             "test_resources/didcore_example_16.json",
-            "test_resources/didcore_example_16_canonicalized.json"
-        ).unwrap();
+            "test_resources/didcore_example_16_canonicalized.json",
+        )
+        .unwrap();
     }
 
     // Key agreement property containing two verification methods
@@ -416,8 +419,9 @@ pub mod tests {
     fn test_canonicalize_didcore_example_17() {
         read_write_did(
             "test_resources/didcore_example_17.json",
-            "test_resources/didcore_example_17_canonicalized.json"
-        ).unwrap();
+            "test_resources/didcore_example_17_canonicalized.json",
+        )
+        .unwrap();
     }
 
     // Capability invocation property containing two verification methods
@@ -429,8 +433,9 @@ pub mod tests {
     fn test_canonicalize_didcore_example_18() {
         read_write_did(
             "test_resources/didcore_example_18.json",
-            "test_resources/didcore_example_18_canonicalized.json"
-        ).unwrap();
+            "test_resources/didcore_example_18_canonicalized.json",
+        )
+        .unwrap();
     }
 
     // Capability delegation property containing two verification methods
@@ -442,8 +447,9 @@ pub mod tests {
     fn test_canonicalize_didcore_example_19() {
         read_write_did(
             "test_resources/didcore_example_19.json",
-            "test_resources/didcore_example_19_canonicalized.json"
-        ).unwrap();
+            "test_resources/didcore_example_19_canonicalized.json",
+        )
+        .unwrap();
     }
 
     // Usage of the service property
@@ -453,25 +459,25 @@ pub mod tests {
     fn test_canonicalize_didcore_example_20() {
         read_write_did(
             "test_resources/didcore_example_20.json",
-            "test_resources/didcore_example_20_canonicalized.json"
-        ).unwrap();
+            "test_resources/didcore_example_20_canonicalized.json",
+        )
+        .unwrap();
     }
 
     // Tests that verification methods are properly deserialized
     // with regard to public/private keys
     #[test]
     fn test_deserialize_verification_method() {
-        let vm: VerificationMethod = serde_json
-            ::from_str(
-                r#"{
+        let vm: VerificationMethod = serde_json::from_str(
+            r#"{
                 "id": "did:web:localhost#keys-1",
                 "type": "JsonWebKey2020",
                 "controller": "did:web:localhost",
                 "publicKeyMultibase": "zH3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV",
                 "privateKeyBase58": "H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV"
-            }"#
-            )
-            .unwrap();
+            }"#,
+        )
+        .unwrap();
 
         assert!(vm.public_key.is_some());
         assert!(matches!(vm.public_key.unwrap(), KeyFormat::Multibase(_)));
@@ -479,9 +485,8 @@ pub mod tests {
         assert!(vm.private_key.is_some());
         assert!(matches!(vm.private_key.unwrap(), KeyFormat::Base58(_)));
 
-        let vm: VerificationMethod = serde_json
-            ::from_str(
-                r#"{
+        let vm: VerificationMethod = serde_json::from_str(
+            r#"{
                 "id": "did:web:localhost#keys-1",
                 "type": "JsonWebKey2020",
                 "controller": "did:web:localhost",
@@ -496,9 +501,9 @@ pub mod tests {
                     "x": "psQvZbwHAW4z2wrTKGbl4mFyzSIGy_Cw7ov-ep0TWAM",
                     "d": "bBuzzQqaC29xi78lZUWLcByvm7vKgTJqsZ8m7T7KSOw"
                 }
-            }"#
-            )
-            .unwrap();
+            }"#,
+        )
+        .unwrap();
 
         assert!(vm.public_key.is_some());
         assert!(vm.private_key.is_some());

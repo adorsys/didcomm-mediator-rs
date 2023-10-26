@@ -1,4 +1,4 @@
-use serde::{ Deserialize, Serialize };
+use serde::{Deserialize, Serialize};
 
 use crate::key_jwk::bytes::Bytes;
 use crate::key_jwk::secret::Secret;

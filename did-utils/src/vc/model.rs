@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{ldmodel::Context, didcore::Proofs};
+use crate::{didcore::Proofs, ldmodel::Context};
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -97,8 +97,6 @@ pub struct IssuerObject {
     pub description: Option<Descriptions>,
 }
 
-
-
 #[derive(Serialize, Debug, Clone, PartialEq, Deserialize)]
 #[serde(untagged)]
 pub enum CredentialSubjects {
@@ -177,7 +175,6 @@ pub struct DescriptionObject {
 #[derive(Serialize, Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CredentialStatus {
-
     pub id: String,
 
     // see https://www.w3.org/TR/vc-data-model-2.0/#types
@@ -192,7 +189,6 @@ pub struct CredentialStatus {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub status_list_credential: Option<String>,
-
 }
 
 // The value of the credentialSchema property MUST be one or more data schemas
@@ -233,21 +229,18 @@ pub struct RelatedResource {
 
     pub digest_multibase: Option<String>,
 
-    pub media_type: Option<String>
+    pub media_type: Option<String>,
 }
 
 #[derive(Serialize, Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RefreshService {
-
     pub id: String,
 
     // see https://www.w3.org/TR/vc-data-model-2.0/#types
     #[serde(rename = "type")]
     pub rs_type: String,
 }
-
-
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -287,16 +280,23 @@ mod tests {
 
     use chrono::TimeZone;
     use multibase::Base;
-    use serde_json::{json, from_str};
+    use serde_json::{from_str, json};
 
-    use crate::{crypto::{ed25519::Ed25519KeyPair, traits::Generate}, proof::{model::{Proof, UnsecuredDocument}, eddsa_jcs_2022::EdDsaJcs2022, traits::CryptoProof}};
+    use crate::{
+        crypto::{ed25519::Ed25519KeyPair, traits::Generate},
+        proof::{
+            eddsa_jcs_2022::EdDsaJcs2022,
+            model::{Proof, UnsecuredDocument},
+            traits::CryptoProof,
+        },
+    };
 
     use super::*;
 
     #[test]
     fn test_vc() {
         let vc = make_vc(&pub_key_multibase(subject_key_pair()));
-        let vc_expected= r#"{"@context":["https://www.w3.org/ns/credentials/v2","https://www.w3.org/ns/credentials/examples/v2"],"credentialSubject":{"alumniOf":{"id":"did:key#z38w6kKWT7hesyxuuVUSH4LsxbcRof4ra1QBDtR1qrc1q","name":"Example University"},"id":"did:key#z38w6kKWT7hesyxuuVUSH4LsxbcRof4ra1QBDtR1qrc1q"},"description":"Graduated from Example University","id":"http://university.example/credentials/3732","issuer":"did:key#z7dNyxjs9BUfsbX11VG4BGDMB3Wg1Pq2NqhSwTBT8UuRC","name":"Jayden Doe","type":["VerifiableCredential","AlumniCredential"],"validFrom":"2023-03-05T19:23:24Z","validUntil":"2023-12-31T19:23:24Z"}"#;
+        let vc_expected = r#"{"@context":["https://www.w3.org/ns/credentials/v2","https://www.w3.org/ns/credentials/examples/v2"],"credentialSubject":{"alumniOf":{"id":"did:key#z38w6kKWT7hesyxuuVUSH4LsxbcRof4ra1QBDtR1qrc1q","name":"Example University"},"id":"did:key#z38w6kKWT7hesyxuuVUSH4LsxbcRof4ra1QBDtR1qrc1q"},"description":"Graduated from Example University","id":"http://university.example/credentials/3732","issuer":"did:key#z7dNyxjs9BUfsbX11VG4BGDMB3Wg1Pq2NqhSwTBT8UuRC","name":"Jayden Doe","type":["VerifiableCredential","AlumniCredential"],"validFrom":"2023-03-05T19:23:24Z","validUntil":"2023-12-31T19:23:24Z"}"#;
         let vc_canon = json_canon::to_string(&vc).unwrap();
         assert_eq!(vc_expected, vc_canon);
     }
@@ -311,7 +311,7 @@ mod tests {
     }
 
     #[test]
-    fn test_vc_with_proof(){
+    fn test_vc_with_proof() {
         let vc = make_vc(&pub_key_multibase(subject_key_pair()));
         let key_pair = issuer_key_pair();
         let public_key = &key_pair.public_key.clone();
@@ -333,8 +333,7 @@ mod tests {
     }
 
     #[test]
-    fn test_vc_verify_vc_proof(){
-
+    fn test_vc_verify_vc_proof() {
         // test parse string into a VerifiableCredential struct
         let secured_vc: VerifiableCredential = from_str(SECURED_VC).unwrap();
 
@@ -351,7 +350,7 @@ mod tests {
         // we just encoded the public key as a multibase string in the verification method.
         let vm = secured_proof.verification_method.clone();
         let last_index = vm.rfind('#').unwrap();
-        let public_key_multibase = &vm[last_index+1..];
+        let public_key_multibase = &vm[last_index + 1..];
         let public_key_bytes_vector = multibase::decode(public_key_multibase).unwrap();
 
         // Initialize with zeros or any default value
@@ -375,10 +374,7 @@ mod tests {
         println!("{}", vp_canon);
     }
 
-    const CONTEXTS: &[&str] = &[
-        "https://www.w3.org/ns/credentials/v2",
-        "https://www.w3.org/ns/credentials/examples/v2",
-    ];
+    const CONTEXTS: &[&str] = &["https://www.w3.org/ns/credentials/v2", "https://www.w3.org/ns/credentials/examples/v2"];
 
     fn make_context() -> Context {
         let mut contexts: Vec<String> = Vec::new();
@@ -388,8 +384,7 @@ mod tests {
         Context::SetOfString(contexts)
     }
 
-    fn make_vc(subject_public_key_multibase: &str) -> VerifiableCredential  {
-
+    fn make_vc(subject_public_key_multibase: &str) -> VerifiableCredential {
         let issuer_key_pair = issuer_key_pair();
         let issuer_pub_key_multibase = pub_key_multibase(issuer_key_pair);
 
@@ -400,7 +395,7 @@ mod tests {
         alumni_of_map.insert("id".to_string(), Value::String(did.to_string()));
         let alumni_of_json_value = json!(alumni_of_map);
         let mut additional_properties: HashMap<String, Value> = HashMap::new();
-        additional_properties.insert("alumniOf".to_string(),alumni_of_json_value);
+        additional_properties.insert("alumniOf".to_string(), alumni_of_json_value);
         VerifiableCredential {
             context: make_context(),
             id: Some("http://university.example/credentials/3732".to_string()),
@@ -436,11 +431,11 @@ mod tests {
         }
     }
 
-    fn issuer_key_pair()-> Ed25519KeyPair {
+    fn issuer_key_pair() -> Ed25519KeyPair {
         make_key_pair("Seed phrase for issuer thirty2!b")
     }
 
-    fn subject_key_pair()-> Ed25519KeyPair {
+    fn subject_key_pair() -> Ed25519KeyPair {
         make_key_pair("Seed phrase for subject thrty2!b")
     }
 
@@ -473,5 +468,4 @@ mod tests {
     }
 
     const SECURED_VC: &str = r#"{"@context":["https://www.w3.org/ns/credentials/v2","https://www.w3.org/ns/credentials/examples/v2"],"credentialSubject":{"alumniOf":{"id":"did:key#z38w6kKWT7hesyxuuVUSH4LsxbcRof4ra1QBDtR1qrc1q","name":"Example University"},"id":"did:key#z38w6kKWT7hesyxuuVUSH4LsxbcRof4ra1QBDtR1qrc1q"},"description":"Graduated from Example University","id":"http://university.example/credentials/3732","issuer":"did:key#z7dNyxjs9BUfsbX11VG4BGDMB3Wg1Pq2NqhSwTBT8UuRC","name":"Jayden Doe","proof":{"challenge":"523452345234asfdasdfasdfa","created":"2023-03-05T19:23:24Z","cryptosuite":"eddsa-jcs-2022","domain":"vc-demo.adorsys.com","nonce":"1234567890","proofPurpose":"assertionMethod","proofValue":"z4DEMwgRCZnRddGPPevbaafihRwj4ng3dn5EwmnnaeMVMp25niKWZ3cW1rdfWMtfp5dpCmNEjfJtvbnnpUsZcy9c6","type":"DataIntegrityProof","verificationMethod":"did:key#z7dNyxjs9BUfsbX11VG4BGDMB3Wg1Pq2NqhSwTBT8UuRC"},"type":["VerifiableCredential","AlumniCredential"],"validFrom":"2023-03-05T19:23:24Z","validUntil":"2023-12-31T19:23:24Z"}"#;
-
 }

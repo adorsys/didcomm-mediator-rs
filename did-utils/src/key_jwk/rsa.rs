@@ -1,9 +1,9 @@
 extern crate alloc;
 use alloc::vec::Vec;
 
-use serde::{ Deserialize, Serialize };
+use serde::{Deserialize, Serialize};
 
-use super::{ secret::Secret, Bytes };
+use super::{secret::Secret, Bytes};
 
 /// An RSA key.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -33,10 +33,7 @@ pub struct RsaPrivate {
 impl From<Secret> for RsaPrivate {
     #[inline(always)]
     fn from(bytes: Secret) -> Self {
-        Self {
-            d: bytes,
-            opt: None,
-        }
+        Self { d: bytes, opt: None }
     }
 }
 

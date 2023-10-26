@@ -1,15 +1,15 @@
 use crate::{
     crypto::{
         ed25519::Ed25519KeyPair,
-        traits::{ Error as CryptoError, Generate, KeyMaterial, BYTES_LENGTH_32 },
+        traits::{Error as CryptoError, Generate, KeyMaterial, BYTES_LENGTH_32},
         x25519::X25519KeyPair,
     },
     key_jwk::jwk::Jwk,
     key_jwk::prm::Parameters,
 };
 
+use crate::key_jwk::{key::Key, okp::Okp, okp::OkpCurves, secret::Secret, Bytes};
 use multibase::Base::Base64Url;
-use crate::key_jwk::{ key::Key, okp::OkpCurves, okp::Okp, Bytes, secret::Secret };
 
 impl TryFrom<Ed25519KeyPair> for Jwk {
     type Error = CryptoError;
@@ -112,7 +112,7 @@ fn base64url_to_bytes(key: &str) -> Result<[u8; BYTES_LENGTH_32], ()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::crypto::traits::{ CoreSign, Generate, ECDH };
+    use crate::crypto::traits::{CoreSign, Generate, ECDH};
 
     // Tests conversion between Ed25519KeyPair and Jwk
     #[test]
@@ -133,19 +133,17 @@ mod tests {
     // Tests conversion from Jwk to Ed25519KeyPair with external signature
     #[test]
     fn test_conversion_ed25519_jwk_with_external_signature() -> Result<(), CryptoError> {
-        let jwk: Jwk = serde_json
-            ::from_str(
-                r#"{
+        let jwk: Jwk = serde_json::from_str(
+            r#"{
                 "kty": "OKP",
                 "crv": "Ed25519",
                 "x": "tjOTPcs4OEMNrmn2ScYZDS-aCCbRFhJgaAmGnRsdmEo"
-            }"#
-            )
-            .unwrap();
+            }"#,
+        )
+        .unwrap();
 
         let payload = b"Lorem ipsum dolor sit amet, consectetur adipiscing elit.";
-        let signature =
-            "2QH7Qrt8clEn4ETh9lgcGUyo26cJj1U8U0CBFQvgCWHe1dwXXXb16SzPTVNVGm-J6m6eALjWrxuJfmbApdoBAQ";
+        let signature = "2QH7Qrt8clEn4ETh9lgcGUyo26cJj1U8U0CBFQvgCWHe1dwXXXb16SzPTVNVGm-J6m6eALjWrxuJfmbApdoBAQ";
         let signature = Base64Url.decode(signature).unwrap();
 
         let keypair: Ed25519KeyPair = jwk.try_into()?;

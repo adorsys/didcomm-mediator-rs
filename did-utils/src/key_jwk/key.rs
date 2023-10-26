@@ -1,6 +1,6 @@
-use serde::{ Deserialize, Serialize };
+use serde::{Deserialize, Serialize};
 
-use crate::key_jwk::{ ec::Ec, okp::Okp, rsa::Rsa, oct::Oct };
+use crate::key_jwk::{ec::Ec, oct::Oct, okp::Okp, rsa::Rsa};
 
 /// A key type that can be contained in a JWK.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

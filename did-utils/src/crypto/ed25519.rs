@@ -1,5 +1,5 @@
 use super::traits::{CoreSign, Error, Generate, KeyMaterial, BYTES_LENGTH_32};
-use super::utils::{generate_seed, clone_slice_to_array};
+use super::utils::{clone_slice_to_array, generate_seed};
 use super::x25519::X25519KeyPair;
 use super::AsymmetricKey;
 use curve25519_dalek::edwards::CompressedEdwardsY;
@@ -21,9 +21,7 @@ impl KeyMaterial for Ed25519KeyPair {
 
     fn private_key_bytes(&self) -> Result<[u8; BYTES_LENGTH_32], Error> {
         match &self.secret_key {
-            Some(sk) => {
-                Ok(clone_slice_to_array(&sk.to_bytes()))
-            },
+            Some(sk) => Ok(clone_slice_to_array(&sk.to_bytes())),
             None => Err(Error::InvalidSecretKey),
         }
     }
@@ -49,17 +47,15 @@ impl Generate for Ed25519KeyPair {
 
     fn from_public_key(public_key: &[u8; BYTES_LENGTH_32]) -> Result<Ed25519KeyPair, Error> {
         match public_key.len() {
-            BYTES_LENGTH_32 => {
-                Ok(Ed25519KeyPair {
-                    public_key: match VerifyingKey::from_bytes(&clone_slice_to_array(public_key)) {
-                        Ok(vk) => vk,
-                        Err(_) => return Err(Error::InvalidPublicKey),
-                    },    
-                    secret_key: None,
-                })                
-            }
+            BYTES_LENGTH_32 => Ok(Ed25519KeyPair {
+                public_key: match VerifyingKey::from_bytes(&clone_slice_to_array(public_key)) {
+                    Ok(vk) => vk,
+                    Err(_) => return Err(Error::InvalidPublicKey),
+                },
+                secret_key: None,
+            }),
             _ => Err(Error::InvalidKeyLength),
-        }        
+        }
     }
 
     fn from_secret_key(secret_key: &[u8; BYTES_LENGTH_32]) -> Result<Ed25519KeyPair, Error> {
@@ -79,11 +75,9 @@ impl Generate for Ed25519KeyPair {
 impl CoreSign for Ed25519KeyPair {
     fn sign(&self, payload: &[u8]) -> Result<Vec<u8>, Error> {
         match &self.secret_key {
-            Some(sk) => {
-                match sk.try_sign(payload) {
-                    Ok(signature) => Ok(signature.to_bytes().to_vec()),
-                    Err(_) => Err(Error::SignatureError),
-                }
+            Some(sk) => match sk.try_sign(payload) {
+                Ok(signature) => Ok(signature.to_bytes().to_vec()),
+                Err(_) => Err(Error::SignatureError),
             },
             None => Err(Error::InvalidSecretKey),
         }
@@ -91,11 +85,9 @@ impl CoreSign for Ed25519KeyPair {
 
     fn verify(&self, payload: &[u8], signature: &[u8]) -> Result<(), Error> {
         match Signature::try_from(signature) {
-            Ok(sig) => {
-                match self.public_key.verify(payload, &sig) {
-                    Ok(_) => Ok(()),
-                    _ => Err(Error::VerificationError),
-                }
+            Ok(sig) => match self.public_key.verify(payload, &sig) {
+                Ok(_) => Ok(()),
+                _ => Err(Error::VerificationError),
             },
             Err(_) => Err(Error::CanNotRetrieveSignature),
         }
@@ -118,20 +110,16 @@ impl Ed25519KeyPair {
 
                 X25519KeyPair::new_with_seed(&output)
             }
-            None => {
-                match self.public_key_bytes() {
-                    Ok(pk_bytes) => {
-                        match CompressedEdwardsY(pk_bytes).decompress() {
-                            Some(point) => {
-                                let montgomery = point.to_montgomery();
-                                X25519KeyPair::from_public_key(montgomery.as_bytes())
-                            }
-                            None => Err(Error::InvalidPublicKey),
-                        }
+            None => match self.public_key_bytes() {
+                Ok(pk_bytes) => match CompressedEdwardsY(pk_bytes).decompress() {
+                    Some(point) => {
+                        let montgomery = point.to_montgomery();
+                        X25519KeyPair::from_public_key(montgomery.as_bytes())
                     }
-                    Err(_) => Err(Error::InvalidPublicKey),
-                }
-            }
+                    None => Err(Error::InvalidPublicKey),
+                },
+                Err(_) => Err(Error::InvalidPublicKey),
+            },
         }
     }
 }

@@ -1,7 +1,7 @@
 use x25519_dalek::{PublicKey, StaticSecret};
 
-use super::traits::{BYTES_LENGTH_32, Error};
-use super::utils::{generate_seed, clone_slice_to_array};
+use super::traits::{Error, BYTES_LENGTH_32};
+use super::utils::{clone_slice_to_array, generate_seed};
 use super::{
     traits::{Generate, KeyMaterial, ECDH},
     AsymmetricKey,
@@ -22,14 +22,11 @@ impl KeyMaterial for X25519KeyPair {
 
     fn private_key_bytes(&self) -> Result<[u8; BYTES_LENGTH_32], Error> {
         match &self.secret_key {
-            Some(sk) => {
-                Ok(clone_slice_to_array(sk.as_bytes()))
-            },
+            Some(sk) => Ok(clone_slice_to_array(sk.as_bytes())),
             None => Err(Error::InvalidSecretKey),
         }
     }
 }
-
 
 impl Generate for X25519KeyPair {
     fn new() -> Result<X25519KeyPair, Error> {
@@ -90,7 +87,10 @@ pub mod tests {
     use x25519_dalek::{EphemeralSecret, PublicKey};
 
     use super::X25519KeyPair;
-    use crate::crypto::{traits::{Generate, KeyMaterial, ECDH, BYTES_LENGTH_32}, utils::clone_slice_to_array};
+    use crate::crypto::{
+        traits::{Generate, KeyMaterial, BYTES_LENGTH_32, ECDH},
+        utils::clone_slice_to_array,
+    };
 
     // A test to create a new X25519KeyPair and check that bytes of both private and public key from
     // key material is 32 bytes long.

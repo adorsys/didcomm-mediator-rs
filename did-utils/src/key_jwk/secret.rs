@@ -2,12 +2,12 @@ extern crate alloc;
 use alloc::boxed::Box;
 
 use core::fmt::Debug;
-use core::ops::{ Deref, DerefMut };
+use core::ops::{Deref, DerefMut};
 
 use base64ct::Base64UrlUnpadded;
-use serde::{ Deserialize, Serialize };
+use serde::{Deserialize, Serialize};
 use subtle::ConstantTimeEq;
-use zeroize::{ Zeroize, Zeroizing };
+use zeroize::{Zeroize, Zeroizing};
 
 use super::Bytes;
 
@@ -50,13 +50,19 @@ impl<T: Zeroize, E> DerefMut for Secret<T, E> {
     }
 }
 
-impl<T: Zeroize, U, E> AsRef<U> for Secret<T, E> where Bytes<T, E>: AsRef<U> {
+impl<T: Zeroize, U, E> AsRef<U> for Secret<T, E>
+where
+    Bytes<T, E>: AsRef<U>,
+{
     fn as_ref(&self) -> &U {
         self.0.as_ref()
     }
 }
 
-impl<T: Zeroize, U, E> AsMut<U> for Secret<T, E> where Bytes<T, E>: AsMut<U> {
+impl<T: Zeroize, U, E> AsMut<U> for Secret<T, E>
+where
+    Bytes<T, E>: AsMut<U>,
+{
     fn as_mut(&mut self) -> &mut U {
         self.0.as_mut()
     }

@@ -1,10 +1,13 @@
 #![allow(unused_imports)]
 use did_utils::methods::{
     did_web::resolver::DidWebResolver,
-    traits::{ DIDResolutionOptions, DIDResolver, ResolutionOutput },
+    traits::{DIDResolutionOptions, DIDResolver, ResolutionOutput},
 };
 
-use hyper::{ service::{ make_service_fn, service_fn }, Body, Request, Response, Server };
+use hyper::{
+    service::{make_service_fn, service_fn},
+    Body, Request, Response, Server,
+};
 
 use serde_json::Value;
 use std::convert::Infallible;
@@ -12,8 +15,7 @@ use std::net::SocketAddr;
 
 #[allow(dead_code)]
 async fn mock_server_handler(req: Request<Body>) -> Result<Response<Body>, Infallible> {
-    const DID_JSON: &str =
-        r#"
+    const DID_JSON: &str = r#"
   {"@context": "https://www.w3.org/ns/did/v1",
   "id": "did:web:localhost",
     "verificationMethod": [{
@@ -40,9 +42,7 @@ async fn mock_server_handler(req: Request<Body>) -> Result<Response<Body>, Infal
 
 #[allow(dead_code)]
 async fn create_mock_server(port: u16) -> String {
-    let make_svc = make_service_fn(|_conn| async {
-        Ok::<_, Infallible>(service_fn(mock_server_handler))
-    });
+    let make_svc = make_service_fn(|_conn| async { Ok::<_, Infallible>(service_fn(mock_server_handler)) });
 
     let addr = SocketAddr::from(([127, 0, 0, 1], port));
     let server = Server::bind(&addr).serve(make_svc);
@@ -64,14 +64,10 @@ async fn resolves_document() {
     let did: &str = &formatted_string;
 
     let did_web_resolver = DidWebResolver::http();
-    let output: ResolutionOutput = did_web_resolver.resolve(
-        did,
-        &DIDResolutionOptions::default()
-    ).await;
+    let output: ResolutionOutput = did_web_resolver.resolve(did, &DIDResolutionOptions::default()).await;
 
-    let expected: Value = serde_json
-        ::from_str(
-            r#"{
+    let expected: Value = serde_json::from_str(
+        r#"{
           "@context": "https://www.w3.org/ns/did/v1",
           "didDocument": {
             "@context": "https://www.w3.org/ns/did/v1",
@@ -95,9 +91,9 @@ async fn resolves_document() {
             "contentType": "application/did+ld+json"
           }
         }
-        "#
-        )
-        .unwrap();
+        "#,
+    )
+    .unwrap();
 
     assert_eq!(json_canon::to_string(&output).unwrap(), json_canon::to_string(&expected).unwrap());
 }

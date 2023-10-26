@@ -7,14 +7,14 @@ use alloc::boxed::Box;
 use alloc::string::String;
 use alloc::vec::Vec;
 
-use core::fmt::{ Debug, Formatter };
+use core::fmt::{Debug, Formatter};
 use core::marker::PhantomData;
-use core::ops::{ Deref, DerefMut };
+use core::ops::{Deref, DerefMut};
 use core::str::FromStr;
 
-use base64ct::{ Base64UrlUnpadded, Encoding };
 use base64ct::Error as DecodeError;
-use serde::{ de::Error as _, Deserialize, Deserializer, Serialize, Serializer };
+use base64ct::{Base64UrlUnpadded, Encoding};
+use serde::{de::Error as _, Deserialize, Deserializer, Serialize, Serializer};
 
 /// A serde wrapper for base64-encoded bytes.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -63,10 +63,7 @@ impl<T: AsMut<U>, U: ?Sized, E> AsMut<U> for Bytes<T, E> {
 
 impl<T, E> From<T> for Bytes<T, E> {
     fn from(buf: T) -> Self {
-        Self {
-            buf,
-            cfg: PhantomData,
-        }
+        Self { buf, cfg: PhantomData }
     }
 }
 
@@ -124,10 +121,7 @@ impl<'de, E: Encoding> Deserialize<'de> for Bytes<Vec<u8>, E> {
         let enc = Zeroizing::from(String::deserialize(deserializer)?);
         let dec = E::decode_vec(&enc).map_err(|_| D::Error::custom("invalid base64"))?;
 
-        Ok(Self {
-            cfg: PhantomData,
-            buf: dec,
-        })
+        Ok(Self { cfg: PhantomData, buf: dec })
     }
 }
 
