@@ -1,7 +1,7 @@
 use serde::{ Deserialize, Serialize };
 
-use crate::key::Bytes;
-use crate::key::secret::Secret;
+use crate::key_jwk::Bytes;
+use crate::key_jwk::secret::Secret;
 
 /// A octet key pair CFRG-curve key, as defined in [RFC 8037]
 ///

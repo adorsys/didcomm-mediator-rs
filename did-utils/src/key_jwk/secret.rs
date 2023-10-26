@@ -17,7 +17,7 @@ use super::Bytes;
 ///
 ///   1. It is zeroed on drop.
 ///   2. Its equality implementation is constant time.
-///   2. Its contents are not printed in the debug formatter.
+///   3. Its contents are not printed in the debug formatter.
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(transparent)]
 #[serde(bound(serialize = "Bytes<T, E>: Serialize"))]

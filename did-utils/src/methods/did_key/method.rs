@@ -282,7 +282,7 @@ impl DIDKeyMethod {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::key::jwk::Jwk;
+    use crate::key_jwk::jwk::Jwk;
     use serde_json::Value;
 
     #[test]

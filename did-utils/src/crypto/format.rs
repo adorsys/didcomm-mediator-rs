@@ -4,12 +4,12 @@ use crate::{
         traits::{ Error as CryptoError, Generate, KeyMaterial, BYTES_LENGTH_32 },
         x25519::X25519KeyPair,
     },
-    key::jwk::Jwk,
-    key::prm::Parameters,
+    key_jwk::jwk::Jwk,
+    key_jwk::prm::Parameters,
 };
 
 use multibase::Base::Base64Url;
-use crate::key::{ key::Key, okp::OkpCurves, okp::Okp, Bytes, secret::Secret };
+use crate::key_jwk::{ key::Key, okp::OkpCurves, okp::Okp, Bytes, secret::Secret };
 
 impl TryFrom<Ed25519KeyPair> for Jwk {
     type Error = CryptoError;

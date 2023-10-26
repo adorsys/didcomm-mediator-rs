@@ -1,5 +1,5 @@
 pub mod didgen;
-pub mod web;
 pub mod plugin;
+pub mod web;
 
 mod util;

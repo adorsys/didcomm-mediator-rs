@@ -1,7 +1,7 @@
 use serde::{ Deserialize, Serialize };
 
-use crate::key::bytes::Bytes;
-use crate::key::secret::Secret;
+use crate::key_jwk::bytes::Bytes;
+use crate::key_jwk::secret::Secret;
 
 /// An elliptic-curve key.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

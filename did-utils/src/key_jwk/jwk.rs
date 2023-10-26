@@ -1,4 +1,4 @@
-use crate::{ key::key::Key, key::prm::Parameters };
+use crate::{ key_jwk::key::Key, key_jwk::prm::Parameters };
 extern crate alloc;
 use serde::{ Deserialize, Serialize };
 
@@ -30,8 +30,8 @@ pub struct Jwk {
 
 #[cfg(test)]
 mod rfc7517 {
-    use crate::key::prm::Signing;
-    use crate::key::{ jwk::*, ec::*, prm::*, rsa::* };
+    use crate::key_jwk::prm::Signing;
+    use crate::key_jwk::{ jwk::*, ec::*, prm::*, rsa::* };
 
     #[test]
     fn a1() {
@@ -2929,7 +2929,7 @@ mod rfc7517 {
 
 #[cfg(test)]
 mod rfc8037 {
-    use crate::key::{ jwk::*, okp::*, prm::* };
+    use crate::key_jwk::{ jwk::*, okp::*, prm::* };
     #[test]
     fn a1() {
         let val =

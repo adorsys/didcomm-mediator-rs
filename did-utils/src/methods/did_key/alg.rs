@@ -2,12 +2,12 @@ use num_bigint::{ BigInt, Sign };
 
 use crate::{
     crypto::traits::Error as CryptoError,
-    key::jwk::Jwk,
-    key::key::Key,
-    key::ec::{ Ec, EcCurves },
-    key::okp::{ Okp, OkpCurves },
-    key::Bytes,
-    key::prm::Parameters,
+    key_jwk::jwk::Jwk,
+    key_jwk::key::Key,
+    key_jwk::ec::{ Ec, EcCurves },
+    key_jwk::okp::{ Okp, OkpCurves },
+    key_jwk::Bytes,
+    key_jwk::prm::Parameters,
 };
 
 #[derive(Debug, Copy, Clone, PartialEq)]

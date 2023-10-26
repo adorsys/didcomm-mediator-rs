@@ -1,4 +1,4 @@
-use did_utils::{ crypto::{ ed25519::Ed25519KeyPair, traits::CoreSign }, key::jwk::Jwk };
+use did_utils::{ crypto::{ ed25519::Ed25519KeyPair, traits::CoreSign }, key_jwk::jwk::Jwk };
 use multibase::Base::Base64Url;
 
 fn main() {
