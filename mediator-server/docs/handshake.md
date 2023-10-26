@@ -419,15 +419,11 @@ The server will return a reponse containing messages, looking like:
   "messages~attach": [
       {
           "@id" : "06ca25f6-d3c5-48ac-8eee-1a9e29120c31",
-          "message" : "{
-              ...
-          }"
+          "message" : {}
       },
       {
           "@id" : "344a51cf-379f-40ab-ab2c-711dab3f53a9a",
-          "message" : "{
-              ...
-          }"
+          "message" : {}
       }
   ]
 }
