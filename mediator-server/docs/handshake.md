@@ -19,12 +19,12 @@ In this situation we will have two cloud agents:
 
 In this case, we assume that the services of the cloud agent at ```alice-mediator.com``` has a web site, sign boards and oder prints that display the public QRCode that can be scanned by the edge agent app. 
 
-## Registring with a Mediator
+## Registering with a Mediator
 befor Alice and Bob use mediators, the have to subscribe to services of those respective mediators. The information each of them need for subscribtion the did of the mediator. In the Alice case, ```did:web:alice-mediator.com:alice_mediator_pub``` and respectively in the Bob's case ```did:web:bob-mediator.com:bob_mediator_pub```. These URL service many purposes:
 
 * **Domain Name Resolution**: the mediator did allow us to resolve the domain of the medaitor at ```alice-mediator.com```
-* **DID Resolution**: under ```https://alice-mediator.com/alice_mediator_pub/.wellknown/did.json```, we can find the mediator did document. But this did document does not contain any proof of integrity.
-* **Integrity Protected Did Document**: under ```https://alice-mediator.com/alice_mediator_pub/.wellknown/did/pop.json?challenge=aasdfasdfadsf```, we can request an authenticated did document and the mediator will return a freshly produced presentation signed by the public key ```alice_mediator_pub``` present in the URL. Recall that content adresseing the did document will prevent the mediator from rotating keys, as any modification to the document would change the document address and thus the URL. Recall we need a verification of the did of this mediator, because we else do not have control over the dns infrastructure between alice_edge_agent and the alice_mediator.
+* **DID Resolution**: under ```https://alice-mediator.com/alice_mediator_pub/did.json```, we can find the mediator did document. But this did document does not contain any proof of integrity.
+* **Integrity Protected Did Document**: under ```https://alice-mediator.com/alice_mediator_pub/did/pop.json?challenge=aasdfasdfadsf```, we can request an authenticated did document and the mediator will return a freshly produced presentation signed by the public key ```alice_mediator_pub``` present in the URL. Recall that content adresseing the did document will prevent the mediator from rotating keys, as any modification to the document would change the document address and thus the URL. Recall we need a verification of the did of this mediator, because we else do not have control over the dns infrastructure between alice_edge_agent and the alice_mediator.
 
 ### Mediation Request
 After 
