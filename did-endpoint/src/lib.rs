@@ -1,5 +1,4 @@
 pub mod didgen;
-pub mod web;
 pub mod plugin;
-
-mod util;
+pub mod util;
+pub mod web;
