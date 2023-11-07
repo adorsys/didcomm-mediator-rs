@@ -4,8 +4,11 @@ use crate::{
         traits::{Error as CryptoError, Generate, KeyMaterial, BYTES_LENGTH_32},
         x25519::X25519KeyPair,
     },
-    didcore::Jwk,
+    key_jwk::jwk::Jwk,
+    key_jwk::prm::Parameters,
 };
+
+use crate::key_jwk::{key::Key, okp::Okp, okp::OkpCurves, secret::Secret, Bytes};
 use multibase::Base::Base64Url;
 
 impl TryFrom<Ed25519KeyPair> for Jwk {
@@ -13,12 +16,12 @@ impl TryFrom<Ed25519KeyPair> for Jwk {
 
     fn try_from(keypair: Ed25519KeyPair) -> Result<Self, Self::Error> {
         Ok(Jwk {
-            key_id: None,
-            key_type: String::from("OKP"),
-            curve: String::from("Ed25519"),
-            x: Some(Base64Url.encode(keypair.public_key_bytes()?)),
-            y: None,
-            d: Some(Base64Url.encode(keypair.private_key_bytes()?)),
+            key: Key::Okp(Okp {
+                crv: OkpCurves::Ed25519,
+                x: Bytes::from(keypair.public_key_bytes()?.to_vec()),
+                d: Some(Secret::from(keypair.private_key_bytes()?.to_vec())),
+            }),
+            prm: Parameters::default(),
         })
     }
 }
@@ -27,24 +30,29 @@ impl TryFrom<Jwk> for Ed25519KeyPair {
     type Error = CryptoError;
 
     fn try_from(jwk: Jwk) -> Result<Self, Self::Error> {
-        if jwk.key_type != "OKP" {
-            return Err(CryptoError::Unsupported);
-        }
+        match jwk.key {
+            Key::Okp(okp) => {
+                if okp.crv != OkpCurves::Ed25519 {
+                    return Err(CryptoError::InvalidCurve);
+                }
 
-        if jwk.curve != "Ed25519" {
-            return Err(CryptoError::InvalidCurve);
-        }
+                match okp.d {
+                    Some(secret_key) => {
+                        let secret = secret_key;
 
-        match jwk.d {
-            Some(secret_key) => {
-                let secret_key = base64url_to_bytes(&secret_key).map_err(|_| CryptoError::InvalidSecretKey)?;
-                Ed25519KeyPair::from_secret_key(&secret_key)
+                        let secret_key_vec = secret.to_vec();
+
+                        let bytes: [u8; 32] = secret_key_vec.try_into().unwrap();
+                        Ed25519KeyPair::from_secret_key(&bytes)
+                    }
+                    None => {
+                        let public_key = okp.x;
+                        let public_key_vec = public_key.to_vec();
+                        Ed25519KeyPair::from_public_key(&public_key_vec.try_into().unwrap())
+                    }
+                }
             }
-            None => {
-                let public_key = jwk.x.ok_or(CryptoError::InvalidPublicKey)?;
-                let public_key = base64url_to_bytes(&public_key).map_err(|_| CryptoError::InvalidPublicKey)?;
-                Ed25519KeyPair::from_public_key(&public_key)
-            }
+            _ => Err(CryptoError::Unsupported),
         }
     }
 }
@@ -54,42 +62,48 @@ impl TryFrom<X25519KeyPair> for Jwk {
 
     fn try_from(keypair: X25519KeyPair) -> Result<Self, Self::Error> {
         Ok(Jwk {
-            key_id: None,
-            key_type: String::from("OKP"),
-            curve: String::from("X25519"),
-            x: Some(Base64Url.encode(keypair.public_key_bytes()?)),
-            y: None,
-            d: Some(Base64Url.encode(keypair.private_key_bytes()?)),
+            key: Key::Okp(Okp {
+                crv: OkpCurves::X25519,
+                x: Bytes::from(keypair.public_key_bytes()?.to_vec()),
+                d: Some(Secret::from(keypair.private_key_bytes()?.to_vec())),
+            }),
+            prm: Parameters::default(),
         })
     }
 }
+
 
 impl TryFrom<Jwk> for X25519KeyPair {
     type Error = CryptoError;
 
     fn try_from(jwk: Jwk) -> Result<Self, Self::Error> {
-        if jwk.key_type != "OKP" {
-            return Err(CryptoError::Unsupported);
-        }
+        match jwk.key {
+            Key::Okp(okp) => {
+                if okp.crv != OkpCurves::X25519 {
+                    return Err(CryptoError::InvalidCurve);
+                }
+                match okp.d {
+                    Some(secret_key) => {
+                        let secret = secret_key;
 
-        if jwk.curve != "X25519" {
-            return Err(CryptoError::InvalidCurve);
-        }
+                        let secret_key_vec = secret.to_vec();
 
-        match jwk.d {
-            Some(secret_key) => {
-                let secret_key = base64url_to_bytes(&secret_key).map_err(|_| CryptoError::InvalidSecretKey)?;
-                X25519KeyPair::from_secret_key(&secret_key)
+                        let bytes: [u8; 32] = secret_key_vec.try_into().unwrap();
+                        X25519KeyPair::from_secret_key(&bytes)
+                    }
+                    None => {
+                        let public_key = okp.x;
+                        let public_key_vec = public_key.to_vec();
+                        X25519KeyPair::from_public_key(&public_key_vec.try_into().unwrap())
+                    }
+                }
             }
-            None => {
-                let public_key = jwk.x.ok_or(CryptoError::InvalidPublicKey)?;
-                let public_key = base64url_to_bytes(&public_key).map_err(|_| CryptoError::InvalidPublicKey)?;
-                X25519KeyPair::from_public_key(&public_key)
-            }
+            _ => Err(CryptoError::Unsupported),
         }
     }
 }
 
+#[allow(dead_code)]
 fn base64url_to_bytes(key: &str) -> Result<[u8; BYTES_LENGTH_32], ()> {
     let key: Vec<u8> = Base64Url.decode(key).map_err(|_| ())?;
     let key: [u8; BYTES_LENGTH_32] = key.try_into().map_err(|_| ())?;
