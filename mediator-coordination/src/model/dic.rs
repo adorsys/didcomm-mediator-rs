@@ -65,14 +65,15 @@ pub struct DDICPayload {
     pub additional_properties: Option<HashMap<String, Value>>,
 }
 
-#[allow(unused)]
-impl DICPayload {
-    const TYP: &'static str = "dic/v001";
-
+/// Can sign payloads into JWTs
+pub trait JwtAssertable: Serialize {
     /// Sign into JWT
-    fn sign(&self, jwk: &Jwk, kid: Option<String>) -> Result<String, JwsError> {
+    fn sign(&self, jwk: &Jwk, kid: Option<String>) -> Result<String, JwsError>;
+
+    /// Sign into JWT with custom `typ` header
+    fn sign_with_typ(&self, typ: &str, jwk: &Jwk, kid: Option<String>) -> Result<String, JwsError> {
         let header = JwsHeader {
-            typ: Some(Self::TYP.to_string()),
+            typ: Some(typ.to_string()),
             kid,
             alg: JwsAlg::EdDSA,
             ..Default::default()
@@ -83,19 +84,16 @@ impl DICPayload {
 }
 
 #[allow(unused)]
-impl DDICPayload {
-    const TYP: &'static str = "ddic/v001";
-
-    /// Sign into JWT
+impl JwtAssertable for DICPayload {
     fn sign(&self, jwk: &Jwk, kid: Option<String>) -> Result<String, JwsError> {
-        let header = JwsHeader {
-            typ: Some(Self::TYP.to_string()),
-            kid,
-            alg: JwsAlg::EdDSA,
-            ..Default::default()
-        };
+        self.sign_with_typ("dic/v001", jwk, kid)
+    }
+}
 
-        jws::make_compact_jws(&header, json!(self), jwk)
+#[allow(unused)]
+impl JwtAssertable for DDICPayload {
+    fn sign(&self, jwk: &Jwk, kid: Option<String>) -> Result<String, JwsError> {
+        self.sign_with_typ("ddic/v001", jwk, kid)
     }
 }
 

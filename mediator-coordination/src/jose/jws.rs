@@ -8,9 +8,11 @@ use serde_json::Value;
 use std::collections::HashMap;
 use thiserror::Error;
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, PartialEq)]
 #[allow(unused)]
 pub enum JwsError {
+    #[error("empty input")]
+    EmptyInput,
     #[error("invalid format")]
     InvalidFormat,
     #[error("invalid verifying key")]
@@ -35,6 +37,8 @@ pub enum JwsError {
 pub enum JwsAlg {
     #[default]
     EdDSA,
+    #[serde(untagged)]
+    Unknown(String),
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default)]
@@ -108,6 +112,10 @@ pub fn make_compact_jws_ed25519(phrase: String, jwk: &Jwk) -> Result<String, Jws
 /// Verifies a JSON Web Signature (JWS)
 #[allow(unused)]
 pub fn verify_compact_jws(jws: &str, jwk: &Jwk) -> Result<(), JwsError> {
+    if jws.is_empty() {
+        return Err(JwsError::EmptyInput);
+    }
+
     let header_encoded = jws.split('.').next().ok_or(JwsError::InvalidFormat)?;
     let header_decoded = String::from_utf8(
         Base64Url
@@ -259,5 +267,121 @@ mod tests {
         for entry in entries {
             assert!(verify_compact_jws(entry, &jwk).is_ok());
         }
+    }
+
+    #[test]
+    fn should_err_on_non_matching_jwk_curve() {
+        let jwk = Jwk {
+            // wrong curve
+            curve: String::from("X25519"),
+            ..setup()
+        };
+
+        assert!(matches!(
+            _case_with_faulty_jwk(&jwk),
+            JwsError::InvalidSigningKey
+        ));
+    }
+
+    #[test]
+    fn should_err_on_signing_with_public_jwk() {
+        let jwk = Jwk {
+            // remove private key
+            d: None,
+            ..setup()
+        };
+
+        assert!(matches!(
+            _case_with_faulty_jwk(&jwk),
+            JwsError::MissingPrivateKey
+        ));
+    }
+
+    #[test]
+    fn should_err_on_invalid_jwk() {
+        let jwk = Jwk {
+            // Invalid Y-coordinate
+            d: Some("ABCD".to_string()),
+            ..setup()
+        };
+
+        assert!(matches!(
+            _case_with_faulty_jwk(&jwk),
+            JwsError::InvalidSigningKey
+        ));
+    }
+
+    #[test]
+    fn should_err_on_verifying_as_expected() {
+        let jwk = Jwk { d: None, ..setup() };
+
+        let entries = [
+            ("case: empty signature", concat!(""), JwsError::EmptyInput),
+            (
+                "case: header contains non Base64 character",
+                concat!(
+                    "*****eyJ0eXAiOiJhcHBsaWNhdGlvbi9qc29uIiwia2lkIjoiZGlkOndlYjptZWRpYXRvcnMtci11",
+                    "cy5jb20ja2V5cy0yIiwiYWxnIjoiRWREU0EifQ.eyJjb250ZW50IjoiZTEyMDBhNmMtZDlhM",
+                    "i00OWI0LWJhYTYtZGE4NmQ2NDNjZTNjIn0.SyWVSdFRdAu6Z-fg0hjB31MRAIQ2jBDBdU3Af",
+                    "Pf0Fb9Hh8CGnSWH_6yrnDDb0K1tI0YG6iSLFEHasXeCH2-iDw"
+                ),
+                JwsError::InvalidFormat,
+            ),
+            (
+                "case: header not deserializable to JwsHeader",
+                concat!(
+                    "eyJ0eXAiOjEsImFsZyI6IkVkRFNBIn0.eyJjb250ZW50IjoiZTEyMDBhNmMtZDlhMi00",
+                    "OWI0LWJhYTYtZGE4NmQ2NDNjZTNjIn0.SyWVSdFRdAu6Z-fg0hjB31MRAIQ2jBDBdU3A",
+                    "fPf0Fb9Hh8CGnSWH_6yrnDDb0K1tI0YG6iSLFEHasXeCH2-iDw"
+                ),
+                JwsError::DeserializationError,
+            ),
+            (
+                "case: signing algorithm non supported by this implementation",
+                concat!(
+                    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiw",
+                    "ibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2Q",
+                    "T4fwpMeJf36POk6yJV_adQssw5c"
+                ),
+                JwsError::UnsupportedAlgorithm,
+            ),
+            (
+                "case: not a three-part signature",
+                concat!(
+                    "eyJ0eXAiOiJhcHBsaWNhdGlvbi9qc29uIiwia2lkIjoiZGlkOndlYjptZWRpYXRvcnMtci11",
+                    "cy5jb20ja2V5cy0yIiwiYWxnIjoiRWREU0EifQeyJjb250ZW50IjoiZTEyMDBhNmMtZDlhM",
+                    "i00OWI0LWJhYTYtZGE4NmQ2NDNjZTNjIn0SyWVSdFRdAu6Z-fg0hjB31MRAIQ2jBDBdU3Af",
+                    "Pf0Fb9Hh8CGnSWH_6yrnDDb0K1tI0YG6iSLFEHasXeCH2-iDw"
+                ),
+                JwsError::InvalidFormat,
+            ),
+            (
+                "case: tampered-with signature",
+                concat!(
+                    "eyJ0eXAiOiJhcHBsaWNhdGlvbi9qc29uIiwia2lkIjoiZGlkOndlYjptZWRpYXRvcnMtci11",
+                    "cy5jb20ja2V5cy0yIiwiYWxnIjoiRWREU0EifQ.eyJjb250ZW50IjoiZTEyMDBhNmMtZDlhM",
+                    "i00OWI0LWJhYTYtZGE4NmQ2NDNjZTNjIn0.SyWVSdFRdAu6Z-fg0hjB31MRAIQ2jBDBdU3Af",
+                    "Pf0Fb9Hh8CGnSWH6_yrnDDb0K1tI0YG6iSLFEHasXeCH2-iDw"
+                ),
+                JwsError::InvalidSignature,
+            ),
+        ];
+
+        for (msg, jws, err) in entries {
+            assert_eq!(verify_compact_jws(jws, &jwk).unwrap_err(), err, "{msg}");
+        }
+    }
+
+    fn _case_with_faulty_jwk(jwk: &Jwk) -> JwsError {
+        let header = JwsHeader {
+            alg: JwsAlg::EdDSA,
+            ..Default::default()
+        };
+
+        let payload = json!({
+            "content": "e1200a6c-d9a2-49b4-baa6-da86d643ce3c"
+        });
+
+        make_compact_jws(&header, payload, &jwk).unwrap_err()
     }
 }
