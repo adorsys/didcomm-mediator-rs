@@ -1,7 +1,11 @@
-use multibase::Base::Base64Url;
 use num_bigint::{BigInt, Sign};
 
-use crate::{crypto::traits::Error as CryptoError, didcore::Jwk};
+use crate::{crypto::traits::Error as CryptoError,     key_jwk::ec::{Ec, EcCurves},
+key_jwk::jwk::Jwk,
+key_jwk::key::Key,
+key_jwk::okp::{Okp, OkpCurves},
+key_jwk::prm::Parameters,
+key_jwk::Bytes,};
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 #[allow(unused, clippy::upper_case_acronyms)]
@@ -65,41 +69,43 @@ impl Algorithm {
     pub fn build_jwk(&self, raw_public_key_bytes: &[u8]) -> Result<Jwk, CryptoError> {
         match self {
             Ed25519 => Ok(Jwk {
-                key_id: None,
-                key_type: String::from("OKP"),
-                curve: String::from("Ed25519"),
-                x: Some(Base64Url.encode(raw_public_key_bytes)),
-                y: None,
-                d: None,
+                key: Key::Okp(Okp {
+                    crv: OkpCurves::Ed25519,
+                    x: Bytes::from(raw_public_key_bytes.to_vec()),
+                    d: None,
+                }),
+                prm: Parameters::default(),
             }),
             X25519 => Ok(Jwk {
-                key_id: None,
-                key_type: String::from("OKP"),
-                curve: String::from("X25519"),
-                x: Some(Base64Url.encode(raw_public_key_bytes)),
-                y: None,
-                d: None,
+                key: Key::Okp(Okp {
+                    crv: OkpCurves::X25519,
+                    x: Bytes::from(raw_public_key_bytes.to_vec()),
+                    d: None,
+                }),
+                prm: Parameters::default(),
             }),
             Secp256k1 => {
                 let uncompressed = self.uncompress_public_key(raw_public_key_bytes)?;
                 Ok(Jwk {
-                    key_id: None,
-                    key_type: String::from("EC"),
-                    curve: String::from("secp256k1"),
-                    x: Some(Base64Url.encode(&uncompressed[1..33])),
-                    y: Some(Base64Url.encode(&uncompressed[33..])),
-                    d: None,
+                    key: Key::Ec(Ec {
+                        crv: EcCurves::P256K,
+                        d: None,
+                        x: Bytes::from(uncompressed[1..33].to_vec()),
+                        y: Bytes::from(uncompressed[33..].to_vec()),
+                    }),
+                    prm: Parameters::default(),
                 })
             }
             P256 => {
                 let uncompressed = self.uncompress_public_key(raw_public_key_bytes)?;
                 Ok(Jwk {
-                    key_id: None,
-                    key_type: String::from("EC"),
-                    curve: String::from("P-256"),
-                    x: Some(Base64Url.encode(&uncompressed[1..33])),
-                    y: Some(Base64Url.encode(&uncompressed[33..])),
-                    d: None,
+                    key: Key::Ec(Ec {
+                        crv: EcCurves::P256,
+                        d: None,
+                        x: Bytes::from(uncompressed[1..33].to_vec()),
+                        y: Bytes::from(uncompressed[33..].to_vec()),
+                    }),
+                    prm: Parameters::default(),
                 })
             }
             // TODO! Extend implementation to other algorithms

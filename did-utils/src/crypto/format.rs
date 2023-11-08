@@ -72,7 +72,6 @@ impl TryFrom<X25519KeyPair> for Jwk {
     }
 }
 
-
 impl TryFrom<Jwk> for X25519KeyPair {
     type Error = CryptoError;
 

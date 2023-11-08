@@ -182,7 +182,8 @@ mod tests {
         http::{Request, StatusCode},
     };
     use did_utils::{
-        didcore::{Document, Jwk, KeyFormat, Proofs},
+        didcore::{Document, KeyFormat, Proofs},
+        key_jwk::jwk::Jwk,
         proof::{eddsa_jcs_2022::EdDsaJcs2022, traits::CryptoProof},
         vc::model::VerifiablePresentation,
     };
