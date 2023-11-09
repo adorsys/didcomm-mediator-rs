@@ -144,9 +144,11 @@ We can only protect a server providing such a service by implementing some sort 
 - some sort of verifiable credential prooving preauthentication by some sort of authority.
 
 **Interaction Key**
+
 The sender of this request must also provide a public key he will be using to produce authenticating/asserting presentations
 
 **Confidentiality**
+
 Response to this message will contain information that is destinated solely to the sender of the request. In this case, request must also contain a public key that can be used for encryption key exchange.
 
 For authentication, assertion and key exchange, a DID provide all essential components. Therefore, adding a appropriate DID of the sender to the request will be sufficient in that case.
