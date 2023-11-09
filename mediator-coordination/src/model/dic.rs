@@ -358,9 +358,8 @@ mod tests {
         assert!(jws::verify_compact_jws(dic_jwt, &jwk).is_ok());
 
         // Assert claims
-        let dic_payload = _extract_payload(&dic_jwt).unwrap();
         assert_eq!(
-            dic_payload,
+            _extract_payload(&dic_jwt).unwrap(),
             json!({
                 "sub": "did:key:alice_identity_pub@alice_mediator",
                 "iss": "did:web:alice-mediator.com:alice_mediator_pub",
