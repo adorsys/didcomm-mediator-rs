@@ -1,6 +1,6 @@
 use did_utils::{
     crypto::{ed25519::Ed25519KeyPair, traits::CoreSign},
-    didcore::Jwk,
+    key_jwk::jwk::Jwk
 };
 use multibase::Base::Base64Url;
 

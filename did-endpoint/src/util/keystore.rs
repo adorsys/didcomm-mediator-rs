@@ -1,10 +1,9 @@
 use chrono::Utc;
 use did_utils::{
     crypto::{ed25519::Ed25519KeyPair, traits::Generate, x25519::X25519KeyPair},
-    didcore::Jwk,
+    key_jwk::{ec::Ec, jwk::Jwk, key::Key, oct::Oct, okp::Okp, rsa::Rsa, secret::Secret},
 };
 use std::error::Error;
-use zeroize::Zeroize;
 
 pub struct KeyStore {
     dirpath: String,
@@ -107,26 +106,43 @@ impl KeyStore {
     }
 }
 
-impl Drop for KeyStore {
-    fn drop(&mut self) {
-        for jwk in &mut self.keys {
-            jwk.d.zeroize();
-        };
-    }
-}
-
 trait ToPublic {
     fn to_public(&self) -> Self;
 }
 
 impl ToPublic for Jwk {
-    fn to_public(&self) -> Self {
-        Jwk {
-            d: None,
-            ..self.clone()
-        }
-    }
-}
+     fn to_public(&self) -> Self {
+         let public_key = match &self.key {
+             Key::Ec(ec) => Key::Ec(Ec {
+                 crv: ec.crv.clone(),
+                 x: ec.x.clone(),
+                 y: ec.y.clone(),
+                 d: None,
+             }),
+             Key::Rsa(rsa) => Key::Rsa(Rsa {
+                 prv: None,
+                 e: rsa.e.clone(),
+                 n: rsa.n.clone(),
+             }),
+             Key::Oct(_oct) => Key::Oct(Oct {
+                 k: Secret::default(),
+             }),
+             Key::Okp(okp) => Key::Okp(Okp {
+                 d: None,
+                 crv: okp.crv.clone(),
+                 x: okp.x.clone(),
+             }),
+             _ => {
+                 return self.clone();
+             }
+         };
+
+         Jwk {
+             key: public_key,
+             prm: self.prm.clone(),
+         }
+     }
+ }
 
 #[cfg(test)]
 mod tests {
