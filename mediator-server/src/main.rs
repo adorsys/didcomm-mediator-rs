@@ -11,6 +11,7 @@ mod error;
 mod models;
 mod log;
 mod utils;
+mod oob_invitation;
 
 use crate::{models::RecipientController, log::log_request};
 
