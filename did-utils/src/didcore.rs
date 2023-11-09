@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 use serde::{ser::SerializeMap, Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 
-use crate::{ldmodel::Context, proof::model::Proof};
+use crate::{key_jwk::jwk::Jwk, ldmodel::Context, proof::model::Proof};
 
 // === Structure of a did document ===
 
@@ -127,22 +127,6 @@ pub enum KeyFormat {
     Base58(String),
     Multibase(String),
     Jwk(Jwk),
-}
-
-#[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Default)]
-pub struct Jwk {
-    #[serde(rename = "kid", skip_serializing_if = "Option::is_none")]
-    pub key_id: Option<String>,
-    #[serde(rename = "kty")]
-    pub key_type: String,
-    #[serde(rename = "crv")]
-    pub curve: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub x: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub y: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub d: Option<String>,
 }
 
 // === Authentication ===
@@ -304,6 +288,8 @@ pub enum Proofs {
 #[cfg(test)]
 pub mod tests {
     use super::*;
+    use crate::key_jwk::key::Key;
+    use multibase::Base::Base64Url;
 
     // A test that reads the file at ../test_resources/did_example_1.json, uses serde_json to convert
     // the content into a json string uses the json_canon library to canonicalize the json string.
@@ -525,12 +511,31 @@ pub mod tests {
         assert!(vm.private_key.is_some());
 
         match vm.public_key.unwrap() {
-            KeyFormat::Jwk(jwk) => assert_eq!(jwk.x.unwrap(), "psQvZbwHAW4z2wrTKGbl4mFyzSIGy_Cw7ov-ep0TWAM"),
+            KeyFormat::Jwk(jwk) => {
+                let public_key: Vec<u8> = match jwk.key {
+                    Key::Okp(okp) => okp.x.to_vec(),
+                    _ => panic!("Unexpected key type"),
+                };
+                assert_eq!(public_key, Base64Url.decode("psQvZbwHAW4z2wrTKGbl4mFyzSIGy_Cw7ov-ep0TWAM").unwrap());
+            }
             _ => panic!("Deserialized into wrong KeyFormat"),
         }
 
         match vm.private_key.unwrap() {
-            KeyFormat::Jwk(jwk) => assert_eq!(jwk.d.unwrap(), "bBuzzQqaC29xi78lZUWLcByvm7vKgTJqsZ8m7T7KSOw"),
+            KeyFormat::Jwk(jwk) => {
+                let private_key = match jwk.key {
+                    Key::Okp(okp) => {
+                        if let Some(secret) = okp.d {
+                            secret.to_vec()
+                        } else {
+                            panic!("Private key is missing");
+                        }
+                    }
+                    _ => panic!("Unexpected key type"),
+                };
+
+                assert_eq!(private_key, Base64Url.decode("bBuzzQqaC29xi78lZUWLcByvm7vKgTJqsZ8m7T7KSOw").unwrap());
+            }
             _ => panic!("Deserialized into wrong KeyFormat"),
         }
     }
