@@ -106,43 +106,43 @@ impl KeyStore {
     }
 }
 
-trait ToPublic {
+pub trait ToPublic {
     fn to_public(&self) -> Self;
 }
 
 impl ToPublic for Jwk {
-     fn to_public(&self) -> Self {
-         let public_key = match &self.key {
-             Key::Ec(ec) => Key::Ec(Ec {
-                 crv: ec.crv.clone(),
-                 x: ec.x.clone(),
-                 y: ec.y.clone(),
-                 d: None,
-             }),
-             Key::Rsa(rsa) => Key::Rsa(Rsa {
-                 prv: None,
-                 e: rsa.e.clone(),
-                 n: rsa.n.clone(),
-             }),
-             Key::Oct(_oct) => Key::Oct(Oct {
-                 k: Secret::default(),
-             }),
-             Key::Okp(okp) => Key::Okp(Okp {
-                 d: None,
-                 crv: okp.crv.clone(),
-                 x: okp.x.clone(),
-             }),
-             _ => {
-                 return self.clone();
-             }
-         };
+    fn to_public(&self) -> Self {
+        let public_key = match &self.key {
+            Key::Ec(ec) => Key::Ec(Ec {
+                crv: ec.crv.clone(),
+                x: ec.x.clone(),
+                y: ec.y.clone(),
+                d: None,
+            }),
+            Key::Rsa(rsa) => Key::Rsa(Rsa {
+                prv: None,
+                e: rsa.e.clone(),
+                n: rsa.n.clone(),
+            }),
+            Key::Oct(_oct) => Key::Oct(Oct {
+                k: Secret::default(),
+            }),
+            Key::Okp(okp) => Key::Okp(Okp {
+                d: None,
+                crv: okp.crv.clone(),
+                x: okp.x.clone(),
+            }),
+            _ => {
+                return self.clone();
+            }
+        };
 
-         Jwk {
-             key: public_key,
-             prm: self.prm.clone(),
-         }
-     }
- }
+        Jwk {
+            key: public_key,
+            prm: self.prm.clone(),
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {

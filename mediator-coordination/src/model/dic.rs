@@ -1,4 +1,4 @@
-use did_utils::didcore::Jwk;
+use did_utils::key_jwk::jwk::Jwk;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -100,6 +100,8 @@ impl JwtAssertable for DDICPayload {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    use did_endpoint::util::keystore::ToPublic;
 
     use crate::util;
 
@@ -223,7 +225,7 @@ mod tests {
         assert_eq!(jwt, expected_jwt);
 
         // Verify
-        let jwk = Jwk { d: None, ..jwk };
+        let jwk = jwk.to_public();
         assert!(jws::verify_compact_jws(&jwt, &jwk).is_ok());
     }
 
@@ -254,7 +256,7 @@ mod tests {
         assert_eq!(jwt, expected_jwt);
 
         // Verify
-        let jwk = Jwk { d: None, ..jwk };
+        let jwk = jwk.to_public();
         assert!(jws::verify_compact_jws(&jwt, &jwk).is_ok());
     }
 }

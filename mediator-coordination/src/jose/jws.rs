@@ -1,6 +1,6 @@
 use did_utils::{
     crypto::{ed25519::Ed25519KeyPair, traits::CoreSign},
-    didcore::Jwk,
+    key_jwk::{jwk::Jwk, key::Key, okp::OkpCurves},
 };
 use multibase::Base::Base64Url;
 use serde::{Deserialize, Serialize};
@@ -81,9 +81,13 @@ pub fn make_compact_jws(header: &JwsHeader, payload: Value, jwk: &Jwk) -> Result
 
     match header.alg {
         JwsAlg::EdDSA => {
-            if jwk.curve.to_ascii_lowercase() != "ed25519" {
-                return Err(JwsError::InvalidSigningKey);
-            }
+            match &jwk.key {
+                Key::Okp(okp) => match okp.crv {
+                    OkpCurves::Ed25519 => (),
+                    _ => return Err(JwsError::InvalidSigningKey),
+                },
+                _ => return Err(JwsError::InvalidSigningKey),
+            };
 
             make_compact_jws_ed25519(make_phrase()?, jwk)
         }
@@ -159,6 +163,8 @@ fn verify_compact_jws_ed25519(jws: &str, jwk: &Jwk) -> Result<(), JwsError> {
 mod tests {
     use super::*;
 
+    use did_endpoint::util::keystore::ToPublic;
+    use did_utils::key_jwk::secret::Secret;
     use serde_json::json;
 
     use crate::util;
@@ -248,7 +254,7 @@ mod tests {
 
     #[test]
     fn can_verify_compact_jws() {
-        let jwk = Jwk { d: None, ..setup() };
+        let jwk = setup().to_public();
 
         let entries = [
             concat!(
@@ -271,10 +277,11 @@ mod tests {
 
     #[test]
     fn should_err_on_non_matching_jwk_curve() {
-        let jwk = Jwk {
-            // wrong curve
-            curve: String::from("X25519"),
-            ..setup()
+        let mut jwk = setup();
+        match &mut jwk.key {
+            // set wrong curve type
+            Key::Okp(okp) => okp.crv = OkpCurves::X25519,
+            _ => unreachable!(),
         };
 
         assert!(matches!(
@@ -285,11 +292,7 @@ mod tests {
 
     #[test]
     fn should_err_on_signing_with_public_jwk() {
-        let jwk = Jwk {
-            // remove private key
-            d: None,
-            ..setup()
-        };
+        let jwk = setup().to_public();
 
         assert!(matches!(
             _case_with_faulty_jwk(&jwk),
@@ -299,10 +302,11 @@ mod tests {
 
     #[test]
     fn should_err_on_invalid_jwk() {
-        let jwk = Jwk {
-            // Invalid Y-coordinate
-            d: Some("ABCD".to_string()),
-            ..setup()
+        let mut jwk = setup();
+        match &mut jwk.key {
+            // set invalid Y-coordinate
+            Key::Okp(okp) => okp.d = Some(Secret::from(b"ABCD".to_vec())),
+            _ => unreachable!(),
         };
 
         assert!(matches!(
@@ -313,10 +317,14 @@ mod tests {
 
     #[test]
     fn should_err_on_verifying_as_expected() {
-        let jwk = Jwk { d: None, ..setup() };
+        let jwk = setup().to_public();
 
         let entries = [
-            ("case: empty signature", concat!(""), JwsError::EmptyInput),
+            (
+                "case: empty signature",
+                concat!(""), //
+                JwsError::EmptyInput,
+            ),
             (
                 "case: header contains non Base64 character",
                 concat!(

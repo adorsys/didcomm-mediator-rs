@@ -4,11 +4,9 @@ use crate::{
         traits::{Error as CryptoError, Generate, KeyMaterial, BYTES_LENGTH_32},
         x25519::X25519KeyPair,
     },
-    key_jwk::jwk::Jwk,
-    key_jwk::prm::Parameters,
+    key_jwk::{jwk::Jwk, key::Key, okp::Okp, okp::OkpCurves, prm::Parameters, secret::Secret, Bytes},
 };
 
-use crate::key_jwk::{key::Key, okp::Okp, okp::OkpCurves, secret::Secret, Bytes};
 use multibase::Base::Base64Url;
 
 impl TryFrom<Ed25519KeyPair> for Jwk {
@@ -42,13 +40,13 @@ impl TryFrom<Jwk> for Ed25519KeyPair {
 
                         let secret_key_vec = secret.to_vec();
 
-                        let bytes: [u8; 32] = secret_key_vec.try_into().unwrap();
+                        let bytes: [u8; 32] = secret_key_vec.try_into().map_err(|_| CryptoError::InvalidSecretKey)?;
                         Ed25519KeyPair::from_secret_key(&bytes)
                     }
                     None => {
                         let public_key = okp.x;
                         let public_key_vec = public_key.to_vec();
-                        Ed25519KeyPair::from_public_key(&public_key_vec.try_into().unwrap())
+                        Ed25519KeyPair::from_public_key(&public_key_vec.try_into().map_err(|_| CryptoError::InvalidPublicKey)?)
                     }
                 }
             }
@@ -87,13 +85,13 @@ impl TryFrom<Jwk> for X25519KeyPair {
 
                         let secret_key_vec = secret.to_vec();
 
-                        let bytes: [u8; 32] = secret_key_vec.try_into().unwrap();
+                        let bytes: [u8; 32] = secret_key_vec.try_into().map_err(|_| CryptoError::InvalidSecretKey)?;
                         X25519KeyPair::from_secret_key(&bytes)
                     }
                     None => {
                         let public_key = okp.x;
                         let public_key_vec = public_key.to_vec();
-                        X25519KeyPair::from_public_key(&public_key_vec.try_into().unwrap())
+                        X25519KeyPair::from_public_key(&public_key_vec.try_into().map_err(|_| CryptoError::InvalidPublicKey)?)
                     }
                 }
             }

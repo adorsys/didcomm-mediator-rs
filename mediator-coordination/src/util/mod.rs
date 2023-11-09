@@ -1,8 +1,9 @@
 #![allow(unused)]
 
 use did_endpoint::util::KeyStore;
-use did_utils::didcore::{
-    AssertionMethod, Document, Jwk, KeyAgreement, KeyFormat, VerificationMethod,
+use did_utils::{
+    didcore::{AssertionMethod, Document, KeyAgreement, KeyFormat, VerificationMethod},
+    key_jwk::jwk::Jwk,
 };
 
 /// Parse DID document expected to exist on filesystem.
