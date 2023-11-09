@@ -102,6 +102,7 @@ mod tests {
     use super::*;
 
     use did_endpoint::util::keystore::ToPublic;
+    use multibase::Base::Base64Url;
 
     use crate::util;
 
@@ -258,5 +259,144 @@ mod tests {
         // Verify
         let jwk = jwk.to_public();
         assert!(jws::verify_compact_jws(&jwt, &jwk).is_ok());
+    }
+
+    #[test]
+    fn present_dic_via_jwt() {
+        let holder_jwk = _holder_jwk();
+
+        let header = JwsHeader {
+            alg: JwsAlg::EdDSA,
+            ..Default::default()
+        };
+
+        let payload = json!({
+            "dic": concat!(
+                "eyJ0eXAiOiJkaWMvdjAwMSIsImFsZyI6IkVkRFNBIn0.eyJpc3MiOiJkaWQ6d2ViOmFsaWNl",
+                "LW1lZGlhdG9yLmNvbTphbGljZV9tZWRpYXRvcl9wdWIiLCJub25jZSI6IjQzZjg0ODY4LTA2",
+                "MzItNDQ3MS1iNmRkLWQ2M2ZhMTJjMjFmNiIsInNsIjoiZ29sZCIsInN1YiI6ImRpZDprZXk6",
+                "YWxpY2VfaWRlbnRpdHlfcHViQGFsaWNlX21lZGlhdG9yIn0.tslxNKmgVX_LhKIM5SH9KIxp",
+                "_jCAXGNmjuisS2SmmGlXf2LuR3iUeAPXWm9f0XA1_jvVXw7gJLlbJFer6zSCDA"
+            )
+        });
+
+        let jwt = jws::make_compact_jws(&header, payload, &holder_jwk).unwrap();
+        let expected_jwt = concat!(
+            "eyJhbGciOiJFZERTQSJ9.eyJkaWMiOiJleUowZVhBaU9pSmthV012ZGpBd01TSXNJbUZzWnl",
+            "JNklrVmtSRk5CSW4wLmV5SnBjM01pT2lKa2FXUTZkMlZpT21Gc2FXTmxMVzFsWkdsaGRHOXl",
+            "MbU52YlRwaGJHbGpaVjl0WldScFlYUnZjbDl3ZFdJaUxDSnViMjVqWlNJNklqUXpaamcwT0R",
+            "ZNExUQTJNekl0TkRRM01TMWlObVJrTFdRMk0yWmhNVEpqTWpGbU5pSXNJbk5zSWpvaVoyOXN",
+            "aQ0lzSW5OMVlpSTZJbVJwWkRwclpYazZZV3hwWTJWZmFXUmxiblJwZEhsZmNIVmlRR0ZzYVd",
+            "ObFgyMWxaR2xoZEc5eUluMC50c2x4TkttZ1ZYX0xoS0lNNVNIOUtJeHBfakNBWEdObWp1aXN",
+            "TMlNtbUdsWGYyTHVSM2lVZUFQWFdtOWYwWEExX2p2Vlh3N2dKTGxiSkZlcjZ6U0NEQSJ9.eV",
+            "BZDZ7MqX_3F9n4CgvdIl2E0oWp47oLNeCwyui3lyWe9dltIl2niFctndy4nqZbs6fR3zx64A",
+            "v-6lF7fDLCDg"
+        );
+        assert_eq!(jwt, expected_jwt);
+    }
+
+    #[test]
+    fn present_ddic_via_jwt() {
+        let holder_jwk = _holder_jwk();
+
+        let header = JwsHeader {
+            alg: JwsAlg::EdDSA,
+            ..Default::default()
+        };
+
+        let payload = json!({
+            "ddic": concat!(
+                "eyJ0eXAiOiJkZGljL3YwMDEiLCJhbGciOiJFZERTQSJ9.eyJkaWMtc3ViIjoiZGlkOmtleTp",
+                "hbGljZV9pZGVudGl0eV9wdWJAYWxpY2VfbWVkaWF0b3IiLCJpc3MiOiJkaWQ6d2ViOmFsaWN",
+                "lLW1lZGlhdG9yLmNvbTphbGljZV9tZWRpYXRvcl9wdWIiLCJub25jZSI6IjQzZjg0ODY4LTA",
+                "2MzItNDQ3MS1iNmRkLWQ2M2ZhMTJjMjFmNiIsInN1YiI6ImRpZDprZXk6Ym9iX2lkZW50aXR",
+                "5X3B1YkBhbGljZSJ9.TMrKBQ22yCY-A07bIaR6c73Y9LK-rorKv9wvoh1NnYGgr2IzIvMP8g",
+                "NjQmizpgjdyVXz8KlXr8F_ARl_iQ-MDA"
+            )
+        });
+
+        let jwt = jws::make_compact_jws(&header, payload, &holder_jwk).unwrap();
+        let expected_jwt = concat!(
+            "eyJhbGciOiJFZERTQSJ9.eyJkZGljIjoiZXlKMGVYQWlPaUprWkdsakwzWXdNREVpTENKaGJ",
+            "HY2lPaUpGWkVSVFFTSjkuZXlKa2FXTXRjM1ZpSWpvaVpHbGtPbXRsZVRwaGJHbGpaVjlwWkd",
+            "WdWRHbDBlVjl3ZFdKQVlXeHBZMlZmYldWa2FXRjBiM0lpTENKcGMzTWlPaUprYVdRNmQyVml",
+            "PbUZzYVdObExXMWxaR2xoZEc5eUxtTnZiVHBoYkdsalpWOXRaV1JwWVhSdmNsOXdkV0lpTEN",
+            "KdWIyNWpaU0k2SWpRelpqZzBPRFk0TFRBMk16SXRORFEzTVMxaU5tUmtMV1EyTTJaaE1USmp",
+            "NakZtTmlJc0luTjFZaUk2SW1ScFpEcHJaWGs2WW05aVgybGtaVzUwYVhSNVgzQjFZa0JoYkd",
+            "salpTSjkuVE1yS0JRMjJ5Q1ktQTA3YklhUjZjNzNZOUxLLXJvckt2OXd2b2gxTm5ZR2dyMkl",
+            "6SXZNUDhnTmpRbWl6cGdqZHlWWHo4S2xYcjhGX0FSbF9pUS1NREEifQ.N-jtL1hHzPKSONkP",
+            "nGrP6lfW_7d-NwFlsnjDGfK9Q-bO7_JlyC5wWNkfHbOwha70H5PYYRfOoaw5MOy4CfHmDQ"
+        );
+        assert_eq!(jwt, expected_jwt);
+    }
+
+    #[test]
+    fn verify_dic_presented_via_jwt() {
+        let holder_jwk = _holder_jwk().to_public();
+        let jwk = setup().to_public();
+
+        let wrapping_jwt = concat!(
+            "eyJhbGciOiJFZERTQSJ9.eyJkaWMiOiJleUowZVhBaU9pSmthV012ZGpBd01TSXNJbUZzWnl",
+            "JNklrVmtSRk5CSW4wLmV5SnBjM01pT2lKa2FXUTZkMlZpT21Gc2FXTmxMVzFsWkdsaGRHOXl",
+            "MbU52YlRwaGJHbGpaVjl0WldScFlYUnZjbDl3ZFdJaUxDSnViMjVqWlNJNklqUXpaamcwT0R",
+            "ZNExUQTJNekl0TkRRM01TMWlObVJrTFdRMk0yWmhNVEpqTWpGbU5pSXNJbk5zSWpvaVoyOXN",
+            "aQ0lzSW5OMVlpSTZJbVJwWkRwclpYazZZV3hwWTJWZmFXUmxiblJwZEhsZmNIVmlRR0ZzYVd",
+            "ObFgyMWxaR2xoZEc5eUluMC50c2x4TkttZ1ZYX0xoS0lNNVNIOUtJeHBfakNBWEdObWp1aXN",
+            "TMlNtbUdsWGYyTHVSM2lVZUFQWFdtOWYwWEExX2p2Vlh3N2dKTGxiSkZlcjZ6U0NEQSJ9.eV",
+            "BZDZ7MqX_3F9n4CgvdIl2E0oWp47oLNeCwyui3lyWe9dltIl2niFctndy4nqZbs6fR3zx64A",
+            "v-6lF7fDLCDg"
+        );
+
+        // Verify wrapping JWT is signed by holder
+        assert!(jws::verify_compact_jws(&wrapping_jwt, &holder_jwk).is_ok());
+
+        // Extract DIC in payload
+        let payload = _extract_payload(&wrapping_jwt).unwrap();
+        let dic_jwt = payload.get("dic").unwrap().as_str().unwrap();
+
+        // Verify DIC
+        assert!(jws::verify_compact_jws(dic_jwt, &jwk).is_ok());
+
+        // Assert claims
+        let dic_payload = _extract_payload(&dic_jwt).unwrap();
+        assert_eq!(
+            dic_payload,
+            json!({
+                "sub": "did:key:alice_identity_pub@alice_mediator",
+                "iss": "did:web:alice-mediator.com:alice_mediator_pub",
+                "sl": "gold",
+                "nonce": "43f84868-0632-4471-b6dd-d63fa12c21f6"
+            })
+        )
+    }
+
+    fn _holder_jwk() -> Jwk {
+        serde_json::from_str(
+            r#"{
+                "kty": "OKP",
+                "crv": "Ed25519",
+                "d": "UXBdR4u4bnHHEaDK-dqE04DIMvegx9_ZOjm--eGqHiI",
+                "x": "Fpf4juyZWYUNmC8Bv87MmFLDWApxqOYYZUhWyiD7lSo"
+            }"#,
+        )
+        .unwrap()
+    }
+
+    fn _extract_payload(jwt: &str) -> Option<Value> {
+        let parts: Vec<_> = jwt.split('.').collect();
+        if parts.len() != 3 {
+            return None;
+        }
+
+        let encoded_payload = parts[1];
+        let payload = match Base64Url.decode(encoded_payload) {
+            Ok(bytes) => match String::from_utf8(bytes) {
+                Ok(content) => content,
+                Err(_) => return None,
+            },
+            Err(_) => return None,
+        };
+
+        serde_json::from_str(&payload).ok()
     }
 }
