@@ -1,5 +1,5 @@
 # Contact Exchange
-The purpose of this document iis to detail how to proceed with the contact exchange between tow peers. This document will span many standards:
+The purpose of this document is to detail how to proceed with the contact exchange between tow peers. This document will span many standards:
 
 * **Out of Band**: The purpose of the [out of band protocol](https://github.com/hyperledger/aries-rfcs/blob/main/features/0434-outofband/README.md) is to allow Bob to discover Alice.
 * **Contact Exchange**: The purpose of the [contact exchange protocol](https://github.com/hyperledger/aries-rfcs/blob/main/features/0023-did-exchange/README.md) is to allow Alice and Bob to exchange permanent credentials.
@@ -19,12 +19,32 @@ In this situation we will have two cloud agents:
 
 In this case, we assume that the services of the cloud agent at ```alice-mediator.com``` has a web site, sign boards and oder prints that display the public QRCode that can be scanned by the edge agent app. 
 
-## Registring with a Mediator
+## Registering with a Mediator
 befor Alice and Bob use mediators, the have to subscribe to services of those respective mediators. The information each of them need for subscribtion the did of the mediator. In the Alice case, ```did:web:alice-mediator.com:alice_mediator_pub``` and respectively in the Bob's case ```did:web:bob-mediator.com:bob_mediator_pub```. These URL service many purposes:
 
 * **Domain Name Resolution**: the mediator did allow us to resolve the domain of the medaitor at ```alice-mediator.com```
-* **DID Resolution**: under ```https://alice-mediator.com/alice_mediator_pub/.wellknown/did.json```, we can find the mediator did document. But this did document does not contain any proof of integrity.
-* **Integrity Protected Did Document**: under ```https://alice-mediator.com/alice_mediator_pub/.wellknown/did/pop.json?challenge=aasdfasdfadsf```, we can request an authenticated did document and the mediator will return a freshly produced presentation signed by the public key ```alice_mediator_pub``` present in the URL. Recall that content adresseing the did document will prevent the mediator from rotating keys, as any modification to the document would change the document address and thus the URL. Recall we need a verification of the did of this mediator, because we else do not have control over the dns infrastructure between alice_edge_agent and the alice_mediator.
+* **DID Resolution**: under ```https://alice-mediator.com/alice_mediator_pub/did.json```, we can find the mediator did document. But this did document does not contain any proof of integrity.
+* **Integrity Protected Did Document**: under ```https://alice-mediator.com/alice_mediator_pub/did/pop.json?challenge=aasdfasdfadsf```, we can request an authenticated did document and the mediator will return a freshly produced presentation signed by the public key ```alice_mediator_pub``` present in the URL. Recall that content adresseing the did document will prevent the mediator from rotating keys, as any modification to the document would change the document address and thus the URL. Recall we need a verification of the did of this mediator, because we else do not have control over the dns infrastructure between alice_edge_agent and the alice_mediator.
+
+### Out of Band Invitation
+```alice-edge-agent``` need some connection information on ```alice-mediator```, so agent can proceed with a registration. These connection information can be exposed by ```alice-mediator``` as out of band invitation (e.g. in form of a qr-code).
+
+Following is an example of a OoB invitation to be exposed by a mediator:
+```json
+{
+  "type": "https://didcomm.org/out-of-band/2.0/invitation",
+  "id": "urn:uuid:f3727c3b-6d1a-4422-9c2b-fb0ba53f50a3",
+  "from": "did:web:alice-mediator.com:QmZtmD2qt6fJ2ojd3abSP3CUjicnypEBz7bHVDhPQt9aAy",
+  "body": {
+    "goal_code": "request-mediate",
+    "goal": "To request for mediation",
+    "label": "Mediator",
+    "accept": [
+      "didcomm/v2"
+    ]
+  }
+}
+```
 
 ### Mediation Request
 After 
@@ -588,3 +608,60 @@ This is the last message, sent by Bob to Alice, to complete the contact exchange
 ```
 
 The trajectory looks same as the trajectory of the contact request message to Alice, except that bob-edge-agent uses permanent contact credentials instead of invitation credentials.
+
+
+# Opaque DIC
+A [DIC](./dic.md), is an authorization produced by a mediator, and used to allow the another agent to send a message to the mediator. We distinguish between:
+* **Outbox DIC**: this is the authorization token used by an edge agent to communicate with his home mediator.
+* **Inbox DIC**: this is the authorization token used to produce a **Delegated DIC** that in turn is used by third party to deposit a message destinated to the subscriber of the mediator.
+
+As a DIC is generally consumed by the producing mediator, we could design a DIC to be opaque, therefore giving the consuming mediator the possibility to compresse contained information and even envelop them in a privacy preserving way.
+
+## Mediator DDIC Endpoint
+If we want to give the mediator all the freedom on the production of DICs, we will design the mediator to expose a ```ddic-emdpoint```. This Endpoint will be used by an edge agent to request the prodcution of an opaque delegated dic.
+
+## Producing a JWT-DIC
+A usual DIC will have the following format:
+```json
+{
+  "@context": [
+    "https://www.w3.org/ns/credentials/v2",
+    "https://www.dial.com/ns/a-spam/v1"
+  ],
+  "type": ["VerifiableCredential", "InboxChannel"],
+  "id": "https://alice-mediator.com/id_alice_inbox_channel",
+  "issuer": "did:web:alice-mediator.com:alice_mediator_pub",
+  "credentialSubject": {
+    "id": "did:key:alice_identity_pub@alice_mediator",
+    "service-level": "gold"
+  },
+  "proof": ["proof from alice_mediator_pub"]
+}
+```
+This document contains a lot of static information, that can be compressed in the following json document.
+
+```json
+{
+  "typ":"dic/v001",
+  "sub":"did:key:alice_identity_pub@alice_mediator",
+  "iss":"did:web:alice-mediator.com:alice_mediator_pub",
+  "sl":"gold",
+  "nonce": "43f84868-0632-4471-b6dd-d63fa12c21f6"
+}
+```
+This ends up inside a jwt that can be used as a dic by alice while accessing the mediator interface. The opaque dic is the jwt with the content and signed by the isseur.
+
+## Producing a JWT-DDIC
+The DDIC production can look like:
+
+```json
+{
+  "typ":"ddic/v001",
+  "sub":"did:key:bob_identity_pub@alice",
+  "iss":"did:web:alice-mediator.com:alice_mediator_pub",
+  "dic-sub":"did:key:alice_identity_pub@alice_mediator",
+  "nonce": "43f84868-0632-4471-b6dd-d63fa12c21f6"
+}
+```
+The opaque dic is the jwt with the content and signed by the isseur.
+

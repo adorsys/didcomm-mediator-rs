@@ -1,10 +1,11 @@
 use crate::util::{didweb, KeyStore};
 use did_utils::{
     didcore::{
-        AssertionMethod, Authentication, Document, Jwk, KeyAgreement, KeyFormat, Service,
+        AssertionMethod, Authentication, Document, KeyAgreement, KeyFormat, Service,
         VerificationMethod,
     },
     ldmodel::Context,
+    key_jwk::jwk::Jwk,
 };
 use std::path::Path;
 
@@ -203,6 +204,10 @@ mod tests {
     use super::*;
     use crate::util::dotenv_flow_read;
 
+    use did_utils::key_jwk::{
+        bytes::Bytes, jwk::Jwk, key::Key, okp::Okp, okp::OkpCurves, prm::Parameters,
+    };
+
     fn setup() -> (String, String) {
         let storage_dirpath = dotenv_flow_read("STORAGE_DIRPATH")
             .map(|p| format!("{}/{}", p, uuid::Uuid::new_v4()))
@@ -235,38 +240,47 @@ mod tests {
         let (storage_dirpath, server_public_domain) = setup();
 
         let authentication_key = Jwk {
-            key_id: None,
-            key_type: String::from("OKP"),
-            curve: String::from("Ed25519"),
-            x: Some(String::from(
-                "d75a980182b10ab2463c5b1be1b4d97e06ec21ebac8552059996bd962d77f259",
-            )),
-            y: None,
-            d: None,
+            key: Key::Okp(Okp {
+                crv: OkpCurves::Ed25519,
+                x: Bytes::from(
+                    String::from(
+                        "d75a980182b10ab2463c5b1be1b4d97e06ec21ebac8552059996bd962d77f259",
+                    )
+                    .into_bytes(),
+                ),
+                d: None,
+            }),
+            prm: Parameters::default(),
         };
 
         let assertion_key = Jwk {
-            key_id: None,
-            key_type: String::from("OKP"),
-            curve: String::from("Ed25519"),
-            x: Some(String::from(
-                "d75a980182b10ab2463c5b1be1b4d97e06ec21ebac8552059996bd962d77f259",
-            )),
-            y: None,
-            d: None,
+            key: Key::Okp(Okp {
+                crv: OkpCurves::Ed25519,
+                x: Bytes::from(
+                    String::from(
+                        "d75a980182b10ab2463c5b1be1b4d97e06ec21ebac8552059996bd962d77f259",
+                    )
+                    .into_bytes(),
+                ),
+                d: None,
+            }),
+            prm: Parameters::default(),
         };
 
         let agreement_key = Jwk {
-            key_id: None,
-            key_type: String::from("OKP"),
-            curve: String::from("X25519"),
-            x: Some(String::from(
-                "d75a980182b10ab2463c5b1be1b4d97e06ec21ebac8552059996bd962d77f259",
-            )),
-            y: None,
-            d: None,
+            key: Key::Okp(Okp {
+                crv: OkpCurves::X25519,
+                x: Bytes::from(
+                    String::from(
+                        "d75a980182b10ab2463c5b1be1b4d97e06ec21ebac8552059996bd962d77f259",
+                    )
+                    .into_bytes(),
+                ),
+                d: None,
+            }),
+            prm: Parameters::default(),
         };
-
+        
         let diddoc = gen_diddoc(
             &storage_dirpath,
             &server_public_domain,
