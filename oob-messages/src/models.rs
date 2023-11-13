@@ -1,8 +1,10 @@
 use crate::constants::OOB_INVITATION_2_0;
+use crate::util::dotenv_flow_read;
+use multibase::Base::Base64Url;
 use serde::{Deserialize, Serialize};
 use serde_json::to_string;
-use multibase::Base::Base64Url;
-
+use std::error::Error;
+use url::{ParseError, Url};
 
 // region: --- Model
 
@@ -75,15 +77,55 @@ impl OobMessage {
     }
 }
 
+pub fn generate_from_field() -> String {
+    let server_public_domain = dotenv_flow_read("SERVER_PUBLIC_DOMAIN").unwrap();
+    let server_local_port = dotenv_flow_read("SERVER_LOCAL_PORT").unwrap();
+
+    url_to_did_web_id(&format!(
+        "{}:{}/.well-known/did/pop.json",
+        server_public_domain, server_local_port
+    ))
+    .unwrap()
+}
+
+/// Turns an HTTP(S) URL into a did:web id.
+pub fn url_to_did_web_id(url: &str) -> Result<String, Box<dyn Error>> {
+    let url = url.trim();
+
+    let parsed = if url.contains("://") {
+        if ["http://", "https://"].iter().all(|x| !url.starts_with(x)) {
+            return Err("Scheme not allowed")?;
+        }
+        Url::parse(url)?
+    } else {
+        Url::parse(&format!("http://{url}"))?
+    };
+
+    let domain = parsed.domain().ok_or(ParseError::EmptyHost)?;
+
+    let mut port = String::new();
+    if let Some(parsed_port) = parsed.port() {
+        port = format!("%3A{parsed_port}");
+    }
+
+    let mut path = parsed.path().replace('/', ":");
+    if path.len() == 1 {
+        // Discards single '/' character
+        path = String::new();
+    }
+
+    Ok(format!("did:web:{domain}{port}{path}"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_create_oob() {
-        let did = "test_did";
+        let did = generate_from_field();
 
-        let oob_message = OobMessage::new(did);
+        let oob_message = OobMessage::new(&did);
 
         let json_string = serde_json::to_string(&oob_message).unwrap();
         println!("{}", json_string);
@@ -99,9 +141,9 @@ mod tests {
 
     #[test]
     fn test_serialize_oob_message() {
-        let did = "test_did";
+        let did = generate_from_field();
         let url = "test_url";
-        let oob_message = OobMessage::new(did);
+        let oob_message = OobMessage::new(&did);
 
         let oob_url = OobMessage::serialize_oob_message(&oob_message, url);
 
