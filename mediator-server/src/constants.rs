@@ -5,4 +5,3 @@ pub const KEYLIST_UPDATE_2_0: &str = "https://didcomm.org/coordinate-mediation/2
 pub const KEYLIST_UPDATE_RESPONSE_2_0: &str = "https://didcomm.org/coordinate-mediation/2.0/keylist-update-response";
 pub const KEYLIST_QUERY_2_0: &str = "https://didcomm.org/coordinate-mediation/2.0/keylist-query";
 pub const KEYLIST_2_0: &str = "https://didcomm.org/coordinate-mediation/2.0/keylist";
-pub const OOB_INVITATION_2_0: &str = "https://didcomm.org/out-of-band/2.0/invitation";

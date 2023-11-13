@@ -1,8 +1,8 @@
 use crate::constants::OOB_INVITATION_2_0;
-use multibase::{encode, Base};
 use serde::{Deserialize, Serialize};
 use serde_json::to_string;
-use uuid::Uuid;
+use multibase::Base::Base64Url;
+
 
 // region: --- Model
 
@@ -69,12 +69,9 @@ impl OobMessage {
 
     fn serialize_oob_message(oob_message: &OobMessage, url: &str) -> String {
         let plaintext = to_string(oob_message).unwrap();
-        let encoded_plaintextjwm = encode(Base::Base64Url, plaintext.as_bytes());
+        let encoded_jwm = Base64Url.encode(plaintext.as_bytes());
 
-        println!("{}", encoded_plaintextjwm);
-
-        let encoded_text = String::from_utf8_lossy(encoded_plaintextjwm.as_ref()).to_string();
-        format!("{}?_oob={}", url, encoded_text)
+        format!("{}?_oob={}", url, encoded_jwm)
     }
 }
 
@@ -84,17 +81,13 @@ mod tests {
 
     #[test]
     fn test_create_oob() {
-        // Test data
         let did = "test_did";
 
-        // Call the function
         let oob_message = OobMessage::new(did);
 
-        // Serialize to JSON
         let json_string = serde_json::to_string(&oob_message).unwrap();
         println!("{}", json_string);
 
-        // Assert that the returned OobMessage is not empty
         assert_eq!(oob_message.oob_type, OOB_INVITATION_2_0);
         assert!(!oob_message.id.is_empty());
         assert_eq!(oob_message.from, did);
@@ -118,7 +111,5 @@ mod tests {
 
         assert!(oob_url.starts_with(&format!("{}?_oob=", url)));
         assert!(oob_url.contains("_oob="));
-
-        //To-Do: Add a decoder validation
     }
 }

@@ -32,7 +32,7 @@ async-trait = "0.1"
 strum = "0.24"
 strum_macros = "0.24"
 uuid = { version = "1", features = ["fast-rng", "v4"] }
-multibase = "0.9.1"
+
 csv = "1.1.6"
 
 
