@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-use did_endpoint::util::{KeyStore, keystore::KeyStoreError};
+use did_endpoint::util::{keystore::KeyStoreError, KeyStore};
 use did_utils::{
     didcore::{AssertionMethod, Document, KeyAgreement, KeyFormat, VerificationMethod},
     key_jwk::jwk::Jwk,
@@ -41,50 +41,42 @@ pub fn read_keystore(storage_dirpath: &str) -> Result<KeyStore, KeyStoreError> {
     KeyStore::latest(storage_dirpath)
 }
 
-/// Search an assertion key in a DID document.
+/// Generic macro function to look for a key in a DID document.
 ///
-/// Return its verification method ID and its Jwk
-/// representation if present, else Option::None.
-pub fn extract_assertion_key(diddoc: &Document) -> Option<(String, Jwk)> {
-    let id = match &diddoc.assertion_method {
-        None => return None,
-        Some(methods) => match methods.get(0) {
-            None => return None,
-            Some(method) => match method {
-                AssertionMethod::Reference(reference) => reference,
-                AssertionMethod::Embedded(vm) => return extract_public_jwk_from_vm(vm),
-            },
-        },
-    };
+/// if present, return its verification method ID and JWK representation.
+macro_rules! extract_key_from_diddoc {
+    ($T: ty) => {
+        |diddoc: &Document, method: &$T| -> Option<(String, Jwk)> {
+            type Rel = $T;
 
-    diddoc.verification_method.as_ref().and_then(|arr| {
-        arr.iter()
-            .find(|vm| &vm.id == id)
-            .and_then(extract_public_jwk_from_vm)
-    })
+            let id = match method {
+                Rel::Reference(reference) => reference,
+                Rel::Embedded(vm) => return extract_public_jwk_from_vm(&*vm),
+            };
+
+            diddoc.verification_method.as_ref().and_then(|arr| {
+                arr.iter()
+                    .find(|vm| &vm.id == id)
+                    .and_then(extract_public_jwk_from_vm)
+            })
+        }
+    };
 }
 
-/// Search a agreement key in a DID document.
+/// Search an assertion key in a DID document.
 ///
-/// Return its verification method ID and its Jwk
-/// representation if present, else Option::None.
-pub fn extract_agreement_key(diddoc: &Document) -> Option<(String, Jwk)> {
-    let id = match &diddoc.key_agreement {
-        None => return None,
-        Some(methods) => match methods.get(0) {
-            None => return None,
-            Some(method) => match method {
-                KeyAgreement::Reference(reference) => reference,
-                KeyAgreement::Embedded(vm) => return extract_public_jwk_from_vm(vm),
-            },
-        },
-    };
+/// if present, return its verification method ID and JWK representation.
+pub fn extract_assertion_key(diddoc: &Document) -> Option<(String, Jwk)> {
+    let method = diddoc.assertion_method.as_ref()?.get(0)?;
+    extract_key_from_diddoc!(AssertionMethod)(diddoc, method)
+}
 
-    diddoc.verification_method.as_ref().and_then(|arr| {
-        arr.iter()
-            .find(|vm| &vm.id == id)
-            .and_then(extract_public_jwk_from_vm)
-    })
+/// Search an agreement key in a DID document.
+///
+/// if present, return its verification method ID and JWK representation.
+pub fn extract_agreement_key(diddoc: &Document) -> Option<(String, Jwk)> {
+    let method = diddoc.key_agreement.as_ref()?.get(0)?;
+    extract_key_from_diddoc!(KeyAgreement)(diddoc, method)
 }
 
 /// Reads public JWK from verification method.
