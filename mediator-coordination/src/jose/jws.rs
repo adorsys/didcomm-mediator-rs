@@ -21,6 +21,8 @@ pub enum JwsError {
     InvalidSignature,
     #[error("invalid signing key")]
     InvalidSigningKey,
+    #[error("invalid payload")]
+    InvalidPayload,
     #[error("missing private key")]
     MissingPrivateKey,
     #[error("signing error")]
@@ -63,6 +65,11 @@ pub struct JwsHeader {
 /// Issues a JSON Web Signature (JWS)
 #[allow(unused)]
 pub fn make_compact_jws(header: &JwsHeader, payload: Value, jwk: &Jwk) -> Result<String, JwsError> {
+    // Validate payload is a JSON object
+    if !payload.is_object() {
+        return Err(JwsError::InvalidPayload);
+    }
+
     let make_phrase = || -> Result<String, JwsError> {
         let encoded_header = {
             let header_json =
@@ -165,6 +172,7 @@ mod tests {
 
     use did_endpoint::util::keystore::ToPublic;
     use did_utils::key_jwk::secret::Secret;
+    use multibase::Base::Base64Url;
     use serde_json::json;
 
     use crate::util;
@@ -316,6 +324,32 @@ mod tests {
     }
 
     #[test]
+    fn should_err_on_invalid_payload() {
+        let jwk = setup();
+
+        let header = JwsHeader {
+            typ: Some(String::from("application/json")),
+            kid: Some(String::from("did:web:mediators-r-us.com#keys-2")),
+            alg: JwsAlg::EdDSA,
+            ..Default::default()
+        };
+
+        // Payloads that are not valid object JSONs
+        let invalid_payloads = [
+            Value::Null,
+            Value::Array(vec!["an".into(), "array".into()]),
+            Value::Number(12.into()),
+            Value::Bool(true),
+            Value::String("a string".to_string()),
+        ];
+
+        for payload in invalid_payloads {
+            let result = make_compact_jws(&header, payload, &jwk);
+            assert!(matches!(result, Err(JwsError::InvalidPayload)));
+        }
+    }
+
+    #[test]
     fn should_err_on_verifying_as_expected() {
         let jwk = setup().to_public();
 
@@ -378,6 +412,126 @@ mod tests {
         for (msg, jws, err) in entries {
             assert_eq!(verify_compact_jws(jws, &jwk).unwrap_err(), err, "{msg}");
         }
+    }
+
+    #[test]
+    fn should_fail_verification_with_manipulated_header() {
+        let jwk = setup();
+
+        let header = JwsHeader {
+            typ: Some(String::from("application/json")),
+            kid: Some(String::from("did:web:mediators-r-us.com#keys-2")),
+            alg: JwsAlg::EdDSA,
+            ..Default::default()
+        };
+
+        let payload = json!({
+            "content": "a quick brown fox jumps over the lazy dog"
+        });
+
+        // Generate a valid JWS
+        let jws = make_compact_jws(&header, payload, &jwk).unwrap();
+
+        // Decode the header, manipulate it, and re-encode it
+        let mut parts: Vec<&str> = jws.split('.').collect();
+        let header_part = String::from_utf8(Base64Url.decode(parts[0]).unwrap()).unwrap();
+        let mut header_value: Value = serde_json::from_str(&header_part).unwrap();
+
+        // Manipulate the header by changing the key ID (as an example)
+        header_value["kid"] = json!("did:web:mediators-r-us.com#keys-?");
+        let manipulated_header = Base64Url.encode(serde_json::to_string(&header_value).unwrap());
+
+        // Replace the header in the JWS with the manipulated header
+        parts[0] = &manipulated_header;
+        let manipulated_jws = parts.join(".");
+
+        // Try to verify the manipulated JWS
+        assert!(
+            matches!(
+                verify_compact_jws(&manipulated_jws, &jwk).unwrap_err(),
+                JwsError::InvalidSignature
+            ),
+            "Verification should fail for a manipulated header"
+        );
+    }
+
+    #[test]
+    fn should_fail_verification_with_tampered_signature() {
+        let jwk = setup();
+
+        let header = JwsHeader {
+            typ: Some(String::from("application/json")),
+            kid: Some(String::from("did:web:mediators-r-us.com#keys-2")),
+            alg: JwsAlg::EdDSA,
+            ..Default::default()
+        };
+
+        let payload = json!({
+            "content": "a quick brown fox jumps over the lazy dog"
+        });
+
+        // Generate a valid JWS
+        let jws = make_compact_jws(&header, payload, &jwk).unwrap();
+
+        // Decode the signature, modify it, and re-encode it
+        let parts: Vec<&str> = jws.split('.').collect();
+        let signature = parts[2];
+        let mut decoded_signature = Base64Url.decode(signature).unwrap();
+
+        // Tampering: Modify the signature by flipping a bit
+        decoded_signature[0] ^= 0x01; // Flip the first bit of the signature
+        let manipulated_signature = Base64Url.encode(&decoded_signature);
+
+        // Reconstruct the JWS with the manipulated signature
+        let manipulated_jws = format!("{}.{}.{}", parts[0], parts[1], manipulated_signature);
+
+        // Try to verify the manipulated JWS
+        assert!(
+            matches!(
+                verify_compact_jws(&manipulated_jws, &jwk).unwrap_err(),
+                JwsError::InvalidSignature
+            ),
+            "Verification should fail for a manipulated signature"
+        );
+    }
+
+    #[test]
+    fn should_fail_verification_with_key_mismatch() {
+        // Set up two JWKs, this is for signing
+        let signing_jwk = setup();
+
+        // Setup a different JWK for verification
+        let verification_jwk: Jwk = serde_json::from_str(
+            r#"{
+                "kty": "OKP",
+                "crv": "Ed25519",
+                "x": "zppdq3O_dCpVeCd_etwaN7CnZUmmp6F0M9AivXVpj_g"
+            }"#,
+        )
+        .unwrap();
+
+        let header = JwsHeader {
+            typ: Some(String::from("application/json")),
+            kid: Some(String::from("did:web:mediators-r-us.com#keys-2")),
+            alg: JwsAlg::EdDSA,
+            ..Default::default()
+        };
+
+        let payload = json!({
+            "content": "a quick brown fox jumps over the lazy dog"
+        });
+
+        // Generate a JWS with the signing key
+        let jws = make_compact_jws(&header, payload, &signing_jwk).unwrap();
+
+        // Try to verify the JWS with a different key
+        assert!(
+            matches!(
+                verify_compact_jws(&jws, &verification_jwk).unwrap_err(),
+                JwsError::InvalidSignature
+            ),
+            "Verification should fail when using a different key than the one used for signing"
+        );
     }
 
     fn _case_with_faulty_jwk(jwk: &Jwk) -> JwsError {

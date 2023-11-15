@@ -4,8 +4,8 @@ use did_utils::{
         AssertionMethod, Authentication, Document, KeyAgreement, KeyFormat, Service,
         VerificationMethod,
     },
-    ldmodel::Context,
     key_jwk::jwk::Jwk,
+    ldmodel::Context,
 };
 use std::path::Path;
 
@@ -169,7 +169,7 @@ pub fn validate_diddoc(storage_dirpath: &str) -> Result<(), String> {
     // Validate that keystore exists
 
     let store = KeyStore::latest(storage_dirpath);
-    if store.is_none() {
+    if store.is_err() {
         return Err(String::from("Missing keystore"));
     }
 
@@ -280,7 +280,7 @@ mod tests {
             }),
             prm: Parameters::default(),
         };
-        
+
         let diddoc = gen_diddoc(
             &storage_dirpath,
             &server_public_domain,

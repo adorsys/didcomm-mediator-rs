@@ -1,21 +1,43 @@
 #![allow(unused)]
 
-use did_endpoint::util::KeyStore;
+use did_endpoint::util::{KeyStore, keystore::KeyStoreError};
 use did_utils::{
     didcore::{AssertionMethod, Document, KeyAgreement, KeyFormat, VerificationMethod},
     key_jwk::jwk::Jwk,
 };
+use serde_json::Error as SerdeError;
+use std::io;
+
+/// Custom error type that wraps different kinds of errors that could occur.
+#[derive(Debug)]
+pub enum DidDocError {
+    IoError(io::Error),
+    ParseError(SerdeError),
+}
+
+/// Converts `io::Error` to `DidDocError::IoError`
+impl From<io::Error> for DidDocError {
+    fn from(err: io::Error) -> DidDocError {
+        DidDocError::IoError(err)
+    }
+}
+
+/// Converts `SerdeError` to `DidDocError::ParseError`
+impl From<SerdeError> for DidDocError {
+    fn from(err: SerdeError) -> DidDocError {
+        DidDocError::ParseError(err)
+    }
+}
 
 /// Parse DID document expected to exist on filesystem.
-pub fn read_diddoc(storage_dirpath: &str) -> Option<Document> {
+pub fn read_diddoc(storage_dirpath: &str) -> Result<Document, DidDocError> {
     let didpath = format!("{storage_dirpath}/did.json");
-    std::fs::read_to_string(didpath)
-        .ok()
-        .and_then(|content| serde_json::from_str(&content).ok())
+    let content = std::fs::read_to_string(didpath)?;
+    serde_json::from_str(&content).map_err(Into::into)
 }
 
 /// Parse key store expected to exist on filesystem.
-pub fn read_keystore(storage_dirpath: &str) -> Option<KeyStore> {
+pub fn read_keystore(storage_dirpath: &str) -> Result<KeyStore, KeyStoreError> {
     KeyStore::latest(storage_dirpath)
 }
 
@@ -88,8 +110,8 @@ mod tests {
     #[test]
     fn can_read_persisted_entities() {
         let storage_dirpath = setup();
-        assert!(read_diddoc(&storage_dirpath).is_some());
-        assert!(read_keystore(&storage_dirpath).is_some());
+        assert!(read_diddoc(&storage_dirpath).is_ok());
+        assert!(read_keystore(&storage_dirpath).is_ok());
     }
 
     #[test]
