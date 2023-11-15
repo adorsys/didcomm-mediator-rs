@@ -1,6 +1,6 @@
 use axum::Router;
 // use super::{didgen, web};
-use super::models::create_oob_inv;
+use super::models::retrieve_oob_inv;
 use server_plugin::{Plugin, PluginError};
 
 #[derive(Default)]
@@ -18,13 +18,18 @@ impl Plugin for OOBMessagesPlugin {
         })?;
 
         let server_local_port = std::env::var("SERVER_LOCAL_PORT").map_err(|_| {
-            tracing::error!("server_local_port env variable required");
+            tracing::error!("SERVER_LOCAL_PORT env variable required");
+            PluginError::InitError
+        })?;
+
+        let storage_dirpath = std::env::var("STORAGE_DIRPATH").map_err(|_| {
+            tracing::error!("STORAGE_DIRPATH env variable required");
             PluginError::InitError
         })?;
 
         tracing::debug!(
             "Out Of Band Invitation: {}",
-            create_oob_inv(&server_public_domain, &server_local_port)
+            retrieve_oob_inv(&server_public_domain, &server_local_port, &storage_dirpath)
         );
 
         Ok(())
