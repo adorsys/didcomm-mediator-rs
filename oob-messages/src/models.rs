@@ -88,6 +88,18 @@ pub fn generate_from_field() -> String {
     .unwrap()
 }
 
+pub fn create_oob_inv(server_public_domain: &str, server_local_port: &str) -> String {
+    let did = generate_from_field();
+
+    let oob_message = OobMessage::new(&did);
+
+    let url: &String = &format!("{}:{}", server_public_domain, server_local_port);
+
+    let oob_url = OobMessage::serialize_oob_message(&oob_message, url);
+
+    oob_url
+}
+
 /// Turns an HTTP(S) URL into a did:web id.
 pub fn url_to_did_web_id(url: &str) -> Result<String, Box<dyn Error>> {
     let url = url.trim();
@@ -142,7 +154,12 @@ mod tests {
     #[test]
     fn test_serialize_oob_message() {
         let did = generate_from_field();
-        let url = "test_url";
+
+        let server_public_domain = dotenv_flow_read("SERVER_PUBLIC_DOMAIN").unwrap();
+        let server_local_port = dotenv_flow_read("SERVER_LOCAL_PORT").unwrap();
+
+        let url: &String = &format!("{}:{}", server_public_domain, server_local_port);
+
         let oob_message = OobMessage::new(&did);
 
         let oob_url = OobMessage::serialize_oob_message(&oob_message, url);
