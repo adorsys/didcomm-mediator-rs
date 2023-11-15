@@ -1,6 +1,8 @@
 use crate::constants::OOB_INVITATION_2_0;
 use crate::util::dotenv_flow_read;
+use image::Luma;
 use multibase::Base::Base64Url;
+use qrcode::QrCode;
 use serde::{Deserialize, Serialize};
 use serde_json::to_string;
 use std::fs::File;
@@ -135,6 +137,16 @@ fn to_local_storage(oob_url: &str, storage_dirpath: &str) {
     }
 }
 
+// Function to generate and save a QR code image
+fn generate_qr_code_image(path: &str, url: &str) {
+    // Generate QR code
+    let code = QrCode::new(url.as_bytes()).unwrap();
+    let image = code.render::<Luma<u8>>().build();
+
+    // Save the image to the specified path
+    image.save(path).expect("Error saving image");
+}
+
 /// Turns an HTTP(S) URL into a did:web id.
 fn url_to_did_web_id(url: &str) -> Result<String, Box<dyn Error>> {
     let url = url.trim();
@@ -167,9 +179,8 @@ fn url_to_did_web_id(url: &str) -> Result<String, Box<dyn Error>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    use std::io::read_to_string;
     use std::io::{BufRead, BufReader};
+    use std::path::Path;
 
     #[test]
     fn test_create_oob_message() {
@@ -233,5 +244,27 @@ mod tests {
         println!("{}", file_content);
 
         assert_eq!(file_content, result);
+    }
+
+    #[test]
+    fn test_generate_qr_code_image() {
+        // Test data
+        let url = "https://example.com";
+        let storage_dirpath = format!(
+            "{}/qrcodeTEST.png",
+            dotenv_flow_read("STORAGE_DIRPATH").unwrap()
+        );
+
+        // Call the function
+        generate_qr_code_image(&storage_dirpath, url);
+
+        // Check if the file was created
+        assert!(
+            Path::new(&storage_dirpath).exists(),
+            "QR code image file not created"
+        );
+
+        // Clean up: Remove the test file
+        fs::remove_file(storage_dirpath).expect("Error removing test file");
     }
 }
