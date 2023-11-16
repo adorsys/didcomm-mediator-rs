@@ -1,4 +1,4 @@
-use crate::util::{didweb, KeyStore};
+use crate::util::{didweb, filesystem::StdFileSystem, keystore::KeyStore};
 use did_utils::{
     didcore::{
         AssertionMethod, Authentication, Document, KeyAgreement, KeyFormat, Service,
@@ -28,7 +28,8 @@ pub enum Error {
 /// All persistence is handled at `storage_dirpath`.
 pub fn didgen(storage_dirpath: &str, server_public_domain: &str) -> Result<Document, Error> {
     // Create a new store, which is timestamp-aware
-    let mut store = KeyStore::new(storage_dirpath);
+    let mut fs = StdFileSystem;
+    let mut store = KeyStore::new(&mut fs, storage_dirpath);
     tracing::info!("keystore: {}", store.path());
 
     // Generate authentication key
@@ -168,7 +169,8 @@ pub fn validate_diddoc(storage_dirpath: &str) -> Result<(), String> {
 
     // Validate that keystore exists
 
-    let store = KeyStore::latest(storage_dirpath);
+    let mut fs = StdFileSystem;
+    let store = KeyStore::latest(&mut fs, storage_dirpath);
     if store.is_err() {
         return Err(String::from("Missing keystore"));
     }

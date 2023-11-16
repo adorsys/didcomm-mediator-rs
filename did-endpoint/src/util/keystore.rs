@@ -5,6 +5,8 @@ use did_utils::{
 };
 use std::error::Error;
 
+use super::filesystem::FileSystem;
+
 #[derive(Debug, thiserror::Error)]
 pub enum KeyStoreError {
     #[error("failure to convert to JWK format")]
@@ -23,16 +25,18 @@ pub enum KeyStoreError {
     SerdeError(serde_json::Error),
 }
 
-pub struct KeyStore {
+pub struct KeyStore<'a> {
+    fs: &'a mut dyn FileSystem,
     dirpath: String,
     filename: String,
     keys: Vec<Jwk>,
 }
 
-impl KeyStore {
+impl<'a> KeyStore<'a> {
     /// Constructs file-based key-value store.
-    pub fn new(storage_dirpath: &str) -> Self {
+    pub fn new(fs: &'a mut dyn FileSystem, storage_dirpath: &str) -> Self {
         Self {
+            fs,
             dirpath: format!("{storage_dirpath}/keystore"),
             filename: format!("{}.json", Utc::now().timestamp()),
             keys: vec![],
@@ -40,22 +44,20 @@ impl KeyStore {
     }
 
     /// Returns latest store on disk, if any.
-    pub fn latest(storage_dirpath: &str) -> Result<Self, KeyStoreError> {
+    pub fn latest(
+        fs: &'a mut dyn FileSystem,
+        storage_dirpath: &str,
+    ) -> Result<Self, KeyStoreError> {
         let dirpath = format!("{storage_dirpath}/keystore");
 
         // Read directory
-        let dir = std::fs::read_dir(&dirpath).map_err(KeyStoreError::IoError)?;
+        let paths = fs
+            .read_dir_files(&dirpath)
+            .map_err(KeyStoreError::IoError)?;
 
         // Collect paths and associated timestamps of files inside `dir`
         let mut collected: Vec<(String, i32)> = vec![];
-        for file in dir {
-            let file = file.map_err(KeyStoreError::IoError)?;
-            let path = file
-                .path()
-                .to_str()
-                .ok_or(KeyStoreError::NonCompliant)?
-                .to_string();
-
+        for path in paths {
             if path.ends_with(".json") {
                 let stamp: i32 = path
                     .trim_start_matches(&format!("{}/", &dirpath))
@@ -74,7 +76,7 @@ impl KeyStore {
             .map(|(path, _)| path);
 
         let path = file.ok_or(KeyStoreError::NotFound)?;
-        let content = std::fs::read_to_string(path).map_err(KeyStoreError::IoError)?;
+        let content = fs.read_to_string(path).map_err(KeyStoreError::IoError)?;
         let keys = serde_json::from_str::<Vec<Jwk>>(&content).map_err(KeyStoreError::ParseError)?;
 
         let filename = path
@@ -82,6 +84,7 @@ impl KeyStore {
             .to_string();
 
         Ok(KeyStore {
+            fs,
             dirpath,
             filename,
             keys,
@@ -94,13 +97,16 @@ impl KeyStore {
     }
 
     /// Persists store on disk
-    fn persist(&self) -> Result<(), KeyStoreError> {
-        std::fs::create_dir_all(&self.dirpath).map_err(KeyStoreError::IoError)?;
-        std::fs::write(
-            self.path(),
-            serde_json::to_string_pretty(&self.keys).map_err(KeyStoreError::SerdeError)?,
-        )
-        .map_err(KeyStoreError::IoError)
+    fn persist(&mut self) -> Result<(), KeyStoreError> {
+        self.fs
+            .create_dir_all(&self.dirpath)
+            .map_err(KeyStoreError::IoError)?;
+        self.fs
+            .write(
+                &self.path(),
+                &serde_json::to_string_pretty(&self.keys).map_err(KeyStoreError::SerdeError)?,
+            )
+            .map_err(KeyStoreError::IoError)
     }
 
     /// Searches keypair given public key
@@ -180,23 +186,37 @@ impl ToPublic for Jwk {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::util::dotenv_flow_read;
 
-    fn setup() -> String {
-        dotenv_flow_read("STORAGE_DIRPATH")
-            .map(|p| format!("{}/{}", p, uuid::Uuid::new_v4()))
-            .unwrap()
+    use std::io::Result as IoResult;
+
+    #[derive(Default)]
+    struct MockFileSystem {
+        stream: String,
     }
 
-    fn cleanup(storage_dirpath: &str) {
-        std::fs::remove_dir_all(storage_dirpath).unwrap();
+    impl FileSystem for MockFileSystem {
+        fn read_to_string(&self, _path: &str) -> IoResult<String> {
+            Ok(self.stream.clone())
+        }
+
+        fn write(&mut self, _path: &str, content: &str) -> IoResult<()> {
+            self.stream = content.to_string();
+            Ok(())
+        }
+
+        fn read_dir_files(&self, _path: &str) -> IoResult<Vec<String>> {
+            Ok(vec!["/keystore/12345.json".to_string()])
+        }
+
+        fn create_dir_all(&mut self, _path: &str) -> IoResult<()> {
+            Ok(())
+        }
     }
 
     #[test]
     fn test_keystore_flow() {
-        let storage_dirpath = setup();
-
-        let mut store = KeyStore::new(&storage_dirpath);
+        let mut mock_fs = MockFileSystem::default();
+        let mut store = KeyStore::new(&mut mock_fs, "");
 
         let jwk = store.gen_ed25519_jwk().unwrap();
         assert!(store.find_keypair(&jwk).is_some());
@@ -204,9 +224,7 @@ mod tests {
         let jwk = store.gen_x25519_jwk().unwrap();
         assert!(store.find_keypair(&jwk).is_some());
 
-        let latest = KeyStore::latest(&storage_dirpath);
+        let latest = KeyStore::latest(&mut mock_fs, "");
         assert!(latest.is_ok());
-
-        cleanup(&storage_dirpath);
     }
 }

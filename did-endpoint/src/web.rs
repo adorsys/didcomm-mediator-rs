@@ -14,7 +14,7 @@ use multibase::Base;
 use serde_json::{json, Value};
 use std::collections::HashMap;
 
-use crate::util::KeyStore;
+use crate::util::{filesystem::StdFileSystem, keystore::KeyStore};
 
 const DEFAULT_CONTEXT_V2: &str = "https://www.w3.org/ns/credentials/v2";
 
@@ -36,6 +36,7 @@ async fn diddoc() -> Result<Json<Value>, StatusCode> {
     }
 }
 
+#[axum::debug_handler]
 async fn didpop(Query(params): Query<HashMap<String, String>>) -> Result<Json<Value>, StatusCode> {
     let challenge = params.get("challenge").ok_or(StatusCode::BAD_REQUEST)?;
 
@@ -45,7 +46,9 @@ async fn didpop(Query(params): Query<HashMap<String, String>>) -> Result<Json<Va
         tracing::error!("STORAGE_DIRPATH env variable required");
         StatusCode::NOT_FOUND
     })?;
-    let keystore = KeyStore::latest(&storage_dirpath).expect("Keystore file probably missing");
+    let mut fs = StdFileSystem;
+    let keystore =
+        KeyStore::latest(&mut fs, &storage_dirpath).expect("Keystore file probably missing");
 
     // Load DID document and its verification methods
 

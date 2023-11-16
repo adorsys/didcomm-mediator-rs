@@ -103,15 +103,15 @@ mod tests {
 
     use did_endpoint::util::keystore::ToPublic;
 
-    use crate::util;
+    use crate::util::{self, MockFileSystem};
 
     fn setup() -> Jwk {
-        let storage_dirpath = util::dotenv_flow_read("STORAGE_DIRPATH").unwrap();
+        let mut mock_fs = MockFileSystem;
 
-        let diddoc = util::read_diddoc(&storage_dirpath).unwrap();
+        let diddoc = util::read_diddoc(&mut mock_fs, "").unwrap();
         let (_, pubkey) = util::extract_assertion_key(&diddoc).unwrap();
 
-        let keystore = util::read_keystore(&storage_dirpath).unwrap();
+        let keystore = util::read_keystore(&mut mock_fs, "").unwrap();
         keystore.find_keypair(&pubkey).unwrap()
     }
 
@@ -129,7 +129,7 @@ mod tests {
 
             // Deserialization
             assert_eq!(
-                serde_json::from_str::<DICServiceLevel>(&level_str).unwrap(),
+                serde_json::from_str::<DICServiceLevel>(level_str).unwrap(),
                 level,
             );
         }

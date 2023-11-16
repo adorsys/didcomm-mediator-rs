@@ -1,12 +1,18 @@
 #![allow(unused)]
 
-use did_endpoint::util::{keystore::KeyStoreError, KeyStore};
+use did_endpoint::util::{
+    filesystem::FileSystem,
+    keystore::{KeyStore, KeyStoreError},
+};
 use did_utils::{
     didcore::{AssertionMethod, Document, KeyAgreement, KeyFormat, VerificationMethod},
     key_jwk::jwk::Jwk,
 };
 use serde_json::Error as SerdeError;
 use std::io;
+
+#[cfg(test)]
+use std::io::{Error as IoError, ErrorKind, Result as IoResult};
 
 /// Custom error type that wraps different kinds of errors that could occur.
 #[derive(Debug)]
@@ -30,15 +36,21 @@ impl From<SerdeError> for DidDocError {
 }
 
 /// Parse DID document expected to exist on filesystem.
-pub fn read_diddoc(storage_dirpath: &str) -> Result<Document, DidDocError> {
+pub fn read_diddoc(
+    fs: &mut dyn FileSystem,
+    storage_dirpath: &str,
+) -> Result<Document, DidDocError> {
     let didpath = format!("{storage_dirpath}/did.json");
-    let content = std::fs::read_to_string(didpath)?;
+    let content = fs.read_to_string(&didpath)?;
     serde_json::from_str(&content).map_err(Into::into)
 }
 
 /// Parse key store expected to exist on filesystem.
-pub fn read_keystore(storage_dirpath: &str) -> Result<KeyStore, KeyStoreError> {
-    KeyStore::latest(storage_dirpath)
+pub fn read_keystore<'a>(
+    fs: &'a mut dyn FileSystem,
+    storage_dirpath: &str,
+) -> Result<KeyStore<'a>, KeyStoreError> {
+    KeyStore::latest(fs, storage_dirpath)
 }
 
 /// Generic macro function to look for a key in a DID document.
@@ -95,21 +107,17 @@ mod tests {
 
     use serde_json::Value;
 
-    fn setup() -> String {
-        dotenv_flow_read("STORAGE_DIRPATH").unwrap()
-    }
-
     #[test]
     fn can_read_persisted_entities() {
-        let storage_dirpath = setup();
-        assert!(read_diddoc(&storage_dirpath).is_ok());
-        assert!(read_keystore(&storage_dirpath).is_ok());
+        let mut mock_fs = MockFileSystem;
+        assert!(read_diddoc(&mut mock_fs, "").is_ok());
+        assert!(read_keystore(&mut mock_fs, "").is_ok());
     }
 
     #[test]
     fn can_extract_assertion_key() {
-        let storage_dirpath = setup();
-        let diddoc = read_diddoc(&storage_dirpath).unwrap();
+        let mut mock_fs = MockFileSystem;
+        let diddoc = read_diddoc(&mut mock_fs, "").unwrap();
 
         let (vm_id, jwk) = extract_assertion_key(&diddoc).unwrap();
         let expected_jwk = serde_json::from_str::<Value>(
@@ -130,8 +138,8 @@ mod tests {
 
     #[test]
     fn can_extract_agreement_key() {
-        let storage_dirpath = setup();
-        let diddoc = read_diddoc(&storage_dirpath).unwrap();
+        let mut mock_fs = MockFileSystem;
+        let diddoc = read_diddoc(&mut mock_fs, "").unwrap();
 
         let (vm_id, jwk) = extract_agreement_key(&diddoc).unwrap();
         let expected_jwk = serde_json::from_str::<Value>(
@@ -152,9 +160,32 @@ mod tests {
 }
 
 #[cfg(test)]
-pub(crate) fn dotenv_flow_read(key: &str) -> Option<String> {
-    dotenv_flow::dotenv_iter().unwrap().find_map(|item| {
-        let (k, v) = item.unwrap();
-        (k == key).then_some(v)
-    })
+#[derive(Default)]
+pub struct MockFileSystem;
+
+#[cfg(test)]
+impl FileSystem for MockFileSystem {
+    fn read_to_string(&self, path: &str) -> IoResult<String> {
+        match path {
+            p if p.ends_with("did.json") => {
+                Ok(include_str!("../../test/storage/did.json").to_string())
+            }
+            p if p.contains("keystore") => {
+                Ok(include_str!("../../test/storage/keystore/1697624245.json").to_string())
+            }
+            _ => Err(IoError::new(ErrorKind::NotFound, "NotFound")),
+        }
+    }
+
+    fn write(&mut self, path: &str, content: &str) -> IoResult<()> {
+        Ok(())
+    }
+
+    fn read_dir_files(&self, _path: &str) -> IoResult<Vec<String>> {
+        Ok(vec!["/keystore/1697624245.json".to_string()])
+    }
+
+    fn create_dir_all(&mut self, _path: &str) -> IoResult<()> {
+        Ok(())
+    }
 }

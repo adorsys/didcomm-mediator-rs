@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-axum = { version = "0.6.20" }
+axum = { version = "0.6.20", features = ["macros"] }
 chrono = { version = "0.4.26" }
 did-utils = { path = "../did-utils"}
 dotenv-flow = "0.15.0"
