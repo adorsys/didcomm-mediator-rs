@@ -16,6 +16,7 @@ axum = { version = "0.6.20" }
 tracing = "0.1.37"
 qrcode = "0.12.0"
 image = "0.23"
+base64 = "0.13.0"
 
 # Plugins traits
 server-plugin = { path = "../server-plugin" }

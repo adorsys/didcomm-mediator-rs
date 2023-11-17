@@ -1,6 +1,7 @@
 use axum::Router;
-// use super::{didgen, web};
-use super::models::retrieve_oob_inv;
+use super::web;
+use super::models::retrieve_or_generate_oob_inv;
+use super::models::retrieve_or_generate_qr_image;
 use server_plugin::{Plugin, PluginError};
 
 #[derive(Default)]
@@ -27,10 +28,13 @@ impl Plugin for OOBMessagesPlugin {
             PluginError::InitError
         })?;
 
+        let oob_inv = retrieve_or_generate_oob_inv(&server_public_domain, &server_local_port, &storage_dirpath);
         tracing::debug!(
             "Out Of Band Invitation: {}",
-            retrieve_oob_inv(&server_public_domain, &server_local_port, &storage_dirpath)
+            oob_inv
         );
+
+        retrieve_or_generate_qr_image(&storage_dirpath, &oob_inv);
 
         Ok(())
     }
@@ -40,6 +44,6 @@ impl Plugin for OOBMessagesPlugin {
     }
 
     fn routes(&self) -> Router {
-        Router::new()
+        web::routes()
     }
 }

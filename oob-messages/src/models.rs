@@ -9,6 +9,7 @@ use std::fs::File;
 use std::io::{Read, Write};
 use std::{error::Error, fs};
 use url::{ParseError, Url};
+use std::path::Path;
 
 // region: --- Model
 
@@ -90,7 +91,7 @@ fn generate_from_field() -> String {
 }
 
 // Receives server path/port and local storage path and returns a String with the OOB URL.
-pub fn retrieve_oob_inv(
+pub fn retrieve_or_generate_oob_inv(
     server_public_domain: &str,
     server_local_port: &str,
     storage_dirpath: &str,
@@ -116,10 +117,45 @@ pub fn retrieve_oob_inv(
     // Attempt to create the file and write the string
     to_local_storage(&oob_url, storage_dirpath);
 
-    // Gen QR
-
     oob_url
 }
+
+// // Function to generate and save a QR code image
+// fn retrieve_qr_image(path: &str, url: &str) {
+//     // Generate QR code
+//     let code = QrCode::new(url.as_bytes()).unwrap();
+//     let image = code.render::<Luma<u8>>().build();
+
+//     // Save the image to the specified path
+//     image.save(path).expect("Error saving image");
+// }
+
+// Function to generate and save a QR code image
+pub fn retrieve_or_generate_qr_image(base_path: &str, url: &str) -> Vec<u8> {
+    let path = format!("{}/qrcode.png", base_path);
+
+    // Check if the file exists in the specified path
+    if let Ok(existing_image) = fs::read(&path) {
+        return existing_image;
+    }
+
+    // Ensure the directory exists
+    let directory = Path::new(&path).parent().expect("Error getting parent directory");
+    if !directory.exists() {
+        fs::create_dir_all(directory).expect("Error creating directory");
+    }
+
+    // Generate QR code
+    let code = QrCode::new(url.as_bytes()).unwrap();
+    let image = code.render::<Luma<u8>>().build();
+
+    // Save the image to the specified path
+    image.save(&path).expect("Error saving image");
+
+    // Return the generated image
+    fs::read(&path).expect("Error reading generated image")
+}
+
 
 fn to_local_storage(oob_url: &str, storage_dirpath: &str) {
     // Ensure the parent directory ('storage') exists
@@ -135,16 +171,6 @@ fn to_local_storage(oob_url: &str, storage_dirpath: &str) {
         },
         Err(e) => eprintln!("Error creating file: {}", e),
     }
-}
-
-// Function to generate and save a QR code image
-fn generate_qr_code_image(path: &str, url: &str) {
-    // Generate QR code
-    let code = QrCode::new(url.as_bytes()).unwrap();
-    let image = code.render::<Luma<u8>>().build();
-
-    // Save the image to the specified path
-    image.save(path).expect("Error saving image");
 }
 
 /// Turns an HTTP(S) URL into a did:web id.
@@ -222,13 +248,13 @@ mod tests {
     }
 
     #[test]
-    fn test_retrieve_oob_inv() {
+    fn test_retrieve_or_generate_oob_inv() {
         // Test data
         let server_public_domain = dotenv_flow_read("SERVER_PUBLIC_DOMAIN").unwrap();
         let server_local_port = dotenv_flow_read("SERVER_LOCAL_PORT").unwrap();
         let storage_dirpath = dotenv_flow_read("STORAGE_DIRPATH").unwrap();
 
-        let result = retrieve_oob_inv(&server_public_domain, &server_local_port, &storage_dirpath);
+        let result = retrieve_or_generate_oob_inv(&server_public_domain, &server_local_port, &storage_dirpath);
 
         // Read the content of the file to verify it matches the expected URL
         let file = File::open(format!("{}/oob_invitation.txt", storage_dirpath))
@@ -247,24 +273,25 @@ mod tests {
     }
 
     #[test]
-    fn test_generate_qr_code_image() {
+    fn test_retrieve_or_generate_qr_image() {
         // Test data
         let url = "https://example.com";
-        let storage_dirpath = format!(
-            "{}/qrcodeTEST.png",
-            dotenv_flow_read("STORAGE_DIRPATH").unwrap()
-        );
+        let storage_dirpath = dotenv_flow_read("STORAGE_DIRPATH").unwrap();
+
 
         // Call the function
-        generate_qr_code_image(&storage_dirpath, url);
+        retrieve_or_generate_qr_image(&storage_dirpath, url);
 
         // Check if the file was created
         assert!(
-            Path::new(&storage_dirpath).exists(),
+            Path::new(&format!(
+                "{}/qrcode.png",
+                storage_dirpath
+            )).exists(),
             "QR code image file not created"
         );
 
         // Clean up: Remove the test file
-        fs::remove_file(storage_dirpath).expect("Error removing test file");
+        // fs::remove_file(storage_dirpath).expect("Error removing test file");
     }
 }
