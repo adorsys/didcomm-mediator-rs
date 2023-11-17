@@ -108,7 +108,7 @@ mod tests {
     fn setup() -> Jwk {
         let mut mock_fs = MockFileSystem;
 
-        let diddoc = util::read_diddoc(&mut mock_fs, "").unwrap();
+        let diddoc = util::read_diddoc(&mock_fs, "").unwrap();
         let (_, pubkey) = util::extract_assertion_key(&diddoc).unwrap();
 
         let keystore = util::read_keystore(&mut mock_fs, "").unwrap();

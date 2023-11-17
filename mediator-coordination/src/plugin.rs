@@ -36,7 +36,7 @@ impl Plugin for MediatorCoordinationPlugin {
         let storage_dirpath = std::env::var("STORAGE_DIRPATH").expect(msg);
 
         let mut fs = StdFileSystem;
-        let diddoc = util::read_diddoc(&mut fs, &storage_dirpath).expect(msg);
+        let diddoc = util::read_diddoc(&fs, &storage_dirpath).expect(msg);
         let keystore = util::read_keystore(&mut fs, &storage_dirpath).expect(msg);
 
         web::routes(diddoc, keystore)

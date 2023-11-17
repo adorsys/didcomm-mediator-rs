@@ -36,10 +36,7 @@ impl From<SerdeError> for DidDocError {
 }
 
 /// Parse DID document expected to exist on filesystem.
-pub fn read_diddoc(
-    fs: &mut dyn FileSystem,
-    storage_dirpath: &str,
-) -> Result<Document, DidDocError> {
+pub fn read_diddoc(fs: &dyn FileSystem, storage_dirpath: &str) -> Result<Document, DidDocError> {
     let didpath = format!("{storage_dirpath}/did.json");
     let content = fs.read_to_string(&didpath)?;
     serde_json::from_str(&content).map_err(Into::into)
@@ -110,14 +107,14 @@ mod tests {
     #[test]
     fn can_read_persisted_entities() {
         let mut mock_fs = MockFileSystem;
-        assert!(read_diddoc(&mut mock_fs, "").is_ok());
+        assert!(read_diddoc(&mock_fs, "").is_ok());
         assert!(read_keystore(&mut mock_fs, "").is_ok());
     }
 
     #[test]
     fn can_extract_assertion_key() {
-        let mut mock_fs = MockFileSystem;
-        let diddoc = read_diddoc(&mut mock_fs, "").unwrap();
+        let mock_fs = MockFileSystem;
+        let diddoc = read_diddoc(&mock_fs, "").unwrap();
 
         let (vm_id, jwk) = extract_assertion_key(&diddoc).unwrap();
         let expected_jwk = serde_json::from_str::<Value>(
@@ -138,8 +135,8 @@ mod tests {
 
     #[test]
     fn can_extract_agreement_key() {
-        let mut mock_fs = MockFileSystem;
-        let diddoc = read_diddoc(&mut mock_fs, "").unwrap();
+        let mock_fs = MockFileSystem;
+        let diddoc = read_diddoc(&mock_fs, "").unwrap();
 
         let (vm_id, jwk) = extract_agreement_key(&diddoc).unwrap();
         let expected_jwk = serde_json::from_str::<Value>(

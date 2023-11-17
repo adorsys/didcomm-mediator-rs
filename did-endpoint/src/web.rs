@@ -225,7 +225,7 @@ mod tests {
                 Request::builder()
                     .uri(format!(
                         "/.well-known/did/pop.json?challenge={}",
-                        uuid::Uuid::new_v4().to_string()
+                        uuid::Uuid::new_v4()
                     ))
                     .body(Body::empty())
                     .unwrap(),
