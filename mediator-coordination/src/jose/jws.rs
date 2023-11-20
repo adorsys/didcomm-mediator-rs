@@ -101,7 +101,6 @@ pub fn make_compact_jws(header: &JwsHeader, payload: Value, jwk: &Jwk) -> Result
 
             make_compact_jws_ed25519(make_phrase()?, jwk)
         }
-        #[allow(unreachable_patterns)]
         _ => Err(JwsError::UnsupportedAlgorithm),
     }
 }
@@ -133,7 +132,6 @@ pub fn verify_compact_jws(jws: &str, jwk: &Jwk) -> Result<(), JwsError> {
 
     match header.alg {
         JwsAlg::EdDSA => verify_compact_jws_ed25519(jws, jwk),
-        #[allow(unreachable_patterns)]
         _ => Err(JwsError::UnsupportedAlgorithm),
     }
 }

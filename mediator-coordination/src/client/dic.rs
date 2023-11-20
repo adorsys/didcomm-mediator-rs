@@ -42,15 +42,15 @@ mod tests {
     use multibase::Base::Base64Url;
     use serde_json::Value;
 
-    use crate::util;
+    use crate::util::{self, MockFileSystem};
 
     fn setup() -> Jwk {
-        let storage_dirpath = util::dotenv_flow_read("STORAGE_DIRPATH").unwrap();
+        let mut mock_fs = MockFileSystem;
 
-        let diddoc = util::read_diddoc(&storage_dirpath).unwrap();
+        let diddoc = util::read_diddoc(&mock_fs, "").unwrap();
         let (_, pubkey) = util::extract_assertion_key(&diddoc).unwrap();
 
-        let keystore = util::read_keystore(&storage_dirpath).unwrap();
+        let keystore = util::read_keystore(&mut mock_fs, "").unwrap();
         keystore.find_keypair(&pubkey).unwrap()
     }
 
@@ -65,7 +65,7 @@ mod tests {
             "_jCAXGNmjuisS2SmmGlXf2LuR3iUeAPXWm9f0XA1_jvVXw7gJLlbJFer6zSCDA"
         );
 
-        let jwt = make_compact_jwt_presentation(&dic, &holder_jwk, None).unwrap();
+        let jwt = make_compact_jwt_presentation(dic, &holder_jwk, None).unwrap();
         let expected_jwt = concat!(
             "eyJ0eXAiOiJkaWMrand0IiwiYWxnIjoiRWREU0EifQ.eyJkaWMiOiJleUowZVhBaU9pSmthV",
             "012ZGpBd01TSXNJbUZzWnlJNklrVmtSRk5CSW4wLmV5SnBjM01pT2lKa2FXUTZkMlZpT21Gc",
@@ -98,7 +98,7 @@ mod tests {
         );
 
         let kid = "did:key:alice_identity_pub@alice_mediator";
-        let jwt = make_compact_jwt_presentation(&dic, &holder_jwk, Some(kid)).unwrap();
+        let jwt = make_compact_jwt_presentation(dic, &holder_jwk, Some(kid)).unwrap();
 
         let header = jws::read_jws_header(&jwt).unwrap();
         assert_eq!(header.kid.unwrap(), kid);
@@ -116,7 +116,7 @@ mod tests {
             "NjQmizpgjdyVXz8KlXr8F_ARl_iQ-MDA"
         );
 
-        let jwt = make_compact_jwt_presentation(&ddic, &holder_jwk, None).unwrap();
+        let jwt = make_compact_jwt_presentation(ddic, &holder_jwk, None).unwrap();
         let expected_jwt = concat!(
             "eyJ0eXAiOiJkZGljK2p3dCIsImFsZyI6IkVkRFNBIn0.eyJkZGljIjoiZXlKMGVYQWlPaUpr",
             "WkdsakwzWXdNREVpTENKaGJHY2lPaUpGWkVSVFFTSjkuZXlKa2FXTXRjM1ZpSWpvaVpHbGtP",
@@ -151,7 +151,7 @@ mod tests {
         );
 
         let kid = "did:key:alice_identity_pub@alice_mediator";
-        let res = make_compact_jwt_presentation(&dic, &holder_jwk, Some(kid));
+        let res = make_compact_jwt_presentation(dic, &holder_jwk, Some(kid));
         assert_eq!(res.unwrap_err(), JwsError::UnspecifiedPayloadType);
     }
 
@@ -169,7 +169,7 @@ mod tests {
         );
 
         let kid = "did:key:alice_identity_pub@alice_mediator";
-        let res = make_compact_jwt_presentation(&dic, &holder_jwk, Some(kid));
+        let res = make_compact_jwt_presentation(dic, &holder_jwk, Some(kid));
         assert_eq!(res.unwrap_err(), JwsError::UnsupportedPayloadType);
     }
 
@@ -191,10 +191,10 @@ mod tests {
         );
 
         // Verify wrapping JWT is signed by holder
-        assert!(verify_compact_jwt_presentation(&wrapping_jwt, &holder_jwk).is_ok());
+        assert!(verify_compact_jwt_presentation(wrapping_jwt, &holder_jwk).is_ok());
 
         // Extract DIC in payload
-        let payload = _extract_payload(&wrapping_jwt).unwrap();
+        let payload = _extract_payload(wrapping_jwt).unwrap();
         let dic_jwt = payload.get("dic").unwrap().as_str().unwrap();
 
         // Verify DIC
@@ -202,7 +202,7 @@ mod tests {
 
         // Assert claims
         assert_eq!(
-            _extract_payload(&dic_jwt).unwrap(),
+            _extract_payload(dic_jwt).unwrap(),
             json!({
                 "sub": "did:key:alice_identity_pub@alice_mediator",
                 "iss": "did:web:alice-mediator.com:alice_mediator_pub",
@@ -233,11 +233,11 @@ mod tests {
         let encoded_payload = parts[1];
         let payload = match Base64Url.decode(encoded_payload) {
             Ok(bytes) => match String::from_utf8(bytes) {
-                Ok(content) => content,
-                Err(_) => return None,
+                Ok(content) => Some(content),
+                Err(_) => None,
             },
-            Err(_) => return None,
-        };
+            Err(_) => None,
+        }?;
 
         serde_json::from_str(&payload).ok()
     }
