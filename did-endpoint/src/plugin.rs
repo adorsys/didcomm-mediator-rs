@@ -1,5 +1,5 @@
-use axum::Router;
 use super::{didgen, web};
+use axum::Router;
 use server_plugin::{Plugin, PluginError};
 
 #[derive(Default)]

@@ -1,7 +1,7 @@
 use crate::{util, web};
 
 use axum::Router;
-use did_endpoint::didgen;
+use did_endpoint::{didgen, util::filesystem::StdFileSystem};
 use server_plugin::{Plugin, PluginError};
 
 #[derive(Default)]
@@ -35,9 +35,10 @@ impl Plugin for MediatorCoordinationPlugin {
         let msg = "This should not occur following successful mounting.";
         let storage_dirpath = std::env::var("STORAGE_DIRPATH").expect(msg);
 
-        web::routes(
-            util::read_diddoc(&storage_dirpath).expect(msg),
-            util::read_keystore(&storage_dirpath).expect(msg),
-        )
+        let mut fs = StdFileSystem;
+        let diddoc = util::read_diddoc(&fs, &storage_dirpath).expect(msg);
+        let keystore = util::read_keystore(&mut fs, &storage_dirpath).expect(msg);
+
+        web::routes(diddoc, keystore)
     }
 }

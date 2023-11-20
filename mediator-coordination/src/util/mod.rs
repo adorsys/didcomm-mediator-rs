@@ -1,68 +1,91 @@
 #![allow(unused)]
 
-use did_endpoint::util::KeyStore;
+use did_endpoint::util::{
+    filesystem::FileSystem,
+    keystore::{KeyStore, KeyStoreError},
+};
 use did_utils::{
     didcore::{AssertionMethod, Document, KeyAgreement, KeyFormat, VerificationMethod},
     key_jwk::jwk::Jwk,
 };
+use serde_json::Error as SerdeError;
+use std::io;
+
+#[cfg(test)]
+use std::io::{Error as IoError, ErrorKind, Result as IoResult};
+
+/// Custom error type that wraps different kinds of errors that could occur.
+#[derive(Debug)]
+pub enum DidDocError {
+    IoError(io::Error),
+    ParseError(SerdeError),
+}
+
+/// Converts `io::Error` to `DidDocError::IoError`
+impl From<io::Error> for DidDocError {
+    fn from(err: io::Error) -> DidDocError {
+        DidDocError::IoError(err)
+    }
+}
+
+/// Converts `SerdeError` to `DidDocError::ParseError`
+impl From<SerdeError> for DidDocError {
+    fn from(err: SerdeError) -> DidDocError {
+        DidDocError::ParseError(err)
+    }
+}
 
 /// Parse DID document expected to exist on filesystem.
-pub fn read_diddoc(storage_dirpath: &str) -> Option<Document> {
+pub fn read_diddoc(fs: &dyn FileSystem, storage_dirpath: &str) -> Result<Document, DidDocError> {
     let didpath = format!("{storage_dirpath}/did.json");
-    std::fs::read_to_string(didpath)
-        .ok()
-        .and_then(|content| serde_json::from_str(&content).ok())
+    let content = fs.read_to_string(&didpath)?;
+    serde_json::from_str(&content).map_err(Into::into)
 }
 
 /// Parse key store expected to exist on filesystem.
-pub fn read_keystore(storage_dirpath: &str) -> Option<KeyStore> {
-    KeyStore::latest(storage_dirpath)
+pub fn read_keystore<'a>(
+    fs: &'a mut dyn FileSystem,
+    storage_dirpath: &str,
+) -> Result<KeyStore<'a>, KeyStoreError> {
+    KeyStore::latest(fs, storage_dirpath)
+}
+
+/// Generic macro function to look for a key in a DID document.
+///
+/// if present, return its verification method ID and JWK representation.
+macro_rules! extract_key_from_diddoc {
+    ($T: ty) => {
+        |diddoc: &Document, method: &$T| -> Option<(String, Jwk)> {
+            type Rel = $T;
+
+            let id = match method {
+                Rel::Reference(reference) => reference,
+                Rel::Embedded(vm) => return extract_public_jwk_from_vm(&*vm),
+            };
+
+            diddoc.verification_method.as_ref().and_then(|arr| {
+                arr.iter()
+                    .find(|vm| &vm.id == id)
+                    .and_then(extract_public_jwk_from_vm)
+            })
+        }
+    };
 }
 
 /// Search an assertion key in a DID document.
 ///
-/// Return its verification method ID and its Jwk
-/// representation if present, else Option::None.
+/// if present, return its verification method ID and JWK representation.
 pub fn extract_assertion_key(diddoc: &Document) -> Option<(String, Jwk)> {
-    let id = match &diddoc.assertion_method {
-        None => return None,
-        Some(methods) => match methods.get(0) {
-            None => return None,
-            Some(method) => match method {
-                AssertionMethod::Reference(reference) => reference,
-                AssertionMethod::Embedded(vm) => return extract_public_jwk_from_vm(vm),
-            },
-        },
-    };
-
-    diddoc.verification_method.as_ref().and_then(|arr| {
-        arr.iter()
-            .find(|vm| &vm.id == id)
-            .and_then(extract_public_jwk_from_vm)
-    })
+    let method = diddoc.assertion_method.as_ref()?.get(0)?;
+    extract_key_from_diddoc!(AssertionMethod)(diddoc, method)
 }
 
-/// Search a agreement key in a DID document.
+/// Search an agreement key in a DID document.
 ///
-/// Return its verification method ID and its Jwk
-/// representation if present, else Option::None.
+/// if present, return its verification method ID and JWK representation.
 pub fn extract_agreement_key(diddoc: &Document) -> Option<(String, Jwk)> {
-    let id = match &diddoc.key_agreement {
-        None => return None,
-        Some(methods) => match methods.get(0) {
-            None => return None,
-            Some(method) => match method {
-                KeyAgreement::Reference(reference) => reference,
-                KeyAgreement::Embedded(vm) => return extract_public_jwk_from_vm(vm),
-            },
-        },
-    };
-
-    diddoc.verification_method.as_ref().and_then(|arr| {
-        arr.iter()
-            .find(|vm| &vm.id == id)
-            .and_then(extract_public_jwk_from_vm)
-    })
+    let method = diddoc.key_agreement.as_ref()?.get(0)?;
+    extract_key_from_diddoc!(KeyAgreement)(diddoc, method)
 }
 
 /// Reads public JWK from verification method.
@@ -81,21 +104,17 @@ mod tests {
 
     use serde_json::Value;
 
-    fn setup() -> String {
-        dotenv_flow_read("STORAGE_DIRPATH").unwrap()
-    }
-
     #[test]
     fn can_read_persisted_entities() {
-        let storage_dirpath = setup();
-        assert!(read_diddoc(&storage_dirpath).is_some());
-        assert!(read_keystore(&storage_dirpath).is_some());
+        let mut mock_fs = MockFileSystem;
+        assert!(read_diddoc(&mock_fs, "").is_ok());
+        assert!(read_keystore(&mut mock_fs, "").is_ok());
     }
 
     #[test]
     fn can_extract_assertion_key() {
-        let storage_dirpath = setup();
-        let diddoc = read_diddoc(&storage_dirpath).unwrap();
+        let mock_fs = MockFileSystem;
+        let diddoc = read_diddoc(&mock_fs, "").unwrap();
 
         let (vm_id, jwk) = extract_assertion_key(&diddoc).unwrap();
         let expected_jwk = serde_json::from_str::<Value>(
@@ -116,8 +135,8 @@ mod tests {
 
     #[test]
     fn can_extract_agreement_key() {
-        let storage_dirpath = setup();
-        let diddoc = read_diddoc(&storage_dirpath).unwrap();
+        let mock_fs = MockFileSystem;
+        let diddoc = read_diddoc(&mock_fs, "").unwrap();
 
         let (vm_id, jwk) = extract_agreement_key(&diddoc).unwrap();
         let expected_jwk = serde_json::from_str::<Value>(
@@ -138,9 +157,32 @@ mod tests {
 }
 
 #[cfg(test)]
-pub(crate) fn dotenv_flow_read(key: &str) -> Option<String> {
-    dotenv_flow::dotenv_iter().unwrap().find_map(|item| {
-        let (k, v) = item.unwrap();
-        (k == key).then_some(v)
-    })
+#[derive(Default)]
+pub struct MockFileSystem;
+
+#[cfg(test)]
+impl FileSystem for MockFileSystem {
+    fn read_to_string(&self, path: &str) -> IoResult<String> {
+        match path {
+            p if p.ends_with("did.json") => {
+                Ok(include_str!("../../test/storage/did.json").to_string())
+            }
+            p if p.contains("keystore") => {
+                Ok(include_str!("../../test/storage/keystore/1697624245.json").to_string())
+            }
+            _ => Err(IoError::new(ErrorKind::NotFound, "NotFound")),
+        }
+    }
+
+    fn write(&mut self, path: &str, content: &str) -> IoResult<()> {
+        Ok(())
+    }
+
+    fn read_dir_files(&self, _path: &str) -> IoResult<Vec<String>> {
+        Ok(vec!["/keystore/1697624245.json".to_string()])
+    }
+
+    fn create_dir_all(&mut self, _path: &str) -> IoResult<()> {
+        Ok(())
+    }
 }
