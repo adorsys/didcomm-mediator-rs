@@ -7,7 +7,7 @@ use crate::util::crate_name;
 
 pub fn routes() -> Router {
     Router::new() //
-        .route("/", get(index))
+        .route("/about", get(index))
 }
 
 pub async fn index() -> Json<Value> {
