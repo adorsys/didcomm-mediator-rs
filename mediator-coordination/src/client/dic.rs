@@ -1,12 +1,39 @@
-use crate::jose::jws::{self, JwsAlg, JwsError, JwsHeader};
 use did_utils::key_jwk::jwk::Jwk;
-use serde_json::json;
+use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
+use std::collections::HashMap;
+
+use crate::jose::jws::{self, JwsAlg, JwsError, JwsHeader};
+
+/// Additional data to embed into a JWT presentation of a DIC or DDIC
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct PresentationMetadata {
+    /// Presenter's DID
+    #[serde(rename = "iss")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub issuer: Option<String>,
+
+    /// Presentee's DID
+    #[serde(rename = "sub")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub subject: Option<String>,
+
+    /// Nonce
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub nonce: Option<String>,
+
+    /// Dynamic properties
+    #[serde(flatten)]
+    pub additional_properties: Option<HashMap<String, Value>>,
+}
 
 /// Wraps DIC or DDIC compact JWT into another JWT for presentation purposes
 pub fn make_compact_jwt_presentation(
     content: &str,
     holder_jwk: &Jwk,
-    kid: Option<&str>,
+    holder_kid: Option<&str>,
+    metadata: PresentationMetadata,
 ) -> Result<String, JwsError> {
     let header = jws::read_jws_header(content)?;
     let kind = match header.typ.ok_or(JwsError::UnspecifiedPayloadType)? {
@@ -17,13 +44,14 @@ pub fn make_compact_jwt_presentation(
 
     let header = JwsHeader {
         alg: JwsAlg::EdDSA,
-        kid: kid.map(|x| x.to_owned()),
+        kid: holder_kid.map(|x| x.to_owned()),
         typ: Some(kind.to_owned() + "+jwt"),
         ..Default::default()
     };
 
-    let payload = json!({
-        kind: content,
+    let payload = json!(PresentationMetadata {
+        additional_properties: Some([(kind.to_owned(), json!(content))].into_iter().collect()),
+        ..metadata
     });
 
     jws::make_compact_jws(&header, payload, holder_jwk)
@@ -55,6 +83,80 @@ mod tests {
     }
 
     #[test]
+    fn can_serialize_presentation_metadata() {
+        // With all fields
+
+        let metadata = PresentationMetadata {
+            issuer: Some("did:key:alice_identity_pub@alice_mediator".to_string()),
+            subject: Some("did:web:alice-mediator.com:alice_mediator_pub".to_string()),
+            nonce: Some("43f84868-0632-4471-b6dd-d63fa12c21f6".to_string()),
+            additional_properties: {
+                let props = [("key".to_string(), json!("value"))];
+                Some(props.into_iter().collect())
+            },
+        };
+
+        let expected = serde_json::from_str::<Value>(
+            r#"{
+                "iss": "did:key:alice_identity_pub@alice_mediator",
+                "sub": "did:web:alice-mediator.com:alice_mediator_pub",
+                "nonce": "43f84868-0632-4471-b6dd-d63fa12c21f6",
+                "key": "value"
+            }"#,
+        )
+        .unwrap();
+
+        assert_eq!(
+            json_canon::to_string(&metadata).unwrap(),
+            json_canon::to_string(&expected).unwrap(),
+        );
+
+        // With some fields missing
+
+        let metadata = PresentationMetadata {
+            issuer: Some("did:key:alice_identity_pub@alice_mediator".to_string()),
+            subject: Some("did:web:alice-mediator.com:alice_mediator_pub".to_string()),
+            ..Default::default()
+        };
+
+        let expected = serde_json::from_str::<Value>(
+            r#"{
+                "iss": "did:key:alice_identity_pub@alice_mediator",
+                "sub": "did:web:alice-mediator.com:alice_mediator_pub"
+            }"#,
+        )
+        .unwrap();
+
+        assert_eq!(
+            json_canon::to_string(&metadata).unwrap(),
+            json_canon::to_string(&expected).unwrap(),
+        );
+    }
+
+    #[test]
+    fn can_deserialize_presentation_metadata() {
+        let msg = r#"{
+            "iss": "did:key:alice_identity_pub@alice_mediator",
+            "sub": "did:web:alice-mediator.com:alice_mediator_pub",
+            "key": "value"
+        }"#;
+
+        let metadata: PresentationMetadata = serde_json::from_str(msg).unwrap();
+        assert_eq!(
+            metadata.issuer.as_deref(),
+            Some("did:key:alice_identity_pub@alice_mediator")
+        );
+        assert_eq!(
+            metadata.subject.as_deref(),
+            Some("did:web:alice-mediator.com:alice_mediator_pub")
+        );
+        assert_eq!(metadata.additional_properties, {
+            let props = [("key".to_string(), json!("value"))];
+            Some(props.into_iter().collect())
+        });
+    }
+
+    #[test]
     fn present_dic_via_jwt() {
         let holder_jwk = _holder_jwk();
         let dic = concat!(
@@ -65,7 +167,8 @@ mod tests {
             "_jCAXGNmjuisS2SmmGlXf2LuR3iUeAPXWm9f0XA1_jvVXw7gJLlbJFer6zSCDA"
         );
 
-        let jwt = make_compact_jwt_presentation(dic, &holder_jwk, None).unwrap();
+        let metadata = PresentationMetadata::default();
+        let jwt = make_compact_jwt_presentation(dic, &holder_jwk, None, metadata).unwrap();
         let expected_jwt = concat!(
             "eyJ0eXAiOiJkaWMrand0IiwiYWxnIjoiRWREU0EifQ.eyJkaWMiOiJleUowZVhBaU9pSmthV",
             "012ZGpBd01TSXNJbUZzWnlJNklrVmtSRk5CSW4wLmV5SnBjM01pT2lKa2FXUTZkMlZpT21Gc",
@@ -109,7 +212,8 @@ mod tests {
         );
 
         let kid = "did:key:alice_identity_pub@alice_mediator";
-        let jwt = make_compact_jwt_presentation(dic, &holder_jwk, Some(kid)).unwrap();
+        let metadata = PresentationMetadata::default();
+        let jwt = make_compact_jwt_presentation(dic, &holder_jwk, Some(kid), metadata).unwrap();
 
         let header = jws::read_jws_header(&jwt).unwrap();
         assert_eq!(
@@ -118,6 +222,39 @@ mod tests {
                 "alg": "EdDSA",
                 "typ": "dic+jwt",
                 "kid": kid,
+            })
+        );
+    }
+
+    #[test]
+    fn present_dic_via_jwt_with_metadata() {
+        let holder_jwk = _holder_jwk();
+        let dic = concat!(
+            "eyJ0eXAiOiJkaWMvdjAwMSIsImFsZyI6IkVkRFNBIn0.eyJpc3MiOiJkaWQ6d2ViOmFsaWNl",
+            "LW1lZGlhdG9yLmNvbTphbGljZV9tZWRpYXRvcl9wdWIiLCJub25jZSI6IjQzZjg0ODY4LTA2",
+            "MzItNDQ3MS1iNmRkLWQ2M2ZhMTJjMjFmNiIsInNsIjoiZ29sZCIsInN1YiI6ImRpZDprZXk6",
+            "YWxpY2VfaWRlbnRpdHlfcHViQGFsaWNlX21lZGlhdG9yIn0.tslxNKmgVX_LhKIM5SH9KIxp",
+            "_jCAXGNmjuisS2SmmGlXf2LuR3iUeAPXWm9f0XA1_jvVXw7gJLlbJFer6zSCDA"
+        );
+
+        let kid = "did:key:alice_identity_pub@alice_mediator";
+        let metadata = PresentationMetadata {
+            issuer: Some("did:key:alice_identity_pub@alice_mediator".to_string()),
+            subject: Some("did:web:alice-mediator.com:alice_mediator_pub".to_string()),
+            nonce: Some("43f84868-0632-4471-b6dd-d63fa12c21f6".to_string()),
+            ..Default::default()
+        };
+
+        let jwt = make_compact_jwt_presentation(dic, &holder_jwk, Some(kid), metadata).unwrap();
+
+        let payload = _extract_payload(&jwt).unwrap();
+        assert_eq!(
+            payload,
+            json!({
+                "iss": "did:key:alice_identity_pub@alice_mediator",
+                "sub": "did:web:alice-mediator.com:alice_mediator_pub",
+                "nonce": "43f84868-0632-4471-b6dd-d63fa12c21f6",
+                "dic": dic
             })
         );
     }
@@ -134,7 +271,8 @@ mod tests {
             "NjQmizpgjdyVXz8KlXr8F_ARl_iQ-MDA"
         );
 
-        let jwt = make_compact_jwt_presentation(ddic, &holder_jwk, None).unwrap();
+        let metadata = PresentationMetadata::default();
+        let jwt = make_compact_jwt_presentation(ddic, &holder_jwk, None, metadata).unwrap();
         let expected_jwt = concat!(
             "eyJ0eXAiOiJkZGljK2p3dCIsImFsZyI6IkVkRFNBIn0.eyJkZGljIjoiZXlKMGVYQWlPaUpr",
             "WkdsakwzWXdNREVpTENKaGJHY2lPaUpGWkVSVFFTSjkuZXlKa2FXTXRjM1ZpSWpvaVpHbGtP",
@@ -179,8 +317,9 @@ mod tests {
             "SDBXwNrkunrVaG288d3phiTwQxRkGFh4csdRbCA",
         );
 
+        let metadata = PresentationMetadata::default();
         let kid = "did:key:alice_identity_pub@alice_mediator";
-        let res = make_compact_jwt_presentation(dic, &holder_jwk, Some(kid));
+        let res = make_compact_jwt_presentation(dic, &holder_jwk, Some(kid), metadata);
         assert_eq!(res.unwrap_err(), JwsError::UnspecifiedPayloadType);
     }
 
@@ -198,7 +337,8 @@ mod tests {
         );
 
         let kid = "did:key:alice_identity_pub@alice_mediator";
-        let res = make_compact_jwt_presentation(dic, &holder_jwk, Some(kid));
+        let metadata = PresentationMetadata::default();
+        let res = make_compact_jwt_presentation(dic, &holder_jwk, Some(kid), metadata);
         assert_eq!(res.unwrap_err(), JwsError::UnsupportedPayloadType);
     }
 
