@@ -5,16 +5,38 @@ use did_utils::{
 };
 use std::error::Error;
 
-pub struct KeyStore {
+use super::filesystem::FileSystem;
+
+#[derive(Debug, thiserror::Error)]
+pub enum KeyStoreError {
+    #[error("failure to convert to JWK format")]
+    JwkConversionError,
+    #[error("failure to generate key pair")]
+    KeyPairGenerationError,
+    #[error("ioerror: {0}")]
+    IoError(std::io::Error),
+    #[error("non compliant")]
+    NonCompliant,
+    #[error("not found")]
+    NotFound,
+    #[error("parse error")]
+    ParseError(serde_json::Error),
+    #[error("serde error")]
+    SerdeError(serde_json::Error),
+}
+
+pub struct KeyStore<'a> {
+    fs: &'a mut dyn FileSystem,
     dirpath: String,
     filename: String,
     keys: Vec<Jwk>,
 }
 
-impl KeyStore {
+impl<'a> KeyStore<'a> {
     /// Constructs file-based key-value store.
-    pub fn new(storage_dirpath: &str) -> Self {
+    pub fn new(fs: &'a mut dyn FileSystem, storage_dirpath: &str) -> Self {
         Self {
+            fs,
             dirpath: format!("{storage_dirpath}/keystore"),
             filename: format!("{}.json", Utc::now().timestamp()),
             keys: vec![],
@@ -22,41 +44,51 @@ impl KeyStore {
     }
 
     /// Returns latest store on disk, if any.
-    pub fn latest(storage_dirpath: &str) -> Option<Self> {
+    pub fn latest(
+        fs: &'a mut dyn FileSystem,
+        storage_dirpath: &str,
+    ) -> Result<Self, KeyStoreError> {
         let dirpath = format!("{storage_dirpath}/keystore");
 
-        let msg = "Error parsing keystore directory";
-        let file = std::fs::read_dir(&dirpath)
-            .expect(msg)
-            .map(|x| x.expect(msg).path().to_str().expect(msg).to_string())
-            .filter(|p| p.ends_with(".json"))
-            .max_by_key(|p| {
-                let p = p
+        // Read directory
+        let paths = fs
+            .read_dir_files(&dirpath)
+            .map_err(KeyStoreError::IoError)?;
+
+        // Collect paths and associated timestamps of files inside `dir`
+        let mut collected: Vec<(String, i32)> = vec![];
+        for path in paths {
+            if path.ends_with(".json") {
+                let stamp: i32 = path
                     .trim_start_matches(&format!("{}/", &dirpath))
-                    .trim_end_matches(".json");
-                p.parse::<i32>().expect(msg)
-            });
+                    .trim_end_matches(".json")
+                    .parse()
+                    .map_err(|_| KeyStoreError::NonCompliant)?;
 
-        match file {
-            None => None,
-            Some(path) => match std::fs::read_to_string(&path) {
-                Err(_) => None,
-                Ok(content) => match serde_json::from_str::<Vec<Jwk>>(&content) {
-                    Err(_) => None,
-                    Ok(keys) => {
-                        let filename = path
-                            .trim_start_matches(&format!("{}/", &dirpath))
-                            .to_string();
-
-                        Some(KeyStore {
-                            dirpath,
-                            filename,
-                            keys,
-                        })
-                    }
-                },
-            },
+                collected.push((path, stamp));
+            }
         }
+
+        // Select file with highest timestamp as latest keystore
+        let file = collected
+            .iter()
+            .max_by_key(|(_, stamp)| stamp)
+            .map(|(path, _)| path);
+
+        let path = file.ok_or(KeyStoreError::NotFound)?;
+        let content = fs.read_to_string(path).map_err(KeyStoreError::IoError)?;
+        let keys = serde_json::from_str::<Vec<Jwk>>(&content).map_err(KeyStoreError::ParseError)?;
+
+        let filename = path
+            .trim_start_matches(&format!("{}/", &dirpath))
+            .to_string();
+
+        Ok(KeyStore {
+            fs,
+            dirpath,
+            filename,
+            keys,
+        })
     }
 
     /// Gets path
@@ -65,9 +97,16 @@ impl KeyStore {
     }
 
     /// Persists store on disk
-    fn persist(&self) -> std::io::Result<()> {
-        std::fs::create_dir_all(&self.dirpath)?;
-        std::fs::write(self.path(), serde_json::to_string_pretty(&self.keys)?)
+    fn persist(&mut self) -> Result<(), KeyStoreError> {
+        self.fs
+            .create_dir_all(&self.dirpath)
+            .map_err(KeyStoreError::IoError)?;
+        self.fs
+            .write(
+                &self.path(),
+                &serde_json::to_string_pretty(&self.keys).map_err(KeyStoreError::SerdeError)?,
+            )
+            .map_err(KeyStoreError::IoError)
     }
 
     /// Searches keypair given public key
@@ -78,10 +117,10 @@ impl KeyStore {
     /// Generates and persists an ed25519 keypair for digital signatures.
     /// Returns public Jwk for convenience.
     pub fn gen_ed25519_jwk(&mut self) -> Result<Jwk, Box<dyn Error>> {
-        let keypair = Ed25519KeyPair::new().map_err(|_| "Failure to generate Ed25519 keypair")?;
+        let keypair = Ed25519KeyPair::new().map_err(|_| KeyStoreError::KeyPairGenerationError)?;
         let jwk: Jwk = keypair
             .try_into()
-            .map_err(|_| "Failure to map to Jwk format")?;
+            .map_err(|_| KeyStoreError::JwkConversionError)?;
         let pub_jwk = jwk.to_public();
 
         self.keys.push(jwk);
@@ -92,11 +131,11 @@ impl KeyStore {
 
     /// Generates and persists an x25519 keypair for digital signatures.
     /// Returns public Jwk for convenience.
-    pub fn gen_x25519_jwk(&mut self) -> Result<Jwk, Box<dyn Error>> {
-        let keypair = X25519KeyPair::new().map_err(|_| "Failure to generate X25519 keypair")?;
+    pub fn gen_x25519_jwk(&mut self) -> Result<Jwk, KeyStoreError> {
+        let keypair = X25519KeyPair::new().map_err(|_| KeyStoreError::KeyPairGenerationError)?;
         let jwk: Jwk = keypair
             .try_into()
-            .map_err(|_| "Failure to map to Jwk format")?;
+            .map_err(|_| KeyStoreError::JwkConversionError)?;
         let pub_jwk = jwk.to_public();
 
         self.keys.push(jwk);
@@ -106,64 +145,78 @@ impl KeyStore {
     }
 }
 
-trait ToPublic {
+pub trait ToPublic {
     fn to_public(&self) -> Self;
 }
 
 impl ToPublic for Jwk {
-     fn to_public(&self) -> Self {
-         let public_key = match &self.key {
-             Key::Ec(ec) => Key::Ec(Ec {
-                 crv: ec.crv.clone(),
-                 x: ec.x.clone(),
-                 y: ec.y.clone(),
-                 d: None,
-             }),
-             Key::Rsa(rsa) => Key::Rsa(Rsa {
-                 prv: None,
-                 e: rsa.e.clone(),
-                 n: rsa.n.clone(),
-             }),
-             Key::Oct(_oct) => Key::Oct(Oct {
-                 k: Secret::default(),
-             }),
-             Key::Okp(okp) => Key::Okp(Okp {
-                 d: None,
-                 crv: okp.crv.clone(),
-                 x: okp.x.clone(),
-             }),
-             _ => {
-                 return self.clone();
-             }
-         };
+    fn to_public(&self) -> Self {
+        let public_key = match &self.key {
+            Key::Ec(ec) => Key::Ec(Ec {
+                crv: ec.crv,
+                x: ec.x.clone(),
+                y: ec.y.clone(),
+                d: None,
+            }),
+            Key::Rsa(rsa) => Key::Rsa(Rsa {
+                prv: None,
+                e: rsa.e.clone(),
+                n: rsa.n.clone(),
+            }),
+            Key::Oct(_oct) => Key::Oct(Oct {
+                k: Secret::default(),
+            }),
+            Key::Okp(okp) => Key::Okp(Okp {
+                d: None,
+                crv: okp.crv,
+                x: okp.x.clone(),
+            }),
+            _ => {
+                return self.clone();
+            }
+        };
 
-         Jwk {
-             key: public_key,
-             prm: self.prm.clone(),
-         }
-     }
- }
+        Jwk {
+            key: public_key,
+            prm: self.prm.clone(),
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::util::dotenv_flow_read;
 
-    fn setup() -> String {
-        dotenv_flow_read("STORAGE_DIRPATH")
-            .map(|p| format!("{}/{}", p, uuid::Uuid::new_v4()))
-            .unwrap()
+    use std::io::Result as IoResult;
+
+    #[derive(Default)]
+    struct MockFileSystem {
+        stream: String,
     }
 
-    fn cleanup(storage_dirpath: &str) {
-        std::fs::remove_dir_all(storage_dirpath).unwrap();
+    impl FileSystem for MockFileSystem {
+        fn read_to_string(&self, _path: &str) -> IoResult<String> {
+            Ok(self.stream.clone())
+        }
+
+        fn write(&mut self, _path: &str, content: &str) -> IoResult<()> {
+            self.stream = content.to_string();
+            Ok(())
+        }
+
+        fn read_dir_files(&self, _path: &str) -> IoResult<Vec<String>> {
+            Ok(vec!["/keystore/12345.json".to_string()])
+        }
+
+        fn create_dir_all(&mut self, _path: &str) -> IoResult<()> {
+            Ok(())
+        }
     }
 
     #[test]
     fn test_keystore_flow() {
-        let storage_dirpath = setup();
-
-        let mut store = KeyStore::new(&storage_dirpath);
+        let mut mock_fs = MockFileSystem::default();
+        let mut store = KeyStore::new(&mut mock_fs, "");
 
         let jwk = store.gen_ed25519_jwk().unwrap();
         assert!(store.find_keypair(&jwk).is_some());
@@ -171,9 +224,7 @@ mod tests {
         let jwk = store.gen_x25519_jwk().unwrap();
         assert!(store.find_keypair(&jwk).is_some());
 
-        let latest = KeyStore::latest(&storage_dirpath);
-        assert!(latest.is_some());
-
-        cleanup(&storage_dirpath);
+        let latest = KeyStore::latest(&mut mock_fs, "");
+        assert!(latest.is_ok());
     }
 }
