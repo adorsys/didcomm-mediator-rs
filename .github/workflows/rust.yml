@@ -1,6 +1,6 @@
 name: Rust CI
 
-on: 
+on:
   pull_request:
     branches:
       - main
@@ -40,5 +40,11 @@ jobs:
     - name: Build and Mediator Server
       run: |
         cd mediator-server
+        cargo build
+        cargo test
+
+    - name: Build and Test Plugin for Mediator Coordination
+      run: |
+        cd mediator-coordination
         cargo build
         cargo test

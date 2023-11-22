@@ -1,7 +1,6 @@
 pub mod didweb;
+pub mod filesystem;
 pub mod keystore;
-
-pub use keystore::KeyStore;
 
 #[cfg(test)]
 pub fn dotenv_flow_read(key: &str) -> Option<String> {
