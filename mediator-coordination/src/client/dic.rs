@@ -80,10 +80,21 @@ mod tests {
         assert_eq!(jwt, expected_jwt);
 
         let header = jws::read_jws_header(&jwt).unwrap();
-        assert_eq!(header.typ.unwrap(), "dic+jwt");
+        assert_eq!(
+            json!(header),
+            json!({
+                "alg": "EdDSA",
+                "typ": "dic+jwt"
+            })
+        );
 
         let payload = _extract_payload(&jwt).unwrap();
-        assert_eq!(payload.get("dic").unwrap().as_str().unwrap(), dic);
+        assert_eq!(
+            payload,
+            json!({
+                "dic": dic
+            })
+        );
     }
 
     #[test]
@@ -101,7 +112,14 @@ mod tests {
         let jwt = make_compact_jwt_presentation(dic, &holder_jwk, Some(kid)).unwrap();
 
         let header = jws::read_jws_header(&jwt).unwrap();
-        assert_eq!(header.kid.unwrap(), kid);
+        assert_eq!(
+            json!(header),
+            json!({
+                "alg": "EdDSA",
+                "typ": "dic+jwt",
+                "kid": kid,
+            })
+        );
     }
 
     #[test]
@@ -132,10 +150,21 @@ mod tests {
         assert_eq!(jwt, expected_jwt);
 
         let header = jws::read_jws_header(&jwt).unwrap();
-        assert_eq!(header.typ.unwrap(), "ddic+jwt");
+        assert_eq!(
+            json!(header),
+            json!({
+                "alg": "EdDSA",
+                "typ": "ddic+jwt"
+            })
+        );
 
         let payload = _extract_payload(&jwt).unwrap();
-        assert_eq!(payload.get("ddic").unwrap().as_str().unwrap(), ddic);
+        assert_eq!(
+            payload,
+            json!({
+                "ddic": ddic
+            })
+        );
     }
 
     #[test]
