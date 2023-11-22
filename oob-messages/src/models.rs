@@ -7,9 +7,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::to_string;
 use std::fs::File;
 use std::io::{Read, Write};
+use std::path::Path;
 use std::{error::Error, fs};
 use url::{ParseError, Url};
-use std::path::Path;
 
 // region: --- Model
 
@@ -82,7 +82,6 @@ impl OobMessage {
     }
 }
 
-//Does this needs to be public? nope.
 fn generate_from_field() -> String {
     let server_public_domain = dotenv_flow_read("SERVER_PUBLIC_DOMAIN").unwrap();
     let server_local_port = dotenv_flow_read("SERVER_LOCAL_PORT").unwrap();
@@ -120,16 +119,6 @@ pub fn retrieve_or_generate_oob_inv(
     oob_url
 }
 
-// // Function to generate and save a QR code image
-// fn retrieve_qr_image(path: &str, url: &str) {
-//     // Generate QR code
-//     let code = QrCode::new(url.as_bytes()).unwrap();
-//     let image = code.render::<Luma<u8>>().build();
-
-//     // Save the image to the specified path
-//     image.save(path).expect("Error saving image");
-// }
-
 // Function to generate and save a QR code image
 pub fn retrieve_or_generate_qr_image(base_path: &str, url: &str) -> Vec<u8> {
     let path = format!("{}/qrcode.png", base_path);
@@ -140,7 +129,9 @@ pub fn retrieve_or_generate_qr_image(base_path: &str, url: &str) -> Vec<u8> {
     }
 
     // Ensure the directory exists
-    let directory = Path::new(&path).parent().expect("Error getting parent directory");
+    let directory = Path::new(&path)
+        .parent()
+        .expect("Error getting parent directory");
     if !directory.exists() {
         fs::create_dir_all(directory).expect("Error creating directory");
     }
@@ -155,7 +146,6 @@ pub fn retrieve_or_generate_qr_image(base_path: &str, url: &str) -> Vec<u8> {
     // Return the generated image
     fs::read(&path).expect("Error reading generated image")
 }
-
 
 fn to_local_storage(oob_url: &str, storage_dirpath: &str) {
     // Ensure the parent directory ('storage') exists
@@ -214,9 +204,6 @@ mod tests {
 
         let oob_message = OobMessage::new(&did);
 
-        let json_string = serde_json::to_string(&oob_message).unwrap();
-        println!("{}", json_string);
-
         assert_eq!(oob_message.oob_type, OOB_INVITATION_2_0);
         assert!(!oob_message.id.is_empty());
         assert_eq!(oob_message.from, did);
@@ -239,8 +226,6 @@ mod tests {
 
         let oob_url = OobMessage::serialize_oob_message(&oob_message, url);
 
-        println!("{:?}", oob_url);
-
         assert!(!oob_url.is_empty());
 
         assert!(oob_url.starts_with(&format!("{}?_oob=", url)));
@@ -254,7 +239,11 @@ mod tests {
         let server_local_port = dotenv_flow_read("SERVER_LOCAL_PORT").unwrap();
         let storage_dirpath = dotenv_flow_read("STORAGE_DIRPATH").unwrap();
 
-        let result = retrieve_or_generate_oob_inv(&server_public_domain, &server_local_port, &storage_dirpath);
+        let result = retrieve_or_generate_oob_inv(
+            &server_public_domain,
+            &server_local_port,
+            &storage_dirpath,
+        );
 
         // Read the content of the file to verify it matches the expected URL
         let file = File::open(format!("{}/oob_invitation.txt", storage_dirpath))
@@ -267,8 +256,6 @@ mod tests {
             .map(|line| line.expect("Error reading line"))
             .collect();
 
-        println!("{}", file_content);
-
         assert_eq!(file_content, result);
     }
 
@@ -278,20 +265,13 @@ mod tests {
         let url = "https://example.com";
         let storage_dirpath = dotenv_flow_read("STORAGE_DIRPATH").unwrap();
 
-
         // Call the function
         retrieve_or_generate_qr_image(&storage_dirpath, url);
 
         // Check if the file was created
         assert!(
-            Path::new(&format!(
-                "{}/qrcode.png",
-                storage_dirpath
-            )).exists(),
+            Path::new(&format!("{}/qrcode.png", storage_dirpath)).exists(),
             "QR code image file not created"
         );
-
-        // Clean up: Remove the test file
-        // fs::remove_file(storage_dirpath).expect("Error removing test file");
     }
 }

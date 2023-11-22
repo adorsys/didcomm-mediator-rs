@@ -1,7 +1,7 @@
-use axum::{routing::get, Router, response::Html};
-use axum::response::IntoResponse;
 use super::models::retrieve_or_generate_oob_inv;
 use super::models::retrieve_or_generate_qr_image;
+use axum::response::IntoResponse;
+use axum::{response::Html, routing::get, Router};
 
 pub fn routes() -> Router {
     Router::new() //
@@ -16,15 +16,14 @@ async fn handler_oob_inv() -> impl IntoResponse {
     retrieve_or_generate_oob_inv(&server_public_domain, &server_local_port, &storage_dirpath)
 }
 
-
 async fn handler_oob_qr() -> impl IntoResponse {
-
     let (server_public_domain, server_local_port, storage_dirpath) = get_environment_variables();
-    let oob_inv = retrieve_or_generate_oob_inv(&server_public_domain, &server_local_port, &storage_dirpath);
+    let oob_inv =
+        retrieve_or_generate_oob_inv(&server_public_domain, &server_local_port, &storage_dirpath);
     let image_data = retrieve_or_generate_qr_image(&storage_dirpath, &oob_inv);
 
-     Html(format!(
-            r#"
+    Html(format!(
+        r#"
             <!DOCTYPE html>
             <html>
                 <head>
@@ -35,13 +34,14 @@ async fn handler_oob_qr() -> impl IntoResponse {
                 </body>
             </html>
             "#,
-            base64::encode(&image_data)
+        base64::encode(&image_data)
     ))
 }
 
 async fn handler_landing_page_oob() -> impl IntoResponse {
     let (server_public_domain, server_local_port, storage_dirpath) = get_environment_variables();
-    let oob_inv = retrieve_or_generate_oob_inv(&server_public_domain, &server_local_port, &storage_dirpath);
+    let oob_inv =
+        retrieve_or_generate_oob_inv(&server_public_domain, &server_local_port, &storage_dirpath);
     let image_data = retrieve_or_generate_qr_image(&storage_dirpath, &oob_inv);
 
     Html(format!(
@@ -73,8 +73,6 @@ async fn handler_landing_page_oob() -> impl IntoResponse {
     ))
 }
 
-
-
 fn get_environment_variables() -> (String, String, String) {
     let server_public_domain = std::env::var("SERVER_PUBLIC_DOMAIN")
         .map_err(|_| {
@@ -95,4 +93,54 @@ fn get_environment_variables() -> (String, String, String) {
         .expect("Failed to get STORAGE_DIRPATH from env");
 
     (server_public_domain, server_local_port, storage_dirpath)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use axum::{
+        body::Body,
+        http::{Request, StatusCode},
+    };
+    use tower::util::ServiceExt;
+    use tempdir::TempDir;
+
+    #[tokio::test]
+    async fn test_routes() {
+
+        let temp_dir = TempDir::new("temp_test_dir").expect("Failed to create temp directory");
+        let temp_dir_path = temp_dir.path();
+
+        std::env::set_var("SERVER_PUBLIC_DOMAIN", "example.com");
+        std::env::set_var("SERVER_LOCAL_PORT", "8080");
+        std::env::set_var("STORAGE_DIRPATH", temp_dir_path);
+
+        let app = routes();
+
+        let response = app
+            .oneshot(Request::builder().uri("/oob_url").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let app = routes();
+
+        let response = app
+            .oneshot(Request::builder().uri("/oob_qr").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let app = routes();
+
+        let response = app
+            .oneshot(Request::builder().uri("/").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+    }
 }

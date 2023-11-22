@@ -36,7 +36,7 @@ mod tests {
         let app = routes();
 
         let response = app
-            .oneshot(Request::builder().uri("/").body(Body::empty()).unwrap())
+            .oneshot(Request::builder().uri("/about").body(Body::empty()).unwrap())
             .await
             .unwrap();
 
