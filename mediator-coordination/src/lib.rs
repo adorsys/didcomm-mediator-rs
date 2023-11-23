@@ -1,6 +1,7 @@
 pub mod plugin;
 
 mod constant;
+mod didcomm;
 mod jose;
 mod model;
 mod util;
