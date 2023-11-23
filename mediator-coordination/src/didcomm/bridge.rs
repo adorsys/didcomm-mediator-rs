@@ -19,7 +19,6 @@ pub struct LocalDIDResolver {
     diddoc: DIDDoc,
 }
 
-#[allow(unused)]
 impl LocalDIDResolver {
     pub fn new(server_diddoc: &Document) -> Self {
         Self {
@@ -69,7 +68,6 @@ pub struct LocalSecretsResolver {
     secrets: Vec<Secret>,
 }
 
-#[allow(unused)]
 impl LocalSecretsResolver {
     pub fn new(secret_id: &str, secret: &Jwk) -> Self {
         Self {
