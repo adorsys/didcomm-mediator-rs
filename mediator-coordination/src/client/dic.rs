@@ -44,13 +44,13 @@ pub fn make_compact_jwt_presentation(
 
     let header = JwsHeader {
         alg: JwsAlg::EdDSA,
-        kid: holder_kid.map(|x| x.to_owned()),
-        typ: Some(kind.to_owned() + "+jwt"),
+        kid: holder_kid.map(String::from),
+        typ: Some(format!("{}+jwt", kind)),
         ..Default::default()
     };
 
     let payload = json!(PresentationMetadata {
-        additional_properties: Some([(kind.to_owned(), json!(content))].into_iter().collect()),
+        additional_properties: Some([(String::from(kind), json!(content))].into_iter().collect()),
         ..metadata
     });
 
