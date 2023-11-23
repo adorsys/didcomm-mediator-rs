@@ -20,6 +20,7 @@ uuid = { version = "1.4.1", features = ["v4"] }
 
 # Plugins traits
 server-plugin = { path = "../server-plugin" }
+paste = "1.0.14"
 
 [dev-dependencies]
 dotenv-flow = "0.15.0"

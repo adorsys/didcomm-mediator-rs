@@ -1,5 +1,5 @@
 use did_utils::key_jwk::jwk::Jwk;
-use serde::{Deserialize, Serialize};
+use serde::{de::Error, Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 
@@ -95,6 +95,48 @@ impl JwtAssertable for DDICPayload {
     fn sign(&self, jwk: &Jwk, kid: Option<String>) -> Result<String, JwsError> {
         self.sign_with_typ("ddic/v001", jwk, kid)
     }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[serde(untagged)]
+pub enum CompactDIC {
+    #[serde(serialize_with = "CompactDIC::serialize_inbox_variant")]
+    #[serde(deserialize_with = "CompactDIC::deserialize_inbox_variant")]
+    Inbox(String),
+
+    #[serde(serialize_with = "CompactDIC::serialize_outbox_variant")]
+    #[serde(deserialize_with = "CompactDIC::deserialize_outbox_variant")]
+    Outbox(String),
+}
+
+macro_rules! compact_dic_variant_serder {
+    ($S: ident) => {
+        paste::paste! {
+            fn [<serialize_ $S _variant>]<S>(value: &String, serializer: S) -> Result<S::Ok, S::Error>
+            where
+                S: Serializer,
+            {
+                const S: &'static str = stringify!($S);
+                serializer.serialize_str(&format!("{S}:{value}"))
+            }
+
+            fn [<deserialize_ $S _variant>]<'de, D>(deserializer: D) -> Result<String, D::Error>
+            where
+                D: Deserializer<'de>,
+            {
+                const S: &'static str = stringify!($S);
+                match String::deserialize(deserializer)? {
+                    s if s.starts_with(&format!("{S}:")) => Ok(s[(S.len() + 1)..].to_string()),
+                    _ => Err(Error::custom("invalid tag")),
+                }
+            }
+        }
+    };
+}
+
+impl CompactDIC {
+    compact_dic_variant_serder!(inbox);
+    compact_dic_variant_serder!(outbox);
 }
 
 #[cfg(test)]
@@ -258,5 +300,31 @@ mod tests {
         // Verify
         let jwk = jwk.to_public();
         assert!(jws::verify_compact_jws(&jwt, &jwk).is_ok());
+    }
+
+    #[test]
+    fn can_serialize_compact_dic() {
+        let compact_dic = CompactDIC::Inbox(String::from("abcd123"));
+        let serialized = serde_json::to_string(&compact_dic).unwrap();
+        assert_eq!(serialized, r#""inbox:abcd123""#);
+
+        let compact_dic = CompactDIC::Outbox(String::from("abcd123"));
+        let serialized = serde_json::to_string(&compact_dic).unwrap();
+        assert_eq!(serialized, r#""outbox:abcd123""#);
+    }
+
+    #[test]
+    fn can_deserialize_compact_dic() {
+        let text = r#""inbox:abcd123""#;
+        let compact_dic: CompactDIC = serde_json::from_str(text).unwrap();
+        assert_eq!(compact_dic, CompactDIC::Inbox(String::from("abcd123")));
+
+        let text = r#""outbox:abcd123""#;
+        let compact_dic: CompactDIC = serde_json::from_str(text).unwrap();
+        assert_eq!(compact_dic, CompactDIC::Outbox(String::from("abcd123")));
+
+        let text = r#""abcd123""#;
+        let err = serde_json::from_str::<CompactDIC>(text).unwrap_err();
+        assert!(err.to_string().contains("data did not match any variant"));
     }
 }
