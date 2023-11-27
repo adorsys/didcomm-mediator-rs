@@ -2,6 +2,7 @@ use super::models::retrieve_or_generate_oob_inv;
 use super::models::retrieve_or_generate_qr_image;
 use axum::response::IntoResponse;
 use axum::{response::Html, routing::get, Router};
+use did_endpoint::util::filesystem::StdFileSystem;
 
 pub fn routes() -> Router {
     Router::new() //
@@ -12,14 +13,16 @@ pub fn routes() -> Router {
 
 async fn handler_oob_inv() -> impl IntoResponse {
     let (server_public_domain, server_local_port, storage_dirpath) = get_environment_variables();
-
-    retrieve_or_generate_oob_inv(&server_public_domain, &server_local_port, &storage_dirpath)
+    let mut fs = StdFileSystem;
+    retrieve_or_generate_oob_inv(&mut fs, &server_public_domain, &server_local_port, &storage_dirpath)
 }
 
 async fn handler_oob_qr() -> impl IntoResponse {
     let (server_public_domain, server_local_port, storage_dirpath) = get_environment_variables();
+    let mut fs = StdFileSystem;
+
     let oob_inv =
-        retrieve_or_generate_oob_inv(&server_public_domain, &server_local_port, &storage_dirpath);
+        retrieve_or_generate_oob_inv(&mut fs,&server_public_domain, &server_local_port, &storage_dirpath);
     let image_data = retrieve_or_generate_qr_image(&storage_dirpath, &oob_inv);
 
     Html(format!(
@@ -40,8 +43,9 @@ async fn handler_oob_qr() -> impl IntoResponse {
 
 async fn handler_landing_page_oob() -> impl IntoResponse {
     let (server_public_domain, server_local_port, storage_dirpath) = get_environment_variables();
+    let mut fs = StdFileSystem;
     let oob_inv =
-        retrieve_or_generate_oob_inv(&server_public_domain, &server_local_port, &storage_dirpath);
+        retrieve_or_generate_oob_inv(&mut fs,&server_public_domain, &server_local_port, &storage_dirpath);
     let image_data = retrieve_or_generate_qr_image(&storage_dirpath, &oob_inv);
 
     Html(format!(

@@ -22,7 +22,7 @@ tempdir = "0.3.7"
 
 # Plugins traits
 server-plugin = { path = "../server-plugin" }
-
+did-endpoint = { path = "../did-endpoint" }
 
 [dev-dependencies]
 tokio = { version = "1.30.0", features = ["full"] }

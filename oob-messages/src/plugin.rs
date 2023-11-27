@@ -3,6 +3,7 @@ use super::web;
 use super::models::retrieve_or_generate_oob_inv;
 use super::models::retrieve_or_generate_qr_image;
 use server_plugin::{Plugin, PluginError};
+use did_endpoint::util::filesystem::StdFileSystem;
 
 #[derive(Default)]
 pub struct OOBMessagesPlugin;
@@ -13,6 +14,8 @@ impl Plugin for OOBMessagesPlugin {
     }
 
     fn mount(&self) -> Result<(), PluginError> {
+        let mut fs = StdFileSystem;
+
         let server_public_domain = std::env::var("SERVER_PUBLIC_DOMAIN").map_err(|_| {
             tracing::error!("SERVER_PUBLIC_DOMAIN env variable required");
             PluginError::InitError
@@ -28,7 +31,7 @@ impl Plugin for OOBMessagesPlugin {
             PluginError::InitError
         })?;
 
-        let oob_inv = retrieve_or_generate_oob_inv(&server_public_domain, &server_local_port, &storage_dirpath);
+        let oob_inv = retrieve_or_generate_oob_inv(&mut fs, &server_public_domain, &server_local_port, &storage_dirpath);
         tracing::debug!(
             "Out Of Band Invitation: {}",
             oob_inv

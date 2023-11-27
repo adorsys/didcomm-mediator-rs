@@ -11,6 +11,11 @@ use std::path::Path;
 use std::{error::Error, fs};
 use url::{ParseError, Url};
 
+use did_endpoint::util::filesystem::FileSystem;
+
+#[cfg(test)]
+use std::io::{Error as IoError, ErrorKind, Result as IoResult};
+
 // region: --- Model
 
 // OOB Inv: Is an unencrypted message (In the form of an URL or QR code that contains a b64urlencode JWM) with the mediator public DID.
@@ -90,7 +95,8 @@ fn generate_from_field() -> String {
 }
 
 // Receives server path/port and local storage path and returns a String with the OOB URL.
-pub fn retrieve_or_generate_oob_inv(
+pub fn retrieve_or_generate_oob_inv<'a>(
+    fs: &mut dyn FileSystem,
     server_public_domain: &str,
     server_local_port: &str,
     storage_dirpath: &str,
@@ -114,7 +120,7 @@ pub fn retrieve_or_generate_oob_inv(
     let oob_url = OobMessage::serialize_oob_message(&oob_message, url);
 
     // Attempt to create the file and write the string
-    to_local_storage(&oob_url, storage_dirpath);
+    to_local_storage(fs, &oob_url, storage_dirpath);
 
     oob_url
 }
@@ -147,9 +153,9 @@ pub fn retrieve_or_generate_qr_image(base_path: &str, url: &str) -> Vec<u8> {
     fs::read(&path).expect("Error reading generated image")
 }
 
-fn to_local_storage(oob_url: &str, storage_dirpath: &str) {
+fn to_local_storage(fs: &mut dyn FileSystem, oob_url: &str, storage_dirpath: &str) {
     // Ensure the parent directory ('storage') exists
-    if let Err(e) = fs::create_dir_all(storage_dirpath) {
+    if let Err(e) = fs.create_dir_all(storage_dirpath) {
         eprintln!("Error creating directory: {}", e);
         return;
     }
@@ -193,9 +199,36 @@ fn url_to_did_web_id(url: &str) -> Result<String, Box<dyn Error>> {
 }
 
 #[cfg(test)]
+#[derive(Default)]
+pub struct MockFileSystem;
+
+#[cfg(test)]
+impl FileSystem for MockFileSystem {
+    fn read_to_string(&self, path: &str) -> IoResult<String> {
+        match path {
+            p if p.ends_with("oob_invitation.txt") => {
+                Ok(include_str!("../test/storage/oob_invitation.txt").to_string())
+            }
+            _ => Err(IoError::new(ErrorKind::NotFound, "NotFound")),
+        }
+    }
+
+    fn write(&mut self, _path: &str, _content: &str) -> IoResult<()> {
+        Ok(())
+    }
+
+    fn read_dir_files(&self, _path: &str) -> IoResult<Vec<String>> {
+        Ok(vec![])
+    }
+
+    fn create_dir_all(&mut self, _path: &str) -> IoResult<()> {
+        Ok(())
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::{BufRead, BufReader};
     use std::path::Path;
 
     #[test]
@@ -239,36 +272,28 @@ mod tests {
         let server_local_port = dotenv_flow_read("SERVER_LOCAL_PORT").unwrap();
         let storage_dirpath = dotenv_flow_read("STORAGE_DIRPATH").unwrap();
 
+        let mut mock_fs = MockFileSystem;
+
         let result = retrieve_or_generate_oob_inv(
+            &mut mock_fs,
             &server_public_domain,
             &server_local_port,
             &storage_dirpath,
         );
 
-        // Read the content of the file to verify it matches the expected URL
-        let file = File::open(format!("{}/oob_invitation.txt", storage_dirpath))
-            .expect("Error opening file");
-        let reader = BufReader::new(file);
+        let didpath = format!("{storage_dirpath}/oob_invitation.txt");
+        let file_content = mock_fs.read_to_string(&didpath).unwrap();
 
-        // Iterate over the lines and concatenate them into a single string
-        let file_content: String = reader
-            .lines()
-            .map(|line| line.expect("Error reading line"))
-            .collect();
-
-        assert_eq!(file_content, result);
+        assert_eq!(result, file_content);
     }
 
     #[test]
     fn test_retrieve_or_generate_qr_image() {
-        // Test data
         let url = "https://example.com";
         let storage_dirpath = dotenv_flow_read("STORAGE_DIRPATH").unwrap();
 
-        // Call the function
         retrieve_or_generate_qr_image(&storage_dirpath, url);
 
-        // Check if the file was created
         assert!(
             Path::new(&format!("{}/qrcode.png", storage_dirpath)).exists(),
             "QR code image file not created"
