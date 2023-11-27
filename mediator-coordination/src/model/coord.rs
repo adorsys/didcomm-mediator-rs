@@ -219,7 +219,7 @@ mod tests {
         let mediation_grant = MediationGrant {
             id: "id_alice_mediation_grant".to_string(),
             message_type: MEDIATE_GRANT_2_0.to_string(),
-            endpoint: "https://alice-mediators.com".to_string(),
+            endpoint: "https://alice-mediator.com".to_string(),
             dic: vec![
                 CompactDIC::Outbox("alice_out_opaque_dic".to_owned()),
                 CompactDIC::Inbox("alice_in_opaque_dic".to_owned()),
@@ -230,7 +230,7 @@ mod tests {
         let expected = json!({
             "@id": "id_alice_mediation_grant",
             "@type": "https://didcomm.org/coordinate-mediation/2.0/mediate-grant",
-            "endpoint": "https://alice-mediators.com",
+            "endpoint": "https://alice-mediator.com",
             "dic": ["outbox:alice_out_opaque_dic", "inbox:alice_in_opaque_dic"]
         });
 
@@ -245,7 +245,7 @@ mod tests {
         let msg = r#"{
             "@id": "id_alice_mediation_grant",
             "@type": "https://didcomm.org/coordinate-mediation/2.0/mediate-grant",
-            "endpoint": "https://alice-mediators.com",
+            "endpoint": "https://alice-mediator.com",
             "dic": ["outbox:alice_out_opaque_dic", "inbox:alice_in_opaque_dic"]
         }"#;
 
@@ -255,7 +255,7 @@ mod tests {
 
         assert_eq!(&mediation_grant.id, "id_alice_mediation_grant");
         assert_eq!(&mediation_grant.message_type, MEDIATE_GRANT_2_0);
-        assert_eq!(&mediation_grant.endpoint, "https://alice-mediators.com");
+        assert_eq!(&mediation_grant.endpoint, "https://alice-mediator.com");
         assert_eq!(
             mediation_grant.dic,
             vec![

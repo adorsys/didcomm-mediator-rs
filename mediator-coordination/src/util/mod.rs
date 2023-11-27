@@ -126,7 +126,10 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(vm_id, "did:web:mediators-r-us.com#keys-2");
+        assert_eq!(
+            vm_id,
+            "did:web:alice-mediator.com:alice_mediator_pub#keys-2"
+        );
         assert_eq!(
             json_canon::to_string(&jwk).unwrap(),
             json_canon::to_string(&expected_jwk).unwrap()
@@ -148,7 +151,10 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(vm_id, "did:web:mediators-r-us.com#keys-3");
+        assert_eq!(
+            vm_id,
+            "did:web:alice-mediator.com:alice_mediator_pub#keys-3"
+        );
         assert_eq!(
             json_canon::to_string(&jwk).unwrap(),
             json_canon::to_string(&expected_jwk).unwrap()

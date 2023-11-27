@@ -24,13 +24,15 @@ server-plugin = { path = "../server-plugin" }
 # optional
 chrono = { version = "0.4.26", optional = true }
 did-endpoint = { path = "../did-endpoint", optional = true }
+mediator-coordination = { path = "../mediator-coordination", optional = true }
 
 [dev-dependencies]
 tower = { version = "0.4.13", features = ["util"] }
 
 [features]
-default = ["plugin-index", "plugin-did_endpoint"]
+default = ["plugin-index", "plugin-did_endpoint", "plugin-mediator_coordination"]
 
 # plugins
 plugin-index = ["dep:chrono"]
 plugin-did_endpoint = ["dep:did-endpoint"]
+plugin-mediator_coordination = ["dep:mediator-coordination"]

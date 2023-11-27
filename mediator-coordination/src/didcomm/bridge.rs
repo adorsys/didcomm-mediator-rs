@@ -115,16 +115,16 @@ mod tests {
         let diddoc = setup();
         let resolver = LocalDIDResolver::new(&diddoc);
 
-        let did = "did:web:mediators-r-us.com";
+        let did = "did:web:alice-mediator.com:alice_mediator_pub";
         let resolved = resolver.resolve(did).await.unwrap().unwrap();
         let expected = serde_json::from_str::<Value>(
             r#"{
-                "id": "did:web:mediators-r-us.com",
+                "id": "did:web:alice-mediator.com:alice_mediator_pub",
                 "verificationMethod": [
                     {
-                        "id": "did:web:mediators-r-us.com#keys-1",
+                        "id": "did:web:alice-mediator.com:alice_mediator_pub#keys-1",
                         "type": "JsonWebKey2020",
-                        "controller": "did:web:mediators-r-us.com",
+                        "controller": "did:web:alice-mediator.com:alice_mediator_pub",
                         "publicKeyJwk": {
                             "kty": "OKP",
                             "crv": "Ed25519",
@@ -132,9 +132,9 @@ mod tests {
                         }
                     },
                     {
-                        "id": "did:web:mediators-r-us.com#keys-2",
+                        "id": "did:web:alice-mediator.com:alice_mediator_pub#keys-2",
                         "type": "JsonWebKey2020",
-                        "controller": "did:web:mediators-r-us.com",
+                        "controller": "did:web:alice-mediator.com:alice_mediator_pub",
                         "publicKeyJwk": {
                             "kty": "OKP",
                             "crv": "Ed25519",
@@ -142,9 +142,9 @@ mod tests {
                         }
                     },
                     {
-                        "id": "did:web:mediators-r-us.com#keys-3",
+                        "id": "did:web:alice-mediator.com:alice_mediator_pub#keys-3",
                         "type": "JsonWebKey2020",
-                        "controller": "did:web:mediators-r-us.com",
+                        "controller": "did:web:alice-mediator.com:alice_mediator_pub",
                         "publicKeyJwk": {
                             "kty": "OKP",
                             "crv": "X25519",
@@ -153,10 +153,10 @@ mod tests {
                     }
                 ],
                 "authentication": [
-                    "did:web:mediators-r-us.com#keys-1"
+                    "did:web:alice-mediator.com:alice_mediator_pub#keys-1"
                 ],
                 "keyAgreement": [
-                    "did:web:mediators-r-us.com#keys-3"
+                    "did:web:alice-mediator.com:alice_mediator_pub#keys-3"
                 ],
                 "service": []
             }"#,
