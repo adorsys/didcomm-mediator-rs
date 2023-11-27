@@ -1,14 +1,12 @@
 use crate::constants::OOB_INVITATION_2_0;
 use crate::util::dotenv_flow_read;
-use image::Luma;
+use base64::{encode_config, STANDARD};
+use image::{DynamicImage, Luma};
 use multibase::Base::Base64Url;
 use qrcode::QrCode;
 use serde::{Deserialize, Serialize};
 use serde_json::to_string;
-use std::fs::File;
-use std::io::{Read, Write};
-use std::path::Path;
-use std::{error::Error, fs};
+use std::error::Error;
 use url::{ParseError, Url};
 
 use did_endpoint::util::filesystem::FileSystem;
@@ -101,14 +99,12 @@ pub fn retrieve_or_generate_oob_inv<'a>(
     server_local_port: &str,
     storage_dirpath: &str,
 ) -> String {
-    // Check if the file already exists
+    // Construct the file path
     let file_path = format!("{}/oob_invitation.txt", storage_dirpath);
-    if let Ok(mut file) = File::open(&file_path) {
-        // If the file exists, read its content and return it
-        let mut content = String::new();
-        if let Err(e) = file.read_to_string(&mut content) {
-            eprintln!("Error reading file: {}", e);
-        }
+
+    // Attempt to read the file directly
+    if let Ok(content) = fs.read_to_string(&file_path) {
+        // If successful, return the content
         eprintln!("OOB Invitation successfully retrieved from file");
         return content;
     }
@@ -126,31 +122,40 @@ pub fn retrieve_or_generate_oob_inv<'a>(
 }
 
 // Function to generate and save a QR code image
-pub fn retrieve_or_generate_qr_image(base_path: &str, url: &str) -> Vec<u8> {
-    let path = format!("{}/qrcode.png", base_path);
+pub fn retrieve_or_generate_qr_image(
+    fs: &mut dyn FileSystem,
+    base_path: &str,
+    url: &str,
+) -> String {
+    let path = format!("{}/qrcode_image.txt", base_path);
 
-    // Check if the file exists in the specified path
-    if let Ok(existing_image) = fs::read(&path) {
+    // Check if the file exists in the specified path, otherwise creates it
+    if let Ok(existing_image) = fs.read_to_string(&path) {
         return existing_image;
-    }
-
-    // Ensure the directory exists
-    let directory = Path::new(&path)
-        .parent()
-        .expect("Error getting parent directory");
-    if !directory.exists() {
-        fs::create_dir_all(directory).expect("Error creating directory");
     }
 
     // Generate QR code
     let code = QrCode::new(url.as_bytes()).unwrap();
     let image = code.render::<Luma<u8>>().build();
 
-    // Save the image to the specified path
-    image.save(&path).expect("Error saving image");
+    // Convert the image to a PNG-encoded byte vector
+    let dynamic_image = DynamicImage::ImageLuma8(image);
+    let mut buffer = Vec::new();
+    dynamic_image
+        .write_to(&mut buffer, image::ImageOutputFormat::Png)
+        .expect("Error encoding image to PNG");
 
-    // Return the generated image
-    fs::read(&path).expect("Error reading generated image")
+    // Save the PNG-encoded byte vector as a base64-encoded string
+    let base64_string = encode_config(&buffer, STANDARD);
+
+    // let _ = fs.create_dir_all(&path);
+
+    println!("{}", path);
+
+    fs.write(&path, &base64_string)
+        .expect("Error saving base64-encoded image to file");
+
+    base64_string
 }
 
 fn to_local_storage(fs: &mut dyn FileSystem, oob_url: &str, storage_dirpath: &str) {
@@ -160,12 +165,13 @@ fn to_local_storage(fs: &mut dyn FileSystem, oob_url: &str, storage_dirpath: &st
         return;
     }
 
-    match File::create(format!("{}/oob_invitation.txt", storage_dirpath)) {
-        Ok(mut file) => match write!(file, "{}", oob_url) {
-            Ok(_) => println!("String successfully written to file."),
-            Err(e) => eprintln!("Error writing to file: {}", e),
-        },
-        Err(e) => eprintln!("Error creating file: {}", e),
+    let file_path = format!("{}/oob_invitation.txt", storage_dirpath);
+
+    // Attempt to write the string directly to the file
+    if let Err(e) = fs.write(&file_path, oob_url) {
+        eprintln!("Error writing to file: {}", e);
+    } else {
+        println!("String successfully written to file.");
     }
 }
 
@@ -209,6 +215,9 @@ impl FileSystem for MockFileSystem {
             p if p.ends_with("oob_invitation.txt") => {
                 Ok(include_str!("../test/storage/oob_invitation.txt").to_string())
             }
+            p if p.contains("qrcode_image.txt") => {
+                Ok(include_str!("../test/storage/qrcode_image.txt").to_string())
+            }
             _ => Err(IoError::new(ErrorKind::NotFound, "NotFound")),
         }
     }
@@ -229,7 +238,6 @@ impl FileSystem for MockFileSystem {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::Path;
 
     #[test]
     fn test_create_oob_message() {
@@ -289,14 +297,16 @@ mod tests {
 
     #[test]
     fn test_retrieve_or_generate_qr_image() {
+        let mut mock_fs = MockFileSystem;
+
         let url = "https://example.com";
         let storage_dirpath = dotenv_flow_read("STORAGE_DIRPATH").unwrap();
 
-        retrieve_or_generate_qr_image(&storage_dirpath, url);
+        let result = retrieve_or_generate_qr_image(&mut mock_fs, &storage_dirpath, url);
+        let expected_result = mock_fs
+            .read_to_string(&format!("{}/qrcode_image.txt", storage_dirpath))
+            .unwrap();
 
-        assert!(
-            Path::new(&format!("{}/qrcode.png", storage_dirpath)).exists(),
-            "QR code image file not created"
-        );
+        assert_eq!(result, expected_result);
     }
 }

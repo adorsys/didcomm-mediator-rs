@@ -14,16 +14,25 @@ pub fn routes() -> Router {
 async fn handler_oob_inv() -> impl IntoResponse {
     let (server_public_domain, server_local_port, storage_dirpath) = get_environment_variables();
     let mut fs = StdFileSystem;
-    retrieve_or_generate_oob_inv(&mut fs, &server_public_domain, &server_local_port, &storage_dirpath)
+    retrieve_or_generate_oob_inv(
+        &mut fs,
+        &server_public_domain,
+        &server_local_port,
+        &storage_dirpath,
+    )
 }
 
 async fn handler_oob_qr() -> impl IntoResponse {
     let (server_public_domain, server_local_port, storage_dirpath) = get_environment_variables();
     let mut fs = StdFileSystem;
 
-    let oob_inv =
-        retrieve_or_generate_oob_inv(&mut fs,&server_public_domain, &server_local_port, &storage_dirpath);
-    let image_data = retrieve_or_generate_qr_image(&storage_dirpath, &oob_inv);
+    let oob_inv = retrieve_or_generate_oob_inv(
+        &mut fs,
+        &server_public_domain,
+        &server_local_port,
+        &storage_dirpath,
+    );
+    let image_data = retrieve_or_generate_qr_image(&mut fs, &storage_dirpath, &oob_inv);
 
     Html(format!(
         r#"
@@ -37,16 +46,20 @@ async fn handler_oob_qr() -> impl IntoResponse {
                 </body>
             </html>
             "#,
-        base64::encode(&image_data)
+        &image_data
     ))
 }
 
 async fn handler_landing_page_oob() -> impl IntoResponse {
     let (server_public_domain, server_local_port, storage_dirpath) = get_environment_variables();
     let mut fs = StdFileSystem;
-    let oob_inv =
-        retrieve_or_generate_oob_inv(&mut fs,&server_public_domain, &server_local_port, &storage_dirpath);
-    let image_data = retrieve_or_generate_qr_image(&storage_dirpath, &oob_inv);
+    let oob_inv = retrieve_or_generate_oob_inv(
+        &mut fs,
+        &server_public_domain,
+        &server_local_port,
+        &storage_dirpath,
+    );
+    let image_data = retrieve_or_generate_qr_image(&mut fs, &storage_dirpath, &oob_inv);
 
     Html(format!(
         r#"
@@ -73,7 +86,7 @@ async fn handler_landing_page_oob() -> impl IntoResponse {
         </div>
     </html>
         "#,
-        base64::encode(&image_data),
+        &image_data,
     ))
 }
 
@@ -107,12 +120,11 @@ mod tests {
         body::Body,
         http::{Request, StatusCode},
     };
-    use tower::util::ServiceExt;
     use tempdir::TempDir;
+    use tower::util::ServiceExt;
 
     #[tokio::test]
     async fn test_routes() {
-
         let temp_dir = TempDir::new("temp_test_dir").expect("Failed to create temp directory");
         let temp_dir_path = temp_dir.path();
 
@@ -123,7 +135,12 @@ mod tests {
         let app = routes();
 
         let response = app
-            .oneshot(Request::builder().uri("/oob_url").body(Body::empty()).unwrap())
+            .oneshot(
+                Request::builder()
+                    .uri("/oob_url")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
 
@@ -132,7 +149,12 @@ mod tests {
         let app = routes();
 
         let response = app
-            .oneshot(Request::builder().uri("/oob_qr").body(Body::empty()).unwrap())
+            .oneshot(
+                Request::builder()
+                    .uri("/oob_qr")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
 

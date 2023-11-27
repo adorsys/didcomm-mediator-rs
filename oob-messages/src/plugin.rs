@@ -37,7 +37,7 @@ impl Plugin for OOBMessagesPlugin {
             oob_inv
         );
 
-        retrieve_or_generate_qr_image(&storage_dirpath, &oob_inv);
+        retrieve_or_generate_qr_image(&mut fs,&storage_dirpath, &oob_inv);
 
         Ok(())
     }
