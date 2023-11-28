@@ -11,7 +11,10 @@ use uuid::Uuid;
 use super::midlw::{self, *};
 use crate::{
     constant::{MEDIATE_DENY_2_0, MEDIATE_GRANT_2_0, MEDIATE_REQUEST_2_0},
-    model::coord::{MediationDeny, MediationGrant, MediationRequest},
+    model::{
+        coord::{MediationDeny, MediationGrant, MediationRequest, MediatorService},
+        dic::{CompactDIC, DICPayload, JwtAssertable},
+    },
     web::AppState,
 };
 
@@ -54,14 +57,14 @@ pub async fn process_plain_mediation_request_over_dics(
     plain_message: &Message,
     mediation_request: &MediationRequest,
 ) -> Result<Message, Response> {
+    // Set convenient aliases
     let requester_did = &mediation_request.did;
     let mediator_did = &state.diddoc.id;
 
     // Check message type compliance
-
     midlw::ensure_mediation_request_type(mediation_request, MEDIATE_REQUEST_2_0)?;
 
-    // Deny mediate request if sender is not requester
+    /* Deny mediate request if sender is not requester */
 
     let sender_did = plain_message
         .from
@@ -83,13 +86,39 @@ pub async fn process_plain_mediation_request_over_dics(
         .finalize());
     }
 
-    // Issue mediate grant response
+    /* Issue mediate grant response */
+
+    // Expand assertion key
+    let (kid, jwk) = &state.assertion_jwk;
+
+    // Issue verifiable credentials for DICs
+    let vdic: Vec<_> = mediation_request
+        .services
+        .iter()
+        .map(|service| {
+            let dic = DICPayload {
+                subject: requester_did.clone(),
+                issuer: mediator_did.clone(),
+                nonce: Some(Uuid::new_v4().to_string()),
+                ..Default::default()
+            };
+
+            let jws = dic
+                .sign(jwk, Some(kid.clone()))
+                .expect("could not sign DIC payload");
+
+            match service {
+                MediatorService::Inbox => CompactDIC::Inbox(jws),
+                MediatorService::Outbox => CompactDIC::Outbox(jws),
+            }
+        })
+        .collect();
 
     let mediation_grant = MediationGrant {
         id: format!("urn:uuid:{}", Uuid::new_v4()),
         message_type: MEDIATE_GRANT_2_0.to_string(),
         endpoint: state.public_domain.to_string(),
-        dic: vec![],
+        dic: vdic,
         ..Default::default()
     };
 
