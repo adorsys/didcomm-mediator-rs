@@ -3,6 +3,7 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use didcomm::{Message, UnpackOptions};
+use serde_json::{json, Value};
 
 use super::error::MediationError;
 use crate::{
@@ -97,6 +98,32 @@ pub fn ensure_jwm_type_is_mediation_request(message: &Message) -> Result<(), Res
         let response = (
             StatusCode::BAD_REQUEST,
             MediationError::InvalidMessageType.json(),
+        );
+
+        return Err(response.into_response());
+    }
+
+    Ok(())
+}
+
+/// Validate explicit decoration on message to receive response on same route
+/// See https://github.com/hyperledger/aries-rfcs/tree/main/features/0092-transport-return-route
+pub fn ensure_transport_return_route_is_decorated_all(message: &Message) -> Result<(), Response> {
+    let transport_decoration = message
+        .extra_headers
+        .get("~transport")
+        .unwrap_or(&Value::Null);
+
+    if !transport_decoration.is_object()
+        || transport_decoration
+            .as_object()
+            .unwrap()
+            .get("return_route")
+            != Some(&json!("all"))
+    {
+        let response = (
+            StatusCode::BAD_REQUEST,
+            MediationError::NoReturnRouteAllDecoration.json(),
         );
 
         return Err(response.into_response());

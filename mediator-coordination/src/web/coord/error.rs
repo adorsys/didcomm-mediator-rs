@@ -19,6 +19,8 @@ pub enum MediationError {
     MessageUnpackingFailure,
     #[error("could not pack message")]
     MessagePackingFailure,
+    #[error("message must be decorated with return route all extension")]
+    NoReturnRouteAllDecoration,
     #[error("unsupported content-type, only accept application/didcomm-encrypted+json")]
     NotDidcommEncryptedPayload,
     #[error("unsupported did method")]
