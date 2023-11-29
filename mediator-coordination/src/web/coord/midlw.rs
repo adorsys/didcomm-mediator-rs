@@ -148,10 +148,10 @@ pub fn parse_message_body_into_mediation_request(
 
 /// Validate that mediation request's URI type is as expected
 pub fn ensure_mediation_request_type(
-    mediation_request: &MediationRequest,
+    mediation_request: &Value,
     message_type: &str,
 ) -> Result<(), Response> {
-    if mediation_request.message_type != message_type {
+    if mediation_request.get("@type") != Some(&json!(message_type)) {
         let response = (
             StatusCode::BAD_REQUEST,
             MediationError::InvalidMessageType.json(),
