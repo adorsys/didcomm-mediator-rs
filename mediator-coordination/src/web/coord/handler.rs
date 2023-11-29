@@ -1,6 +1,6 @@
 use axum::{
     extract::State,
-    http::{HeaderMap, StatusCode},
+    http::{header::CONTENT_TYPE, HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     Json,
 };
@@ -10,7 +10,9 @@ use uuid::Uuid;
 
 use super::midlw::{self, *};
 use crate::{
-    constant::{MEDIATE_DENY_2_0, MEDIATE_GRANT_2_0, MEDIATE_REQUEST_2_0},
+    constant::{
+        DIDCOMM_ENCRYPTED_MIME_TYPE, MEDIATE_DENY_2_0, MEDIATE_GRANT_2_0, MEDIATE_REQUEST_2_0,
+    },
     model::{
         coord::{MediationDeny, MediationGrant, MediationRequest, MediatorService},
         dic::{CompactDIC, DICPayload, JwtAssertable},
@@ -48,7 +50,24 @@ pub async fn process_didcomm_mediation_request_message(
         process_plain_mediation_request_over_dics(&state, &plain_message, &mediation_request).await
     );
 
-    (StatusCode::ACCEPTED, Json(json!(plain_response_message))).into_response()
+    // Pack response message
+    let packed_message = midlw::run!(
+        pack_response_message(
+            &plain_response_message,
+            &state.did_resolver,
+            &state.secrets_resolver
+        )
+        .await
+    );
+
+    // Build final response
+    let response = (
+        StatusCode::ACCEPTED,
+        [(CONTENT_TYPE, DIDCOMM_ENCRYPTED_MIME_TYPE)],
+        Json(packed_message),
+    );
+
+    response.into_response()
 }
 
 /// Process a DIC-wise mediation request
