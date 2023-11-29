@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "stateless")]
 use super::stateless::coord::MediationRequest as StatelessMediationRequest;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -9,5 +10,6 @@ pub enum MediationRequest {
     // Stateful
 
     /// Format for stateless mode over DICs
+    #[cfg(feature = "stateless")]
     Stateless(StatelessMediationRequest),
 }
