@@ -109,6 +109,17 @@ pub enum CompactDIC {
     Outbox(String),
 }
 
+#[allow(unused)]
+impl CompactDIC {
+    /// Retrieve tag-less JWS string
+    pub fn plain_jws(&self) -> String {
+        match self {
+            CompactDIC::Inbox(s) => s.clone(),
+            CompactDIC::Outbox(s) => s.clone(),
+        }
+    }
+}
+
 macro_rules! compact_dic_variant_serder {
     ($S: ident) => {
         paste::paste! {
@@ -326,5 +337,13 @@ mod tests {
         let text = r#""abcd123""#;
         let err = serde_json::from_str::<CompactDIC>(text).unwrap_err();
         assert!(err.to_string().contains("data did not match any variant"));
+    }
+    #[test]
+    fn can_retrieve_plain_jws_from_compact_dic() {
+        let compact_dic = CompactDIC::Inbox(String::from("abcd123"));
+        assert_eq!(compact_dic.plain_jws(), "abcd123");
+
+        let compact_dic = CompactDIC::Outbox(String::from("abcd123"));
+        assert_eq!(compact_dic.plain_jws(), "abcd123");
     }
 }

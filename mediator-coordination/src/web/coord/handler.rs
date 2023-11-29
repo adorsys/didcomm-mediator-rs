@@ -150,3 +150,186 @@ pub async fn process_plain_mediation_request_over_dics(
     .from(mediator_did.clone())
     .finalize())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use axum::{
+        body::Body,
+        http::{Method, Request},
+        Router,
+    };
+    use did_utils::key_jwk::jwk::Jwk;
+    use didcomm::{
+        error::Error as DidcommError, secrets::SecretsResolver, PackEncryptedOptions, UnpackOptions,
+    };
+    use serde_json::Value;
+    use tower::util::ServiceExt;
+
+    use crate::{
+        didcomm::bridge::LocalSecretsResolver,
+        jose::jws,
+        util::{self, MockFileSystem},
+        web,
+    };
+
+    fn setup() -> (Router, AppState) {
+        let public_domain = String::from("http://alice-mediator.com");
+
+        let mut mock_fs = MockFileSystem;
+        let diddoc = util::read_diddoc(&mock_fs, "").unwrap();
+        let keystore = util::read_keystore(&mut mock_fs, "").unwrap();
+
+        let mut mock_fs = MockFileSystem;
+        let keystore_clone = util::read_keystore(&mut mock_fs, "").unwrap();
+
+        let app = web::routes(public_domain.clone(), diddoc.clone(), keystore_clone);
+        let state = AppState::from(public_domain, diddoc, keystore);
+
+        (app, state)
+    }
+
+    #[tokio::test]
+    async fn test_comprehensive_mediate_grant_response() {
+        let (app, state) = setup();
+
+        let msg = Message::build(
+            "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
+            MEDIATE_REQUEST_2_0.to_string(),
+            json!(MediationRequest {
+                id: "urn:uuid:ff5a4c85-0df4-4fbe-88ce-fcd2d321a06d".to_string(),
+                message_type: MEDIATE_REQUEST_2_0.to_string(),
+                did: _edge_did(),
+                services: [MediatorService::Inbox, MediatorService::Outbox]
+                    .into_iter()
+                    .collect(),
+                ..Default::default()
+            }),
+        )
+        .header(
+            "~transport".into(),
+            json!({
+                "return_route": "all"
+            }),
+        )
+        .to(_mediator_did(&state))
+        .from(_edge_did())
+        .finalize();
+
+        let packed_msg = _edge_pack_message(&state, &msg, Some(_edge_did()), _mediator_did(&state))
+            .await
+            .unwrap();
+
+        // Send request
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri(String::from("/mediate"))
+                    .method(Method::POST)
+                    .header(CONTENT_TYPE, DIDCOMM_ENCRYPTED_MIME_TYPE)
+                    .body(Body::from(packed_msg))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::ACCEPTED);
+        assert_eq!(
+            response.headers().get(CONTENT_TYPE).unwrap(),
+            DIDCOMM_ENCRYPTED_MIME_TYPE
+        );
+
+        let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+        let body: Value = serde_json::from_slice(&body).unwrap();
+        let response = serde_json::to_string(&body).unwrap();
+
+        let msg: Message = _edge_unpack_message(&state, &response).await.unwrap();
+
+        assert_eq!(msg.type_, MEDIATE_GRANT_2_0);
+        assert_eq!(msg.from.unwrap(), _mediator_did(&state));
+        assert_eq!(msg.to.unwrap(), [_edge_did()]);
+
+        let mediate_grant: MediationGrant = serde_json::from_value(msg.body).unwrap();
+
+        assert!(mediate_grant.id.starts_with("urn:uuid:"));
+        assert_eq!(mediate_grant.message_type, MEDIATE_GRANT_2_0);
+        assert_eq!(mediate_grant.endpoint, state.public_domain);
+
+        assert_eq!(mediate_grant.dic.len(), 2);
+        assert!({
+            let mut iter = mediate_grant.dic.iter();
+            iter.any(|dic| matches!(dic, CompactDIC::Inbox(_)))
+        });
+        assert!({
+            let mut iter = mediate_grant.dic.iter();
+            iter.any(|dic| matches!(dic, CompactDIC::Outbox(_)))
+        });
+        assert!({
+            let mut iter = mediate_grant.dic.iter();
+            iter.all(|dic| {
+                jws::verify_compact_jws(&dic.plain_jws(), &state.assertion_jwk.1).is_ok()
+            })
+        });
+    }
+
+    //------------------------------------------------------------------------
+    // Helpers ---------------------------------------------------------------
+    //------------------------------------------------------------------------
+
+    fn _mediator_did(state: &AppState) -> String {
+        state.diddoc.id.clone()
+    }
+
+    fn _edge_did() -> String {
+        "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7".to_string()
+    }
+
+    fn _edge_secrets_resolver() -> impl SecretsResolver {
+        let secret_id = "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7#z6LSbuUXWSgPfpiDBjUK6E7yiCKMN2eKJsXn5b55ZgqGz6Mr";
+        let secret: Jwk = serde_json::from_str(
+            r#"{
+                "kty": "OKP",
+                "crv": "X25519",
+                "x": "A2gufB762KKDkbTX0usDbekRJ-_PPBeVhc2gNgjpswU",
+                "d": "oItI6Jx-anGyhiDJIXtVAhzugOha05s-7_a5_CTs_V4"
+            }"#,
+        )
+        .unwrap();
+
+        LocalSecretsResolver::new(secret_id, &secret)
+    }
+
+    async fn _edge_pack_message(
+        state: &AppState,
+        msg: &Message,
+        from: Option<String>,
+        to: String,
+    ) -> Result<String, DidcommError> {
+        let (packed, _) = msg
+            .pack_encrypted(
+                &to,
+                from.as_deref(),
+                None,
+                &state.did_resolver,
+                &_edge_secrets_resolver(),
+                &PackEncryptedOptions::default(),
+            )
+            .await?;
+
+        Ok(packed)
+    }
+
+    async fn _edge_unpack_message(state: &AppState, msg: &str) -> Result<Message, DidcommError> {
+        let (unpacked, _) = Message::unpack(
+            msg,
+            &state.did_resolver,
+            &_edge_secrets_resolver(),
+            &UnpackOptions::default(),
+        )
+        .await
+        .expect("Unable to unpack");
+
+        Ok(unpacked)
+    }
+}
