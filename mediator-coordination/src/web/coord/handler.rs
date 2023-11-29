@@ -171,7 +171,7 @@ mod tests {
         didcomm::bridge::LocalSecretsResolver,
         jose::jws,
         util::{self, MockFileSystem},
-        web,
+        web::{self, coord::error::MediationError},
     };
 
     fn setup() -> (Router, AppState) {
@@ -191,7 +191,164 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_comprehensive_mediate_grant_response() {
+    async fn test_comprehensive_mediation_grant_response() {
+        let (app, state) = setup();
+
+        // Build message
+        let msg = Message::build(
+            "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
+            MEDIATE_REQUEST_2_0.to_string(),
+            json!(MediationRequest {
+                id: "urn:uuid:ff5a4c85-0df4-4fbe-88ce-fcd2d321a06d".to_string(),
+                message_type: MEDIATE_REQUEST_2_0.to_string(),
+                did: _edge_did(),
+                services: [MediatorService::Inbox, MediatorService::Outbox]
+                    .into_iter()
+                    .collect(),
+                ..Default::default()
+            }),
+        )
+        .header(
+            "~transport".into(),
+            json!({
+                "return_route": "all"
+            }),
+        )
+        .to(_mediator_did(&state))
+        .from(_edge_did())
+        .finalize();
+
+        // Encrypt message for mediator
+        let packed_msg = _edge_pack_message(&state, &msg, Some(_edge_did()), _mediator_did(&state))
+            .await
+            .unwrap();
+
+        // Send request
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri(String::from("/mediate"))
+                    .method(Method::POST)
+                    .header(CONTENT_TYPE, DIDCOMM_ENCRYPTED_MIME_TYPE)
+                    .body(Body::from(packed_msg))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        // Assert response's metadata
+        assert_eq!(response.status(), StatusCode::ACCEPTED);
+        assert_eq!(
+            response.headers().get(CONTENT_TYPE).unwrap(),
+            DIDCOMM_ENCRYPTED_MIME_TYPE
+        );
+
+        // Parse response's body
+        let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+        let body: Value = serde_json::from_slice(&body).unwrap();
+        let response = serde_json::to_string(&body).unwrap();
+
+        // Decrypt response
+        let msg: Message = _edge_unpack_message(&state, &response).await.unwrap();
+
+        // Assert metadata
+        assert_eq!(msg.type_, MEDIATE_GRANT_2_0);
+        assert_eq!(msg.from.unwrap(), _mediator_did(&state));
+        assert_eq!(msg.to.unwrap(), [_edge_did()]);
+
+        // Parse alleged mediation grant response
+        let mediation_grant: MediationGrant = serde_json::from_value(msg.body).unwrap();
+
+        // Assert mediation grant's properties
+        assert!(mediation_grant.id.starts_with("urn:uuid:"));
+        assert_eq!(mediation_grant.message_type, MEDIATE_GRANT_2_0);
+        assert_eq!(mediation_grant.endpoint, state.public_domain);
+
+        // Assert that mediation grant embeds DICs for requested services
+        assert_eq!(
+            _inspect_dic_tags(&mediation_grant.dic),
+            vec!["inbox", "outbox"]
+        );
+
+        // Verify issued DICs
+        assert!({
+            let mut iter = mediation_grant.dic.iter();
+            iter.all(|dic| {
+                jws::verify_compact_jws(&dic.plain_jws(), &state.assertion_jwk.1).is_ok()
+            })
+        });
+    }
+
+    #[tokio::test]
+    async fn test_mediation_grant_response_with_single_channel() {
+        let (app, state) = setup();
+
+        for service in &[MediatorService::Inbox, MediatorService::Outbox] {
+            let msg = Message::build(
+                "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
+                MEDIATE_REQUEST_2_0.to_string(),
+                json!(MediationRequest {
+                    id: "urn:uuid:ff5a4c85-0df4-4fbe-88ce-fcd2d321a06d".to_string(),
+                    message_type: MEDIATE_REQUEST_2_0.to_string(),
+                    did: _edge_did(),
+                    services: [service.clone()].into_iter().collect(),
+                    ..Default::default()
+                }),
+            )
+            .header(
+                "~transport".into(),
+                json!({
+                    "return_route": "all"
+                }),
+            )
+            .to(_mediator_did(&state))
+            .from(_edge_did())
+            .finalize();
+
+            let packed_msg =
+                _edge_pack_message(&state, &msg, Some(_edge_did()), _mediator_did(&state))
+                    .await
+                    .unwrap();
+
+            // Send request
+            let response = app
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .uri(String::from("/mediate"))
+                        .method(Method::POST)
+                        .header(CONTENT_TYPE, DIDCOMM_ENCRYPTED_MIME_TYPE)
+                        .body(Body::from(packed_msg))
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+
+            assert_eq!(response.status(), StatusCode::ACCEPTED);
+            assert_eq!(
+                response.headers().get(CONTENT_TYPE).unwrap(),
+                DIDCOMM_ENCRYPTED_MIME_TYPE
+            );
+
+            let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+            let body: Value = serde_json::from_slice(&body).unwrap();
+            let response = serde_json::to_string(&body).unwrap();
+
+            let msg: Message = _edge_unpack_message(&state, &response).await.unwrap();
+            let mediation_grant: MediationGrant = serde_json::from_value(msg.body).unwrap();
+
+            assert_eq!(
+                _inspect_dic_tags(&mediation_grant.dic),
+                vec![match service {
+                    MediatorService::Inbox => "inbox",
+                    MediatorService::Outbox => "outbox",
+                }]
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn test_mediation_deny_response_for_sender_requester_unmatch() {
         let (app, state) = setup();
 
         let msg = Message::build(
@@ -200,7 +357,7 @@ mod tests {
             json!(MediationRequest {
                 id: "urn:uuid:ff5a4c85-0df4-4fbe-88ce-fcd2d321a06d".to_string(),
                 message_type: MEDIATE_REQUEST_2_0.to_string(),
-                did: _edge_did(),
+                did: "did:key:unknown".to_string(),
                 services: [MediatorService::Inbox, MediatorService::Outbox]
                     .into_iter()
                     .collect(),
@@ -245,32 +402,313 @@ mod tests {
         let response = serde_json::to_string(&body).unwrap();
 
         let msg: Message = _edge_unpack_message(&state, &response).await.unwrap();
-
-        assert_eq!(msg.type_, MEDIATE_GRANT_2_0);
+        assert_eq!(msg.type_, MEDIATE_DENY_2_0);
         assert_eq!(msg.from.unwrap(), _mediator_did(&state));
         assert_eq!(msg.to.unwrap(), [_edge_did()]);
 
-        let mediate_grant: MediationGrant = serde_json::from_value(msg.body).unwrap();
+        let mediation_deny: MediationDeny = serde_json::from_value(msg.body).unwrap();
+        assert_eq!(mediation_deny.message_type, MEDIATE_DENY_2_0);
+    }
 
-        assert!(mediate_grant.id.starts_with("urn:uuid:"));
-        assert_eq!(mediate_grant.message_type, MEDIATE_GRANT_2_0);
-        assert_eq!(mediate_grant.endpoint, state.public_domain);
+    #[tokio::test]
+    async fn test_bad_request_on_invalid_payload_content_type() {
+        let (app, state) = setup();
 
-        assert_eq!(mediate_grant.dic.len(), 2);
-        assert!({
-            let mut iter = mediate_grant.dic.iter();
-            iter.any(|dic| matches!(dic, CompactDIC::Inbox(_)))
-        });
-        assert!({
-            let mut iter = mediate_grant.dic.iter();
-            iter.any(|dic| matches!(dic, CompactDIC::Outbox(_)))
-        });
-        assert!({
-            let mut iter = mediate_grant.dic.iter();
-            iter.all(|dic| {
-                jws::verify_compact_jws(&dic.plain_jws(), &state.assertion_jwk.1).is_ok()
-            })
-        });
+        let msg = Message::build(
+            "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
+            MEDIATE_REQUEST_2_0.to_string(),
+            json!(MediationRequest {
+                id: "urn:uuid:ff5a4c85-0df4-4fbe-88ce-fcd2d321a06d".to_string(),
+                message_type: MEDIATE_REQUEST_2_0.to_string(),
+                did: _edge_did(),
+                services: [MediatorService::Inbox, MediatorService::Outbox]
+                    .into_iter()
+                    .collect(),
+                ..Default::default()
+            }),
+        )
+        .header(
+            "~transport".into(),
+            json!({
+                "return_route": "all"
+            }),
+        )
+        .to(_mediator_did(&state))
+        .from(_edge_did())
+        .finalize();
+
+        let packed_msg = _edge_pack_message(&state, &msg, Some(_edge_did()), _mediator_did(&state))
+            .await
+            .unwrap();
+
+        // Send request
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri(String::from("/mediate"))
+                    .method(Method::POST)
+                    .body(Body::from(packed_msg))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+        assert_eq!(
+            response.headers().get(CONTENT_TYPE).unwrap(),
+            "application/json"
+        );
+
+        let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+        let body: Value = serde_json::from_slice(&body).unwrap();
+
+        assert_eq!(
+            json_canon::to_string(&body).unwrap(),
+            json_canon::to_string(&MediationError::NotDidcommEncryptedPayload.json().0).unwrap()
+        )
+    }
+
+    #[tokio::test]
+    async fn test_bad_request_on_unpacking_failure() {
+        let (app, state) = setup();
+
+        let msg = Message::build(
+            "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
+            MEDIATE_REQUEST_2_0.to_string(),
+            json!(MediationRequest {
+                id: "urn:uuid:ff5a4c85-0df4-4fbe-88ce-fcd2d321a06d".to_string(),
+                message_type: MEDIATE_REQUEST_2_0.to_string(),
+                did: _edge_did(),
+                services: [MediatorService::Inbox, MediatorService::Outbox]
+                    .into_iter()
+                    .collect(),
+                ..Default::default()
+            }),
+        )
+        .header(
+            "~transport".into(),
+            json!({
+                "return_route": "all"
+            }),
+        )
+        .to(_edge_did())
+        .from(_edge_did())
+        .finalize();
+
+        // Pack for edge instead of mediator
+        let packed_msg = _edge_pack_message(&state, &msg, Some(_edge_did()), _edge_did())
+            .await
+            .unwrap();
+
+        // Send request
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri(String::from("/mediate"))
+                    .method(Method::POST)
+                    .header(CONTENT_TYPE, DIDCOMM_ENCRYPTED_MIME_TYPE)
+                    .body(Body::from(packed_msg))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+        assert_eq!(
+            response.headers().get(CONTENT_TYPE).unwrap(),
+            "application/json"
+        );
+
+        let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+        let body: Value = serde_json::from_slice(&body).unwrap();
+
+        assert_eq!(
+            json_canon::to_string(&body).unwrap(),
+            json_canon::to_string(&MediationError::MessageUnpackingFailure.json().0).unwrap()
+        )
+    }
+
+    #[tokio::test]
+    async fn test_bad_request_on_invalid_message_type() {
+        let messages = [
+            Message::build(
+                "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
+                "invalid-message-type".to_string(),
+                json!(MediationRequest {
+                    id: "urn:uuid:ff5a4c85-0df4-4fbe-88ce-fcd2d321a06d".to_string(),
+                    message_type: MEDIATE_REQUEST_2_0.to_string(),
+                    did: _edge_did(),
+                    services: [MediatorService::Inbox, MediatorService::Outbox]
+                        .into_iter()
+                        .collect(),
+                    ..Default::default()
+                }),
+            ),
+            Message::build(
+                "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
+                MEDIATE_REQUEST_2_0.to_string(),
+                json!(MediationRequest {
+                    id: "urn:uuid:ff5a4c85-0df4-4fbe-88ce-fcd2d321a06d".to_string(),
+                    message_type: "invalid-message-type".to_string(),
+                    did: _edge_did(),
+                    services: [MediatorService::Inbox, MediatorService::Outbox]
+                        .into_iter()
+                        .collect(),
+                    ..Default::default()
+                }),
+            ),
+        ];
+
+        for msg in messages {
+            let (app, state) = setup();
+
+            let msg = msg
+                .header(
+                    "~transport".into(),
+                    json!({
+                        "return_route": "all"
+                    }),
+                )
+                .to(_mediator_did(&state))
+                .from(_edge_did())
+                .finalize();
+
+            let packed_msg =
+                _edge_pack_message(&state, &msg, Some(_edge_did()), _mediator_did(&state))
+                    .await
+                    .unwrap();
+
+            // Send request
+            let response = app
+                .oneshot(
+                    Request::builder()
+                        .uri(String::from("/mediate"))
+                        .method(Method::POST)
+                        .header(CONTENT_TYPE, DIDCOMM_ENCRYPTED_MIME_TYPE)
+                        .body(Body::from(packed_msg))
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+
+            assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+            assert_eq!(
+                response.headers().get(CONTENT_TYPE).unwrap(),
+                "application/json"
+            );
+
+            let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+            let body: Value = serde_json::from_slice(&body).unwrap();
+
+            assert_eq!(
+                json_canon::to_string(&body).unwrap(),
+                json_canon::to_string(&MediationError::InvalidMessageType.json().0).unwrap()
+            )
+        }
+    }
+
+    #[tokio::test]
+    async fn test_bad_request_on_missing_return_route_decoration() {
+        let (app, state) = setup();
+
+        let msg = Message::build(
+            "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
+            MEDIATE_REQUEST_2_0.to_string(),
+            json!(MediationRequest {
+                id: "urn:uuid:ff5a4c85-0df4-4fbe-88ce-fcd2d321a06d".to_string(),
+                message_type: MEDIATE_REQUEST_2_0.to_string(),
+                did: _edge_did(),
+                services: [MediatorService::Inbox, MediatorService::Outbox]
+                    .into_iter()
+                    .collect(),
+                ..Default::default()
+            }),
+        )
+        .to(_mediator_did(&state))
+        .from(_edge_did())
+        .finalize();
+
+        let packed_msg = _edge_pack_message(&state, &msg, Some(_edge_did()), _mediator_did(&state))
+            .await
+            .unwrap();
+
+        // Send request
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri(String::from("/mediate"))
+                    .method(Method::POST)
+                    .header(CONTENT_TYPE, DIDCOMM_ENCRYPTED_MIME_TYPE)
+                    .body(Body::from(packed_msg))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+        assert_eq!(
+            response.headers().get(CONTENT_TYPE).unwrap(),
+            "application/json"
+        );
+
+        let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+        let body: Value = serde_json::from_slice(&body).unwrap();
+
+        assert_eq!(
+            json_canon::to_string(&body).unwrap(),
+            json_canon::to_string(&MediationError::NoReturnRouteAllDecoration.json().0).unwrap()
+        )
+    }
+
+    #[tokio::test]
+    async fn test_bad_request_on_non_mediate_request_payload() {
+        let (app, state) = setup();
+
+        let msg = Message::build(
+            "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
+            MEDIATE_REQUEST_2_0.to_string(),
+            json!("not-mediate-request"),
+        )
+        .header(
+            "~transport".into(),
+            json!({
+                "return_route": "all"
+            }),
+        )
+        .to(_mediator_did(&state))
+        .from(_edge_did())
+        .finalize();
+
+        let packed_msg = _edge_pack_message(&state, &msg, Some(_edge_did()), _mediator_did(&state))
+            .await
+            .unwrap();
+
+        // Send request
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri(String::from("/mediate"))
+                    .method(Method::POST)
+                    .header(CONTENT_TYPE, DIDCOMM_ENCRYPTED_MIME_TYPE)
+                    .body(Body::from(packed_msg))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+        assert_eq!(
+            response.headers().get(CONTENT_TYPE).unwrap(),
+            "application/json"
+        );
+
+        let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+        let body: Value = serde_json::from_slice(&body).unwrap();
+
+        assert_eq!(
+            json_canon::to_string(&body).unwrap(),
+            json_canon::to_string(&MediationError::InvalidMediationRequestFormat.json().0).unwrap()
+        )
     }
 
     //------------------------------------------------------------------------
@@ -331,5 +769,18 @@ mod tests {
         .expect("Unable to unpack");
 
         Ok(unpacked)
+    }
+
+    fn _inspect_dic_tags(vdic: &[CompactDIC]) -> Vec<&'static str> {
+        let mut tags: Vec<_> = vdic
+            .iter()
+            .map(|dic| match dic {
+                CompactDIC::Inbox(_) => "inbox",
+                CompactDIC::Outbox(_) => "outbox",
+            })
+            .collect();
+
+        tags.sort();
+        tags
     }
 }
