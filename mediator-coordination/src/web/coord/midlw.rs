@@ -205,6 +205,11 @@ pub async fn pack_response_message(
 mod tests {
     use super::{super::handler::tests::*, *};
 
+    #[cfg(feature = "stateless")]
+    use crate::model::stateless::coord::{
+        MediationRequest as StatelessMediationRequest, MediatorService,
+    };
+
     #[tokio::test]
     async fn test_ensure_content_type_is_didcomm_encrypted() {
         /* Positive cases */
@@ -252,7 +257,7 @@ mod tests {
             MEDIATE_REQUEST_2_0.to_string(),
             json!({
                 "@id": "id_alice_mediation_request",
-                "@type": "https://didcomm.org/coordinate-mediation/2.0/mediate-request",
+                "@type": MEDIATE_REQUEST_2_0,
                 "did": "did:key:alice_identity_pub@alice_mediator",
                 "services": ["inbox", "outbox"]
             }),
@@ -282,7 +287,7 @@ mod tests {
             MEDIATE_REQUEST_2_0.to_string(),
             json!({
                 "@id": "id_alice_mediation_request",
-                "@type": "https://didcomm.org/coordinate-mediation/2.0/mediate-request",
+                "@type": MEDIATE_REQUEST_2_0,
                 "did": "did:key:alice_identity_pub@alice_mediator",
                 "services": ["inbox", "outbox"]
             }),
@@ -314,7 +319,7 @@ mod tests {
             MEDIATE_REQUEST_2_0.to_string(),
             json!({
                 "@id": "id_alice_mediation_request",
-                "@type": "https://didcomm.org/coordinate-mediation/2.0/mediate-request",
+                "@type": MEDIATE_REQUEST_2_0,
                 "did": "did:key:alice_identity_pub@alice_mediator",
                 "services": ["inbox", "outbox"]
             }),
@@ -362,7 +367,7 @@ mod tests {
             MEDIATE_REQUEST_2_0.to_string(),
             json!({
                 "@id": "id_alice_mediation_request",
-                "@type": "https://didcomm.org/coordinate-mediation/2.0/mediate-request",
+                "@type": MEDIATE_REQUEST_2_0,
                 "did": "did:key:alice_identity_pub@alice_mediator",
                 "services": ["inbox", "outbox"]
             }),
@@ -395,7 +400,7 @@ mod tests {
             MEDIATE_REQUEST_2_0.to_string(),
             json!({
                 "@id": "id_alice_mediation_request",
-                "@type": "https://didcomm.org/coordinate-mediation/2.0/mediate-request",
+                "@type": MEDIATE_REQUEST_2_0,
                 "did": "did:key:alice_identity_pub@alice_mediator",
                 "services": ["inbox", "outbox"]
             }),
@@ -414,7 +419,8 @@ mod tests {
                 &_edge_signing_secrets_resolver(),
                 &PackEncryptedOptions::default(),
             )
-            .await.unwrap();
+            .await
+            .unwrap();
 
         _assert_midlw_err(
             unpack_request_message(&packed_msg, &state.did_resolver, &state.secrets_resolver)
@@ -422,6 +428,308 @@ mod tests {
                 .unwrap_err(),
             StatusCode::BAD_REQUEST,
             MediationError::AnonymousPacker,
+        )
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_ensure_jwm_type_is_mediation_request() {
+        let (_, state) = setup();
+
+        /* Positive cases */
+
+        let msg = Message::build(
+            "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
+            MEDIATE_REQUEST_1_0.to_string(),
+            json!({
+                "@id": "id_alice_mediation_request",
+                "@type": MEDIATE_REQUEST_1_0,
+                "did": "did:key:alice_identity_pub@alice_mediator",
+                "services": ["inbox", "outbox"]
+            }),
+        )
+        .to(_mediator_did(&state))
+        .from(_edge_did())
+        .finalize();
+
+        assert!(ensure_jwm_type_is_mediation_request(&msg).is_ok());
+
+        let msg = Message::build(
+            "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
+            MEDIATE_REQUEST_2_0.to_string(),
+            json!({
+                "@id": "id_alice_mediation_request",
+                "@type": MEDIATE_REQUEST_2_0,
+                "did": "did:key:alice_identity_pub@alice_mediator",
+                "services": ["inbox", "outbox"]
+            }),
+        )
+        .to(_mediator_did(&state))
+        .from(_edge_did())
+        .finalize();
+
+        assert!(ensure_jwm_type_is_mediation_request(&msg).is_ok());
+
+        /* Negative cases */
+
+        let msg = Message::build(
+            "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
+            "invalid-type".to_string(),
+            json!({
+                "@id": "id_alice_mediation_request",
+                "@type": MEDIATE_REQUEST_1_0,
+                "did": "did:key:alice_identity_pub@alice_mediator",
+                "services": ["inbox", "outbox"]
+            }),
+        )
+        .to(_mediator_did(&state))
+        .from(_edge_did())
+        .finalize();
+
+        _assert_midlw_err(
+            ensure_jwm_type_is_mediation_request(&msg).unwrap_err(),
+            StatusCode::BAD_REQUEST,
+            MediationError::InvalidMessageType,
+        )
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_ensure_transport_return_route_is_decorated_all() {
+        let (_, state) = setup();
+
+        macro_rules! unfinalized_msg {
+            () => {
+                Message::build(
+                    "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
+                    MEDIATE_REQUEST_1_0.to_string(),
+                    json!({
+                        "@id": "id_alice_mediation_request",
+                        "@type": MEDIATE_REQUEST_1_0,
+                        "did": "did:key:alice_identity_pub@alice_mediator",
+                        "services": ["inbox", "outbox"]
+                    }),
+                )
+                .to(_mediator_did(&state))
+                .from(_edge_did())
+            };
+        }
+
+        /* Positive cases */
+
+        let msg = unfinalized_msg!()
+            .header(
+                "~transport".into(),
+                json!({
+                    "return_route": "all"
+                }),
+            )
+            .finalize();
+
+        assert!(ensure_transport_return_route_is_decorated_all(&msg).is_ok());
+
+        /* Negative cases */
+
+        let msg = unfinalized_msg!().finalize();
+
+        _assert_midlw_err(
+            ensure_transport_return_route_is_decorated_all(&msg).unwrap_err(),
+            StatusCode::BAD_REQUEST,
+            MediationError::NoReturnRouteAllDecoration,
+        )
+        .await;
+
+        let msg = unfinalized_msg!()
+            .header(
+                "~transport".into(),
+                json!({
+                    "return_route": "none"
+                }),
+            )
+            .finalize();
+
+        _assert_midlw_err(
+            ensure_transport_return_route_is_decorated_all(&msg).unwrap_err(),
+            StatusCode::BAD_REQUEST,
+            MediationError::NoReturnRouteAllDecoration,
+        )
+        .await;
+    }
+
+    #[cfg(feature = "stateless")]
+    #[tokio::test]
+    async fn test_parse_message_body_into_stateless_mediation_request() {
+        let (_, state) = setup();
+
+        /* Positive cases */
+
+        let mediation_request = StatelessMediationRequest {
+            id: "urn:uuid:ff5a4c85-0df4-4fbe-88ce-fcd2d321a06d".to_string(),
+            message_type: MEDIATE_REQUEST_2_0.to_string(),
+            did: _edge_did(),
+            services: [MediatorService::Inbox, MediatorService::Outbox]
+                .into_iter()
+                .collect(),
+            ..Default::default()
+        };
+
+        let msg = Message::build(
+            "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
+            MEDIATE_REQUEST_2_0.to_string(),
+            json!(&mediation_request),
+        )
+        .to(_mediator_did(&state))
+        .from(_edge_did())
+        .finalize();
+
+        let parsed_mediation_request = parse_message_body_into_mediation_request(&msg).unwrap();
+        #[allow(irrefutable_let_patterns)]
+        let MediationRequest::Stateless(parsed_mediation_request) = parsed_mediation_request else { panic!() };
+        assert_eq!(json!(mediation_request), json!(parsed_mediation_request));
+
+        /* Negative cases */
+
+        let msg = Message::build(
+            "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
+            "invalid-type".to_string(),
+            json!("not-mediation-request"),
+        )
+        .to(_mediator_did(&state))
+        .from(_edge_did())
+        .finalize();
+
+        _assert_midlw_err(
+            parse_message_body_into_mediation_request(&msg).unwrap_err(),
+            StatusCode::BAD_REQUEST,
+            MediationError::InvalidMediationRequestFormat,
+        )
+        .await;
+    }
+
+    #[cfg(feature = "stateless")]
+    #[tokio::test]
+    async fn test_ensure_mediation_request_type() {
+        /* Positive cases */
+
+        let mediation_request = StatelessMediationRequest {
+            id: "urn:uuid:ff5a4c85-0df4-4fbe-88ce-fcd2d321a06d".to_string(),
+            message_type: MEDIATE_REQUEST_2_0.to_string(),
+            did: _edge_did(),
+            services: [MediatorService::Inbox, MediatorService::Outbox]
+                .into_iter()
+                .collect(),
+            ..Default::default()
+        };
+
+        assert!(
+            ensure_mediation_request_type(&json!(mediation_request), MEDIATE_REQUEST_2_0).is_ok()
+        );
+        _assert_midlw_err(
+            ensure_mediation_request_type(&json!(mediation_request), MEDIATE_REQUEST_1_0)
+                .unwrap_err(),
+            StatusCode::BAD_REQUEST,
+            MediationError::InvalidMessageType,
+        )
+        .await;
+
+        /* Negative cases */
+
+        let mediation_request = StatelessMediationRequest {
+            id: "urn:uuid:ff5a4c85-0df4-4fbe-88ce-fcd2d321a06d".to_string(),
+            message_type: "invalid-type".to_string(),
+            did: _edge_did(),
+            services: [MediatorService::Inbox, MediatorService::Outbox]
+                .into_iter()
+                .collect(),
+            ..Default::default()
+        };
+
+        _assert_midlw_err(
+            ensure_mediation_request_type(&json!(mediation_request), MEDIATE_REQUEST_2_0)
+                .unwrap_err(),
+            StatusCode::BAD_REQUEST,
+            MediationError::InvalidMessageType,
+        )
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_pack_response_message_works() {
+        let (_, state) = setup();
+
+        let msg = Message::build(
+            "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
+            "application/json".to_string(),
+            json!({
+                "content": "a quick brown fox jumps over the lazy dog"
+            }),
+        )
+        .to(_edge_did())
+        .from(_mediator_did(&state))
+        .finalize();
+
+        let packed = pack_response_message(&msg, &state.did_resolver, &state.secrets_resolver)
+            .await
+            .unwrap();
+        let packed_str = json_canon::to_string(&packed).unwrap();
+        assert!(_edge_unpack_message(&state, &packed_str).await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_pack_response_message_fails_on_any_end_missing() {
+        let (_, state) = setup();
+
+        macro_rules! unfinalized_msg {
+            () => {
+                Message::build(
+                    "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
+                    "application/json".to_string(),
+                    json!({
+                        "content": "a quick brown fox jumps over the lazy dog"
+                    }),
+                )
+            };
+        }
+
+        let msgs = [
+            unfinalized_msg!().to(_edge_did()).finalize(),
+            unfinalized_msg!().from(_mediator_did(&state)).finalize(),
+            unfinalized_msg!().finalize(),
+        ];
+
+        for msg in msgs {
+            _assert_midlw_err(
+                pack_response_message(&msg, &state.did_resolver, &state.secrets_resolver)
+                    .await
+                    .unwrap_err(),
+                StatusCode::INTERNAL_SERVER_ERROR,
+                MediationError::MessagePackingFailure(DidcommErrorKind::Malformed),
+            )
+            .await;
+        }
+    }
+
+    #[tokio::test]
+    async fn test_pack_response_message_on_unsupported_receiving_did() {
+        let (_, state) = setup();
+
+        let msg = Message::build(
+            "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
+            "application/json".to_string(),
+            json!({
+                "content": "a quick brown fox jumps over the lazy dog"
+            }),
+        )
+        .to(String::from("did:sov:WRfXPg8dantKVubE3HX8pw"))
+        .from(_mediator_did(&state))
+        .finalize();
+
+        _assert_midlw_err(
+            pack_response_message(&msg, &state.did_resolver, &state.secrets_resolver)
+                .await
+                .unwrap_err(),
+            StatusCode::INTERNAL_SERVER_ERROR,
+            MediationError::MessagePackingFailure(DidcommErrorKind::Unsupported),
         )
         .await;
     }
