@@ -200,3 +200,245 @@ pub async fn pack_response_message(
         response.into_response()
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{super::handler::tests::*, *};
+
+    #[tokio::test]
+    async fn test_ensure_content_type_is_didcomm_encrypted() {
+        /* Positive cases */
+
+        let headers: HeaderMap = [(CONTENT_TYPE, DIDCOMM_ENCRYPTED_MIME_TYPE.parse().unwrap())]
+            .into_iter()
+            .collect();
+        assert!(ensure_content_type_is_didcomm_encrypted(&headers).is_ok());
+
+        let headers: HeaderMap = [(
+            CONTENT_TYPE,
+            DIDCOMM_ENCRYPTED_SHORT_MIME_TYPE.parse().unwrap(),
+        )]
+        .into_iter()
+        .collect();
+        assert!(ensure_content_type_is_didcomm_encrypted(&headers).is_ok());
+
+        /* Negative cases */
+
+        let headers: HeaderMap = [].into_iter().collect();
+        _assert_midlw_err(
+            ensure_content_type_is_didcomm_encrypted(&headers).unwrap_err(),
+            StatusCode::BAD_REQUEST,
+            MediationError::NotDidcommEncryptedPayload,
+        )
+        .await;
+
+        let headers: HeaderMap = [(CONTENT_TYPE, "application/json".parse().unwrap())]
+            .into_iter()
+            .collect();
+        _assert_midlw_err(
+            ensure_content_type_is_didcomm_encrypted(&headers).unwrap_err(),
+            StatusCode::BAD_REQUEST,
+            MediationError::NotDidcommEncryptedPayload,
+        )
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_unpack_message_works() {
+        let (_, state) = setup();
+
+        let plain_msg = Message::build(
+            "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
+            MEDIATE_REQUEST_2_0.to_string(),
+            json!({
+                "@id": "id_alice_mediation_request",
+                "@type": "https://didcomm.org/coordinate-mediation/2.0/mediate-request",
+                "did": "did:key:alice_identity_pub@alice_mediator",
+                "services": ["inbox", "outbox"]
+            }),
+        )
+        .to(_mediator_did(&state))
+        .from(_edge_did())
+        .finalize();
+
+        let packed_msg =
+            _edge_pack_message(&state, &plain_msg, Some(_edge_did()), _mediator_did(&state))
+                .await
+                .unwrap();
+
+        let unpacked_msg =
+            unpack_request_message(&packed_msg, &state.did_resolver, &state.secrets_resolver)
+                .await
+                .unwrap();
+        assert_eq!(unpacked_msg, plain_msg);
+    }
+
+    #[tokio::test]
+    async fn test_unpack_non_destinated_message() {
+        let (_, state) = setup();
+
+        let plain_msg = Message::build(
+            "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
+            MEDIATE_REQUEST_2_0.to_string(),
+            json!({
+                "@id": "id_alice_mediation_request",
+                "@type": "https://didcomm.org/coordinate-mediation/2.0/mediate-request",
+                "did": "did:key:alice_identity_pub@alice_mediator",
+                "services": ["inbox", "outbox"]
+            }),
+        )
+        .to(_edge_did())
+        .from(_edge_did())
+        .finalize();
+
+        let packed_msg = _edge_pack_message(&state, &plain_msg, Some(_edge_did()), _edge_did())
+            .await
+            .unwrap();
+
+        _assert_midlw_err(
+            unpack_request_message(&packed_msg, &state.did_resolver, &state.secrets_resolver)
+                .await
+                .unwrap_err(),
+            StatusCode::BAD_REQUEST,
+            MediationError::MessageUnpackingFailure,
+        )
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_unpack_non_encrypted_message() {
+        let (_, state) = setup();
+
+        let plain_msg = Message::build(
+            "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
+            MEDIATE_REQUEST_2_0.to_string(),
+            json!({
+                "@id": "id_alice_mediation_request",
+                "@type": "https://didcomm.org/coordinate-mediation/2.0/mediate-request",
+                "did": "did:key:alice_identity_pub@alice_mediator",
+                "services": ["inbox", "outbox"]
+            }),
+        )
+        .to(_edge_did())
+        .from(_edge_did())
+        .finalize();
+
+        let msg = plain_msg.pack_plaintext(&state.did_resolver).await.unwrap();
+
+        _assert_midlw_err(
+            unpack_request_message(&msg, &state.did_resolver, &state.secrets_resolver)
+                .await
+                .unwrap_err(),
+            StatusCode::BAD_REQUEST,
+            MediationError::MalformedDidcommEncrypted,
+        )
+        .await;
+
+        let (msg, _) = plain_msg
+            .pack_signed(
+                &_edge_did(),
+                &state.did_resolver,
+                &_edge_signing_secrets_resolver(),
+            )
+            .await
+            .unwrap();
+
+        _assert_midlw_err(
+            unpack_request_message(&msg, &state.did_resolver, &state.secrets_resolver)
+                .await
+                .unwrap_err(),
+            StatusCode::BAD_REQUEST,
+            MediationError::MalformedDidcommEncrypted,
+        )
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_unpack_anonymously_encrypted_message() {
+        let (_, state) = setup();
+
+        let plain_msg = Message::build(
+            "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
+            MEDIATE_REQUEST_2_0.to_string(),
+            json!({
+                "@id": "id_alice_mediation_request",
+                "@type": "https://didcomm.org/coordinate-mediation/2.0/mediate-request",
+                "did": "did:key:alice_identity_pub@alice_mediator",
+                "services": ["inbox", "outbox"]
+            }),
+        )
+        .to(_mediator_did(&state))
+        .from(_edge_did())
+        .finalize();
+
+        // No sender
+        let packed_msg = _edge_pack_message(&state, &plain_msg, None, _mediator_did(&state))
+            .await
+            .unwrap();
+
+        _assert_midlw_err(
+            unpack_request_message(&packed_msg, &state.did_resolver, &state.secrets_resolver)
+                .await
+                .unwrap_err(),
+            StatusCode::BAD_REQUEST,
+            MediationError::AnonymousPacker,
+        )
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_unpack_anonymously_encrypted_message_but_signed() {
+        let (_, state) = setup();
+
+        let plain_msg = Message::build(
+            "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
+            MEDIATE_REQUEST_2_0.to_string(),
+            json!({
+                "@id": "id_alice_mediation_request",
+                "@type": "https://didcomm.org/coordinate-mediation/2.0/mediate-request",
+                "did": "did:key:alice_identity_pub@alice_mediator",
+                "services": ["inbox", "outbox"]
+            }),
+        )
+        .to(_mediator_did(&state))
+        .from(_edge_did())
+        .finalize();
+
+        // No sender but signed
+        let (packed_msg, _) = plain_msg
+            .pack_encrypted(
+                &_mediator_did(&state),
+                None,
+                Some(&_edge_did()), // sign_by
+                &state.did_resolver,
+                &_edge_signing_secrets_resolver(),
+                &PackEncryptedOptions::default(),
+            )
+            .await.unwrap();
+
+        _assert_midlw_err(
+            unpack_request_message(&packed_msg, &state.did_resolver, &state.secrets_resolver)
+                .await
+                .unwrap_err(),
+            StatusCode::BAD_REQUEST,
+            MediationError::AnonymousPacker,
+        )
+        .await;
+    }
+
+    //----------------------------------------------------------------------------------------------
+    // Helpers -------------------------------------------------------------------------------------
+    //----------------------------------------------------------------------------------------------
+
+    async fn _assert_midlw_err(err: Response, status: StatusCode, mediation_error: MediationError) {
+        assert_eq!(err.status(), status);
+
+        let body = hyper::body::to_bytes(err.into_body()).await.unwrap();
+        let body: Value = serde_json::from_slice(&body).unwrap();
+
+        assert_eq!(
+            json_canon::to_string(&body).unwrap(),
+            json_canon::to_string(&mediation_error.json().0).unwrap()
+        );
+    }
+}

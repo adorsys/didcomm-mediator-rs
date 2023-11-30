@@ -71,7 +71,7 @@ pub async fn process_didcomm_mediation_request_message(
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use super::*;
 
     use axum::Router;
@@ -113,6 +113,21 @@ mod tests {
 
     pub fn _edge_did() -> String {
         "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7".to_string()
+    }
+
+    pub fn _edge_signing_secrets_resolver() -> impl SecretsResolver {
+        let secret_id = "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7#z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7";
+        let secret: Jwk = serde_json::from_str(
+            r#"{
+                "kty": "OKP",
+                "crv": "Ed25519",
+                "d": "UXBdR4u4bnHHEaDK-dqE04DIMvegx9_ZOjm--eGqHiI",
+                "x": "Fpf4juyZWYUNmC8Bv87MmFLDWApxqOYYZUhWyiD7lSo"
+            }"#,
+        )
+        .unwrap();
+
+        LocalSecretsResolver::new(secret_id, &secret)
     }
 
     pub fn _edge_secrets_resolver() -> impl SecretsResolver {
