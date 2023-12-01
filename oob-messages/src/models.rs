@@ -1,5 +1,4 @@
 use crate::constants::OOB_INVITATION_2_0;
-use crate::util::dotenv_flow_read;
 use base64::{encode_config, STANDARD};
 use image::{DynamicImage, Luma};
 use multibase::Base::Base64Url;
@@ -37,9 +36,6 @@ use std::io::{Error as IoError, ErrorKind, Result as IoResult};
 //     }
 //   }
 /// ```
-///
-///
-///
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct OobMessage {
@@ -77,19 +73,13 @@ impl OobMessage {
         }
     }
 
-    fn serialize_oob_message(oob_message: &OobMessage, url: &str) -> String {
-        let plaintext = to_string(oob_message).unwrap();
+    fn serialize_oob_message(oob_message: &OobMessage, url: &str) -> Result<String, String> {
+        let plaintext = to_string(oob_message)
+        .map_err(|e| format!("Serialization error: {}", e))?;
         let encoded_jwm = Base64Url.encode(plaintext.as_bytes());
 
-        format!("{}?_oob={}", url, encoded_jwm)
+        Ok(format!("{}?_oob={}", url, encoded_jwm))
     }
-}
-
-fn generate_from_field() -> String {
-    let server_public_domain = dotenv_flow_read("SERVER_PUBLIC_DOMAIN").unwrap();
-    let server_local_port = dotenv_flow_read("SERVER_LOCAL_PORT").unwrap();
-
-    url_to_did_web_id(&format!("{}:{}/", server_public_domain, server_local_port)).unwrap()
 }
 
 // Receives server path/port and local storage path and returns a String with the OOB URL.
@@ -110,10 +100,10 @@ pub fn retrieve_or_generate_oob_inv<'a>(
     }
 
     // If the file doesn't exist, proceed with creating and storing it
-    let did = generate_from_field();
+    let did = url_to_did_web_id(&format!("{}:{}/", server_public_domain, server_local_port)).unwrap();
     let oob_message = OobMessage::new(&did);
     let url: &String = &format!("{}:{}", server_public_domain, server_local_port);
-    let oob_url = OobMessage::serialize_oob_message(&oob_message, url);
+    let oob_url = OobMessage::serialize_oob_message(&oob_message, url).unwrap_or_else(|err| panic!("Failed to serialize oob message: {}", err));
 
     // Attempt to create the file and write the string
     to_local_storage(fs, &oob_url, storage_dirpath);
@@ -127,7 +117,7 @@ pub fn retrieve_or_generate_qr_image(
     base_path: &str,
     url: &str,
 ) -> String {
-    let path = format!("{}/qrcode_image.txt", base_path);
+    let path = format!("{}/qrcode.txt", base_path);
 
     // Check if the file exists in the specified path, otherwise creates it
     if let Ok(existing_image) = fs.read_to_string(&path) {
@@ -215,8 +205,8 @@ impl FileSystem for MockFileSystem {
             p if p.ends_with("oob_invitation.txt") => {
                 Ok(include_str!("../test/storage/oob_invitation.txt").to_string())
             }
-            p if p.contains("qrcode_image.txt") => {
-                Ok(include_str!("../test/storage/qrcode_image.txt").to_string())
+            p if p.contains("qrcode.txt") => {
+                Ok(include_str!("../test/storage/qrcode.txt").to_string())
             }
             _ => Err(IoError::new(ErrorKind::NotFound, "NotFound")),
         }
@@ -238,10 +228,11 @@ impl FileSystem for MockFileSystem {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::util::dotenv_flow_read;
 
     #[test]
     fn test_create_oob_message() {
-        let did = generate_from_field();
+        let did =  url_to_did_web_id(&format!("testadress.com:3000/")).unwrap();
 
         let oob_message = OobMessage::new(&did);
 
@@ -256,19 +247,21 @@ mod tests {
 
     #[test]
     fn test_serialize_oob_message() {
-        let did = generate_from_field();
-
-        let server_public_domain = dotenv_flow_read("SERVER_PUBLIC_DOMAIN").unwrap();
-        let server_local_port = dotenv_flow_read("SERVER_LOCAL_PORT").unwrap();
-
-        let url: &String = &format!("{}:{}", server_public_domain, server_local_port);
-
+        // Assuming url_to_did_web_id and dotenv_flow_read return Results, you should handle errors.
+        let did = url_to_did_web_id(&format!("testadress.com:3000/")).expect("Failed to get DID");
+    
+        let server_public_domain = dotenv_flow_read("SERVER_PUBLIC_DOMAIN").expect("Failed to read SERVER_PUBLIC_DOMAIN");
+        let server_local_port = dotenv_flow_read("SERVER_LOCAL_PORT").expect("Failed to read SERVER_LOCAL_PORT");
+    
+        let url = format!("{}:{}", server_public_domain, server_local_port);
+    
         let oob_message = OobMessage::new(&did);
-
-        let oob_url = OobMessage::serialize_oob_message(&oob_message, url);
-
+    
+        // Use unwrap_or_else to handle the error case more gracefully
+        let oob_url = OobMessage::serialize_oob_message(&oob_message, &url)
+            .unwrap_or_else(|err| panic!("Failed to serialize oob message: {}", err));
+    
         assert!(!oob_url.is_empty());
-
         assert!(oob_url.starts_with(&format!("{}?_oob=", url)));
         assert!(oob_url.contains("_oob="));
     }
@@ -278,7 +271,7 @@ mod tests {
         // Test data
         let server_public_domain = dotenv_flow_read("SERVER_PUBLIC_DOMAIN").unwrap();
         let server_local_port = dotenv_flow_read("SERVER_LOCAL_PORT").unwrap();
-        let storage_dirpath = dotenv_flow_read("STORAGE_DIRPATH").unwrap();
+        let storage_dirpath = String::from("testpath");
 
         let mut mock_fs = MockFileSystem;
 
@@ -300,11 +293,11 @@ mod tests {
         let mut mock_fs = MockFileSystem;
 
         let url = "https://example.com";
-        let storage_dirpath = dotenv_flow_read("STORAGE_DIRPATH").unwrap();
+        let storage_dirpath = String::from("testpath");
 
         let result = retrieve_or_generate_qr_image(&mut mock_fs, &storage_dirpath, url);
         let expected_result = mock_fs
-            .read_to_string(&format!("{}/qrcode_image.txt", storage_dirpath))
+            .read_to_string(&format!("{}/qrcode.txt", storage_dirpath))
             .unwrap();
 
         assert_eq!(result, expected_result);
