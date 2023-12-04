@@ -1,4 +1,6 @@
 use std::io::{Error as IoError, ErrorKind, Result as IoResult};
+use std::fs::{File, OpenOptions};
+use std::os::unix::io::AsRawFd;
 
 // Define a trait for file system operations
 pub trait FileSystem: Send + 'static {
@@ -7,6 +9,28 @@ pub trait FileSystem: Send + 'static {
     fn read_dir_files(&self, path: &str) -> IoResult<Vec<String>>;
     fn create_dir_all(&mut self, path: &str) -> IoResult<()>;
     // Add other file system operations as needed
+    fn open_with_options(
+        &self,
+        path: &str,
+        read: bool,
+        write: bool,
+        create: bool,
+    ) -> IoResult<Box<dyn FileHandle>>;
+}
+
+pub trait FileHandle {
+    fn as_raw_fd(&self) -> i32;
+}
+
+// Implementation for StdFileHandle
+struct StdFileHandle {
+    file: File,
+}
+
+impl FileHandle for StdFileHandle {
+    fn as_raw_fd(&self) -> i32 {
+        self.file.as_raw_fd()
+    }
 }
 
 // Implement the trait for the actual file system
@@ -42,6 +66,23 @@ impl FileSystem for StdFileSystem {
         std::fs::create_dir_all(path)
     }
 
+    fn open_with_options(
+        &self,
+        path: &str,
+        read: bool,
+        write: bool,
+        create: bool,
+    ) -> IoResult<Box<dyn FileHandle>> {
+        let mut options = OpenOptions::new();
+        options.read(read);
+        options.write(write);
+        options.create(create);
+
+        let file = options.open(path)?;
+
+        Ok(Box::new(StdFileHandle { file }))
+    }
+
     // Implement other file system operations as needed
 }
 
@@ -73,6 +114,30 @@ mod tests {
 
         fn create_dir_all(&mut self, _path: &str) -> IoResult<()> {
             Ok(())
+        }
+
+        fn open_with_options(
+            &self,
+            path: &str,
+            _read: bool,
+            _write: bool,
+            _create: bool,
+        ) -> IoResult<Box<dyn FileHandle>> {
+            // Mock implementation for open_with_options, not required for this test
+            Ok(Box::new(MockFileHandle {
+                content: self.map.get(path).cloned().unwrap_or_default(),
+            }))
+        }
+    }
+
+    struct MockFileHandle {
+        content: String,
+    }
+
+    impl FileHandle for MockFileHandle {
+        fn as_raw_fd(&self) -> i32 {
+            // Not required for this test
+            0
         }
     }
 
