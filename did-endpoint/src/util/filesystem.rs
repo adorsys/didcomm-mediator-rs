@@ -1,5 +1,6 @@
+use nix::fcntl::{flock, FlockArg};
+use std::fs::OpenOptions;
 use std::io::{Error as IoError, ErrorKind, Result as IoResult};
-use std::fs::{File, OpenOptions};
 use std::os::unix::io::AsRawFd;
 
 // Define a trait for file system operations
@@ -8,29 +9,8 @@ pub trait FileSystem: Send + 'static {
     fn write(&mut self, path: &str, content: &str) -> IoResult<()>;
     fn read_dir_files(&self, path: &str) -> IoResult<Vec<String>>;
     fn create_dir_all(&mut self, path: &str) -> IoResult<()>;
+    fn write_with_lock(&self, path: &str, content: &str) -> IoResult<()>;
     // Add other file system operations as needed
-    fn open_with_options(
-        &self,
-        path: &str,
-        read: bool,
-        write: bool,
-        create: bool,
-    ) -> IoResult<Box<dyn FileHandle>>;
-}
-
-pub trait FileHandle {
-    fn as_raw_fd(&self) -> i32;
-}
-
-// Implementation for StdFileHandle
-struct StdFileHandle {
-    file: File,
-}
-
-impl FileHandle for StdFileHandle {
-    fn as_raw_fd(&self) -> i32 {
-        self.file.as_raw_fd()
-    }
 }
 
 // Implement the trait for the actual file system
@@ -66,21 +46,23 @@ impl FileSystem for StdFileSystem {
         std::fs::create_dir_all(path)
     }
 
-    fn open_with_options(
-        &self,
-        path: &str,
-        read: bool,
-        write: bool,
-        create: bool,
-    ) -> IoResult<Box<dyn FileHandle>> {
+    fn write_with_lock(&self, path: &str, content: &str) -> IoResult<()> {
         let mut options = OpenOptions::new();
-        options.read(read);
-        options.write(write);
-        options.create(create);
+        options.read(true);
+        options.write(true);
+        options.create(true);
 
         let file = options.open(path)?;
 
-        Ok(Box::new(StdFileHandle { file }))
+        // Acquire an exclusive lock before writing to the file
+        flock(file.as_raw_fd(), FlockArg::LockExclusive)
+            .map_err(|_| IoError::new(ErrorKind::Other, "Error acquiring file lock"))?;
+
+        std::fs::write(&path, &content).expect("Error saving base64-encoded image to file");
+
+        // Release the lock after writing to the file
+        flock(file.as_raw_fd(), FlockArg::Unlock).expect("Error releasing file lock");
+        Ok(())
     }
 
     // Implement other file system operations as needed
@@ -115,31 +97,9 @@ mod tests {
         fn create_dir_all(&mut self, _path: &str) -> IoResult<()> {
             Ok(())
         }
-
-        fn open_with_options(
-            &self,
-            path: &str,
-            _read: bool,
-            _write: bool,
-            _create: bool,
-        ) -> IoResult<Box<dyn FileHandle>> {
-            // Mock implementation for open_with_options, not required for this test
-            Ok(Box::new(MockFileHandle {
-                content: self.map.get(path).cloned().unwrap_or_default(),
-            }))
-        }
     }
 
-    struct MockFileHandle {
-        content: String,
-    }
 
-    impl FileHandle for MockFileHandle {
-        fn as_raw_fd(&self) -> i32 {
-            // Not required for this test
-            0
-        }
-    }
 
     #[test]
     fn can_mock_fs_operations() {
