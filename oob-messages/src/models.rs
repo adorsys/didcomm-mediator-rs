@@ -2,16 +2,11 @@ use crate::constants::OOB_INVITATION_2_0;
 use base64::{encode_config, STANDARD};
 use image::{DynamicImage, Luma};
 use multibase::Base::Base64Url;
-use nix::fcntl::{flock, FlockArg};
 use qrcode::QrCode;
 use serde::{Deserialize, Serialize};
 use serde_json::to_string;
-use std::collections::HashMap;
 use std::error::Error;
-use std::fs::File;
-use std::os::unix::io::AsRawFd;
 use url::{ParseError, Url};
-use did_endpoint::util::filesystem::FileHandle;
 
 use did_endpoint::util::filesystem::FileSystem;
 
@@ -123,17 +118,22 @@ pub fn retrieve_or_generate_qr_image(
     fs: &mut dyn FileSystem,
     base_path: &str,
     url: &str,
-) -> String {
+) -> Result<String, String> {
     let path = format!("{}/qrcode.txt", base_path);
 
     // Check if the file exists in the specified path, otherwise creates it
     if let Ok(existing_image) = fs.read_to_string(&path) {
-        return existing_image;
+        return Ok(existing_image);
     }
 
     // Generate QR code
-    let code = QrCode::new(url.as_bytes()).unwrap();
+    let code = match QrCode::new(url.as_bytes()) {
+        Ok(qr_code) => qr_code,
+        Err(e) => return Err(format!("QR code generation error: {}", e)),
+    };
+
     let image = code.render::<Luma<u8>>().build();
+
 
     // Convert the image to a PNG-encoded byte vector
     let dynamic_image = DynamicImage::ImageLuma8(image);
@@ -145,24 +145,15 @@ pub fn retrieve_or_generate_qr_image(
     // Save the PNG-encoded byte vector as a base64-encoded string
     let base64_string = encode_config(&buffer, STANDARD);
 
-    // Acquire an exclusive lock before writing to the file
-    let file_handle_result = fs.open_with_options(&path, true, true, true);
+    match  fs.write_with_lock(&path, &base64_string) {
+        Ok(_) => {
+        },
+        Err(error_message) => {
+            return Err(format!("Error writing with lock: {}", error_message));
+        },
+    }
 
-    // Handle the Result
-    let file_handle = match file_handle_result {
-        Ok(file_handle) => file_handle,
-        Err(err) => panic!("Error opening file: {}", err),
-    };
-
-    flock(file_handle.as_raw_fd(), FlockArg::LockExclusive).expect("Error acquiring file lock");
-
-    fs.write(&path, &base64_string)
-        .expect("Error saving base64-encoded image to file");
-
-    // Release the lock after writing to the file
-    flock(file_handle.as_raw_fd(), FlockArg::Unlock).expect("Error releasing file lock");
-
-    base64_string
+    Ok(base64_string)
 }
 
 fn to_local_storage(fs: &mut dyn FileSystem, oob_url: &str, storage_dirpath: &str) {
@@ -184,31 +175,19 @@ fn to_local_storage(fs: &mut dyn FileSystem, oob_url: &str, storage_dirpath: &st
 
 /// Turns an HTTP(S) URL into a did:web id.
 fn url_to_did_web_id(url: &str) -> Result<String, Box<dyn Error>> {
-    let url = url.trim();
+    let url = Url::parse(url)?;
 
-    let parsed = if url.contains("://") {
-        if ["http://", "https://"].iter().all(|x| !url.starts_with(x)) {
-            return Err("Scheme not allowed")?;
-        }
-        Url::parse(url)?
-    } else {
-        Url::parse(&format!("http://{url}"))?
-    };
-
-    let domain = parsed.domain().ok_or(ParseError::EmptyHost)?;
-
-    let mut port = String::new();
-    if let Some(parsed_port) = parsed.port() {
-        port = format!("%3A{parsed_port}");
+    // Validate the scheme
+    match url.scheme() {
+        "http" | "https" => (),
+        _ => return Err(ParseError::IdnaError.into()),
     }
 
-    let mut path = parsed.path().replace('/', ":");
-    if path.len() == 1 {
-        // Discards single '/' character
-        path = String::new();
-    }
+    let domain = url.domain().ok_or(ParseError::EmptyHost)?;
+    let port = url.port().map(|port| format!("%3A{}", port)).unwrap_or_default();
+    let path = url.path().replace('/', ":").trim_start_matches(':').to_string();
 
-    Ok(format!("did:web:{domain}{port}{path}"))
+    Ok(format!("did:web:{}{}{}", domain, port, path))
 }
 
 #[cfg(test)]
@@ -241,7 +220,9 @@ impl FileSystem for MockFileSystem {
         Ok(())
     }
 
-    fn open_with_options(&self, _: &str, _: bool, _: bool, _: bool) -> Result<Box<(dyn FileHandle + 'static)>, std::io::Error> { todo!() }
+    fn write_with_lock(&self, _path: &str, _content: &str) -> IoResult<()>{
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -251,7 +232,7 @@ mod tests {
     
     #[test]
     fn test_create_oob_message() {
-        let did = url_to_did_web_id(&format!("testadress.com:3000/")).unwrap();
+        let did = url_to_did_web_id(&format!("https://testadress.com:3000/")).unwrap();
 
         let oob_message = OobMessage::new(&did);
 
@@ -267,7 +248,7 @@ mod tests {
     #[test]
     fn test_serialize_oob_message() {
         // Assuming url_to_did_web_id and dotenv_flow_read return Results, you should handle errors.
-        let did = url_to_did_web_id(&format!("testadress.com:3000/")).expect("Failed to get DID");
+        let did = url_to_did_web_id(&format!("https://testadress.com:3000/")).expect("Failed to get DID");
 
         let server_public_domain =
             dotenv_flow_read("SERVER_PUBLIC_DOMAIN").expect("Failed to read SERVER_PUBLIC_DOMAIN");
@@ -312,16 +293,18 @@ mod tests {
     #[test]
     fn test_retrieve_or_generate_qr_image() {
         let mut mock_fs = MockFileSystem;
-        // WIP
-        // let url = "https://example.com";
-        // let storage_dirpath = String::from("testpath");
+        let url = "https://example.com";
+        let storage_dirpath = String::from("testpath");
+    
+        let result = retrieve_or_generate_qr_image(&mut mock_fs, &storage_dirpath, &url);
+        assert!(result.is_ok());
+    
+        let image_data = result.unwrap();
 
-        // let result = retrieve_or_generate_qr_image(&mut mock_fs, &storage_dirpath, url);
-        // let expected_result = mock_fs
-        //     .read_to_string(&format!("{}/qrcode.txt", storage_dirpath))
-        //     .unwrap();
-
-        // assert_eq!(result, expected_result);
-        ()
+        let expected_result = mock_fs
+            .read_to_string(&format!("{}/qrcode.txt", storage_dirpath))
+            .unwrap();
+    
+        assert_eq!(image_data, expected_result);
     }
 }

@@ -1,9 +1,9 @@
-use axum::Router;
-use super::web;
 use super::models::retrieve_or_generate_oob_inv;
 use super::models::retrieve_or_generate_qr_image;
-use server_plugin::{Plugin, PluginError};
+use super::web;
+use axum::Router;
 use did_endpoint::util::filesystem::StdFileSystem;
+use server_plugin::{Plugin, PluginError};
 
 #[derive(Default)]
 pub struct OOBMessagesPlugin;
@@ -31,13 +31,23 @@ impl Plugin for OOBMessagesPlugin {
             PluginError::InitError
         })?;
 
-        let oob_inv = retrieve_or_generate_oob_inv(&mut fs, &server_public_domain, &server_local_port, &storage_dirpath);
-        tracing::debug!(
-            "Out Of Band Invitation: {}",
-            oob_inv
+        let oob_inv = retrieve_or_generate_oob_inv(
+            &mut fs,
+            &server_public_domain,
+            &server_local_port,
+            &storage_dirpath,
         );
+        tracing::debug!("Out Of Band Invitation: {}", oob_inv);
 
-        retrieve_or_generate_qr_image(&mut fs,&storage_dirpath, &oob_inv);
+        match retrieve_or_generate_qr_image(&mut fs, &storage_dirpath, &oob_inv) {
+            Ok(_) => {
+                // Ignore the QR code image and proceed with error handling
+            },
+            Err(error_message) => {
+                println!("Error retrieving or generating QR code image: {}", error_message);
+                tracing::error!("STORAGE_DIRPATH env variable required");
+            },
+        }
 
         Ok(())
     }
