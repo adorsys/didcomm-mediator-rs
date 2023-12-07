@@ -11,6 +11,8 @@ use thiserror::Error;
 #[derive(Debug, Error, PartialEq)]
 #[allow(unused)]
 pub enum JwsError {
+    #[error("deserialization error")]
+    DeserializationError,
     #[error("empty input")]
     EmptyInput,
     #[error("invalid format")]
@@ -25,14 +27,16 @@ pub enum JwsError {
     InvalidPayload,
     #[error("missing private key")]
     MissingPrivateKey,
-    #[error("signing error")]
-    SigningError,
-    #[error("unsupported algorithm")]
-    UnsupportedAlgorithm,
     #[error("serialization error")]
     SerializationError,
-    #[error("serialization error")]
-    DeserializationError,
+    #[error("signing error")]
+    SigningError,
+    #[error("unspecified payload type (missing typ property)")]
+    UnspecifiedPayloadType,
+    #[error("unsupported algorithm")]
+    UnsupportedAlgorithm,
+    #[error("unsupported payload type")]
+    UnsupportedPayloadType,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default)]
@@ -63,7 +67,6 @@ pub struct JwsHeader {
 }
 
 /// Issues a JSON Web Signature (JWS)
-#[allow(unused)]
 pub fn make_compact_jws(header: &JwsHeader, payload: Value, jwk: &Jwk) -> Result<String, JwsError> {
     // Validate payload is a JSON object
     if !payload.is_object() {
@@ -98,7 +101,6 @@ pub fn make_compact_jws(header: &JwsHeader, payload: Value, jwk: &Jwk) -> Result
 
             make_compact_jws_ed25519(make_phrase()?, jwk)
         }
-        #[allow(unreachable_patterns)]
         _ => Err(JwsError::UnsupportedAlgorithm),
     }
 }
@@ -121,25 +123,15 @@ pub fn make_compact_jws_ed25519(phrase: String, jwk: &Jwk) -> Result<String, Jws
 }
 
 /// Verifies a JSON Web Signature (JWS)
-#[allow(unused)]
 pub fn verify_compact_jws(jws: &str, jwk: &Jwk) -> Result<(), JwsError> {
     if jws.is_empty() {
         return Err(JwsError::EmptyInput);
     }
 
-    let header_encoded = jws.split('.').next().ok_or(JwsError::InvalidFormat)?;
-    let header_decoded = String::from_utf8(
-        Base64Url
-            .decode(header_encoded)
-            .map_err(|_| JwsError::InvalidFormat)?,
-    )
-    .map_err(|_| JwsError::InvalidFormat)?;
-    let header: JwsHeader =
-        serde_json::from_str(&header_decoded).map_err(|_| JwsError::DeserializationError)?;
+    let header: JwsHeader = read_jws_header(jws)?;
 
     match header.alg {
         JwsAlg::EdDSA => verify_compact_jws_ed25519(jws, jwk),
-        #[allow(unreachable_patterns)]
         _ => Err(JwsError::UnsupportedAlgorithm),
     }
 }
@@ -164,6 +156,23 @@ fn verify_compact_jws_ed25519(jws: &str, jwk: &Jwk) -> Result<(), JwsError> {
     keypair
         .verify(phrase.as_bytes(), &signature_decoded)
         .map_err(|_| JwsError::InvalidSignature)
+}
+
+pub fn read_jws_header(compact_jws: &str) -> Result<JwsHeader, JwsError> {
+    let parts: Vec<_> = compact_jws.split('.').collect();
+    if parts.len() != 3 {
+        return Err(JwsError::InvalidFormat);
+    }
+
+    let header_encoded = parts[0];
+    let header_decoded = String::from_utf8(
+        Base64Url
+            .decode(header_encoded)
+            .map_err(|_| JwsError::InvalidFormat)?,
+    )
+    .map_err(|_| JwsError::InvalidFormat)?;
+
+    serde_json::from_str(&header_decoded).map_err(|_| JwsError::DeserializationError)
 }
 
 #[cfg(test)]
