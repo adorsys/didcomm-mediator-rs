@@ -88,7 +88,7 @@ pub fn retrieve_or_generate_oob_inv<'a>(
     server_public_domain: &str,
     server_local_port: &str,
     storage_dirpath: &str,
-) -> String {
+) -> Result<String, String>  {
     // Construct the file path
     let file_path = format!("{}/oob_invitation.txt", storage_dirpath);
 
@@ -96,7 +96,7 @@ pub fn retrieve_or_generate_oob_inv<'a>(
     if let Ok(content) = fs.read_to_string(&file_path) {
         // If successful, return the content
         eprintln!("OOB Invitation successfully retrieved from file");
-        return content;
+        return Ok(content);
     }
 
     // If the file doesn't exist, proceed with creating and storing it
@@ -104,13 +104,12 @@ pub fn retrieve_or_generate_oob_inv<'a>(
         url_to_did_web_id(&format!("{}:{}/", server_public_domain, server_local_port)).unwrap();
     let oob_message = OobMessage::new(&did);
     let url: &String = &format!("{}:{}", server_public_domain, server_local_port);
-    let oob_url = OobMessage::serialize_oob_message(&oob_message, url)
-        .unwrap_or_else(|err| panic!("Failed to serialize oob message: {}", err));
+    let oob_url = OobMessage::serialize_oob_message(&oob_message, url).map_err(|e| format!("Serialization error: {}", e))?;
 
     // Attempt to create the file and write the string
     to_local_storage(fs, &oob_url, storage_dirpath);
 
-    oob_url
+    Ok(oob_url)
 }
 
 // Function to generate and save a QR code image
@@ -283,11 +282,12 @@ mod tests {
             &server_local_port,
             &storage_dirpath,
         );
+        assert!(result.is_ok());
 
         let didpath = format!("{storage_dirpath}/oob_invitation.txt");
         let file_content = mock_fs.read_to_string(&didpath).unwrap();
 
-        assert_eq!(result, file_content);
+        assert_eq!(result.unwrap(), file_content);
     }
 
     #[test]

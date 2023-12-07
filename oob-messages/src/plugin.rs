@@ -31,22 +31,33 @@ impl Plugin for OOBMessagesPlugin {
             PluginError::InitError
         })?;
 
-        let oob_inv = retrieve_or_generate_oob_inv(
+        let oob_inv = match retrieve_or_generate_oob_inv(
             &mut fs,
             &server_public_domain,
             &server_local_port,
             &storage_dirpath,
-        );
+        ) {
+            Ok(oob_inv_str) => oob_inv_str,
+            Err(err) => {
+                tracing::error!("Error retrieving or generating OOB invitation: {}", err);
+                return Err(PluginError::InitError);
+            }
+        };
+
         tracing::debug!("Out Of Band Invitation: {}", oob_inv);
 
         match retrieve_or_generate_qr_image(&mut fs, &storage_dirpath, &oob_inv) {
             Ok(_) => {
                 // Ignore the QR code image and proceed with error handling
-            },
+            }
             Err(error_message) => {
-                println!("Error retrieving or generating QR code image: {}", error_message);
+                println!(
+                    "Error retrieving or generating QR code image: {}",
+                    error_message
+                );
                 tracing::error!("STORAGE_DIRPATH env variable required");
-            },
+                return Err(PluginError::InitError);
+            }
         }
 
         Ok(())

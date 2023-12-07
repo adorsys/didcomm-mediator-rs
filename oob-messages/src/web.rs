@@ -14,36 +14,43 @@ pub fn routes() -> Router {
 }
 
 async fn handler_oob_inv() -> impl IntoResponse {
-    let (server_public_domain, server_local_port, storage_dirpath) = match get_environment_variables() {
-        Ok(result) => result,
-        Err(err) => return Html(format!("Error getting environment variables: {}", err))
-    };
+    let (server_public_domain, server_local_port, storage_dirpath) =
+        match get_environment_variables() {
+            Ok(result) => result,
+            Err(err) => return Html(format!("Error getting environment variables: {}", err)),
+        };
 
     let mut fs = StdFileSystem;
 
-    Html(format!("{}",     retrieve_or_generate_oob_inv(
+    match retrieve_or_generate_oob_inv(
         &mut fs,
         &server_public_domain,
         &server_local_port,
         &storage_dirpath,
-    )))
+    ) {
+        Ok(oob_inv) => return Html(format!("{}", oob_inv)),
+        Err(err) => return Html(format!("Error retrieving oob inv: {}", err)),
+    }
 }
 
 async fn handler_oob_qr() -> impl IntoResponse {
-
-    let (server_public_domain, server_local_port, storage_dirpath) = match get_environment_variables() {
-        Ok(result) => result,
-        Err(err) => return Html(format!("Error getting environment variables: {}", err))
-    };
+    let (server_public_domain, server_local_port, storage_dirpath) =
+        match get_environment_variables() {
+            Ok(result) => result,
+            Err(err) => return Html(format!("Error getting environment variables: {}", err)),
+        };
 
     let mut fs = StdFileSystem;
 
-    let oob_inv = retrieve_or_generate_oob_inv(
+    let oob_inv = match retrieve_or_generate_oob_inv(
         &mut fs,
         &server_public_domain,
         &server_local_port,
         &storage_dirpath,
-    );
+    ) {
+        Ok(oob_inv) => oob_inv,
+        Err(err) => return Html(format!("Error retrieving oob inv: {}", err)),
+    };
 
     let image_data = match retrieve_or_generate_qr_image(&mut fs, &storage_dirpath, &oob_inv) {
         Ok(data) => data,
@@ -54,19 +61,23 @@ async fn handler_oob_qr() -> impl IntoResponse {
 }
 
 async fn test_handler_oob_qr() -> impl IntoResponse {
-    let (server_public_domain, server_local_port, storage_dirpath) = match get_environment_variables() {
-        Ok(result) => result,
-        Err(err) => return Html(format!("Error getting environment variables: {}", err))
-    };
+    let (server_public_domain, server_local_port, storage_dirpath) =
+        match get_environment_variables() {
+            Ok(result) => result,
+            Err(err) => return Html(format!("Error getting environment variables: {}", err)),
+        };
 
     let mut fs = StdFileSystem;
 
-    let oob_inv = retrieve_or_generate_oob_inv(
+    let _oob_inv = match retrieve_or_generate_oob_inv(
         &mut fs,
         &server_public_domain,
         &server_local_port,
         &storage_dirpath,
-    );
+    ) {
+        Ok(oob_inv) => oob_inv,
+        Err(err) => return Html(format!("Error retrieving oob inv: {}", err)),
+    };
 
     Html(format!(
         r#"
@@ -93,25 +104,32 @@ async fn test_handler_oob_qr() -> impl IntoResponse {
     ))
 }
 
-
 async fn handler_landing_page_oob() -> impl IntoResponse {
-    let (server_public_domain, server_local_port, storage_dirpath) = match get_environment_variables() {
-        Ok(result) => result,
-        Err(err) => return Html(format!("Error getting environment variables: {}", err))
-    };
+    let (server_public_domain, server_local_port, storage_dirpath) =
+        match get_environment_variables() {
+            Ok(result) => result,
+            Err(err) => return Html(format!("Error getting environment variables: {}", err)),
+        };
 
     let mut fs = StdFileSystem;
-    let oob_inv = retrieve_or_generate_oob_inv(
+
+    let oob_inv = match retrieve_or_generate_oob_inv(
         &mut fs,
         &server_public_domain,
         &server_local_port,
         &storage_dirpath,
-    );
+    ) {
+        Ok(oob_inv) => oob_inv,
+        Err(err) => return Html(format!("Error retrieving oob inv: {}", err)),
+    };
 
     let image_data = match retrieve_or_generate_qr_image(&mut fs, &storage_dirpath, &oob_inv) {
         Ok(data) => data,
         Err(err) => {
-            return Html(format!("Error getting retrieving or generating qr image: {}", err))
+            return Html(format!(
+                "Error getting retrieving or generating qr image: {}",
+                err
+            ))
         }
     };
 
@@ -151,8 +169,8 @@ fn get_environment_variables() -> Result<(String, String, String), Box<dyn Error
     let server_local_port = std::env::var("SERVER_LOCAL_PORT")
         .map_err(|_| "SERVER_LOCAL_PORT env variable required")?;
 
-    let storage_dirpath = std::env::var("STORAGE_DIRPATH")
-        .map_err(|_| "STORAGE_DIRPATH env variable required")?;
+    let storage_dirpath =
+        std::env::var("STORAGE_DIRPATH").map_err(|_| "STORAGE_DIRPATH env variable required")?;
 
     Ok((server_public_domain, server_local_port, storage_dirpath))
 }

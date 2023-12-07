@@ -97,6 +97,10 @@ mod tests {
         fn create_dir_all(&mut self, _path: &str) -> IoResult<()> {
             Ok(())
         }
+
+        fn write_with_lock(&self, _path: &str, _content: &str) -> IoResult<()>{
+            Ok(())
+        }
     }
 
 
