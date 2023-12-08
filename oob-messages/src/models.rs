@@ -1,14 +1,16 @@
 use crate::constants::OOB_INVITATION_2_0;
 use base64::{encode_config, STANDARD};
+use did_endpoint::util::filesystem::FileSystem;
 use image::{DynamicImage, Luma};
+use lazy_static::lazy_static;
 use multibase::Base::Base64Url;
 use qrcode::QrCode;
 use serde::{Deserialize, Serialize};
 use serde_json::to_string;
+use std::collections::HashMap;
 use std::error::Error;
+use std::sync::Mutex;
 use url::{ParseError, Url};
-
-use did_endpoint::util::filesystem::FileSystem;
 
 #[cfg(test)]
 use std::io::{Error as IoError, ErrorKind, Result as IoResult};
@@ -88,7 +90,7 @@ pub fn retrieve_or_generate_oob_inv<'a>(
     server_public_domain: &str,
     server_local_port: &str,
     storage_dirpath: &str,
-) -> Result<String, String>  {
+) -> Result<String, String> {
     // Construct the file path
     let file_path = format!("{}/oob_invitation.txt", storage_dirpath);
 
@@ -100,11 +102,12 @@ pub fn retrieve_or_generate_oob_inv<'a>(
     }
 
     // If the file doesn't exist, proceed with creating and storing it
-    let did =
-        url_to_did_web_id(&format!("{}:{}/", server_public_domain, server_local_port)).unwrap();
+    let did = url_to_did_web_id(&format!("{}:{}/", server_public_domain, server_local_port))
+        .map_err(|e| format!("Url to Did address error: {}", e))?;
     let oob_message = OobMessage::new(&did);
     let url: &String = &format!("{}:{}", server_public_domain, server_local_port);
-    let oob_url = OobMessage::serialize_oob_message(&oob_message, url).map_err(|e| format!("Serialization error: {}", e))?;
+    let oob_url = OobMessage::serialize_oob_message(&oob_message, url)
+        .map_err(|e| format!("Serialization error: {}", e))?;
 
     // Attempt to create the file and write the string
     to_local_storage(fs, &oob_url, storage_dirpath);
@@ -112,7 +115,11 @@ pub fn retrieve_or_generate_oob_inv<'a>(
     Ok(oob_url)
 }
 
-// Function to generate and save a QR code image
+lazy_static! {
+    static ref CACHE: Mutex<HashMap<String, String>> = Mutex::new(HashMap::new());
+}
+
+// Function to generate and save a QR code image with caching
 pub fn retrieve_or_generate_qr_image(
     fs: &mut dyn FileSystem,
     base_path: &str,
@@ -120,8 +127,21 @@ pub fn retrieve_or_generate_qr_image(
 ) -> Result<String, String> {
     let path = format!("{}/qrcode.txt", base_path);
 
-    // Check if the file exists in the specified path, otherwise creates it
+    // Check the cache first
+    {
+        let cache = CACHE.lock().map_err(|e| format!("Cache error: {}", e))?;
+        if let Some(existing_image) = cache.get(&path) {
+            return Ok(existing_image.clone());
+        }
+    }
+
+    // Check if the file exists in the specified path, otherwise create it
     if let Ok(existing_image) = fs.read_to_string(&path) {
+        // Update the cache with the retrieved data
+        CACHE
+            .lock()
+            .map_err(|e| format!("Cache error: {}", e))?
+            .insert(path.clone(), existing_image.clone());
         return Ok(existing_image);
     }
 
@@ -133,7 +153,6 @@ pub fn retrieve_or_generate_qr_image(
 
     let image = code.render::<Luma<u8>>().build();
 
-
     // Convert the image to a PNG-encoded byte vector
     let dynamic_image = DynamicImage::ImageLuma8(image);
     let mut buffer = Vec::new();
@@ -144,12 +163,18 @@ pub fn retrieve_or_generate_qr_image(
     // Save the PNG-encoded byte vector as a base64-encoded string
     let base64_string = encode_config(&buffer, STANDARD);
 
-    match  fs.write_with_lock(&path, &base64_string) {
+    // Save to file
+    match fs.write_with_lock(&path, &base64_string) {
         Ok(_) => {
-        },
+            // Update the cache with the newly generated data
+            CACHE
+                .lock()
+                .map_err(|e| format!("Cache error: {}", e))?
+                .insert(path.clone(), base64_string.clone());
+        }
         Err(error_message) => {
             return Err(format!("Error writing with lock: {}", error_message));
-        },
+        }
     }
 
     Ok(base64_string)
@@ -183,8 +208,15 @@ fn url_to_did_web_id(url: &str) -> Result<String, Box<dyn Error>> {
     }
 
     let domain = url.domain().ok_or(ParseError::EmptyHost)?;
-    let port = url.port().map(|port| format!("%3A{}", port)).unwrap_or_default();
-    let path = url.path().replace('/', ":").trim_start_matches(':').to_string();
+    let port = url
+        .port()
+        .map(|port| format!("%3A{}", port))
+        .unwrap_or_default();
+    let path = url
+        .path()
+        .replace('/', ":")
+        .trim_start_matches(':')
+        .to_string();
 
     Ok(format!("did:web:{}{}{}", domain, port, path))
 }
@@ -219,7 +251,7 @@ impl FileSystem for MockFileSystem {
         Ok(())
     }
 
-    fn write_with_lock(&self, _path: &str, _content: &str) -> IoResult<()>{
+    fn write_with_lock(&self, _path: &str, _content: &str) -> IoResult<()> {
         Ok(())
     }
 }
@@ -228,7 +260,7 @@ impl FileSystem for MockFileSystem {
 mod tests {
     use super::*;
     use crate::util::dotenv_flow_read;
-    
+
     #[test]
     fn test_create_oob_message() {
         let did = url_to_did_web_id(&format!("https://testadress.com:3000/")).unwrap();
@@ -247,7 +279,8 @@ mod tests {
     #[test]
     fn test_serialize_oob_message() {
         // Assuming url_to_did_web_id and dotenv_flow_read return Results, you should handle errors.
-        let did = url_to_did_web_id(&format!("https://testadress.com:3000/")).expect("Failed to get DID");
+        let did =
+            url_to_did_web_id(&format!("https://testadress.com:3000/")).expect("Failed to get DID");
 
         let server_public_domain =
             dotenv_flow_read("SERVER_PUBLIC_DOMAIN").expect("Failed to read SERVER_PUBLIC_DOMAIN");
@@ -258,7 +291,6 @@ mod tests {
 
         let oob_message = OobMessage::new(&did);
 
-        // Use unwrap_or_else to handle the error case more gracefully
         let oob_url = OobMessage::serialize_oob_message(&oob_message, &url)
             .unwrap_or_else(|err| panic!("Failed to serialize oob message: {}", err));
 
@@ -295,16 +327,16 @@ mod tests {
         let mut mock_fs = MockFileSystem;
         let url = "https://example.com";
         let storage_dirpath = String::from("testpath");
-    
+
         let result = retrieve_or_generate_qr_image(&mut mock_fs, &storage_dirpath, &url);
         assert!(result.is_ok());
-    
+
         let image_data = result.unwrap();
 
         let expected_result = mock_fs
             .read_to_string(&format!("{}/qrcode.txt", storage_dirpath))
             .unwrap();
-    
+
         assert_eq!(image_data, expected_result);
     }
 }

@@ -19,7 +19,8 @@ image = "0.23"
 base64 = "0.13.0"
 reqwest = "0.11"
 tempdir = "0.3.7"
-
+headers = "0.3"
+lazy_static = "1.4.0"
 # Plugins traits
 server-plugin = { path = "../server-plugin" }
 did-endpoint = { path = "../did-endpoint" }
