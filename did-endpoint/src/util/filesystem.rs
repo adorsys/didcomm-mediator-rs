@@ -1,4 +1,7 @@
+use nix::fcntl::{flock, FlockArg};
+use std::fs::OpenOptions;
 use std::io::{Error as IoError, ErrorKind, Result as IoResult};
+use std::os::unix::io::AsRawFd;
 
 // Define a trait for file system operations
 pub trait FileSystem: Send + 'static {
@@ -6,6 +9,7 @@ pub trait FileSystem: Send + 'static {
     fn write(&mut self, path: &str, content: &str) -> IoResult<()>;
     fn read_dir_files(&self, path: &str) -> IoResult<Vec<String>>;
     fn create_dir_all(&mut self, path: &str) -> IoResult<()>;
+    fn write_with_lock(&self, path: &str, content: &str) -> IoResult<()>;
     // Add other file system operations as needed
 }
 
@@ -42,6 +46,25 @@ impl FileSystem for StdFileSystem {
         std::fs::create_dir_all(path)
     }
 
+    fn write_with_lock(&self, path: &str, content: &str) -> IoResult<()> {
+        let mut options = OpenOptions::new();
+        options.read(true);
+        options.write(true);
+        options.create(true);
+
+        let file = options.open(path)?;
+
+        // Acquire an exclusive lock before writing to the file
+        flock(file.as_raw_fd(), FlockArg::LockExclusive)
+            .map_err(|_| IoError::new(ErrorKind::Other, "Error acquiring file lock"))?;
+
+        std::fs::write(&path, &content).expect("Error saving base64-encoded image to file");
+
+        // Release the lock after writing to the file
+        flock(file.as_raw_fd(), FlockArg::Unlock).expect("Error releasing file lock");
+        Ok(())
+    }
+
     // Implement other file system operations as needed
 }
 
@@ -74,7 +97,13 @@ mod tests {
         fn create_dir_all(&mut self, _path: &str) -> IoResult<()> {
             Ok(())
         }
+
+        fn write_with_lock(&self, _path: &str, _content: &str) -> IoResult<()>{
+            Ok(())
+        }
     }
+
+
 
     #[test]
     fn can_mock_fs_operations() {
