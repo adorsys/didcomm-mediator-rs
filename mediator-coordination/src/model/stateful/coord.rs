@@ -15,7 +15,7 @@ pub struct KeylistUpdate {
 
     /// References the protocol URI of this concept.
     ///
-    /// Typically `https://didcomm.org/coordinate-mediation/1.0/keylist-update`
+    /// Typically `https://didcomm.org/coordinate-mediation/2.0/keylist-update`
     #[serde(rename = "@type")]
     pub message_type: String,
 
@@ -58,7 +58,7 @@ pub struct KeylistUpdateResponse {
 
     /// References the protocol URI of this concept.
     ///
-    /// Typically `https://didcomm.org/coordinate-mediation/1.0/keylist-update-response`
+    /// Typically `https://didcomm.org/coordinate-mediation/2.0/keylist-update-response`
     #[serde(rename = "@type")]
     pub message_type: String,
 
@@ -106,7 +106,7 @@ pub struct KeylistQuery {
 
     /// References the protocol URI of this concept.
     ///
-    /// Typically `https://didcomm.org/coordinate-mediation/1.0/keylist-query`
+    /// Typically `https://didcomm.org/coordinate-mediation/2.0/keylist-query`
     #[serde(rename = "@type")]
     pub message_type: String,
 
@@ -138,7 +138,7 @@ pub struct Keylist {
 
     /// References the protocol URI of this concept.
     ///
-    /// Typically `https://didcomm.org/coordinate-mediation/1.0/keylist`
+    /// Typically `https://didcomm.org/coordinate-mediation/2.0/keylist`
     #[serde(rename = "@type")]
     pub message_type: String,
 
@@ -201,7 +201,7 @@ mod tests {
     fn can_serialize_keylist_update_message() {
         let keylist_update = KeylistUpdate {
             id: "id_alice_keylist_update_request".to_string(),
-            message_type: KEYLIST_UPDATE_1_0.to_string(),
+            message_type: KEYLIST_UPDATE_2_0.to_string(),
             updates: vec![KeylistUpdateCommand {
                 recipient_key: String::from("did:key:alice_identity_pub1@alice_mediator"),
                 action: KeylistUpdateAction::Add,
@@ -211,7 +211,7 @@ mod tests {
 
         let expected = json!({
             "@id": "id_alice_keylist_update_request",
-            "@type": "https://didcomm.org/coordinate-mediation/1.0/keylist-update",
+            "@type": "https://didcomm.org/coordinate-mediation/2.0/keylist-update",
             "updates": [
                 {
                     "recipient_key": "did:key:alice_identity_pub1@alice_mediator",
@@ -230,7 +230,7 @@ mod tests {
     fn can_deserialize_keylist_update_message() {
         let msg = r#"{
             "@id": "id_alice_keylist_update_request",
-            "@type": "https://didcomm.org/coordinate-mediation/1.0/keylist-update",
+            "@type": "https://didcomm.org/coordinate-mediation/2.0/keylist-update",
             "updates": [
                 {
                     "recipient_key": "did:key:alice_identity_pub1@alice_mediator",
@@ -244,7 +244,7 @@ mod tests {
         let keylist_update: KeylistUpdate = serde_json::from_str(msg).unwrap();
 
         assert_eq!(&keylist_update.id, "id_alice_keylist_update_request");
-        assert_eq!(&keylist_update.message_type, KEYLIST_UPDATE_1_0);
+        assert_eq!(&keylist_update.message_type, KEYLIST_UPDATE_2_0);
 
         assert_eq!(
             keylist_update.updates,
@@ -287,7 +287,7 @@ mod tests {
     fn can_serialize_keylist_update_response_message() {
         let keylist_update_response = KeylistUpdateResponse {
             id: "id_alice_keylist_update_response".to_string(),
-            message_type: KEYLIST_UPDATE_RESPONSE_1_0.to_string(),
+            message_type: KEYLIST_UPDATE_RESPONSE_2_0.to_string(),
             updated: vec![KeylistUpdateConfirmation {
                 recipient_key: String::from("did:key:alice_identity_pub1@alice_mediator"),
                 action: KeylistUpdateAction::Add,
@@ -298,7 +298,7 @@ mod tests {
 
         let expected = json!({
             "@id": "id_alice_keylist_update_response",
-            "@type": "https://didcomm.org/coordinate-mediation/1.0/keylist-update-response",
+            "@type": "https://didcomm.org/coordinate-mediation/2.0/keylist-update-response",
             "updated": [
                 {
                     "recipient_key": "did:key:alice_identity_pub1@alice_mediator",
@@ -318,7 +318,7 @@ mod tests {
     fn can_deserialize_keylist_update_response_message() {
         let msg = r#"{
             "@id": "id_alice_keylist_update_response",
-            "@type": "https://didcomm.org/coordinate-mediation/1.0/keylist-update-response",
+            "@type": "https://didcomm.org/coordinate-mediation/2.0/keylist-update-response",
             "updated": [
                 {
                     "recipient_key": "did:key:alice_identity_pub1@alice_mediator",
@@ -338,7 +338,7 @@ mod tests {
         );
         assert_eq!(
             &keylist_update_response.message_type,
-            KEYLIST_UPDATE_RESPONSE_1_0
+            KEYLIST_UPDATE_RESPONSE_2_0
         );
 
         assert_eq!(
