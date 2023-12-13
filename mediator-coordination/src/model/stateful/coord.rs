@@ -94,6 +94,82 @@ pub enum KeylistUpdateResult {
     Success,
 }
 
+/// Message to query mediator for a list of keys registered for this connection.
+///
+/// See https://github.com/hyperledger/aries-rfcs/tree/main/features/0211-route-coordination#key-list-query
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[serde(rename_all = "snake_case")]
+pub struct KeylistQuery {
+    /// Uniquely identifies a keylist query message.
+    #[serde(rename = "@id")]
+    pub id: String,
+
+    /// References the protocol URI of this concept.
+    ///
+    /// Typically `https://didcomm.org/coordinate-mediation/1.0/keylist-query`
+    #[serde(rename = "@type")]
+    pub message_type: String,
+
+    /// Optional pagination details.
+    pub paginate: Option<KeylistQueryPaginate>,
+
+    /// Dynamic properties.
+    #[serde(flatten)]
+    pub additional_properties: Option<HashMap<String, Value>>,
+}
+
+/// Pagination details for a keylist query.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub struct KeylistQueryPaginate {
+    pub limit: i32,
+    pub offset: i32,
+}
+
+/// Response to key list query, containing retrieved keys.
+///
+/// See https://github.com/hyperledger/aries-rfcs/tree/main/features/0211-route-coordination#key-list
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[serde(rename_all = "snake_case")]
+pub struct Keylist {
+    /// Uniquely identifies a keylist query response message.
+    #[serde(rename = "@id")]
+    pub id: String,
+
+    /// References the protocol URI of this concept.
+    ///
+    /// Typically `https://didcomm.org/coordinate-mediation/1.0/keylist`
+    #[serde(rename = "@type")]
+    pub message_type: String,
+
+    /// List of retrieved keys.
+    pub keys: Vec<KeylistEntry>,
+
+    /// Optional pagination details.
+    pub pagination: Option<KeylistPagination>,
+
+    /// Dynamic properties.
+    #[serde(flatten)]
+    pub additional_properties: Option<HashMap<String, Value>>,
+}
+
+/// Keylist entry for a specific key.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub struct KeylistEntry {
+    /// Retrieved key
+    pub recipient_key: String,
+}
+
+/// Pagination details for a keylist query.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub struct KeylistPagination {
+    pub count: i32,
+    pub offset: i32,
+    pub remaining: i32,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
