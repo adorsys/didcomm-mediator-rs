@@ -440,4 +440,166 @@ mod tests {
             json_canon::to_string(&serde_json::from_str::<Value>(msg).unwrap()).unwrap(),
         )
     }
+
+    #[test]
+    fn can_serialize_keylist_query_message() {
+        let keylist_update = KeylistQuery {
+            id: "id_alice_keylist_query".to_string(),
+            message_type: KEYLIST_QUERY_2_0.to_string(),
+            body: KeylistQueryBody {
+                paginate: Some(KeylistQueryPaginate {
+                    limit: 30,
+                    offset: 0,
+                }),
+            },
+            return_route: Some(ReturnRouteHeader::All),
+            additional_properties: None,
+        };
+
+        let expected = json!({
+            "@id": "id_alice_keylist_query",
+            "@type": "https://didcomm.org/coordinate-mediation/2.0/keylist-query",
+            "body": {
+                "paginate": {
+                    "limit": 30,
+                    "offset": 0,
+                }
+            },
+            "return_route": "all",
+        });
+
+        assert_eq!(
+            json_canon::to_string(&keylist_update).unwrap(),
+            json_canon::to_string(&expected).unwrap(),
+        )
+    }
+
+    #[test]
+    fn can_deserialize_keylist_query_message() {
+        let msg = r#"{
+            "@id": "id_alice_keylist_query",
+            "@type": "https://didcomm.org/coordinate-mediation/2.0/keylist-query",
+            "body": {
+                "paginate": {
+                    "limit": 30,
+                    "offset": 0
+                }
+            },
+            "return_route": "all"
+        }"#;
+
+        // Assert deserialization
+
+        let keylist_query: KeylistQuery = serde_json::from_str(msg).unwrap();
+
+        assert_eq!(&keylist_query.id, "id_alice_keylist_query");
+        assert_eq!(&keylist_query.message_type, KEYLIST_QUERY_2_0);
+        assert_eq!(keylist_query.return_route, Some(ReturnRouteHeader::All));
+
+        assert_eq!(
+            keylist_query.body,
+            KeylistQueryBody {
+                paginate: Some(KeylistQueryPaginate {
+                    limit: 30,
+                    offset: 0
+                })
+            }
+        );
+
+        // Assert re-serialization
+
+        assert_eq!(
+            json_canon::to_string(&keylist_query).unwrap(),
+            json_canon::to_string(&serde_json::from_str::<Value>(msg).unwrap()).unwrap(),
+        )
+    }
+
+    #[test]
+    fn can_serialize_keylist_message() {
+        let keylist = Keylist {
+            id: "id_alice_keylist".to_string(),
+            message_type: KEYLIST_2_0.to_string(),
+            body: KeylistBody {
+                keys: vec![KeylistEntry {
+                    recipient_did: String::from("did:key:alice_identity_pub1@alice_mediator"),
+                }],
+                pagination: Some(KeylistPagination {
+                    count: 30,
+                    offset: 30,
+                    remaining: 100,
+                }),
+            },
+            additional_properties: None,
+        };
+
+        let expected = json!({
+            "@id": "id_alice_keylist",
+            "@type": "https://didcomm.org/coordinate-mediation/2.0/keylist",
+            "body": {
+                "keys": [
+                    {
+                        "recipient_did": "did:key:alice_identity_pub1@alice_mediator"
+                    }
+                ],
+                "pagination": {
+                    "count": 30,
+                    "offset": 30,
+                    "remaining": 100,
+                }
+            }
+        });
+
+        assert_eq!(
+            json_canon::to_string(&keylist).unwrap(),
+            json_canon::to_string(&expected).unwrap(),
+        )
+    }
+
+    #[test]
+    fn can_deserialize_keylist_message() {
+        let msg = r#"{
+            "@id": "id_alice_keylist",
+            "@type": "https://didcomm.org/coordinate-mediation/2.0/keylist",
+            "body": {
+                "keys": [
+                    {
+                        "recipient_did": "did:key:alice_identity_pub1@alice_mediator"
+                    }
+                ],
+                "pagination": {
+                    "count": 30,
+                    "offset": 30,
+                    "remaining": 100
+                }
+            }
+        }"#;
+
+        // Assert deserialization
+
+        let keylist: Keylist = serde_json::from_str(msg).unwrap();
+
+        assert_eq!(&keylist.id, "id_alice_keylist");
+        assert_eq!(&keylist.message_type, KEYLIST_2_0);
+
+        assert_eq!(
+            keylist.body,
+            KeylistBody {
+                keys: vec![KeylistEntry {
+                    recipient_did: String::from("did:key:alice_identity_pub1@alice_mediator"),
+                }],
+                pagination: Some(KeylistPagination {
+                    count: 30,
+                    offset: 30,
+                    remaining: 100
+                })
+            }
+        );
+
+        // Assert re-serialization
+
+        assert_eq!(
+            json_canon::to_string(&keylist).unwrap(),
+            json_canon::to_string(&serde_json::from_str::<Value>(msg).unwrap()).unwrap(),
+        )
+    }
 }
