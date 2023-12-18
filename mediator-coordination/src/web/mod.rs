@@ -1,21 +1,38 @@
 mod coord;
 
-use axum::{routing::post, Router};
+use std::sync::Arc;
+
+use axum::{
+    routing::{any, post},
+    Router,
+};
 use did_endpoint::util::keystore::KeyStore;
 use did_utils::{didcore::Document, key_jwk::jwk::Jwk};
+use mongodb::bson::oid::ObjectId;
 
 use crate::{
     didcomm::bridge::{LocalDIDResolver, LocalSecretsResolver},
+    model::stateful::coord::entity::Connection,
+    repository::traits::Repository,
     util,
 };
 
-pub fn routes(public_domain: String, diddoc: Document, keystore: KeyStore) -> Router {
-    let state = AppState::from(public_domain, diddoc, keystore);
+pub fn routes(
+    public_domain: String,
+    diddoc: Document,
+    keystore: KeyStore,
+    repository: Option<AppStateRepository>,
+) -> Router {
+    let state = AppState::from(public_domain, diddoc, keystore, repository);
 
     Router::new()
         .route(
             "/mediate",
             post(coord::handler::process_didcomm_mediation_request_message),
+        )
+        .route(
+            "/test",
+            any(coord::handler::stateful::test_connection_repository),
         )
         .with_state(state)
 }
@@ -23,17 +40,33 @@ pub fn routes(public_domain: String, diddoc: Document, keystore: KeyStore) -> Ro
 #[derive(Clone)]
 #[allow(unused)]
 pub struct AppState {
+    // Metadata
     public_domain: String,
 
+    // Crypto identity
     diddoc: Document,
     assertion_jwk: (String, Jwk),
 
+    // DIDComm Resolvers
     did_resolver: LocalDIDResolver,
     secrets_resolver: LocalSecretsResolver,
+
+    // Persistence layer
+    repository: Option<AppStateRepository>,
+}
+
+#[derive(Clone)]
+pub struct AppStateRepository {
+    pub connection_repository: Arc<dyn Repository<Connection, ObjectId>>,
 }
 
 impl AppState {
-    pub fn from(public_domain: String, diddoc: Document, keystore: KeyStore) -> Self {
+    pub fn from(
+        public_domain: String,
+        diddoc: Document,
+        keystore: KeyStore,
+        repository: Option<AppStateRepository>,
+    ) -> Self {
         let (did_url, assertion_pubkey) = util::extract_assertion_key(&diddoc)
             .expect("Failed to retrieve assertion key details from server DID document");
         let assertion_jwk = (
@@ -59,6 +92,7 @@ impl AppState {
             assertion_jwk,
             did_resolver,
             secrets_resolver,
+            repository,
         }
     }
 }
