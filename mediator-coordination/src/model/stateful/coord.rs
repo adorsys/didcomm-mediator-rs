@@ -214,6 +214,30 @@ pub struct KeylistPagination {
     pub remaining: i32,
 }
 
+/// Resources to map in a database.
+pub mod entity {
+    use mongodb::bson::oid::ObjectId;
+    use serde::{Deserialize, Serialize};
+
+    /// Record of a mediation relationship between an edge agent (client) and a mediator.
+    #[derive(Debug, Serialize, Deserialize, Clone, Default)]
+    pub struct Connection {
+        #[serde(rename = "_id")]
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub id: Option<ObjectId>,
+
+        /// Client's DID used at mediation coordination.
+        pub client_did: String,
+
+        /// Mediator's DID used at mediation coordination.
+        pub mediator_did: String,
+
+        /// List of DIDs maintained by the client in the mediator's
+        /// database by a series of keylist operations.
+        pub keylist: Vec<String>,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
