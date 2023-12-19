@@ -10,7 +10,6 @@ use axum::Router;
 use did_endpoint::{didgen, util::filesystem::StdFileSystem};
 use mongodb::{error::Error as MongoError, options::ClientOptions, Client, Database};
 use server_plugin::{Plugin, PluginError};
-use tokio::runtime::Runtime;
 
 #[derive(Default)]
 pub struct MediatorCoordinationPlugin;
@@ -76,7 +75,7 @@ impl Plugin for MediatorCoordinationPlugin {
 
         // Check connectivity to database
 
-        if load_mongo_connector(&mongo_uri, &mongo_dbn).is_err() {
+        if load_mongo_connector(mongo_uri, mongo_dbn).is_err() {
             tracing::error!("could not establish connectivity with mongodb");
             return Err(PluginError::InitError);
         }
@@ -103,7 +102,7 @@ impl Plugin for MediatorCoordinationPlugin {
         let keystore = util::read_keystore(&mut fs, &storage_dirpath).expect(msg);
 
         // Load connection to database
-        let db = load_mongo_connector(&mongo_uri, &mongo_dbn).expect(msg);
+        let db = load_mongo_connector(mongo_uri, mongo_dbn).expect(msg);
 
         // Load persistence layer
         let repository = AppStateRepository {
@@ -115,19 +114,20 @@ impl Plugin for MediatorCoordinationPlugin {
     }
 }
 
-fn load_mongo_connector(mongo_uri: &str, mongo_dbn: &str) -> Result<Database, MongoError> {
-    // Spawn a runtime
-    let rt = Runtime::new().expect("error spawning async runtime");
-
-    // Block the current thread until the asynchronous task completes
-    rt.block_on(async {
+fn load_mongo_connector(mongo_uri: String, mongo_dbn: String) -> Result<Database, MongoError> {
+    let task = async move {
         // Parse a connection string into an options struct.
-        let client_options = ClientOptions::parse(mongo_uri).await?;
+        let client_options = ClientOptions::parse(&mongo_uri).await?;
 
         // Get a handle to the deployment.
         let client = Client::with_options(client_options)?;
 
         // Get a handle to a database.
-        Ok(client.database(mongo_dbn))
+        Ok(client.database(&mongo_dbn))
+    };
+
+    tokio::task::block_in_place(|| {
+        tokio::runtime::Handle::current()
+            .block_on(task)
     })
 }
