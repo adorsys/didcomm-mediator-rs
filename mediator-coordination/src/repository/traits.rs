@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use mongodb::bson::{oid::ObjectId, Document as BsonDocument};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -21,12 +22,15 @@ pub enum RepositoryError {
 
 /// Definition of a trait for repository operations
 #[async_trait]
-pub trait Repository<Entity, EntityKeyType>: Sync + Send {
+pub trait Repository<Entity>: Sync + Send {
     /// Retrieves all entities.
     async fn find_all(&self) -> Result<Vec<Entity>, RepositoryError>;
 
     /// Retrieves a single entity by its identifier.
-    async fn find_one(&self, entity_id: EntityKeyType) -> Result<Option<Entity>, RepositoryError>;
+    async fn find_one(&self, entity_id: ObjectId) -> Result<Option<Entity>, RepositoryError>;
+
+    /// Retrieves a single entity by filter.
+    async fn find_one_by(&self, filter: BsonDocument) -> Result<Option<Entity>, RepositoryError>;
 
     /// Stores a new entity.
     async fn store(&self, entity: Entity) -> Result<Entity, RepositoryError>;
@@ -35,5 +39,5 @@ pub trait Repository<Entity, EntityKeyType>: Sync + Send {
     async fn update(&self, entity: Entity) -> Result<Entity, RepositoryError>;
 
     /// Deletes a single entity by its identifier.
-    async fn delete_one(&self, entity_id: EntityKeyType) -> Result<(), RepositoryError>;
+    async fn delete_one(&self, entity_id: ObjectId) -> Result<(), RepositoryError>;
 }

@@ -1,3 +1,7 @@
+use axum::Router;
+use did_endpoint::{didgen, util::filesystem::StdFileSystem};
+use mongodb::{error::Error as MongoError, options::ClientOptions, Client, Database};
+use server_plugin::{Plugin, PluginError};
 use std::sync::Arc;
 
 use crate::{
@@ -5,11 +9,6 @@ use crate::{
     util,
     web::{self, AppStateRepository},
 };
-
-use axum::Router;
-use did_endpoint::{didgen, util::filesystem::StdFileSystem};
-use mongodb::{error::Error as MongoError, options::ClientOptions, Client, Database};
-use server_plugin::{Plugin, PluginError};
 
 #[derive(Default)]
 pub struct MediatorCoordinationPlugin;

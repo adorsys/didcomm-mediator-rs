@@ -10,6 +10,8 @@ pub enum MediationError {
     AnonymousPacker,
     #[error("anti spam check failure")]
     AntiSpamCheckFailure,
+    #[error("generic: {0}")]
+    Generic(String),
     #[error("could not parse into mediate request")]
     InvalidMediationRequestFormat,
     #[error("invalid message type")]
@@ -24,6 +26,8 @@ pub enum MediationError {
     NoReturnRouteAllDecoration,
     #[error("unsupported content-type, only accept application/didcomm-encrypted+json")]
     NotDidcommEncryptedPayload,
+    #[error("uncoordinated sender")]
+    UncoordinatedSender,
     #[error("unsupported did method")]
     UnsupportedDidMethod,
 }

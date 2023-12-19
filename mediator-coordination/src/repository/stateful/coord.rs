@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use mongodb::{
-    bson::{self, doc, oid::ObjectId, Bson},
+    bson::{self, doc, oid::ObjectId, Bson, Document as BsonDocument},
     Collection, Database,
 };
 
@@ -24,7 +24,7 @@ impl MongoConnectionRepository {
 }
 
 #[async_trait]
-impl Repository<Connection, ObjectId> for MongoConnectionRepository {
+impl Repository<Connection> for MongoConnectionRepository {
     async fn find_all(&self) -> Result<Vec<Connection>, RepositoryError> {
         let mut connections: Vec<Connection> = vec![];
 
@@ -42,9 +42,17 @@ impl Repository<Connection, ObjectId> for MongoConnectionRepository {
         connection_id: ObjectId,
     ) -> Result<Option<Connection>, RepositoryError> {
         // Query the database for the specified connection ID
+        self.find_one_by(doc! {"_id": connection_id}).await
+    }
+
+    async fn find_one_by(
+        &self,
+        filter: BsonDocument,
+    ) -> Result<Option<Connection>, RepositoryError> {
+        // Query the database for the specified connection ID
         Ok(self
             .collection
-            .find_one(doc! {"_id": connection_id}, None)
+            .find_one(filter, None)
             .await?)
     }
 

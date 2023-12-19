@@ -1,14 +1,12 @@
 mod coord;
 
-use std::sync::Arc;
-
 use axum::{
     routing::{any, post},
     Router,
 };
 use did_endpoint::util::keystore::KeyStore;
 use did_utils::{didcore::Document, key_jwk::jwk::Jwk};
-use mongodb::bson::oid::ObjectId;
+use std::sync::Arc;
 
 use crate::{
     didcomm::bridge::{LocalDIDResolver, LocalSecretsResolver},
@@ -34,6 +32,10 @@ pub fn routes(
             "/test",
             any(coord::handler::stateful::test_connection_repository),
         )
+        .route(
+            "/keylist",
+            post(coord::handler::stateful::process_plain_keylist_update_message),
+        )
         .with_state(state)
 }
 
@@ -57,7 +59,7 @@ pub struct AppState {
 
 #[derive(Clone)]
 pub struct AppStateRepository {
-    pub connection_repository: Arc<dyn Repository<Connection, ObjectId>>,
+    pub connection_repository: Arc<dyn Repository<Connection>>,
 }
 
 impl AppState {
