@@ -129,9 +129,12 @@ pub async fn process_plain_keylist_update_message(
         Ok(_) => confirmations,
         Err(_) => confirmations
             .into_iter()
-            .map(|confirmation| KeylistUpdateConfirmation {
-                result: KeylistUpdateResult::ServerError,
-                ..confirmation
+            .map(|mut confirmation| {
+                if confirmation.result != KeylistUpdateResult::ClientError {
+                    confirmation.result = KeylistUpdateResult::ServerError
+                }
+
+                confirmation
             })
             .collect(),
     };
