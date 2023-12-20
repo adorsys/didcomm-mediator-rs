@@ -48,6 +48,10 @@ pub async fn process_didcomm_mediation_request_message(
             stateless::process_plain_mediation_request_over_dics(&state, &plain_message, &req)
                 .await
         ),
+        #[cfg(feature = "stateful")]
+        MediationRequest::Stateful(req) => {
+            midlw::run!(stateful::process_mediate_request(&state, &plain_message, &req).await)
+        }
     };
 
     // Pack response message
