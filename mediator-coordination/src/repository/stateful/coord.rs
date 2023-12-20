@@ -50,10 +50,7 @@ impl Repository<Connection> for MongoConnectionRepository {
         filter: BsonDocument,
     ) -> Result<Option<Connection>, RepositoryError> {
         // Query the database for the specified connection ID
-        Ok(self
-            .collection
-            .find_one(filter, None)
-            .await?)
+        Ok(self.collection.find_one(filter, None).await?)
     }
 
     async fn store(&self, connection: Connection) -> Result<Connection, RepositoryError> {

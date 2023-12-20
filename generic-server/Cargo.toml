@@ -31,10 +31,18 @@ oob-messages = { path = "../oob-messages", optional = true }
 tower = { version = "0.4.13", features = ["util"] }
 
 [features]
-default = ["plugin-index", "plugin-did_endpoint", "plugin-mediator_coordination", "plugin-oob_messages"]
+default = [
+    "plugin-index",
+    "plugin-did_endpoint",
+    "plugin-mediator_coordination",
+    "plugin-oob_messages",
+]
 
 # plugins
 plugin-index = ["dep:chrono"]
 plugin-did_endpoint = ["dep:did-endpoint"]
-plugin-mediator_coordination = ["dep:mediator-coordination"]
+plugin-mediator_coordination = [
+    "dep:mediator-coordination",
+    "plugin-did_endpoint",
+]
 plugin-oob_messages = ["dep:oob-messages"]

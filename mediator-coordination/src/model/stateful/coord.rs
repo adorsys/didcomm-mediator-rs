@@ -67,6 +67,8 @@ pub struct KeylistUpdateCommand {
 pub enum KeylistUpdateAction {
     Add,
     Remove,
+    #[serde(untagged)]
+    Unknown(String),
 }
 
 /// Response message to confirm requested keylist updates.

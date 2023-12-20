@@ -584,7 +584,10 @@ mod tests {
 
         let parsed_mediation_request = parse_message_body_into_mediation_request(&msg).unwrap();
         #[allow(irrefutable_let_patterns)]
-        let MediationRequest::Stateless(parsed_mediation_request) = parsed_mediation_request else { panic!() };
+        let MediationRequest::Stateless(parsed_mediation_request) = parsed_mediation_request
+        else {
+            panic!()
+        };
         assert_eq!(json!(mediation_request), json!(parsed_mediation_request));
 
         /* Negative cases */
