@@ -14,5 +14,7 @@ lazy_static! {
         Box::<did_endpoint::plugin::DidEndpointPlugin>::default(),
         #[cfg(feature = "plugin-mediator_coordination")]
         Box::<mediator_coordination::plugin::MediatorCoordinationPlugin>::default(),
+        #[cfg(feature = "plugin-oob_messages")]
+        Box::<oob_messages::plugin::OOBMessagesPlugin>::default(),
     ];
 }
