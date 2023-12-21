@@ -19,16 +19,6 @@ use crate::{
     web::{coord::error::MediationError, AppState, AppStateRepository},
 };
 
-pub async fn test_connection_repository(State(state): State<AppState>) -> Json<Value> {
-    let AppStateRepository {
-        connection_repository,
-        ..
-    } = state.repository.expect("missing persistence layer");
-
-    let connections = connection_repository.find_all().await.unwrap();
-    Json(json!(connections))
-}
-
 #[axum::debug_handler]
 pub async fn process_plain_keylist_update_message(
     State(state): State<AppState>,
@@ -86,11 +76,11 @@ pub async fn process_plain_keylist_update_message(
     let confirmations: Vec<_> = keylist_update
         .body
         .updates
-        .iter()
-        .map(|update| KeylistUpdateConfirmation {
-            recipient_did: update.recipient_did.clone(),
-            action: update.action.clone(),
-            result: {
+        .into_iter()
+        .map(|update| {
+            let result = if let KeylistUpdateAction::Unknown(_) = &update.action {
+                KeylistUpdateResult::ClientError
+            } else {
                 let found = connection
                     .keylist
                     .iter()
@@ -103,7 +93,7 @@ pub async fn process_plain_keylist_update_message(
                             updated_keylist.swap_remove(index);
                             KeylistUpdateResult::Success
                         }
-                        KeylistUpdateAction::Unknown(_) => KeylistUpdateResult::ClientError,
+                        KeylistUpdateAction::Unknown(_) => unreachable!(),
                     },
                     None => match &update.action {
                         KeylistUpdateAction::Add => {
@@ -111,10 +101,16 @@ pub async fn process_plain_keylist_update_message(
                             KeylistUpdateResult::Success
                         }
                         KeylistUpdateAction::Remove => KeylistUpdateResult::NoChange,
-                        KeylistUpdateAction::Unknown(_) => KeylistUpdateResult::ClientError,
+                        KeylistUpdateAction::Unknown(_) => unreachable!(),
                     },
                 }
-            },
+            };
+
+            KeylistUpdateConfirmation {
+                recipient_did: update.recipient_did,
+                action: update.action,
+                result,
+            }
         })
         .collect();
 

@@ -1,9 +1,6 @@
 mod coord;
 
-use axum::{
-    routing::{any, post},
-    Router,
-};
+use axum::{routing::post, Router};
 use did_endpoint::util::keystore::KeyStore;
 use did_utils::{didcore::Document, key_jwk::jwk::Jwk};
 use std::sync::Arc;
@@ -27,10 +24,6 @@ pub fn routes(
         .route(
             "/mediate",
             post(coord::handler::process_didcomm_mediation_request_message),
-        )
-        .route(
-            "/test",
-            any(coord::handler::stateful::test_connection_repository),
         )
         .route(
             "/keylist",
