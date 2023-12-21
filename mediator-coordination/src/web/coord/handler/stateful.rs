@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use axum::{
     extract::{Query, State},
@@ -7,7 +7,7 @@ use axum::{
     Json,
 };
 use mongodb::bson::doc;
-use serde_json::{json, Value};
+use serde_json::json;
 use uuid::Uuid;
 
 use crate::{
@@ -26,9 +26,11 @@ pub async fn process_plain_keylist_update_message(
     Json(keylist_update): Json<KeylistUpdate>,
 ) -> Response {
     // Temp! Read declared sender from message
+
     let sender = query.get("sender").cloned();
 
     // Validate sender
+
     if sender.is_none() {
         let response = (
             StatusCode::BAD_REQUEST,
@@ -39,6 +41,7 @@ pub async fn process_plain_keylist_update_message(
     }
 
     // Validate message type
+
     if keylist_update.message_type != KEYLIST_UPDATE_2_0 {
         let response = (
             StatusCode::BAD_REQUEST,
@@ -48,13 +51,33 @@ pub async fn process_plain_keylist_update_message(
         return response.into_response();
     }
 
+    // Ensure keylist updates are unique with respect to keys
+
+    let keys: HashSet<_> = keylist_update
+        .body
+        .updates
+        .iter()
+        .map(|e| &e.recipient_did)
+        .collect();
+
+    if keys.len() != keylist_update.body.updates.len() {
+        let response = (
+            StatusCode::BAD_REQUEST,
+            MediationError::DuplicateCommand.json(),
+        );
+
+        return response.into_response();
+    }
+
     // Retrieve repository to connection entities
+
     let AppStateRepository {
         connection_repository,
         ..
     } = state.repository.expect("missing persistence layer");
 
     // Find connection for this keylist update
+
     let connection = match connection_repository
         .find_one_by(doc! { "client_did": sender.unwrap() })
         .await
@@ -72,6 +95,7 @@ pub async fn process_plain_keylist_update_message(
     };
 
     // Perform updates to persist
+
     let mut updated_keylist = connection.keylist.clone();
     let confirmations: Vec<_> = keylist_update
         .body
@@ -115,6 +139,7 @@ pub async fn process_plain_keylist_update_message(
         .collect();
 
     // Persist updated keylist, update confirmations if server error
+
     let confirmations = match connection_repository
         .update(Connection {
             keylist: updated_keylist,
@@ -136,6 +161,7 @@ pub async fn process_plain_keylist_update_message(
     };
 
     // Build response
+
     let response = (
         StatusCode::ACCEPTED,
         Json(json!(KeylistUpdateResponse {

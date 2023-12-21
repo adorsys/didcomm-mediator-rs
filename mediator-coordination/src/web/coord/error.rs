@@ -10,6 +10,8 @@ pub enum MediationError {
     AnonymousPacker,
     #[error("anti spam check failure")]
     AntiSpamCheckFailure,
+    #[error("duplicate command")]
+    DuplicateCommand,
     #[error("generic: {0}")]
     Generic(String),
     #[error("could not parse into mediate request")]
