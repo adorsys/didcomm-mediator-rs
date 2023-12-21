@@ -1,5 +1,3 @@
-use std::collections::{HashMap, HashSet};
-
 use axum::{
     extract::{Query, State},
     http::StatusCode,
@@ -8,6 +6,7 @@ use axum::{
 };
 use mongodb::bson::doc;
 use serde_json::json;
+use std::collections::HashMap;
 use uuid::Uuid;
 
 use crate::{
@@ -25,12 +24,12 @@ pub async fn process_plain_keylist_update_message(
     Query(query): Query<HashMap<String, String>>,
     Json(keylist_update): Json<KeylistUpdate>,
 ) -> Response {
-    // Temp! Read declared sender from message
+    // Initial checks
 
+    // Temp! Read declared sender from message
     let sender = query.get("sender").cloned();
 
     // Validate sender
-
     if sender.is_none() {
         let response = (
             StatusCode::BAD_REQUEST,
@@ -41,29 +40,10 @@ pub async fn process_plain_keylist_update_message(
     }
 
     // Validate message type
-
     if keylist_update.message_type != KEYLIST_UPDATE_2_0 {
         let response = (
             StatusCode::BAD_REQUEST,
             MediationError::InvalidMessageType.json(),
-        );
-
-        return response.into_response();
-    }
-
-    // Ensure keylist updates are unique with respect to keys
-
-    let keys: HashSet<_> = keylist_update
-        .body
-        .updates
-        .iter()
-        .map(|e| &e.recipient_did)
-        .collect();
-
-    if keys.len() != keylist_update.body.updates.len() {
-        let response = (
-            StatusCode::BAD_REQUEST,
-            MediationError::DuplicateCommand.json(),
         );
 
         return response.into_response();
@@ -97,44 +77,52 @@ pub async fn process_plain_keylist_update_message(
     // Perform updates to persist
 
     let mut updated_keylist = connection.keylist.clone();
-    let confirmations: Vec<_> = keylist_update
-        .body
-        .updates
-        .into_iter()
-        .map(|update| {
-            let result = if let KeylistUpdateAction::Unknown(_) = &update.action {
-                KeylistUpdateResult::ClientError
-            } else {
-                let found = connection
-                    .keylist
-                    .iter()
-                    .position(|x| x == &update.recipient_did);
+    let updates = keylist_update.body.updates;
 
-                match found {
-                    Some(index) => match &update.action {
-                        KeylistUpdateAction::Add => KeylistUpdateResult::NoChange,
-                        KeylistUpdateAction::Remove => {
-                            updated_keylist.swap_remove(index);
-                            KeylistUpdateResult::Success
-                        }
-                        KeylistUpdateAction::Unknown(_) => unreachable!(),
-                    },
-                    None => match &update.action {
-                        KeylistUpdateAction::Add => {
-                            updated_keylist.push(update.recipient_did.clone());
-                            KeylistUpdateResult::Success
-                        }
-                        KeylistUpdateAction::Remove => KeylistUpdateResult::NoChange,
-                        KeylistUpdateAction::Unknown(_) => unreachable!(),
-                    },
+    // Check if a specific key is duplicated across commands
+    let key_is_duplicate = |recipient_did| {
+        updates
+            .iter()
+            .filter(|e| &e.recipient_did == recipient_did)
+            .count()
+            > 1
+    };
+
+    let confirmations: Vec<_> = updates
+        .iter()
+        .map(|update| KeylistUpdateConfirmation {
+            recipient_did: update.recipient_did.clone(),
+            action: update.action.clone(),
+            result: {
+                if let KeylistUpdateAction::Unknown(_) = &update.action {
+                    KeylistUpdateResult::ClientError
+                } else if key_is_duplicate(&update.recipient_did) {
+                    KeylistUpdateResult::ClientError
+                } else {
+                    match connection
+                        .keylist
+                        .iter()
+                        .position(|x| x == &update.recipient_did)
+                    {
+                        Some(index) => match &update.action {
+                            KeylistUpdateAction::Add => KeylistUpdateResult::NoChange,
+                            KeylistUpdateAction::Remove => {
+                                updated_keylist.swap_remove(index);
+                                KeylistUpdateResult::Success
+                            }
+                            KeylistUpdateAction::Unknown(_) => unreachable!(),
+                        },
+                        None => match &update.action {
+                            KeylistUpdateAction::Add => {
+                                updated_keylist.push(update.recipient_did.clone());
+                                KeylistUpdateResult::Success
+                            }
+                            KeylistUpdateAction::Remove => KeylistUpdateResult::NoChange,
+                            KeylistUpdateAction::Unknown(_) => unreachable!(),
+                        },
+                    }
                 }
-            };
-
-            KeylistUpdateConfirmation {
-                recipient_did: update.recipient_did,
-                action: update.action,
-                result,
-            }
+            },
         })
         .collect();
 
