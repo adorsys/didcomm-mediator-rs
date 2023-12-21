@@ -24,12 +24,12 @@ pub async fn process_plain_keylist_update_message(
     Query(query): Query<HashMap<String, String>>,
     Json(keylist_update): Json<KeylistUpdate>,
 ) -> Response {
-    // Initial checks
-
     // Temp! Read declared sender from message
+
     let sender = query.get("sender").cloned();
 
     // Validate sender
+
     if sender.is_none() {
         let response = (
             StatusCode::BAD_REQUEST,
@@ -40,6 +40,7 @@ pub async fn process_plain_keylist_update_message(
     }
 
     // Validate message type
+
     if keylist_update.message_type != KEYLIST_UPDATE_2_0 {
         let response = (
             StatusCode::BAD_REQUEST,
@@ -74,12 +75,13 @@ pub async fn process_plain_keylist_update_message(
         }
     };
 
-    // Perform updates to persist
+    // Prepare handles to relevant collections
 
     let mut updated_keylist = connection.keylist.clone();
     let updates = keylist_update.body.updates;
 
-    // Check if a specific key is duplicated across commands
+    // Closure to check if a specific key is duplicated across commands
+
     let key_is_duplicate = |recipient_did| {
         updates
             .iter()
@@ -87,6 +89,8 @@ pub async fn process_plain_keylist_update_message(
             .count()
             > 1
     };
+
+    // Perform updates to persist
 
     let confirmations: Vec<_> = updates
         .iter()
