@@ -7,17 +7,12 @@ use crate::{
     },
     didcore::{self, Document as DIDDocument, KeyFormat, VerificationMethod},
     ldmodel::Context,
-    methods::{errors::DIDResolutionError, traits::DIDMethod},
+    methods::{
+        common::{Algorithm, PublicKeyFormat},
+        errors::DIDResolutionError,
+        traits::DIDMethod,
+    },
 };
-
-use super::alg::Algorithm;
-
-#[derive(Default)]
-pub enum PublicKeyFormat {
-    #[default]
-    Multikey,
-    Jwk,
-}
 
 #[derive(Default)]
 pub struct DIDKeyMethod {
