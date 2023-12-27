@@ -1,4 +1,4 @@
-use multibase::Base::Base64Url;
+use multibase::Base::{Base58Btc, Base64Url};
 use serde::{Deserialize, Serialize};
 
 use super::{error::DIDPeerMethodError, util::abbreviate_service_for_did_peer_2};
@@ -150,6 +150,53 @@ impl DIDPeerMethod {
 
         Ok(format!("did:peer:3z{multihash}"))
     }
+
+    /// Method 4: Generates did:peer address from DID document (embedding long form)
+    ///
+    /// See https://identity.foundation/peer-did-method-spec/#method-4-short-form-and-long-form
+    pub fn create_did_peer_4_from_stored_variant(diddoc: &DIDDocument) -> Result<String, DIDPeerMethodError> {
+        const MULTICODEC_JSON: [u8; 2] = [0x80, 0x04];
+
+        // Validate argument
+        if !diddoc.id.is_empty() {
+            return Err(DIDPeerMethodError::InvalidStoredVariant);
+        }
+
+        // Encode document
+        let json = json_canon::to_string(diddoc)?;
+        let encoded = multibase::encode(Base58Btc, [&MULTICODEC_JSON, json.as_bytes()].concat());
+
+        // Hashing
+        let hash = format!("z{}", sha256_multihash(encoded.as_bytes()));
+
+        Ok(format!("did:peer:4{hash}:{encoded}"))
+    }
+
+    /// Method 4: DID shortening for did:peer:4 addresses
+    ///
+    /// See https://identity.foundation/peer-did-method-spec/#method-4-short-form-and-long-form
+    pub fn shorten_did_peer_4(did: &str) -> Result<String, DIDPeerMethodError> {
+        let stripped = match did.strip_prefix("did:peer:4") {
+            Some(stripped) => stripped,
+            None => return Err(DIDPeerMethodError::IllegalArgument),
+        };
+
+        // Split hash and encoded segments
+
+        let segments: Vec<_> = stripped.split(':').collect();
+        if segments.len() != 2 || segments[1].is_empty() {
+            return Err(DIDPeerMethodError::MalformedLongPeerDID);
+        }
+
+        let (hash, encoded) = (segments[0], segments[1]);
+
+        // Verify hash
+        if hash != format!("z{}", sha256_multihash(encoded.as_bytes())) {
+            return Err(DIDPeerMethodError::InvalidHash);
+        }
+
+        Ok(format!("did:peer:4{hash}"))
+    }
 }
 
 #[cfg(test)]
@@ -197,54 +244,14 @@ mod tests {
 
     #[test]
     fn test_did_peer_1_generation_from_did_document() {
-        let diddoc: DIDDocument = serde_json::from_str(
-            r##"{
-                "@context": [
-                    "https://www.w3.org/ns/did/v1",
-                    "https://w3id.org/security/suites/ed25519-2020/v1"
-                ],
-                "id": "",
-                "verificationMethod": [{
-                    "id": "#key1",
-                    "type": "Ed25519VerificationKey2020",
-                    "controller": "#id",
-                    "publicKeyMultibase": "z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"
-                }],
-                "authentication": ["#key1"],
-                "assertionMethod": ["#key1"],
-                "capabilityDelegation": ["#key1"],
-                "capabilityInvocation": ["#key1"]
-            }"##,
-        )
-        .unwrap();
-
+        let diddoc = _stored_variant_v0();
         let did = DIDPeerMethod::create_did_peer_1_from_stored_variant(&diddoc);
         assert_eq!(did.unwrap(), "did:peer:1zQmbEB1EqP7PnNVaHiSpXhkatAA6kNyQK9mWkvrMx2eckgq");
     }
 
     #[test]
     fn test_did_peer_1_generation_fails_from_did_document_with_id() {
-        let diddoc: DIDDocument = serde_json::from_str(
-            r##"{
-                "@context": [
-                    "https://www.w3.org/ns/did/v1",
-                    "https://w3id.org/security/suites/ed25519-2020/v1"
-                ],
-                "id": "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
-                "verificationMethod": [{
-                    "id": "#key1",
-                    "type": "Ed25519VerificationKey2020",
-                    "controller": "#id",
-                    "publicKeyMultibase": "z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"
-                }],
-                "authentication": ["#key1"],
-                "assertionMethod": ["#key1"],
-                "capabilityDelegation": ["#key1"],
-                "capabilityInvocation": ["#key1"]
-            }"##,
-        )
-        .unwrap();
-
+        let diddoc = _invalid_stored_variant_v0();
         let did = DIDPeerMethod::create_did_peer_1_from_stored_variant(&diddoc);
         assert!(matches!(did.unwrap_err(), DIDPeerMethodError::InvalidStoredVariant));
     }
@@ -389,5 +396,162 @@ mod tests {
                 DIDPeerMethodError::IllegalArgument
             ));
         }
+    }
+
+    #[test]
+    fn test_did_peer_4_generation() {
+        let diddoc = _stored_variant_v0();
+        assert_eq!(
+            &DIDPeerMethod::create_did_peer_4_from_stored_variant(&diddoc).unwrap(),
+            concat!(
+                "did:peer:4zQmePYVawceZsPSxpLRp54z4Q5DCZXeyyGKwoDMc2NqgZXZ:z2yS424R5nAoSu",
+                "CezPTvBHybrvByZRD9g8L4oMe4ctq9UwPksVskxJFiars33RRyKz3z7RbwwQRAo9ByoXmBhg",
+                "7UCMkvmSHBeXWF44tQJfLjiXieCtXgxASzPJ5UsgPLAWX2vdjNFfmiLVh1WLe3RdBPvQoMuM",
+                "EiPLFGiKhbzX66dT21qDwZusRC4uDzQa7XpsLBS7rBjZZ9sLMRzjpG4rYpjgLUmUF2D1ixeW",
+                "ZFMqy7fVfPUUGyt4N6R4aLAjMLgcJzAQKb1uFiBYe2ZCTmsjtazWkHypgJetLysv7AwasYDV",
+                "4MMNPY5AbM4p3TGtdpJZaxaXzSKRZexuQ4tWsfGuHXEDiaABj5YtjbNjWh4f5M4sn7D9AAAS",
+                "StG593VkLFaPxG4VnFR4tKPiWeN9AJXRWPQ2XRnsD7U3mCHpRSb2f1HT5KeSHTU8zNAn6vFc",
+                "4fstgf2j71Uo8tngcUBkxdqkHKmpvZ1Fs27sWh7JvWAeiehsW3aBe4CbU4WGjzmusaKVb2HS",
+                "7iY5hbYngYrpwcZ5Sse",
+            )
+        );
+    }
+
+    #[test]
+    fn test_did_peer_4_generation_fails_from_did_document_with_id() {
+        let diddoc = _invalid_stored_variant_v0();
+        let did = DIDPeerMethod::create_did_peer_4_from_stored_variant(&diddoc);
+        assert!(matches!(did.unwrap_err(), DIDPeerMethodError::InvalidStoredVariant));
+    }
+
+    #[test]
+    fn test_did_peer_4_shortening() {
+        let did = concat!(
+            "did:peer:4zQmePYVawceZsPSxpLRp54z4Q5DCZXeyyGKwoDMc2NqgZXZ:z2yS424R5nAoSu",
+            "CezPTvBHybrvByZRD9g8L4oMe4ctq9UwPksVskxJFiars33RRyKz3z7RbwwQRAo9ByoXmBhg",
+            "7UCMkvmSHBeXWF44tQJfLjiXieCtXgxASzPJ5UsgPLAWX2vdjNFfmiLVh1WLe3RdBPvQoMuM",
+            "EiPLFGiKhbzX66dT21qDwZusRC4uDzQa7XpsLBS7rBjZZ9sLMRzjpG4rYpjgLUmUF2D1ixeW",
+            "ZFMqy7fVfPUUGyt4N6R4aLAjMLgcJzAQKb1uFiBYe2ZCTmsjtazWkHypgJetLysv7AwasYDV",
+            "4MMNPY5AbM4p3TGtdpJZaxaXzSKRZexuQ4tWsfGuHXEDiaABj5YtjbNjWh4f5M4sn7D9AAAS",
+            "StG593VkLFaPxG4VnFR4tKPiWeN9AJXRWPQ2XRnsD7U3mCHpRSb2f1HT5KeSHTU8zNAn6vFc",
+            "4fstgf2j71Uo8tngcUBkxdqkHKmpvZ1Fs27sWh7JvWAeiehsW3aBe4CbU4WGjzmusaKVb2HS",
+            "7iY5hbYngYrpwcZ5Sse",
+        );
+
+        assert_eq!(
+            &DIDPeerMethod::shorten_did_peer_4(did).unwrap(),
+            "did:peer:4zQmePYVawceZsPSxpLRp54z4Q5DCZXeyyGKwoDMc2NqgZXZ"
+        );
+    }
+
+    #[test]
+    fn test_did_peer_4_shortening_fails_on_non_did_peer_4_arg() {
+        let dids = [
+            "",
+            "did:peer:0z6MkiTBz1ymuepAQ4HEHYSF1H8quG5GLVVQR3djdX3mDooWp",
+            "did:peer:1zQmbEB1EqP7PnNVaHiSpXhkatAA6kNyQK9mWkvrMx2eckgq",
+            "did:peer:3zQmS19jtYDvGtKVrJhQnRFpBQAx3pJ9omx2HpNrcXFuRCz9",
+        ];
+
+        for did in dids {
+            assert!(matches!(
+                DIDPeerMethod::shorten_did_peer_4(did).unwrap_err(),
+                DIDPeerMethodError::IllegalArgument
+            ));
+        }
+    }
+
+    #[test]
+    fn test_did_peer_4_shortening_fails_on_malformed_long_peer_did() {
+        let dids = [
+            "did:peer:4zQmePYVawceZsPSxpLRp54z4Q5DCZXeyyGKwoDMc2NqgZXZz2yS424R5nAoSu",
+            "did:peer:4zQmePYVawceZsPSxpLRp54z4Q5DCZXeyyGKwoDMc2NqgZXZ:z2yS424:R5nAoSu",
+            "did:peer:4zQmePYVawceZsPSxpLRp54z4Q5DCZXeyyGKwoDMc2NqgZXZ:",
+        ];
+
+        for did in dids {
+            assert!(matches!(
+                DIDPeerMethod::shorten_did_peer_4(did).unwrap_err(),
+                DIDPeerMethodError::MalformedLongPeerDID
+            ));
+        }
+    }
+
+    #[test]
+    fn test_did_peer_4_shortening_fails_on_invalid_hash_in_long_peer_did() {
+        let valid_did = concat!(
+            "did:peer:4zQmePYVawceZsPSxpLRp54z4Q5DCZXeyyGKwoDMc2NqgZXZ:z2yS424R5nAoSu",
+            "CezPTvBHybrvByZRD9g8L4oMe4ctq9UwPksVskxJFiars33RRyKz3z7RbwwQRAo9ByoXmBhg",
+            "7UCMkvmSHBeXWF44tQJfLjiXieCtXgxASzPJ5UsgPLAWX2vdjNFfmiLVh1WLe3RdBPvQoMuM",
+            "EiPLFGiKhbzX66dT21qDwZusRC4uDzQa7XpsLBS7rBjZZ9sLMRzjpG4rYpjgLUmUF2D1ixeW",
+            "ZFMqy7fVfPUUGyt4N6R4aLAjMLgcJzAQKb1uFiBYe2ZCTmsjtazWkHypgJetLysv7AwasYDV",
+            "4MMNPY5AbM4p3TGtdpJZaxaXzSKRZexuQ4tWsfGuHXEDiaABj5YtjbNjWh4f5M4sn7D9AAAS",
+            "StG593VkLFaPxG4VnFR4tKPiWeN9AJXRWPQ2XRnsD7U3mCHpRSb2f1HT5KeSHTU8zNAn6vFc",
+            "4fstgf2j71Uo8tngcUBkxdqkHKmpvZ1Fs27sWh7JvWAeiehsW3aBe4CbU4WGjzmusaKVb2HS",
+            "7iY5hbYngYrpwcZ5Sse",
+        );
+
+        // Invalidate hash
+        let mut did = valid_did.to_string();
+        did.insert_str(20, "blurg");
+
+        assert!(matches!(
+            DIDPeerMethod::shorten_did_peer_4(&did).unwrap_err(),
+            DIDPeerMethodError::InvalidHash
+        ));
+
+        // Invalidate hash by tampering with encoded document
+        let did = format!("{valid_did}blurg");
+
+        assert!(matches!(
+            DIDPeerMethod::shorten_did_peer_4(&did).unwrap_err(),
+            DIDPeerMethodError::InvalidHash
+        ));
+    }
+
+    fn _stored_variant_v0() -> DIDDocument {
+        serde_json::from_str(
+            r##"{
+                "@context": [
+                    "https://www.w3.org/ns/did/v1",
+                    "https://w3id.org/security/suites/ed25519-2020/v1"
+                ],
+                "id": "",
+                "verificationMethod": [{
+                    "id": "#key1",
+                    "type": "Ed25519VerificationKey2020",
+                    "controller": "#id",
+                    "publicKeyMultibase": "z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"
+                }],
+                "authentication": ["#key1"],
+                "assertionMethod": ["#key1"],
+                "capabilityDelegation": ["#key1"],
+                "capabilityInvocation": ["#key1"]
+            }"##,
+        )
+        .unwrap()
+    }
+
+    fn _invalid_stored_variant_v0() -> DIDDocument {
+        serde_json::from_str(
+            r##"{
+                "@context": [
+                    "https://www.w3.org/ns/did/v1",
+                    "https://w3id.org/security/suites/ed25519-2020/v1"
+                ],
+                "id": "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+                "verificationMethod": [{
+                    "id": "#key1",
+                    "type": "Ed25519VerificationKey2020",
+                    "controller": "#id",
+                    "publicKeyMultibase": "z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"
+                }],
+                "authentication": ["#key1"],
+                "assertionMethod": ["#key1"],
+                "capabilityDelegation": ["#key1"],
+                "capabilityInvocation": ["#key1"]
+            }"##,
+        )
+        .unwrap()
     }
 }

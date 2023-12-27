@@ -6,11 +6,13 @@ use crate::crypto::traits::Error as CryptoError;
 pub enum DIDPeerMethodError {
     CryptoError(CryptoError),
     EmptyArguments,
-    UnexpectedPurpose,
     IllegalArgument,
+    InvalidHash,
     InvalidPurposeCode,
     InvalidStoredVariant,
+    MalformedLongPeerDID,
     SerdeError(SerdeError),
+    UnexpectedPurpose,
 }
 
 impl From<CryptoError> for DIDPeerMethodError {
