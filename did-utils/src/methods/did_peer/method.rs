@@ -135,6 +135,21 @@ impl DIDPeerMethod {
 
         Ok(format!("did:peer:2{}", chain.join("")))
     }
+
+    /// Method 3: DID Shortening with SHA-256 Hash
+    ///
+    /// See https://identity.foundation/peer-did-method-spec/#method-3-did-shortening-with-sha-256-hash
+    pub fn create_did_peer_3(did: &str) -> Result<String, DIDPeerMethodError> {
+        let stripped = match did.strip_prefix("did:peer:2") {
+            Some(stripped) => stripped,
+            None => return Err(DIDPeerMethodError::IllegalArgument),
+        };
+
+        // Multihash with SHA256
+        let multihash = sha256_multihash(stripped.as_bytes());
+
+        Ok(format!("did:peer:3z{multihash}"))
+    }
 }
 
 #[cfg(test)]
@@ -342,5 +357,37 @@ mod tests {
             DIDPeerMethod::create_did_peer_2(&[], &[]).unwrap_err(),
             DIDPeerMethodError::EmptyArguments
         ));
+    }
+
+    #[test]
+    fn test_did_peer_3_generation() {
+        let did = concat!(
+            "did:peer:2.Ez6LSbysY2xFMRpGMhb7tFTLMpeuPRaqaWM1yECx2AtzE3KCc.Vz6MkqRYqQi",
+            "SgvZQdnBytw86Qbs2ZWUkGv22od935YF4s8M7V.Vz6MkgoLTnTypo3tDRwCkZXSccTPHRLhF",
+            "4ZnjhueYAFpEX6vg.SeyJ0IjoiZG0iLCJzIjoiaHR0cHM6Ly9leGFtcGxlLmNvbS9lbmRwb2",
+            "ludCIsInIiOlsiZGlkOmV4YW1wbGU6c29tZW1lZGlhdG9yI3NvbWVrZXkiXSwiYSI6WyJkaW",
+            "Rjb21tL3YyIiwiZGlkY29tbS9haXAyO2Vudj1yZmM1ODciXX0",
+        );
+
+        assert_eq!(
+            &DIDPeerMethod::create_did_peer_3(did).unwrap(),
+            "did:peer:3zQmS19jtYDvGtKVrJhQnRFpBQAx3pJ9omx2HpNrcXFuRCz9"
+        );
+    }
+
+    #[test]
+    fn test_did_peer_3_generation_fails_on_non_did_peer_2_arg() {
+        let dids = [
+            "",
+            "did:peer:0z6MkiTBz1ymuepAQ4HEHYSF1H8quG5GLVVQR3djdX3mDooWp",
+            "did:peer:1zQmbEB1EqP7PnNVaHiSpXhkatAA6kNyQK9mWkvrMx2eckgq",
+        ];
+
+        for did in dids {
+            assert!(matches!(
+                DIDPeerMethod::create_did_peer_3(did).unwrap_err(),
+                DIDPeerMethodError::IllegalArgument
+            ));
+        }
     }
 }

@@ -7,6 +7,7 @@ pub enum DIDPeerMethodError {
     CryptoError(CryptoError),
     EmptyArguments,
     UnexpectedPurpose,
+    IllegalArgument,
     InvalidPurposeCode,
     InvalidStoredVariant,
     SerdeError(SerdeError),
