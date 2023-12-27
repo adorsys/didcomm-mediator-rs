@@ -5,6 +5,8 @@ use crate::crypto::traits::Error as CryptoError;
 #[derive(Debug)]
 pub enum DIDPeerMethodError {
     CryptoError(CryptoError),
+    EmptyArguments,
+    UnexpectedPurpose,
     InvalidPurposeCode,
     InvalidStoredVariant,
     SerdeError(SerdeError),

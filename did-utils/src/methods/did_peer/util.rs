@@ -1,6 +1,10 @@
-use serde_json::{Map, Value};
+use serde_json::{json, Map, Value};
 
-pub fn abbreviate_service_for_did_peer_2(value: &mut Value) {
+use crate::didcore::Service;
+
+use super::error::DIDPeerMethodError;
+
+pub fn abbreviate_service_for_did_peer_2(service: &Service) -> Result<String, DIDPeerMethodError> {
     let abbrv_key = |key: &str| -> String {
         match key {
             "type" => "t",
@@ -20,10 +24,15 @@ pub fn abbreviate_service_for_did_peer_2(value: &mut Value) {
         .to_string()
     };
 
-    abbrv_service(value, &abbrv_key, &abbrv_val)
+    let mut value = json!(service);
+    abbrv_service(&mut value, &abbrv_key, &abbrv_val);
+
+    Ok(json_canon::to_string(&value)?)
 }
 
-pub fn reverse_abbreviate_service_for_did_peer_2(value: &mut Value) {
+pub fn reverse_abbreviate_service_for_did_peer_2(service: &str) -> Result<Service, DIDPeerMethodError> {
+    let mut value = serde_json::from_str(service)?;
+
     let rev_abbrv_key = |key: &str| -> String {
         match key {
             "t" => "type",
@@ -43,7 +52,8 @@ pub fn reverse_abbreviate_service_for_did_peer_2(value: &mut Value) {
         .to_string()
     };
 
-    abbrv_service(value, &rev_abbrv_key, &rev_abbrv_val)
+    abbrv_service(&mut value, &rev_abbrv_key, &rev_abbrv_val);
+    Ok(serde_json::from_value(value)?)
 }
 
 fn abbrv_service(value: &mut Value, abbrv_key: &dyn Fn(&str) -> String, abbrv_val: &dyn Fn(&str) -> String) {
@@ -76,113 +86,87 @@ fn abbrv_service(value: &mut Value, abbrv_key: &dyn Fn(&str) -> String, abbrv_va
 
 #[cfg(test)]
 mod tests {
-    use serde_json::json;
+    // TODO! Update these tests upon revising the Service struct for compliance
 
     use super::*;
 
+    use serde_json::json;
+
     #[test]
     fn test_abbreviate_service_for_did_peer_2() {
-        let mut service = json!({
-            "type": "DIDCommMessaging",
-            "serviceEndpoint": {
-                "uri": "http://example.com/didcomm",
-                "accept": [
-                    "didcomm/v2"
-                ],
-                "routingKeys": [
-                    "did:example:123456789abcdefghi#key-1"
-                ]
-            }
-        });
-
-        abbreviate_service_for_did_peer_2(&mut service);
+        let service: Service = serde_json::from_str(
+            r##"{
+                "id": "#didcomm",
+                "type": "DIDCommMessaging",
+                "serviceEndpoint": "http://example.com/didcomm",
+                "accept": ["didcomm/v2"],
+                "routingKeys": ["did:example:123456789abcdefghi#key-1"]
+            }"##,
+        )
+        .unwrap();
 
         assert_eq!(
-            service,
-            json!({
-                "t": "dm",
-                "s": {
-                    "uri": "http://example.com/didcomm",
-                    "a": [
-                        "didcomm/v2"
-                    ],
-                    "r": [
-                        "did:example:123456789abcdefghi#key-1"
-                    ]
-                }
-            })
+            abbreviate_service_for_did_peer_2(&service).unwrap(),
+            r##"{"a":["didcomm/v2"],"id":"#didcomm","r":["did:example:123456789abcdefghi#key-1"],"s":"http://example.com/didcomm","t":"dm"}"##
         );
     }
 
     #[test]
     fn test_abbreviate_service_for_did_peer_2_with_pushed_boundaries() {
-        let mut service = json!({
-            "type": "DIDCommMessaging",
-            "DIDCommMessaging": "DIDCommMessaging",
-            "serviceEndpoint": {
-                "uri": "routingKeys",
-                "accept": [
-                    "didcomm/v2",
-                    "type"
-                ],
-                "routingKeys": [
-                    "did:example:123456789abcdefghi#key-1"
-                ]
-            }
-        });
-
-        abbreviate_service_for_did_peer_2(&mut service);
+        let service: Service = serde_json::from_str(
+            r##"{
+                "id": "#didcomm",
+                "type": "DIDCommMessaging",
+                "DIDCommMessaging": "DIDCommMessaging",
+                "serviceEndpoint": "routingKeys",
+                "accept": ["didcomm/v2", "type"],
+                "routingKeys": ["did:example:123456789abcdefghi#key-1"]
+            }"##,
+        )
+        .unwrap();
 
         assert_eq!(
-            service,
-            json!({
+            abbreviate_service_for_did_peer_2(&service).unwrap(),
+            json_canon::to_string(&json!({
+                "id": "#didcomm",
                 "t": "dm",
                 "DIDCommMessaging": "dm",
-                "s": {
-                    "uri": "routingKeys",
-                    "a": [
-                        "didcomm/v2",
-                        "type"
-                    ],
-                    "r": [
-                        "did:example:123456789abcdefghi#key-1"
-                    ]
-                }
-            })
+                "s": "routingKeys",
+                "a": ["didcomm/v2", "type"],
+                "r": ["did:example:123456789abcdefghi#key-1"]
+            }))
+            .unwrap()
         );
     }
 
     #[test]
     fn test_reverse_abbreviate_service_for_did_peer_2() {
-        let mut service = json!({
-            "t": "dm",
-            "s": {
-                "uri": "http://example.com/didcomm",
-                "a": [
-                    "didcomm/v2"
-                ],
-                "r": [
-                    "did:example:123456789abcdefghi#key-1"
-                ]
-            }
-        });
+        let sv = r##"{"a":["didcomm/v2"],"id":"#didcomm","r":["did:example:123456789abcdefghi#key-1"],"s":"http://example.com/didcomm","t":"dm"}"##;
 
-        reverse_abbreviate_service_for_did_peer_2(&mut service);
+        let service = reverse_abbreviate_service_for_did_peer_2(sv).unwrap();
 
         assert_eq!(
-            service,
+            json!(service),
             json!({
+                "id": "#didcomm",
                 "type": "DIDCommMessaging",
-                "serviceEndpoint": {
-                    "uri": "http://example.com/didcomm",
-                    "accept": [
-                        "didcomm/v2"
-                    ],
-                    "routingKeys": [
-                        "did:example:123456789abcdefghi#key-1"
-                    ]
-                }
+                "serviceEndpoint": "http://example.com/didcomm",
+                "accept": ["didcomm/v2"],
+                "routingKeys": ["did:example:123456789abcdefghi#key-1"]
             })
         );
+    }
+
+    #[test]
+    fn test_reverse_abbreviate_service_for_did_peer_2_errs_on_malformed_service() {
+        // id must be a string
+        let sv = r##"{"a":["didcomm/v2"],"id":[],"r":["did:example:123456789abcdefghi#key-1"],"s":"http://example.com/didcomm","t":"dm"}"##;
+
+        let res = reverse_abbreviate_service_for_did_peer_2(sv);
+        let DIDPeerMethodError::SerdeError(err) = res.unwrap_err() else {
+            panic!()
+        };
+
+        assert!(err.to_string().contains("invalid type: sequence, expected a string"));
     }
 }

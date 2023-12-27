@@ -1,9 +1,10 @@
+use multibase::Base::Base64Url;
 use serde::{Deserialize, Serialize};
 
-use super::error::DIDPeerMethodError;
+use super::{error::DIDPeerMethodError, util::abbreviate_service_for_did_peer_2};
 use crate::{
     crypto::{ed25519::Ed25519KeyPair, sha256_hash::sha256_multihash},
-    didcore::Document as DIDDocument,
+    didcore::{Document as DIDDocument, Service},
     methods::{
         common::{Algorithm, PublicKeyFormat},
         did_key::DIDKeyMethod,
@@ -93,7 +94,7 @@ impl DIDPeerMethod {
     /// Method 1: Generates did:peer address from DID document
     ///
     /// See https://identity.foundation/peer-did-method-spec/#method-1-genesis-doc
-    pub fn create_did_peer_1_from_diddoc(diddoc: &DIDDocument) -> Result<String, DIDPeerMethodError> {
+    pub fn create_did_peer_1_from_stored_variant(diddoc: &DIDDocument) -> Result<String, DIDPeerMethodError> {
         if !diddoc.id.is_empty() {
             return Err(DIDPeerMethodError::InvalidStoredVariant);
         }
@@ -102,6 +103,37 @@ impl DIDPeerMethod {
         let multihash = sha256_multihash(json.as_bytes());
 
         Ok(format!("did:peer:1z{multihash}"))
+    }
+
+    /// Method 2: Generates did:peer address from multiple inception key
+    ///
+    /// See https://identity.foundation/peer-did-method-spec/#method-2-multiple-inception-key-without-doc
+    pub fn create_did_peer_2(keys: &[PurposedKey], services: &[Service]) -> Result<String, DIDPeerMethodError> {
+        if keys.is_empty() && services.is_empty() {
+            return Err(DIDPeerMethodError::EmptyArguments);
+        }
+
+        // Initialization
+        let mut chain = vec![];
+
+        // Chain keys
+        for key in keys {
+            if matches!(key.purpose, Purpose::Service) {
+                return Err(DIDPeerMethodError::UnexpectedPurpose);
+            }
+
+            chain.push(format!(".{}{}", key.purpose.code(), key.public_key_multibase));
+        }
+
+        // Chain services
+        for service in services {
+            let abbreviated_service = abbreviate_service_for_did_peer_2(service)?;
+            let encoded_service = Base64Url.encode(abbreviated_service);
+
+            chain.push(format!(".{}{}", Purpose::Service.code(), encoded_service));
+        }
+
+        Ok(format!("did:peer:2{}", chain.join("")))
     }
 }
 
@@ -171,7 +203,7 @@ mod tests {
         )
         .unwrap();
 
-        let did = DIDPeerMethod::create_did_peer_1_from_diddoc(&diddoc);
+        let did = DIDPeerMethod::create_did_peer_1_from_stored_variant(&diddoc);
         assert_eq!(did.unwrap(), "did:peer:1zQmbEB1EqP7PnNVaHiSpXhkatAA6kNyQK9mWkvrMx2eckgq");
     }
 
@@ -198,7 +230,117 @@ mod tests {
         )
         .unwrap();
 
-        let did = DIDPeerMethod::create_did_peer_1_from_diddoc(&diddoc);
+        let did = DIDPeerMethod::create_did_peer_1_from_stored_variant(&diddoc);
         assert!(matches!(did.unwrap_err(), DIDPeerMethodError::InvalidStoredVariant));
+    }
+
+    #[test]
+    fn test_did_peer_2_generation() {
+        let keys: Vec<PurposedKey> = serde_json::from_str(
+            r##"[
+                {
+                    "purpose": "verification",
+                    "publicKeyMultibase": "z6Mkj3PUd1WjvaDhNZhhhXQdz5UnZXmS7ehtx8bsPpD47kKc"
+                },
+                {
+                    "purpose": "encryption",
+                    "publicKeyMultibase": "z6LSg8zQom395jKLrGiBNruB9MM6V8PWuf2FpEy4uRFiqQBR"
+                }
+            ]"##,
+        )
+        .unwrap();
+
+        let did = DIDPeerMethod::create_did_peer_2(&keys, &[]).unwrap();
+        assert_eq!(
+            &did,
+            "did:peer:2.Vz6Mkj3PUd1WjvaDhNZhhhXQdz5UnZXmS7ehtx8bsPpD47kKc.Ez6LSg8zQom395jKLrGiBNruB9MM6V8PWuf2FpEy4uRFiqQBR"
+        );
+    }
+
+    #[test]
+    fn test_did_peer_2_generation_with_service() {
+        let keys: Vec<PurposedKey> = serde_json::from_str(
+            r##"[{
+                "purpose": "verification",
+                "publicKeyMultibase": "z6Mkj3PUd1WjvaDhNZhhhXQdz5UnZXmS7ehtx8bsPpD47kKc"
+            }]"##,
+        )
+        .unwrap();
+
+        let services = vec![Service {
+            id: String::from("#didcomm"),
+            service_type: String::from("DIDCommMessaging"),
+            service_endpoint: String::from("http://example.com/didcomm"),
+            additional_properties: None,
+        }];
+
+        assert_eq!(
+            &DIDPeerMethod::create_did_peer_2(&keys, &services).unwrap(),
+            concat!(
+                "did:peer:2",
+                ".Vz6Mkj3PUd1WjvaDhNZhhhXQdz5UnZXmS7ehtx8bsPpD47kKc",
+                ".SeyJpZCI6IiNkaWRjb21tIiwicyI6Imh0dHA6Ly9leGFtcGxlLmNvbS9kaWRjb21tIiwidCI6ImRtIn0"
+            )
+        );
+    }
+
+    #[test]
+    fn test_did_peer_2_generation_with_services() {
+        let keys: Vec<PurposedKey> = serde_json::from_str(
+            r##"[{
+                "purpose": "verification",
+                "publicKeyMultibase": "z6Mkj3PUd1WjvaDhNZhhhXQdz5UnZXmS7ehtx8bsPpD47kKc"
+            }]"##,
+        )
+        .unwrap();
+
+        let services = vec![
+            Service {
+                id: String::from("#didcomm-1"),
+                service_type: String::from("DIDCommMessaging"),
+                service_endpoint: String::from("http://example.com/didcomm-1"),
+                additional_properties: None,
+            },
+            Service {
+                id: String::from("#didcomm-2"),
+                service_type: String::from("DIDCommMessaging"),
+                service_endpoint: String::from("http://example.com/didcomm-2"),
+                additional_properties: None,
+            },
+        ];
+
+        assert_eq!(
+            &DIDPeerMethod::create_did_peer_2(&keys, &services).unwrap(),
+            concat!(
+                "did:peer:2",
+                ".Vz6Mkj3PUd1WjvaDhNZhhhXQdz5UnZXmS7ehtx8bsPpD47kKc",
+                ".SeyJpZCI6IiNkaWRjb21tLTEiLCJzIjoiaHR0cDovL2V4YW1wbGUuY29tL2RpZGNvbW0tMSIsInQiOiJkbSJ9",
+                ".SeyJpZCI6IiNkaWRjb21tLTIiLCJzIjoiaHR0cDovL2V4YW1wbGUuY29tL2RpZGNvbW0tMiIsInQiOiJkbSJ9"
+            )
+        );
+    }
+
+    #[test]
+    fn test_did_peer_2_generation_should_err_on_key_associated_with_service_purpose() {
+        let keys: Vec<PurposedKey> = serde_json::from_str(
+            r##"[{
+                "purpose": "service",
+                "publicKeyMultibase": "z6Mkj3PUd1WjvaDhNZhhhXQdz5UnZXmS7ehtx8bsPpD47kKc"
+            }]"##,
+        )
+        .unwrap();
+
+        assert!(matches!(
+            DIDPeerMethod::create_did_peer_2(&keys, &[]).unwrap_err(),
+            DIDPeerMethodError::UnexpectedPurpose
+        ));
+    }
+
+    #[test]
+    fn test_did_peer_2_generation_should_err_on_empty_key_and_service_args() {
+        assert!(matches!(
+            DIDPeerMethod::create_did_peer_2(&[], &[]).unwrap_err(),
+            DIDPeerMethodError::EmptyArguments
+        ));
     }
 }
