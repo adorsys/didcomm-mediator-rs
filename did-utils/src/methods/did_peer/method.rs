@@ -2,17 +2,11 @@ use serde::{Deserialize, Serialize};
 
 use super::error::DIDPeerMethodError;
 use crate::{
-    crypto::{
-        ed25519::Ed25519KeyPair,
-        sha256_hash::sha256_multihash,
-        traits::{Error as CryptoError, KeyMaterial},
-    },
-    didcore::{self, Document as DIDDocument, KeyFormat, VerificationMethod},
-    ldmodel::Context,
+    crypto::{ed25519::Ed25519KeyPair, sha256_hash::sha256_multihash},
+    didcore::Document as DIDDocument,
     methods::{
         common::{Algorithm, PublicKeyFormat},
         did_key::DIDKeyMethod,
-        errors::DIDResolutionError,
         traits::DIDMethod,
     },
 };
@@ -72,7 +66,7 @@ impl Purpose {
             'I' => Ok(Purpose::CapabilityInvocation),
             'D' => Ok(Purpose::CapabilityDelegation),
             'S' => Ok(Purpose::Service),
-            _ => Err(DIDPeerMethodError::InvalidPurposeCode)
+            _ => Err(DIDPeerMethodError::InvalidPurposeCode),
         }
     }
 }
