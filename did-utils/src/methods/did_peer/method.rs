@@ -1,24 +1,32 @@
 use multibase::Base::{Base58Btc, Base64Url};
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 
 use super::{error::DIDPeerMethodError, util::abbreviate_service_for_did_peer_2};
 use crate::{
-    crypto::{ed25519::Ed25519KeyPair, sha256_hash::sha256_multihash},
-    didcore::{Document as DIDDocument, Service},
+    crypto::{
+        ed25519::Ed25519KeyPair,
+        sha256_hash::sha256_multihash,
+        traits::{Generate, KeyMaterial},
+    },
+    didcore::{self, Document as DIDDocument, KeyFormat, Service, VerificationMethod},
+    ldmodel::Context,
     methods::{
-        common::{Algorithm, PublicKeyFormat},
+        common::{self, Algorithm, PublicKeyFormat},
         did_key::DIDKeyMethod,
+        errors::DIDResolutionError,
         traits::DIDMethod,
     },
 };
+
+lazy_static::lazy_static!(
+    pub static ref DID_PEER_0_REGEX: Regex = Regex::new("^did:peer:([0](z)([1-9a-km-zA-HJ-NP-Z]+))$").unwrap();
+);
 
 #[derive(Default)]
 pub struct DIDPeerMethod {
     /// Key format to consider during DID expansion into a DID document
     pub key_format: PublicKeyFormat,
-
-    /// Derive key agreement on expanding did:peer:0 address
-    pub enable_encryption_key_derivation: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
@@ -73,6 +81,10 @@ impl Purpose {
 }
 
 impl DIDPeerMethod {
+    // ---------------------------------------------------------------------------
+    // Generating did:peer addresses
+    // ---------------------------------------------------------------------------
+
     /// Method 0: Generates did:peer address from ed25519 inception key without doc
     ///
     /// See https://identity.foundation/peer-did-method-spec/#method-0-inception-key-without-doc
@@ -197,10 +209,127 @@ impl DIDPeerMethod {
 
         Ok(format!("did:peer:4{hash}"))
     }
+
+    // ---------------------------------------------------------------------------
+    // Expanding did:peer addresses
+    // ---------------------------------------------------------------------------
+
+    /// Expands `did:peer` address into DID document
+    pub fn expand(&self, did: &str) -> Result<DIDDocument, DIDPeerMethodError> {
+        if !did.starts_with("did:peer:") {
+            return Err(DIDPeerMethodError::InvalidPeerDID);
+        }
+
+        match did {
+            s if s.starts_with("did:peer:0") => self.expand_did_peer_0(did),
+            _ => Err(DIDPeerMethodError::UnsupportedPeerDIDAlgorithm),
+        }
+    }
+
+    /// Expands did:peer:0 address
+    ///
+    /// See https://identity.foundation/peer-did-method-spec/#method-0-inception-key-without-doc
+    pub fn expand_did_peer_0(&self, did: &str) -> Result<DIDDocument, DIDPeerMethodError> {
+        if !DID_PEER_0_REGEX.is_match(did) {
+            return Err(DIDPeerMethodError::MalformedPeerDID);
+        }
+
+        // Decode multikey in did:peer
+        let multikey = did.strip_prefix("did:peer:0").unwrap();
+        let (alg, key) = common::decode_multikey(multikey).map_err(|_| DIDPeerMethodError::MalformedPeerDID)?;
+
+        // Run algorithm for signature verification method expansion
+        let signature_verification_method = self.derive_verification_method(did, multikey, alg, &key)?;
+
+        // Build DID document
+        let mut diddoc = DIDDocument {
+            context: Context::SetOfString(vec![
+                String::from("https://www.w3.org/ns/did/v1"),
+                match self.key_format {
+                    PublicKeyFormat::Multikey => String::from("https://w3id.org/security/multikey/v1"),
+                    PublicKeyFormat::Jwk => String::from("https://w3id.org/security/suites/jws-2020/v1"),
+                },
+            ]),
+            id: did.to_string(),
+            controller: None,
+            also_known_as: None,
+            verification_method: Some(vec![signature_verification_method.clone()]),
+            authentication: Some(vec![didcore::Authentication::Reference(
+                signature_verification_method.id.clone(), //
+            )]),
+            assertion_method: Some(vec![didcore::AssertionMethod::Reference(
+                signature_verification_method.id.clone(), //
+            )]),
+            capability_delegation: Some(vec![didcore::CapabilityDelegation::Reference(
+                signature_verification_method.id.clone(), //
+            )]),
+            capability_invocation: Some(vec![didcore::CapabilityInvocation::Reference(
+                signature_verification_method.id.clone(), //
+            )]),
+            key_agreement: None,
+            service: None,
+            additional_properties: None,
+            proof: None,
+        };
+
+        // Derive X25519 key agreement if Ed25519
+        if alg == Algorithm::Ed25519 {
+            // Run algorithm for encryption verification method derivation
+            let encryption_verification_method = self.derive_encryption_verification_method(did, &key)?;
+
+            // Amend DID document accordingly
+            let verification_method = diddoc.verification_method.as_mut().unwrap();
+            verification_method.push(encryption_verification_method.clone());
+            diddoc.key_agreement = Some(vec![didcore::KeyAgreement::Reference(
+                encryption_verification_method.id.clone(), //
+            )]);
+        }
+
+        // Output
+        Ok(diddoc)
+    }
+
+    /// Derives verification method from multikey constituents
+    fn derive_verification_method(&self, did: &str, multikey: &str, alg: Algorithm, key: &[u8]) -> Result<VerificationMethod, DIDPeerMethodError> {
+        if let Some(required_length) = alg.public_key_length() {
+            if required_length != key.len() {
+                return Err(DIDResolutionError::InvalidPublicKeyLength.into());
+            }
+        }
+
+        Ok(VerificationMethod {
+            id: format!("#{multikey}"),
+            key_type: String::from(match self.key_format {
+                PublicKeyFormat::Multikey => "Multikey",
+                PublicKeyFormat::Jwk => "JsonWebKey2020",
+            }),
+            controller: did.to_string(),
+            public_key: Some(match self.key_format {
+                PublicKeyFormat::Multikey => KeyFormat::Multibase(String::from(multikey)),
+                PublicKeyFormat::Jwk => KeyFormat::Jwk(alg.build_jwk(key).map_err(|_| DIDResolutionError::InternalError)?),
+            }),
+            ..Default::default()
+        })
+    }
+
+    /// Derives X25519 key agreement verification method indirectly from Ed25519 key
+    fn derive_encryption_verification_method(&self, did: &str, key: &[u8]) -> Result<VerificationMethod, DIDPeerMethodError> {
+        let key: [u8; 32] = key.try_into().map_err(|_| DIDResolutionError::InvalidPublicKeyLength)?;
+        let ed25519_keypair = Ed25519KeyPair::from_public_key(&key).map_err(|_| DIDResolutionError::InternalError)?;
+        let x25519_keypair = ed25519_keypair.get_x25519().map_err(|_| DIDResolutionError::InternalError)?;
+
+        let alg = Algorithm::X25519;
+        let enc_key = &x25519_keypair.public_key_bytes().unwrap()[..];
+        let enc_multikey = multibase::encode(Base58Btc, [&alg.muticodec_prefix(), enc_key].concat());
+
+        self.derive_verification_method(did, &enc_multikey, alg, enc_key)
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use serde_json::Value;
+
     use super::*;
     use crate::key_jwk::jwk::Jwk;
 
@@ -495,6 +624,102 @@ mod tests {
             DIDPeerMethod::shorten_did_peer_4(&did).unwrap_err(),
             DIDPeerMethodError::InvalidHash
         ));
+    }
+
+    #[test]
+    fn test_expand_did_peer_0() {
+        let did_method = DIDPeerMethod::default();
+
+        let did = "did:peer:0z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK";
+        let expected: Value = serde_json::from_str(
+            r##"{
+                "@context": [
+                    "https://www.w3.org/ns/did/v1",
+                    "https://w3id.org/security/multikey/v1"
+                ],
+                "id": "did:peer:0z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+                "verificationMethod": [
+                    {
+                        "id": "#z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+                        "type": "Multikey",
+                        "controller": "did:peer:0z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+                        "publicKeyMultibase": "z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"
+                    },
+                    {
+                        "id": "#z6LSj72tK8brWgZja8NLRwPigth2T9QRiG1uH9oKZuKjdh9p",
+                        "type": "Multikey",
+                        "controller": "did:peer:0z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+                        "publicKeyMultibase": "z6LSj72tK8brWgZja8NLRwPigth2T9QRiG1uH9oKZuKjdh9p"
+                    }
+                ],
+                "authentication": ["#z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"],
+                "assertionMethod": ["#z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"],
+                "capabilityDelegation": ["#z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"],
+                "capabilityInvocation": ["#z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"],
+                "keyAgreement": ["#z6LSj72tK8brWgZja8NLRwPigth2T9QRiG1uH9oKZuKjdh9p"]
+            }"##,
+        )
+        .unwrap();
+
+        let diddoc = did_method.expand(did).unwrap();
+
+        assert_eq!(
+            json_canon::to_string(&diddoc).unwrap(),   //
+            json_canon::to_string(&expected).unwrap(), //
+        );
+    }
+
+    #[test]
+    fn test_expand_did_peer_0_jwk_format() {
+        let did_method = DIDPeerMethod {
+            key_format: PublicKeyFormat::Jwk
+        };
+
+        let did = "did:peer:0z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK";
+        let expected: Value = serde_json::from_str(
+            r##"{
+                "@context": [
+                    "https://www.w3.org/ns/did/v1",
+                    "https://w3id.org/security/suites/jws-2020/v1"
+                ],
+                "id": "did:peer:0z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+                "verificationMethod": [
+                    {
+                        "id": "#z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+                        "type": "JsonWebKey2020",
+                        "controller": "did:peer:0z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+                        "publicKeyJwk": {
+                            "kty": "OKP",
+                            "crv": "Ed25519",
+                            "x": "Lm_M42cB3HkUiODQsXRcweM6TByfzEHGO9ND274JcOY"
+                        }
+                    },
+                    {
+                        "id": "#z6LSj72tK8brWgZja8NLRwPigth2T9QRiG1uH9oKZuKjdh9p",
+                        "type": "JsonWebKey2020",
+                        "controller": "did:peer:0z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+                        "publicKeyJwk": {
+                            "kty": "OKP",
+                            "crv": "X25519",
+                            "x": "bl_3kgKpz9jgsg350CNuHa_kQL3B60Gi-98WmdQW2h8"
+                        }
+                    }
+                ],
+                "authentication": ["#z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"],
+                "assertionMethod": ["#z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"],
+                "capabilityDelegation": ["#z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"],
+                "capabilityInvocation": ["#z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"],
+                "keyAgreement": ["#z6LSj72tK8brWgZja8NLRwPigth2T9QRiG1uH9oKZuKjdh9p"]
+            }"##,
+        )
+        .unwrap();
+
+        let diddoc = did_method.expand(did).unwrap();
+
+        assert_eq!(
+            json_canon::to_string(&diddoc).unwrap(),   //
+            json_canon::to_string(&expected).unwrap(), //
+        );
     }
 
     fn _stored_variant_v0() -> DIDDocument {
