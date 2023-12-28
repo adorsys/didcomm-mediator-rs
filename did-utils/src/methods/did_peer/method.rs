@@ -258,19 +258,16 @@ mod tests {
 
     #[test]
     fn test_did_peer_2_generation() {
-        let keys: Vec<PurposedKey> = serde_json::from_str(
-            r##"[
-                {
-                    "purpose": "verification",
-                    "publicKeyMultibase": "z6Mkj3PUd1WjvaDhNZhhhXQdz5UnZXmS7ehtx8bsPpD47kKc"
-                },
-                {
-                    "purpose": "encryption",
-                    "publicKeyMultibase": "z6LSg8zQom395jKLrGiBNruB9MM6V8PWuf2FpEy4uRFiqQBR"
-                }
-            ]"##,
-        )
-        .unwrap();
+        let keys = vec![
+            PurposedKey {
+                purpose: Purpose::Verification,
+                public_key_multibase: String::from("z6Mkj3PUd1WjvaDhNZhhhXQdz5UnZXmS7ehtx8bsPpD47kKc"),
+            },
+            PurposedKey {
+                purpose: Purpose::Encryption,
+                public_key_multibase: String::from("z6LSg8zQom395jKLrGiBNruB9MM6V8PWuf2FpEy4uRFiqQBR"),
+            },
+        ];
 
         let did = DIDPeerMethod::create_did_peer_2(&keys, &[]).unwrap();
         assert_eq!(
@@ -281,13 +278,10 @@ mod tests {
 
     #[test]
     fn test_did_peer_2_generation_with_service() {
-        let keys: Vec<PurposedKey> = serde_json::from_str(
-            r##"[{
-                "purpose": "verification",
-                "publicKeyMultibase": "z6Mkj3PUd1WjvaDhNZhhhXQdz5UnZXmS7ehtx8bsPpD47kKc"
-            }]"##,
-        )
-        .unwrap();
+        let keys = vec![PurposedKey {
+            purpose: Purpose::Verification,
+            public_key_multibase: String::from("z6Mkj3PUd1WjvaDhNZhhhXQdz5UnZXmS7ehtx8bsPpD47kKc"),
+        }];
 
         let services = vec![Service {
             id: String::from("#didcomm"),
@@ -308,13 +302,10 @@ mod tests {
 
     #[test]
     fn test_did_peer_2_generation_with_services() {
-        let keys: Vec<PurposedKey> = serde_json::from_str(
-            r##"[{
-                "purpose": "verification",
-                "publicKeyMultibase": "z6Mkj3PUd1WjvaDhNZhhhXQdz5UnZXmS7ehtx8bsPpD47kKc"
-            }]"##,
-        )
-        .unwrap();
+        let keys = vec![PurposedKey {
+            purpose: Purpose::Verification,
+            public_key_multibase: String::from("z6Mkj3PUd1WjvaDhNZhhhXQdz5UnZXmS7ehtx8bsPpD47kKc"),
+        }];
 
         let services = vec![
             Service {
@@ -344,13 +335,10 @@ mod tests {
 
     #[test]
     fn test_did_peer_2_generation_should_err_on_key_associated_with_service_purpose() {
-        let keys: Vec<PurposedKey> = serde_json::from_str(
-            r##"[{
-                "purpose": "service",
-                "publicKeyMultibase": "z6Mkj3PUd1WjvaDhNZhhhXQdz5UnZXmS7ehtx8bsPpD47kKc"
-            }]"##,
-        )
-        .unwrap();
+        let keys = vec![PurposedKey {
+            purpose: Purpose::Service,
+            public_key_multibase: String::from("z6Mkj3PUd1WjvaDhNZhhhXQdz5UnZXmS7ehtx8bsPpD47kKc"),
+        }];
 
         assert!(matches!(
             DIDPeerMethod::create_did_peer_2(&keys, &[]).unwrap_err(),
