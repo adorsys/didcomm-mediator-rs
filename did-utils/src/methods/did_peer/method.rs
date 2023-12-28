@@ -231,7 +231,7 @@ impl DIDPeerMethod {
     /// See https://identity.foundation/peer-did-method-spec/#method-0-inception-key-without-doc
     pub fn expand_did_peer_0(&self, did: &str) -> Result<DIDDocument, DIDPeerMethodError> {
         if !DID_PEER_0_REGEX.is_match(did) {
-            return Err(DIDPeerMethodError::MalformedPeerDID);
+            return Err(DIDPeerMethodError::RegexMismatch);
         }
 
         // Decode multikey in did:peer
@@ -627,7 +627,26 @@ mod tests {
     }
 
     #[test]
-    fn test_expand_did_peer_0() {
+    fn test_expand_fails_on_non_did_peer() {
+        let did_method = DIDPeerMethod::default();
+
+        let did = "did:key:z6LSeu9HkTHSfLLeUs2nnzUSNedgDUevfNQgQjQC23ZCit6F";
+        assert!(matches!(did_method.expand(did).unwrap_err(), DIDPeerMethodError::InvalidPeerDID));
+    }
+
+    #[test]
+    fn test_expand_fails_on_unsupported_did_peer() {
+        let did_method = DIDPeerMethod::default();
+
+        let did = "did:peer:1zQmbEB1EqP7PnNVaHiSpXhkatAA6kNyQK9mWkvrMx2eckgq";
+        assert!(matches!(
+            did_method.expand(did).unwrap_err(),
+            DIDPeerMethodError::UnsupportedPeerDIDAlgorithm
+        ));
+    }
+
+    #[test]
+    fn test_expand_did_peer_0_v1() {
         let did_method = DIDPeerMethod::default();
 
         let did = "did:peer:0z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK";
@@ -670,9 +689,45 @@ mod tests {
     }
 
     #[test]
+    fn test_expand_did_peer_0_v2() {
+        let did_method = DIDPeerMethod::default();
+
+        let did = "did:peer:0z6LSeu9HkTHSfLLeUs2nnzUSNedgDUevfNQgQjQC23ZCit6F";
+        let expected: Value = serde_json::from_str(
+            r##"{
+                "@context": [
+                    "https://www.w3.org/ns/did/v1",
+                    "https://w3id.org/security/multikey/v1"
+                ],
+                "id": "did:peer:0z6LSeu9HkTHSfLLeUs2nnzUSNedgDUevfNQgQjQC23ZCit6F",
+                "verificationMethod": [
+                    {
+                        "id": "#z6LSeu9HkTHSfLLeUs2nnzUSNedgDUevfNQgQjQC23ZCit6F",
+                        "type": "Multikey",
+                        "controller": "did:peer:0z6LSeu9HkTHSfLLeUs2nnzUSNedgDUevfNQgQjQC23ZCit6F",
+                        "publicKeyMultibase": "z6LSeu9HkTHSfLLeUs2nnzUSNedgDUevfNQgQjQC23ZCit6F"
+                    }
+                ],
+                "authentication": ["#z6LSeu9HkTHSfLLeUs2nnzUSNedgDUevfNQgQjQC23ZCit6F"],
+                "assertionMethod": ["#z6LSeu9HkTHSfLLeUs2nnzUSNedgDUevfNQgQjQC23ZCit6F"],
+                "capabilityDelegation": ["#z6LSeu9HkTHSfLLeUs2nnzUSNedgDUevfNQgQjQC23ZCit6F"],
+                "capabilityInvocation": ["#z6LSeu9HkTHSfLLeUs2nnzUSNedgDUevfNQgQjQC23ZCit6F"]
+            }"##,
+        )
+        .unwrap();
+
+        let diddoc = did_method.expand(did).unwrap();
+
+        assert_eq!(
+            json_canon::to_string(&diddoc).unwrap(),   //
+            json_canon::to_string(&expected).unwrap(), //
+        );
+    }
+
+    #[test]
     fn test_expand_did_peer_0_jwk_format() {
         let did_method = DIDPeerMethod {
-            key_format: PublicKeyFormat::Jwk
+            key_format: PublicKeyFormat::Jwk,
         };
 
         let did = "did:peer:0z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK";
@@ -720,6 +775,43 @@ mod tests {
             json_canon::to_string(&diddoc).unwrap(),   //
             json_canon::to_string(&expected).unwrap(), //
         );
+    }
+
+    #[test]
+    fn test_expand_did_peer_0_fails_for_regex_mismatch() {
+        let did_method = DIDPeerMethod::default();
+
+        let dids = [
+            // Must be '0z' not '0Z'
+            "did:peer:0Z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+            // '#' is not a valid Base58 character
+            "did:peer:0z6MkiTBz1ymuepAQ4HEHYSF1H8quG5GLVVQR3djdX3mDoo###",
+        ];
+
+        for did in dids {
+            assert!(matches!(did_method.expand(did).unwrap_err(), DIDPeerMethodError::RegexMismatch));
+        }
+    }
+
+    #[test]
+    fn test_expand_did_peer_0_fails_on_malformed_dids() {
+        let did_method = DIDPeerMethod::default();
+
+        let dids = ["did:peer:0z6", "did:peer:0z7MkiTBz1ymuepAQ4HEHYSF1H8quG5GLVVQR3djdX3mDooWpd"];
+
+        for did in dids {
+            assert!(matches!(did_method.expand(did).unwrap_err(), DIDPeerMethodError::MalformedPeerDID));
+        }
+    }
+
+    #[test]
+    fn test_expand_did_peer_0_fails_on_too_long_did() {
+        let did_method = DIDPeerMethod::default();
+        let did = "did:peer:0zQebt6zPwbE4Vw5GFAjjARHrNXFALofERVv4q6Z4db8cnDRQm";
+        assert!(matches!(
+            did_method.expand(did).unwrap_err(),
+            DIDPeerMethodError::DIDResolutionError(DIDResolutionError::InvalidPublicKeyLength)
+        ));
     }
 
     fn _stored_variant_v0() -> DIDDocument {

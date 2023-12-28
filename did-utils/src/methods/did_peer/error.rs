@@ -14,6 +14,7 @@ pub enum DIDPeerMethodError {
     InvalidStoredVariant,
     MalformedPeerDID,
     MalformedLongPeerDID,
+    RegexMismatch,
     SerdeError(SerdeError),
     UnexpectedPurpose,
     UnsupportedPeerDIDAlgorithm,
