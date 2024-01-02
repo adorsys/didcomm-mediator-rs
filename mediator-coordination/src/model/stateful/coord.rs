@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 /// Message for mediation request.
 ///
@@ -58,13 +57,35 @@ pub struct MediationDeny {
     pub message_type: String,
 }
 
+/// Message for mediation grant.
+///
+/// It conveys a positive response from the mediator to a mediation request,
+/// carrying details the edge agent will be responsible to advertise including
+/// assertions for dedicated interaction channels (DICs).
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct MediationGrant {
+    /// Uniquely identifies a mediation grant message.
+    #[serde(rename = "@id")]
+    pub id: String,
+
+    /// References the protocol URI of this concept.
+    ///
+    /// Typically `https://didcomm.org/coordinate-mediation/2.0/mediate-grant`
+    #[serde(rename = "@type")]
+    pub message_type: String,
+
+    /// Mediator's endpoint.
+    pub routing_did: String,
+}
+
+
 // -- To evaluate:
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    use serde_json::json;
+    use serde_json::{json, Value};
 
     use crate::constant::*;
 
@@ -104,63 +125,48 @@ mod tests {
         )
     }
 
-    // #[test]
-    // fn can_serialize_mediation_grant_message() {
-    //     let mediation_grant = MediationGrant {
-    //         id: "id_alice_mediation_grant".to_string(),
-    //         message_type: MEDIATE_GRANT_2_0.to_string(),
-    //         endpoint: "https://alice-mediator.com".to_string(),
-    //         dic: vec![
-    //             CompactDIC::Outbox("alice_out_opaque_dic".to_owned()),
-    //             CompactDIC::Inbox("alice_in_opaque_dic".to_owned()),
-    //         ],
-    //         ..Default::default()
-    //     };
+    #[test]
+    fn can_serialize_mediation_grant_message() {
+        let mediation_grant = MediationGrant {
+            id: "id_alice_mediation_grant".to_string(),
+            message_type: MEDIATE_GRANT_2_0.to_string(),
+            routing_did: "routing_did".to_string(),
+            ..Default::default()
+        };
 
-    //     let expected = json!({
-    //         "@id": "id_alice_mediation_grant",
-    //         "@type": "https://didcomm.org/coordinate-mediation/2.0/mediate-grant",
-    //         "endpoint": "https://alice-mediator.com",
-    //         "dic": ["outbox:alice_out_opaque_dic", "inbox:alice_in_opaque_dic"]
-    //     });
+        let expected = json!({
+            "@id": "id_alice_mediation_grant",
+            "@type": "https://didcomm.org/coordinate-mediation/2.0/mediate-grant",
+            "routing_did": "routing_did",
+        });
 
-    //     assert_eq!(
-    //         json_canon::to_string(&mediation_grant).unwrap(),
-    //         json_canon::to_string(&expected).unwrap(),
-    //     )
-    // }
+        assert_eq!(
+            json_canon::to_string(&mediation_grant).unwrap(),
+            json_canon::to_string(&expected).unwrap(),
+        )
+    }
 
-    // #[test]
-    // fn can_deserialize_mediation_grant_message() {
-    //     let msg = r#"{
-    //         "@id": "id_alice_mediation_grant",
-    //         "@type": "https://didcomm.org/coordinate-mediation/2.0/mediate-grant",
-    //         "endpoint": "https://alice-mediator.com",
-    //         "dic": ["outbox:alice_out_opaque_dic", "inbox:alice_in_opaque_dic"]
-    //     }"#;
+    #[test]
+    fn can_deserialize_mediation_grant_message() {
+        let msg = r#"{
+            "@id": "id_alice_mediation_grant",
+            "@type": "https://didcomm.org/coordinate-mediation/2.0/mediate-grant",
+            "routing_did": "routing_did"
+        }"#;
 
-    //     // Assert deserialization
+        let mediation_grant: MediationGrant = serde_json::from_str(msg).unwrap();
 
-    //     let mediation_grant: MediationGrant = serde_json::from_str(msg).unwrap();
+        // Assert deserialization
+        assert_eq!(&mediation_grant.id, "id_alice_mediation_grant");
+        assert_eq!(&mediation_grant.message_type, MEDIATE_GRANT_2_0);
+        assert_eq!(&mediation_grant.routing_did, "routing_did");
 
-    //     assert_eq!(&mediation_grant.id, "id_alice_mediation_grant");
-    //     assert_eq!(&mediation_grant.message_type, MEDIATE_GRANT_2_0);
-    //     assert_eq!(&mediation_grant.endpoint, "https://alice-mediator.com");
-    //     assert_eq!(
-    //         mediation_grant.dic,
-    //         vec![
-    //             CompactDIC::Outbox("alice_out_opaque_dic".to_owned()),
-    //             CompactDIC::Inbox("alice_in_opaque_dic".to_owned())
-    //         ]
-    //     );
-
-    //     // Assert re-serialization
-
-    //     assert_eq!(
-    //         json_canon::to_string(&mediation_grant).unwrap(),
-    //         json_canon::to_string(&serde_json::from_str::<Value>(msg).unwrap()).unwrap(),
-    //     )
-    // }
+        // Assert re-serialization
+        assert_eq!(
+            json_canon::to_string(&mediation_grant).unwrap(),
+            json_canon::to_string(&serde_json::from_str::<Value>(msg).unwrap()).unwrap(),
+        )
+    }
 
     #[test]
     fn can_serialize_mediation_deny_message() {
