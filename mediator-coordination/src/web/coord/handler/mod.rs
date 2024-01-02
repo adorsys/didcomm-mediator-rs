@@ -1,4 +1,4 @@
-mod stateful;
+pub mod stateful;
 #[cfg(feature = "stateless")]
 mod stateless;
 
@@ -101,8 +101,8 @@ pub mod tests {
         let mut mock_fs = MockFileSystem;
         let keystore_clone = util::read_keystore(&mut mock_fs, "").unwrap();
 
-        let app = web::routes(public_domain.clone(), diddoc.clone(), keystore_clone);
-        let state = AppState::from(public_domain, diddoc, keystore);
+        let app = web::routes(public_domain.clone(), diddoc.clone(), keystore_clone, None);
+        let state = AppState::from(public_domain, diddoc, keystore, None);
 
         (app, state)
     }

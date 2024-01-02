@@ -5,7 +5,7 @@ use uuid::Uuid;
 
 use super::midlw::{self};
 use crate::{
-    constant::{MEDIATE_DENY_2_0, MEDIATE_GRANT_2_0, MEDIATE_REQUEST_2_0},
+    constant::{MEDIATE_DENY_DIC_1_0, MEDIATE_GRANT_DIC_1_0, MEDIATE_REQUEST_DIC_1_0},
     model::stateless::{
         coord::{MediationDeny, MediationGrant, MediationRequest, MediatorService},
         dic::{CompactDIC, DICPayload, JwtAssertable},
@@ -24,7 +24,7 @@ pub async fn process_plain_mediation_request_over_dics(
     let mediator_did = &state.diddoc.id;
 
     // Check message type compliance
-    midlw::ensure_mediation_request_type(&json!(mediation_request), MEDIATE_REQUEST_2_0)?;
+    midlw::ensure_mediation_request_type(&json!(mediation_request), MEDIATE_REQUEST_DIC_1_0)?;
 
     /* Deny mediate request if sender is not requester */
 
@@ -36,10 +36,10 @@ pub async fn process_plain_mediation_request_over_dics(
     if sender_did != requester_did {
         return Ok(Message::build(
             format!("urn:uuid:{}", Uuid::new_v4()),
-            MEDIATE_DENY_2_0.to_string(),
+            MEDIATE_DENY_DIC_1_0.to_string(),
             json!(MediationDeny {
                 id: format!("urn:uuid:{}", Uuid::new_v4()),
-                message_type: MEDIATE_DENY_2_0.to_string(),
+                message_type: MEDIATE_DENY_DIC_1_0.to_string(),
                 ..Default::default()
             }),
         )
@@ -78,7 +78,7 @@ pub async fn process_plain_mediation_request_over_dics(
 
     let mediation_grant = MediationGrant {
         id: format!("urn:uuid:{}", Uuid::new_v4()),
-        message_type: MEDIATE_GRANT_2_0.to_string(),
+        message_type: MEDIATE_GRANT_DIC_1_0.to_string(),
         endpoint: state.public_domain.to_string(),
         dic: vdic,
         ..Default::default()
@@ -119,10 +119,10 @@ mod tests {
         // Build message
         let msg = Message::build(
             "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
-            MEDIATE_REQUEST_2_0.to_string(),
+            MEDIATE_REQUEST_DIC_1_0.to_string(),
             json!(MediationRequest {
                 id: "urn:uuid:ff5a4c85-0df4-4fbe-88ce-fcd2d321a06d".to_string(),
-                message_type: MEDIATE_REQUEST_2_0.to_string(),
+                message_type: MEDIATE_REQUEST_DIC_1_0.to_string(),
                 did: _edge_did(),
                 services: [MediatorService::Inbox, MediatorService::Outbox]
                     .into_iter()
@@ -174,7 +174,7 @@ mod tests {
         let msg: Message = _edge_unpack_message(&state, &response).await.unwrap();
 
         // Assert metadata
-        assert_eq!(msg.type_, MEDIATE_GRANT_2_0);
+        assert_eq!(msg.type_, MEDIATE_GRANT_DIC_1_0);
         assert_eq!(msg.from.unwrap(), _mediator_did(&state));
         assert_eq!(msg.to.unwrap(), [_edge_did()]);
 
@@ -183,7 +183,7 @@ mod tests {
 
         // Assert mediation grant's properties
         assert!(mediation_grant.id.starts_with("urn:uuid:"));
-        assert_eq!(mediation_grant.message_type, MEDIATE_GRANT_2_0);
+        assert_eq!(mediation_grant.message_type, MEDIATE_GRANT_DIC_1_0);
         assert_eq!(mediation_grant.endpoint, state.public_domain);
 
         // Assert that mediation grant embeds DICs for requested services
@@ -208,10 +208,10 @@ mod tests {
         for service in &[MediatorService::Inbox, MediatorService::Outbox] {
             let msg = Message::build(
                 "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
-                MEDIATE_REQUEST_2_0.to_string(),
+                MEDIATE_REQUEST_DIC_1_0.to_string(),
                 json!(MediationRequest {
                     id: "urn:uuid:ff5a4c85-0df4-4fbe-88ce-fcd2d321a06d".to_string(),
-                    message_type: MEDIATE_REQUEST_2_0.to_string(),
+                    message_type: MEDIATE_REQUEST_DIC_1_0.to_string(),
                     did: _edge_did(),
                     services: [service.clone()].into_iter().collect(),
                     ..Default::default()
@@ -275,10 +275,10 @@ mod tests {
 
         let msg = Message::build(
             "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
-            MEDIATE_REQUEST_2_0.to_string(),
+            MEDIATE_REQUEST_DIC_1_0.to_string(),
             json!(MediationRequest {
                 id: "urn:uuid:ff5a4c85-0df4-4fbe-88ce-fcd2d321a06d".to_string(),
-                message_type: MEDIATE_REQUEST_2_0.to_string(),
+                message_type: MEDIATE_REQUEST_DIC_1_0.to_string(),
                 did: "did:key:unknown".to_string(),
                 services: [MediatorService::Inbox, MediatorService::Outbox]
                     .into_iter()
@@ -324,12 +324,12 @@ mod tests {
         let response = serde_json::to_string(&body).unwrap();
 
         let msg: Message = _edge_unpack_message(&state, &response).await.unwrap();
-        assert_eq!(msg.type_, MEDIATE_DENY_2_0);
+        assert_eq!(msg.type_, MEDIATE_DENY_DIC_1_0);
         assert_eq!(msg.from.unwrap(), _mediator_did(&state));
         assert_eq!(msg.to.unwrap(), [_edge_did()]);
 
         let mediation_deny: MediationDeny = serde_json::from_value(msg.body).unwrap();
-        assert_eq!(mediation_deny.message_type, MEDIATE_DENY_2_0);
+        assert_eq!(mediation_deny.message_type, MEDIATE_DENY_DIC_1_0);
     }
 
     #[tokio::test]
@@ -338,10 +338,10 @@ mod tests {
 
         let msg = Message::build(
             "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
-            MEDIATE_REQUEST_2_0.to_string(),
+            MEDIATE_REQUEST_DIC_1_0.to_string(),
             json!(MediationRequest {
                 id: "urn:uuid:ff5a4c85-0df4-4fbe-88ce-fcd2d321a06d".to_string(),
-                message_type: MEDIATE_REQUEST_2_0.to_string(),
+                message_type: MEDIATE_REQUEST_DIC_1_0.to_string(),
                 did: _edge_did(),
                 services: [MediatorService::Inbox, MediatorService::Outbox]
                     .into_iter()
@@ -396,10 +396,10 @@ mod tests {
 
         let msg = Message::build(
             "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
-            MEDIATE_REQUEST_2_0.to_string(),
+            MEDIATE_REQUEST_DIC_1_0.to_string(),
             json!(MediationRequest {
                 id: "urn:uuid:ff5a4c85-0df4-4fbe-88ce-fcd2d321a06d".to_string(),
-                message_type: MEDIATE_REQUEST_2_0.to_string(),
+                message_type: MEDIATE_REQUEST_DIC_1_0.to_string(),
                 did: _edge_did(),
                 services: [MediatorService::Inbox, MediatorService::Outbox]
                     .into_iter()
@@ -459,7 +459,7 @@ mod tests {
             "invalid-message-type".to_string(),
             json!(MediationRequest {
                 id: "urn:uuid:ff5a4c85-0df4-4fbe-88ce-fcd2d321a06d".to_string(),
-                message_type: MEDIATE_REQUEST_2_0.to_string(),
+                message_type: MEDIATE_REQUEST_DIC_1_0.to_string(),
                 did: _edge_did(),
                 services: [MediatorService::Inbox, MediatorService::Outbox]
                     .into_iter()
@@ -515,10 +515,10 @@ mod tests {
 
         let msg = Message::build(
             "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
-            MEDIATE_REQUEST_2_0.to_string(),
+            MEDIATE_REQUEST_DIC_1_0.to_string(),
             json!(MediationRequest {
                 id: "urn:uuid:ff5a4c85-0df4-4fbe-88ce-fcd2d321a06d".to_string(),
-                message_type: MEDIATE_REQUEST_2_0.to_string(),
+                message_type: MEDIATE_REQUEST_DIC_1_0.to_string(),
                 did: _edge_did(),
                 services: [MediatorService::Inbox, MediatorService::Outbox]
                     .into_iter()
@@ -568,7 +568,7 @@ mod tests {
 
         let msg = Message::build(
             "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
-            MEDIATE_REQUEST_2_0.to_string(),
+            MEDIATE_REQUEST_DIC_1_0.to_string(),
             json!("not-mediate-request"),
         )
         .header(

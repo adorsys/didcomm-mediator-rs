@@ -41,5 +41,8 @@ default = [
 # plugins
 plugin-index = ["dep:chrono"]
 plugin-did_endpoint = ["dep:did-endpoint"]
-plugin-mediator_coordination = ["dep:mediator-coordination"]
+plugin-mediator_coordination = [
+    "dep:mediator-coordination",
+    "plugin-did_endpoint",
+]
 plugin-oob_messages = ["dep:oob-messages"]

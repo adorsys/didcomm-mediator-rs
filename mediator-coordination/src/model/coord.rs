@@ -31,7 +31,7 @@ impl MediationRequest {
         D: Deserializer<'de>,
     {
         match StatelessMediationRequest::deserialize(deserializer)? {
-            mr if mr.message_type == MEDIATE_REQUEST_2_0 => Ok(mr),
+            mr if mr.message_type == MEDIATE_REQUEST_DIC_1_0 => Ok(mr),
             _ => Err(Error::custom("invalid type")),
         }
     }
@@ -58,7 +58,7 @@ mod tests {
     fn test_deserialize_stateless_mediation_requests() {
         let msg = r#"{
             "@id": "id_alice_mediation_request",
-            "@type": "https://didcomm.org/coordinate-mediation/2.0/mediate-request",
+            "@type": "https://didcomm.org/coordinate-mediation/dic/1.0/mediate-request",
             "did": "did:key:alice_identity_pub@alice_mediator",
             "services": ["inbox", "outbox"]
         }"#;

@@ -269,11 +269,11 @@ mod tests {
         // Sign
         let jwt = dic_payload.sign(&jwk, None).unwrap();
         let expected_jwt = concat!(
-            "eyJ0eXAiOiJkaWMvdjAwMSIsImFsZyI6IkVkRFNBIn0.eyJpc3MiOiJkaWQ6d2ViOmFsaWNl",
+            "eyJhbGciOiJFZERTQSIsInR5cCI6ImRpYy92MDAxIn0.eyJpc3MiOiJkaWQ6d2ViOmFsaWNl",
             "LW1lZGlhdG9yLmNvbTphbGljZV9tZWRpYXRvcl9wdWIiLCJub25jZSI6IjQzZjg0ODY4LTA2",
             "MzItNDQ3MS1iNmRkLWQ2M2ZhMTJjMjFmNiIsInNsIjoiZ29sZCIsInN1YiI6ImRpZDprZXk6",
-            "YWxpY2VfaWRlbnRpdHlfcHViQGFsaWNlX21lZGlhdG9yIn0.tslxNKmgVX_LhKIM5SH9KIxp",
-            "_jCAXGNmjuisS2SmmGlXf2LuR3iUeAPXWm9f0XA1_jvVXw7gJLlbJFer6zSCDA"
+            "YWxpY2VfaWRlbnRpdHlfcHViQGFsaWNlX21lZGlhdG9yIn0.C0yYq_BE1X-B1l9Hj_jJxXXn",
+            "-eLoxCzYEY6eO_2aFu2A4FausK5vZoezjoh0xaj3MEmK24XpwfrQDXrFxuXrAA",
         );
         assert_eq!(jwt, expected_jwt);
 
@@ -299,12 +299,12 @@ mod tests {
         // Sign
         let jwt = ddic_payload.sign(&jwk, None).unwrap();
         let expected_jwt = concat!(
-            "eyJ0eXAiOiJkZGljL3YwMDEiLCJhbGciOiJFZERTQSJ9.eyJkaWMtc3ViIjoiZGlkOmtleTp",
+            "eyJhbGciOiJFZERTQSIsInR5cCI6ImRkaWMvdjAwMSJ9.eyJkaWMtc3ViIjoiZGlkOmtleTp",
             "hbGljZV9pZGVudGl0eV9wdWJAYWxpY2VfbWVkaWF0b3IiLCJpc3MiOiJkaWQ6d2ViOmFsaWN",
             "lLW1lZGlhdG9yLmNvbTphbGljZV9tZWRpYXRvcl9wdWIiLCJub25jZSI6IjQzZjg0ODY4LTA",
             "2MzItNDQ3MS1iNmRkLWQ2M2ZhMTJjMjFmNiIsInN1YiI6ImRpZDprZXk6Ym9iX2lkZW50aXR",
-            "5X3B1YkBhbGljZSJ9.TMrKBQ22yCY-A07bIaR6c73Y9LK-rorKv9wvoh1NnYGgr2IzIvMP8g",
-            "NjQmizpgjdyVXz8KlXr8F_ARl_iQ-MDA"
+            "5X3B1YkBhbGljZSJ9.gmFYNNmdnL0PX3MFVv-APnmLn55cI7GPRfkAZTcYqR76aZGEmjPFmB",
+            "pDOeBZYDwM5GcDHOIB6m1xwRQ1xwvKDA",
         );
         assert_eq!(jwt, expected_jwt);
 
