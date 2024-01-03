@@ -38,3 +38,27 @@ impl From<SerdeError> for DIDPeerMethodError {
         Self::SerdeError(err)
     }
 }
+
+impl From<DIDPeerMethodError> for DIDResolutionError {
+    fn from(err: DIDPeerMethodError) -> Self {
+        use DIDPeerMethodError::*;
+
+        match err {
+            CryptoError(_) => Self::InvalidDid,
+            DIDParseError => Self::InvalidDid,
+            DIDResolutionError(err) => err,
+            EmptyArguments => Self::InternalError,
+            IllegalArgument => Self::InvalidDid,
+            InvalidHash => Self::InvalidDid,
+            InvalidPeerDID => Self::InvalidDid,
+            InvalidPurposeCode => Self::InvalidDid,
+            InvalidStoredVariant => Self::InternalError,
+            MalformedPeerDID => Self::InvalidDid,
+            MalformedLongPeerDID => Self::InvalidDid,
+            RegexMismatch => Self::InvalidDid,
+            SerdeError(_) => Self::InvalidDid,
+            UnexpectedPurpose => Self::InvalidDid,
+            UnsupportedPeerDIDAlgorithm => Self::MethodNotSupported,
+        }
+    }
+}
