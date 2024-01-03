@@ -23,25 +23,37 @@ use crate::{
     web::{coord::error::MediationError, AppState, AppStateRepository},
 };
 
-const IS_THERE_EXISTING_CONNECTION: bool = false;
-
-/// Process a DIC-wise mediation request
+/// Process a DIDComm request
 pub async fn process_mediate_request(
     state: &AppState,
     plain_message: &Message,
     mediation_request: &MediationRequest,
 ) -> Result<Message, Response> {
     let mediator_did = &state.diddoc.id;
-    println!("mediation_request: {:#?}", mediation_request);
+   
 
     let sender_did = plain_message
         .from
         .as_ref()
         .expect("should not panic as anonymous requests are rejected earlier");
 
-    // This will be replaced by a proper DB check
-    // If there is already mediation, send denial
-    if IS_THERE_EXISTING_CONNECTION {
+    // Retrieve repository to connection entities
+
+    let AppStateRepository {
+        connection_repository,
+        ..
+    } = state
+        .repository
+        .as_ref()
+        .expect("missing persistence layer");
+
+    // If there is already mediation, send mediate deny
+    if let Some(_connection) = connection_repository
+        .find_one_by(doc! { "client_did": sender_did})
+        .await
+        .unwrap()
+    {
+        println!("Sending mediate deny.");
         return Ok(Message::build(
             format!("urn:uuid:{}", Uuid::new_v4()),
             MEDIATE_DENY_2_0.to_string(),
@@ -56,7 +68,7 @@ pub async fn process_mediate_request(
         .finalize());
     } else {
         /* Issue mediate grant response */
-
+        println!("Sending mediate grant.");
         // Create routing, store it and send mediation grant
         let did = DIDKeyMethod::generate();
 
