@@ -480,7 +480,6 @@ impl DIDPeerMethod {
             return Err(DIDPeerMethodError::MalformedLongPeerDID);
         }
 
-        // let decoded = String::from_utf8(decoded_bytes[2..].to_vec()).map_err(|_| DIDPeerMethodError::DIDParseError)?;
         let mut diddoc: DIDDocument = serde_json::from_slice(&decoded_bytes[2..])?;
 
         // Contextualize decoded document
