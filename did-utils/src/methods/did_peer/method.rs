@@ -373,9 +373,7 @@ impl DIDPeerMethod {
 
         // Resolve verification methods
 
-        let key_chain = chain
-            .iter()
-            .filter(|(purpose, _)| purpose != &Purpose::Service);
+        let key_chain = chain.iter().filter(|(purpose, _)| purpose != &Purpose::Service);
 
         let mut methods: Vec<VerificationMethod> = vec![];
         let mut method_current_id = 0;
@@ -397,9 +395,18 @@ impl DIDPeerMethod {
 
             let method = VerificationMethod {
                 id,
-                key_type: String::from("Multikey"),
+                key_type: String::from(match self.key_format {
+                    PublicKeyFormat::Multikey => "Multikey",
+                    PublicKeyFormat::Jwk => "JsonWebKey2020",
+                }),
                 controller: did.to_string(),
-                public_key: Some(KeyFormat::Multibase(multikey.to_string())),
+                public_key: Some(match self.key_format {
+                    PublicKeyFormat::Multikey => KeyFormat::Multibase(multikey.to_string()),
+                    PublicKeyFormat::Jwk => {
+                        let (alg, key) = common::decode_multikey(multikey).map_err(|_| DIDPeerMethodError::MalformedPeerDID)?;
+                        KeyFormat::Jwk(alg.build_jwk(&key).map_err(|_| DIDResolutionError::InternalError)?)
+                    }
+                }),
                 ..Default::default()
             };
 
@@ -964,9 +971,7 @@ mod tests {
                     "https://w3id.org/security/multikey/v1"
                 ],
                 "id": "did:peer:2.Vz6Mkj3PUd1WjvaDhNZhhhXQdz5UnZXmS7ehtx8bsPpD47kKc.Ez6LSg8zQom395jKLrGiBNruB9MM6V8PWuf2FpEy4uRFiqQBR.SeyJpZCI6IiNkaWRjb21tIiwicyI6Imh0dHA6Ly9leGFtcGxlLmNvbS8xMjMiLCJ0IjoiZG0ifQ.SeyJpZCI6IiIsInMiOiJodHRwOi8vZXhhbXBsZS5jb20vYWJjIiwidCI6ImRtIn0.SeyJpZCI6IiIsInMiOiJodHRwOi8vZXhhbXBsZS5jb20veHl6IiwidCI6ImRtIn0",
-                "alsoKnownAs": [
-                    "did:peer:3zQmR9j6bEaydJuXDfzYaW4f3EEPQFxz2Zy1iPZuchgeF63h"
-                ],
+                "alsoKnownAs": ["did:peer:3zQmR9j6bEaydJuXDfzYaW4f3EEPQFxz2Zy1iPZuchgeF63h"],
                 "verificationMethod": [
                     {
                         "id": "#key-1",
@@ -981,12 +986,8 @@ mod tests {
                         "publicKeyMultibase": "z6LSg8zQom395jKLrGiBNruB9MM6V8PWuf2FpEy4uRFiqQBR"
                     }
                 ],
-                "authentication": [
-                    "#key-1"
-                ],
-                "keyAgreement": [
-                    "#key-2"
-                ],
+                "authentication": ["#key-1"],
+                "keyAgreement": ["#key-2"],
                 "service": [
                     {
                         "id": "#didcomm",
@@ -1009,7 +1010,67 @@ mod tests {
         .unwrap();
 
         let diddoc = did_method.expand(did).unwrap();
-        // println!("{}", serde_json::to_string_pretty(&diddoc).unwrap());
+        assert_eq!(
+            json_canon::to_string(&diddoc).unwrap(),   //
+            json_canon::to_string(&expected).unwrap(), //
+        );
+    }
+
+    #[test]
+    fn test_expand_did_peer_2_jwk_format() {
+        let did_method = DIDPeerMethod {
+            key_format: PublicKeyFormat::Jwk
+        };
+
+        let did = concat!(
+            "did:peer:2",
+            ".Vz6Mkj3PUd1WjvaDhNZhhhXQdz5UnZXmS7ehtx8bsPpD47kKc",
+            ".Ez6LSg8zQom395jKLrGiBNruB9MM6V8PWuf2FpEy4uRFiqQBR",
+            ".SeyJpZCI6IiIsInMiOiJodHRwOi8vZXhhbXBsZS5jb20vYWJjIiwidCI6ImRtIn0",
+        );
+
+        let expected: Value = serde_json::from_str(
+            r##"{
+                "@context": [
+                    "https://www.w3.org/ns/did/v1",
+                    "https://w3id.org/security/suites/jws-2020/v1"
+                ],
+                "id": "did:peer:2.Vz6Mkj3PUd1WjvaDhNZhhhXQdz5UnZXmS7ehtx8bsPpD47kKc.Ez6LSg8zQom395jKLrGiBNruB9MM6V8PWuf2FpEy4uRFiqQBR.SeyJpZCI6IiIsInMiOiJodHRwOi8vZXhhbXBsZS5jb20vYWJjIiwidCI6ImRtIn0",
+                "alsoKnownAs": ["did:peer:3zQmWdmF5Lgads1v6qeV9x6PJEWrfUaKQ5D8tf7up9a5xwDi"],
+                "verificationMethod": [
+                    {
+                        "id": "#key-1",
+                        "type": "JsonWebKey2020",
+                        "controller": "did:peer:2.Vz6Mkj3PUd1WjvaDhNZhhhXQdz5UnZXmS7ehtx8bsPpD47kKc.Ez6LSg8zQom395jKLrGiBNruB9MM6V8PWuf2FpEy4uRFiqQBR.SeyJpZCI6IiIsInMiOiJodHRwOi8vZXhhbXBsZS5jb20vYWJjIiwidCI6ImRtIn0",
+                        "publicKeyJwk": {
+                            "kty": "OKP",
+                            "crv": "Ed25519",
+                            "x": "RCzl6iYBsyD4aK8Yzmo8r_6eBriu0XmnDj64xOQ3d6M"
+                        }
+                    },
+                    {
+                        "id": "#key-2",
+                        "type": "JsonWebKey2020",
+                        "controller": "did:peer:2.Vz6Mkj3PUd1WjvaDhNZhhhXQdz5UnZXmS7ehtx8bsPpD47kKc.Ez6LSg8zQom395jKLrGiBNruB9MM6V8PWuf2FpEy4uRFiqQBR.SeyJpZCI6IiIsInMiOiJodHRwOi8vZXhhbXBsZS5jb20vYWJjIiwidCI6ImRtIn0",
+                        "publicKeyJwk": {
+                            "kty": "OKP",
+                            "crv": "X25519",
+                            "x": "Qk1FMFvAv5Ihlgjm_SJIqNRU3kqhb_RWQZrPUh3mNWg"
+                        }
+                    }
+                ],
+                "authentication": ["#key-1"],
+                "keyAgreement": ["#key-2"],
+                "service": [{
+                    "id": "#service",
+                    "type": "DIDCommMessaging",
+                    "serviceEndpoint": "http://example.com/abc"
+                }]
+            }"##,
+        )
+        .unwrap();
+
+        let diddoc = did_method.expand(did).unwrap();
         assert_eq!(
             json_canon::to_string(&diddoc).unwrap(),   //
             json_canon::to_string(&expected).unwrap(), //
