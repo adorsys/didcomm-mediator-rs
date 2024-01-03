@@ -309,6 +309,9 @@ pub mod entity {
         /// List of DIDs maintained by the client in the mediator's
         /// database by a series of keylist operations.
         pub keylist: Vec<String>,
+
+        /// Generated DID to route messages to client.
+        pub routing_did: String,
     }
 }
 

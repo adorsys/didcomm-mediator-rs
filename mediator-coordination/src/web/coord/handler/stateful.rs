@@ -30,7 +30,6 @@ pub async fn process_mediate_request(
     mediation_request: &MediationRequest,
 ) -> Result<Message, Response> {
     let mediator_did = &state.diddoc.id;
-   
 
     let sender_did = plain_message
         .from
@@ -70,16 +69,31 @@ pub async fn process_mediate_request(
         /* Issue mediate grant response */
         println!("Sending mediate grant.");
         // Create routing, store it and send mediation grant
-        let did = DIDKeyMethod::generate();
+        let routing_did = DIDKeyMethod::generate();
 
         let mediation_grant = MediationGrant {
             id: format!("urn:uuid:{}", Uuid::new_v4()),
             message_type: MEDIATE_GRANT_2_0.to_string(),
-            routing_did: did.unwrap().to_string(),
+            routing_did: routing_did.as_ref().unwrap().to_string(),
             ..Default::default()
         };
 
-        //TO-DO: Store it
+        // Create a sample Connection entity with hardcoded data
+        let sample_connection = Connection {
+            id: None,
+            client_did: sender_did.to_string(),
+            mediator_did: mediator_did.to_string(),
+            keylist: vec!["".to_string()],
+            routing_did: routing_did.unwrap().to_string()
+        };
+
+        // Use store_one to store the sample connection
+        match connection_repository.store(sample_connection).await {
+            Ok(stored_connection) => {
+                println!("Successfully stored connection: {:?}", stored_connection)
+            }
+            Err(error) => eprintln!("Error storing connection: {:?}", error),
+        }
 
         Ok(Message::build(
             format!("urn:uuid:{}", Uuid::new_v4()),
