@@ -476,7 +476,7 @@ impl DIDPeerMethod {
         // Decode document
 
         let (base, decoded_bytes) = multibase::decode(encoded_document).map_err(|_| DIDPeerMethodError::DIDParseError)?;
-        if base != Base58Btc || decoded_bytes.len() < 3 || decoded_bytes[..2] != MULTICODEC_JSON {
+        if base != Base58Btc || decoded_bytes.len() < 2 || decoded_bytes[..2] != MULTICODEC_JSON {
             return Err(DIDPeerMethodError::MalformedLongPeerDID);
         }
 
