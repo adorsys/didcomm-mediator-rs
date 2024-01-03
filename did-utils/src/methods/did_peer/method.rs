@@ -1019,7 +1019,7 @@ mod tests {
     #[test]
     fn test_expand_did_peer_2_jwk_format() {
         let did_method = DIDPeerMethod {
-            key_format: PublicKeyFormat::Jwk
+            key_format: PublicKeyFormat::Jwk,
         };
 
         let did = concat!(
