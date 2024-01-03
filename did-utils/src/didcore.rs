@@ -23,6 +23,7 @@ pub struct Document {
 
     // Identifier property is mandatory in a did document.
     // see https://www.w3.org/TR/did-core/#dfn-id
+    #[serde(default = "String::new")]
     pub id: String,
 
     // See https://www.w3.org/TR/did-core/#dfn-controller
@@ -78,6 +79,7 @@ pub enum Controller {
 #[derive(Serialize, Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Service {
+    #[serde(default = "String::new")]
     pub id: String,
 
     #[serde(rename = "type")]

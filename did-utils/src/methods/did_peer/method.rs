@@ -14,13 +14,15 @@ use crate::{
     methods::{
         common::{self, Algorithm, PublicKeyFormat},
         did_key::DIDKeyMethod,
+        did_peer::util,
         errors::DIDResolutionError,
         traits::DIDMethod,
     },
 };
 
 lazy_static::lazy_static!(
-    pub static ref DID_PEER_0_REGEX: Regex = Regex::new("^did:peer:([0](z)([1-9a-km-zA-HJ-NP-Z]+))$").unwrap();
+    pub static ref DID_PEER_0_REGEX: Regex = Regex::new("^did:peer:(0(z)([1-9a-km-zA-HJ-NP-Z]+))$").unwrap();
+    pub static ref DID_PEER_2_REGEX: Regex = Regex::new("^did:peer:(2((\\.[AEVID](z)([1-9a-km-zA-HJ-NP-Z]+))+(\\.(S)[0-9a-zA-Z]*)*))$").unwrap();
 );
 
 #[derive(Default)]
@@ -222,6 +224,7 @@ impl DIDPeerMethod {
 
         match did {
             s if s.starts_with("did:peer:0") => self.expand_did_peer_0(did),
+            s if s.starts_with("did:peer:2") => self.expand_did_peer_2(did),
             _ => Err(DIDPeerMethodError::UnsupportedPeerDIDAlgorithm),
         }
     }
@@ -323,6 +326,133 @@ impl DIDPeerMethod {
         let enc_multikey = multibase::encode(Base58Btc, [&alg.muticodec_prefix(), enc_key].concat());
 
         self.derive_verification_method(did, &enc_multikey, alg, enc_key)
+    }
+
+    /// Expands did:peer:2 address
+    ///
+    /// See https://identity.foundation/peer-did-method-spec/#resolving-a-didpeer2
+    pub fn expand_did_peer_2(&self, did: &str) -> Result<DIDDocument, DIDPeerMethodError> {
+        if !DID_PEER_2_REGEX.is_match(did) {
+            return Err(DIDPeerMethodError::RegexMismatch);
+        }
+
+        // Compute did:peer:3 alias
+
+        let alias = Self::create_did_peer_3(did)?;
+
+        // Dissecting did address
+
+        let chain = did.strip_prefix("did:peer:2.").unwrap();
+        let chain: Vec<(Purpose, &str)> = chain
+            .split('.')
+            .map(|e| {
+                (
+                    Purpose::from_code(&e.chars().nth(0).unwrap()).expect("invalid purpose prefix bypasses regex check"),
+                    &e[1..],
+                )
+            })
+            .collect();
+
+        // Define LD-JSON Context
+
+        let context = Context::SetOfString(vec![
+            String::from("https://www.w3.org/ns/did/v1"),
+            match self.key_format {
+                PublicKeyFormat::Multikey => String::from("https://w3id.org/security/multikey/v1"),
+                PublicKeyFormat::Jwk => String::from("https://w3id.org/security/suites/jws-2020/v1"),
+            },
+        ]);
+
+        // Initialize relationships
+
+        let mut authentication = vec![];
+        let mut assertion_method = vec![];
+        let mut key_agreement = vec![];
+        let mut capability_delegation = vec![];
+        let mut capability_invocation = vec![];
+
+        // Resolve verification methods
+
+        let key_chain = chain
+            .iter()
+            .filter(|(purpose, _)| purpose != &Purpose::Service);
+
+        let mut methods: Vec<VerificationMethod> = vec![];
+        let mut method_current_id = 0;
+
+        for (purpose, multikey) in key_chain {
+            let id = format!("#key-{}", {
+                method_current_id += 1;
+                method_current_id
+            });
+
+            match purpose {
+                Purpose::Assertion => assertion_method.push(didcore::AssertionMethod::Reference(id.clone())),
+                Purpose::Encryption => key_agreement.push(didcore::KeyAgreement::Reference(id.clone())),
+                Purpose::Verification => authentication.push(didcore::Authentication::Reference(id.clone())),
+                Purpose::CapabilityDelegation => capability_delegation.push(didcore::CapabilityDelegation::Reference(id.clone())),
+                Purpose::CapabilityInvocation => capability_invocation.push(didcore::CapabilityInvocation::Reference(id.clone())),
+                Purpose::Service => unreachable!(),
+            }
+
+            let method = VerificationMethod {
+                id,
+                key_type: String::from("Multikey"),
+                controller: did.to_string(),
+                public_key: Some(KeyFormat::Multibase(multikey.to_string())),
+                ..Default::default()
+            };
+
+            methods.push(method);
+        }
+
+        // Resolve services
+
+        let service_chain = chain
+            .iter()
+            .filter_map(|(purpose, multikey)| (purpose == &Purpose::Service).then_some(multikey));
+
+        let mut services: Vec<Service> = vec![];
+        let mut service_next_id = 0;
+
+        for encoded_service in service_chain {
+            let decoded_service_bytes = Base64Url.decode(encoded_service).map_err(|_| DIDPeerMethodError::DIDParseError)?;
+            let decoded_service = String::from_utf8(decoded_service_bytes).map_err(|_| DIDPeerMethodError::DIDParseError)?;
+
+            // Reverse service abbreviation
+            let mut service = util::reverse_abbreviate_service_for_did_peer_2(&decoded_service)?;
+
+            if service.id.is_empty() {
+                service.id = if service_next_id == 0 {
+                    String::from("#service")
+                } else {
+                    format!("#service-{service_next_id}")
+                };
+                service_next_id += 1;
+            }
+
+            services.push(service);
+        }
+
+        // Build DIDDocument
+        let diddoc = DIDDocument {
+            context,
+            id: did.to_string(),
+            controller: None,
+            also_known_as: Some(vec![alias]),
+            verification_method: Some(methods),
+            authentication: (!authentication.is_empty()).then_some(authentication),
+            assertion_method: (!assertion_method.is_empty()).then_some(assertion_method),
+            capability_delegation: (!capability_delegation.is_empty()).then_some(capability_delegation),
+            capability_invocation: (!capability_invocation.is_empty()).then_some(capability_invocation),
+            key_agreement: (!key_agreement.is_empty()).then_some(key_agreement),
+            service: (!services.is_empty()).then_some(services),
+            additional_properties: None,
+            proof: None,
+        };
+
+        // Output
+        Ok(diddoc)
     }
 }
 
@@ -814,6 +944,91 @@ mod tests {
         ));
     }
 
+    #[test]
+    fn test_expand_did_peer_2() {
+        let did_method = DIDPeerMethod::default();
+
+        let did = concat!(
+            "did:peer:2",
+            ".Vz6Mkj3PUd1WjvaDhNZhhhXQdz5UnZXmS7ehtx8bsPpD47kKc",
+            ".Ez6LSg8zQom395jKLrGiBNruB9MM6V8PWuf2FpEy4uRFiqQBR",
+            ".SeyJpZCI6IiNkaWRjb21tIiwicyI6Imh0dHA6Ly9leGFtcGxlLmNvbS8xMjMiLCJ0IjoiZG0ifQ",
+            ".SeyJpZCI6IiIsInMiOiJodHRwOi8vZXhhbXBsZS5jb20vYWJjIiwidCI6ImRtIn0",
+            ".SeyJpZCI6IiIsInMiOiJodHRwOi8vZXhhbXBsZS5jb20veHl6IiwidCI6ImRtIn0",
+        );
+
+        let expected: Value = serde_json::from_str(
+            r##"{
+                "@context": [
+                    "https://www.w3.org/ns/did/v1",
+                    "https://w3id.org/security/multikey/v1"
+                ],
+                "id": "did:peer:2.Vz6Mkj3PUd1WjvaDhNZhhhXQdz5UnZXmS7ehtx8bsPpD47kKc.Ez6LSg8zQom395jKLrGiBNruB9MM6V8PWuf2FpEy4uRFiqQBR.SeyJpZCI6IiNkaWRjb21tIiwicyI6Imh0dHA6Ly9leGFtcGxlLmNvbS8xMjMiLCJ0IjoiZG0ifQ.SeyJpZCI6IiIsInMiOiJodHRwOi8vZXhhbXBsZS5jb20vYWJjIiwidCI6ImRtIn0.SeyJpZCI6IiIsInMiOiJodHRwOi8vZXhhbXBsZS5jb20veHl6IiwidCI6ImRtIn0",
+                "alsoKnownAs": [
+                    "did:peer:3zQmR9j6bEaydJuXDfzYaW4f3EEPQFxz2Zy1iPZuchgeF63h"
+                ],
+                "verificationMethod": [
+                    {
+                        "id": "#key-1",
+                        "type": "Multikey",
+                        "controller": "did:peer:2.Vz6Mkj3PUd1WjvaDhNZhhhXQdz5UnZXmS7ehtx8bsPpD47kKc.Ez6LSg8zQom395jKLrGiBNruB9MM6V8PWuf2FpEy4uRFiqQBR.SeyJpZCI6IiNkaWRjb21tIiwicyI6Imh0dHA6Ly9leGFtcGxlLmNvbS8xMjMiLCJ0IjoiZG0ifQ.SeyJpZCI6IiIsInMiOiJodHRwOi8vZXhhbXBsZS5jb20vYWJjIiwidCI6ImRtIn0.SeyJpZCI6IiIsInMiOiJodHRwOi8vZXhhbXBsZS5jb20veHl6IiwidCI6ImRtIn0",
+                        "publicKeyMultibase": "z6Mkj3PUd1WjvaDhNZhhhXQdz5UnZXmS7ehtx8bsPpD47kKc"
+                    },
+                    {
+                        "id": "#key-2",
+                        "type": "Multikey",
+                        "controller": "did:peer:2.Vz6Mkj3PUd1WjvaDhNZhhhXQdz5UnZXmS7ehtx8bsPpD47kKc.Ez6LSg8zQom395jKLrGiBNruB9MM6V8PWuf2FpEy4uRFiqQBR.SeyJpZCI6IiNkaWRjb21tIiwicyI6Imh0dHA6Ly9leGFtcGxlLmNvbS8xMjMiLCJ0IjoiZG0ifQ.SeyJpZCI6IiIsInMiOiJodHRwOi8vZXhhbXBsZS5jb20vYWJjIiwidCI6ImRtIn0.SeyJpZCI6IiIsInMiOiJodHRwOi8vZXhhbXBsZS5jb20veHl6IiwidCI6ImRtIn0",
+                        "publicKeyMultibase": "z6LSg8zQom395jKLrGiBNruB9MM6V8PWuf2FpEy4uRFiqQBR"
+                    }
+                ],
+                "authentication": [
+                    "#key-1"
+                ],
+                "keyAgreement": [
+                    "#key-2"
+                ],
+                "service": [
+                    {
+                        "id": "#didcomm",
+                        "type": "DIDCommMessaging",
+                        "serviceEndpoint": "http://example.com/123"
+                    },
+                    {
+                        "id": "#service",
+                        "type": "DIDCommMessaging",
+                        "serviceEndpoint": "http://example.com/abc"
+                    },
+                    {
+                        "id": "#service-1",
+                        "type": "DIDCommMessaging",
+                        "serviceEndpoint": "http://example.com/xyz"
+                    }
+                ]
+            }"##,
+        )
+        .unwrap();
+
+        let diddoc = did_method.expand(did).unwrap();
+        // println!("{}", serde_json::to_string_pretty(&diddoc).unwrap());
+        assert_eq!(
+            json_canon::to_string(&diddoc).unwrap(),   //
+            json_canon::to_string(&expected).unwrap(), //
+        );
+    }
+
+    #[test]
+    fn test_expand_did_peer_2_fails_on_malformed_encoded_service() {
+        let did_method = DIDPeerMethod::default();
+        let did = concat!(
+            "did:peer:2",
+            ".Vz6Mkj3PUd1WjvaDhNZhhhXQdz5UnZXmS7ehtx8bsPpD47kKc",
+            // {"s":"http://example.com/xyz","t":"dm" (missing closing brace)
+            ".SeyJzIjoiaHR0cDovL2V4YW1wbGUuY29tL3h5eiIsInQiOiJkbSI",
+        );
+
+        assert!(matches!(did_method.expand(did).unwrap_err(), DIDPeerMethodError::SerdeError(_)));
+    }
+
     fn _stored_variant_v0() -> DIDDocument {
         serde_json::from_str(
             r##"{
@@ -821,7 +1036,6 @@ mod tests {
                     "https://www.w3.org/ns/did/v1",
                     "https://w3id.org/security/suites/ed25519-2020/v1"
                 ],
-                "id": "",
                 "verificationMethod": [{
                     "id": "#key1",
                     "type": "Ed25519VerificationKey2020",

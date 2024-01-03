@@ -5,6 +5,7 @@ use crate::{crypto::traits::Error as CryptoError, methods::errors::DIDResolution
 #[derive(Debug)]
 pub enum DIDPeerMethodError {
     CryptoError(CryptoError),
+    DIDParseError,
     DIDResolutionError(DIDResolutionError),
     EmptyArguments,
     IllegalArgument,
