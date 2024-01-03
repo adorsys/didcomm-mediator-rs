@@ -25,6 +25,8 @@ lazy_static::lazy_static!(
     pub static ref DID_PEER_2_REGEX: Regex = Regex::new("^did:peer:(2((\\.[AEVID](z)([1-9a-km-zA-HJ-NP-Z]+))+(\\.(S)[0-9a-zA-Z]*)*))$").unwrap();
 );
 
+const MULTICODEC_JSON: [u8; 2] = [0x80, 0x04];
+
 #[derive(Default)]
 pub struct DIDPeerMethod {
     /// Key format to consider during DID expansion into a DID document
@@ -169,8 +171,6 @@ impl DIDPeerMethod {
     ///
     /// See https://identity.foundation/peer-did-method-spec/#method-4-short-form-and-long-form
     pub fn create_did_peer_4_from_stored_variant(diddoc: &DIDDocument) -> Result<String, DIDPeerMethodError> {
-        const MULTICODEC_JSON: [u8; 2] = [0x80, 0x04];
-
         // Validate argument
         if !diddoc.id.is_empty() {
             return Err(DIDPeerMethodError::InvalidStoredVariant);
@@ -225,6 +225,7 @@ impl DIDPeerMethod {
         match did {
             s if s.starts_with("did:peer:0") => self.expand_did_peer_0(did),
             s if s.starts_with("did:peer:2") => self.expand_did_peer_2(did),
+            s if s.starts_with("did:peer:4") => self.expand_did_peer_4(did),
             _ => Err(DIDPeerMethodError::UnsupportedPeerDIDAlgorithm),
         }
     }
@@ -376,13 +377,9 @@ impl DIDPeerMethod {
         let key_chain = chain.iter().filter(|(purpose, _)| purpose != &Purpose::Service);
 
         let mut methods: Vec<VerificationMethod> = vec![];
-        let mut method_current_id = 0;
 
-        for (purpose, multikey) in key_chain {
-            let id = format!("#key-{}", {
-                method_current_id += 1;
-                method_current_id
-            });
+        for (method_current_id, (purpose, multikey)) in key_chain.enumerate() {
+            let id = format!("#key-{}", method_current_id + 1);
 
             match purpose {
                 Purpose::Assertion => assertion_method.push(didcore::AssertionMethod::Reference(id.clone())),
@@ -442,6 +439,7 @@ impl DIDPeerMethod {
         }
 
         // Build DIDDocument
+
         let diddoc = DIDDocument {
             context,
             id: did.to_string(),
@@ -459,6 +457,51 @@ impl DIDPeerMethod {
         };
 
         // Output
+
+        Ok(diddoc)
+    }
+
+    /// Expands did:peer:4 address
+    ///
+    /// See https://identity.foundation/peer-did-method-spec/#resolving-a-did
+    pub fn expand_did_peer_4(&self, did: &str) -> Result<DIDDocument, DIDPeerMethodError> {
+        // Ensure long format by computing did:peer:4 short form alias
+
+        let alias = Self::shorten_did_peer_4(did)?;
+
+        // Extract encoded document
+
+        let encoded_document = did.split(':').nth(3).unwrap();
+
+        // Decode document
+
+        let (base, decoded_bytes) = multibase::decode(encoded_document).map_err(|_| DIDPeerMethodError::DIDParseError)?;
+        if base != Base58Btc || decoded_bytes.len() < 3 || decoded_bytes[..2] != MULTICODEC_JSON {
+            return Err(DIDPeerMethodError::MalformedLongPeerDID);
+        }
+
+        // let decoded = String::from_utf8(decoded_bytes[2..].to_vec()).map_err(|_| DIDPeerMethodError::DIDParseError)?;
+        let mut diddoc: DIDDocument = serde_json::from_slice(&decoded_bytes[2..])?;
+
+        // Contextualize decoded document
+
+        diddoc.id = did.to_string();
+
+        if diddoc.also_known_as.is_none() {
+            diddoc.also_known_as = Some(vec![alias]);
+        }
+
+        diddoc.verification_method = diddoc.verification_method.map(|arr| {
+            arr.into_iter()
+                .map(|vm| VerificationMethod {
+                    controller: if !vm.controller.is_empty() { vm.controller } else { did.to_string() },
+                    ..vm
+                })
+                .collect()
+        });
+
+        // Output
+
         Ok(diddoc)
     }
 }
@@ -1088,6 +1131,35 @@ mod tests {
         );
 
         assert!(matches!(did_method.expand(did).unwrap_err(), DIDPeerMethodError::SerdeError(_)));
+    }
+
+    #[test]
+    fn test_expand_did_peer_4() {
+        let did_method = DIDPeerMethod::default();
+
+        let did = concat!(
+            "did:peer:4zQmePYVawceZsPSxpLRp54z4Q5DCZXeyyGKwoDMc2NqgZXZ:z2yS424R5nAoSu",
+            "CezPTvBHybrvByZRD9g8L4oMe4ctq9UwPksVskxJFiars33RRyKz3z7RbwwQRAo9ByoXmBhg",
+            "7UCMkvmSHBeXWF44tQJfLjiXieCtXgxASzPJ5UsgPLAWX2vdjNFfmiLVh1WLe3RdBPvQoMuM",
+            "EiPLFGiKhbzX66dT21qDwZusRC4uDzQa7XpsLBS7rBjZZ9sLMRzjpG4rYpjgLUmUF2D1ixeW",
+            "ZFMqy7fVfPUUGyt4N6R4aLAjMLgcJzAQKb1uFiBYe2ZCTmsjtazWkHypgJetLysv7AwasYDV",
+            "4MMNPY5AbM4p3TGtdpJZaxaXzSKRZexuQ4tWsfGuHXEDiaABj5YtjbNjWh4f5M4sn7D9AAAS",
+            "StG593VkLFaPxG4VnFR4tKPiWeN9AJXRWPQ2XRnsD7U3mCHpRSb2f1HT5KeSHTU8zNAn6vFc",
+            "4fstgf2j71Uo8tngcUBkxdqkHKmpvZ1Fs27sWh7JvWAeiehsW3aBe4CbU4WGjzmusaKVb2HS",
+            "7iY5hbYngYrpwcZ5Sse",
+        );
+
+        let expected = DIDDocument {
+            id: did.to_string(),
+            also_known_as: Some(vec![String::from("did:peer:4zQmePYVawceZsPSxpLRp54z4Q5DCZXeyyGKwoDMc2NqgZXZ")]),
+            .._stored_variant_v0()
+        };
+
+        let diddoc = did_method.expand(did).unwrap();
+        assert_eq!(
+            json_canon::to_string(&diddoc).unwrap(),   //
+            json_canon::to_string(&expected).unwrap(), //
+        );
     }
 
     fn _stored_variant_v0() -> DIDDocument {
