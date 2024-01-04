@@ -8,6 +8,7 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
+use std::sync::Arc;
 
 use crate::web::AppState;
 use crate::{
@@ -18,7 +19,7 @@ use crate::{
 
 #[axum::debug_handler]
 pub async fn process_didcomm_mediation_request_message(
-    State(state): State<AppState>,
+    State(state): State<Arc<AppState>>,
     headers: HeaderMap,
     payload: String,
 ) -> Response {
@@ -87,18 +88,15 @@ pub mod tests {
         web,
     };
 
-    pub fn setup() -> (Router, AppState) {
+    pub fn setup() -> (Router, Arc<AppState>) {
         let public_domain = String::from("http://alice-mediator.com");
 
         let mut mock_fs = MockFileSystem;
         let diddoc = util::read_diddoc(&mock_fs, "").unwrap();
         let keystore = util::read_keystore(&mut mock_fs, "").unwrap();
 
-        let mut mock_fs = MockFileSystem;
-        let keystore_clone = util::read_keystore(&mut mock_fs, "").unwrap();
-
-        let app = web::routes(public_domain.clone(), diddoc.clone(), keystore_clone, None);
-        let state = AppState::from(public_domain, diddoc, keystore, None);
+        let state = Arc::new(AppState::from(public_domain, diddoc, keystore, None));
+        let app = web::routes(Arc::clone(&state));
 
         (app, state)
     }

@@ -7,7 +7,7 @@ use std::sync::Arc;
 use crate::{
     repository::stateful::coord::MongoConnectionRepository,
     util,
-    web::{self, AppStateRepository},
+    web::{self, AppState, AppStateRepository},
 };
 
 #[derive(Default)]
@@ -108,8 +108,11 @@ impl Plugin for MediatorCoordinationPlugin {
             connection_repository: Arc::new(MongoConnectionRepository::from_db(&db)),
         };
 
+        // Compile state
+        let state = AppState::from(public_domain, diddoc, keystore, Some(repository));
+
         // Build router
-        web::routes(public_domain, diddoc, keystore, Some(repository))
+        web::routes(Arc::new(state))
     }
 }
 

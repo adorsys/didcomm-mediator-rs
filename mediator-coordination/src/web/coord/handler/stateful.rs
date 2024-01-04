@@ -6,7 +6,7 @@ use axum::{
 };
 use mongodb::bson::doc;
 use serde_json::json;
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 use uuid::Uuid;
 
 use crate::{
@@ -20,7 +20,7 @@ use crate::{
 
 #[axum::debug_handler]
 pub async fn process_plain_keylist_update_message(
-    State(state): State<AppState>,
+    State(state): State<Arc<AppState>>,
     Query(query): Query<HashMap<String, String>>,
     Json(keylist_update): Json<KeylistUpdate>,
 ) -> Response {
@@ -55,7 +55,10 @@ pub async fn process_plain_keylist_update_message(
     let AppStateRepository {
         connection_repository,
         ..
-    } = state.repository.expect("missing persistence layer");
+    } = state
+        .repository
+        .as_ref()
+        .expect("missing persistence layer");
 
     // Find connection for this keylist update
 
