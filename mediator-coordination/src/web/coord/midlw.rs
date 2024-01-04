@@ -2,7 +2,7 @@ use axum::{
     http::{header::CONTENT_TYPE, HeaderMap, StatusCode},
     response::{IntoResponse, Response},
 };
-use didcomm::{error::ErrorKind as DidcommErrorKind, Message, PackEncryptedOptions, UnpackOptions};
+use didcomm::{Message, UnpackOptions};
 use serde_json::{json, Value};
 
 use crate::{
@@ -14,6 +14,9 @@ use crate::{
     model::coord::MediationRequest,
     web::error::MediationError,
 };
+
+// TODO!!! Move associated tests to global middleware module too.
+pub use crate::web::midlw::pack_response_message;
 
 macro_rules! run {
     ($expression:expr) => {
@@ -163,44 +166,6 @@ pub fn ensure_mediation_request_type(
     Ok(())
 }
 
-/// Pack response message
-pub async fn pack_response_message(
-    msg: &Message,
-    did_resolver: &LocalDIDResolver,
-    secrets_resolver: &LocalSecretsResolver,
-) -> Result<Value, Response> {
-    let from = msg.from.as_ref();
-    let to = msg.to.as_ref().and_then(|v| v.get(0));
-
-    if from.is_none() || to.is_none() {
-        let response = (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            MediationError::MessagePackingFailure(DidcommErrorKind::Malformed).json(),
-        );
-
-        return Err(response.into_response());
-    }
-
-    msg.pack_encrypted(
-        to.unwrap(),
-        from.map(|x| x.as_str()),
-        None,
-        did_resolver,
-        secrets_resolver,
-        &PackEncryptedOptions::default(),
-    )
-    .await
-    .map(|(packed_message, _metadata)| serde_json::from_str(&packed_message).unwrap())
-    .map_err(|err| {
-        let response = (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            MediationError::MessagePackingFailure(err.kind()).json(),
-        );
-
-        response.into_response()
-    })
-}
-
 #[cfg(test)]
 mod tests {
     use super::{super::handler::tests::*, *};
@@ -209,6 +174,8 @@ mod tests {
     use crate::model::stateless::coord::{
         MediationRequest as StatelessMediationRequest, MediatorService,
     };
+
+    use didcomm::{error::ErrorKind as DidcommErrorKind, Message, PackEncryptedOptions};
 
     #[tokio::test]
     async fn test_ensure_content_type_is_didcomm_encrypted() {

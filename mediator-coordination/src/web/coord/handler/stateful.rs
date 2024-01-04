@@ -1,7 +1,6 @@
 use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
-    Json,
 };
 use didcomm::Message;
 use mongodb::bson::doc;
@@ -13,7 +12,7 @@ use crate::{
     constant::KEYLIST_UPDATE_RESPONSE_2_0,
     model::stateful::coord::{
         entity::Connection, KeylistUpdateAction, KeylistUpdateBody, KeylistUpdateConfirmation,
-        KeylistUpdateResponse, KeylistUpdateResponseBody, KeylistUpdateResult,
+        KeylistUpdateResponseBody, KeylistUpdateResult,
     },
     web::{error::MediationError, AppState, AppStateRepository},
 };
@@ -21,7 +20,7 @@ use crate::{
 pub async fn process_plain_keylist_update_message(
     state: Arc<AppState>,
     message: Message,
-) -> Response {
+) -> Result<Message, Response> {
     // Extract message sender
 
     let sender = message
@@ -38,7 +37,7 @@ pub async fn process_plain_keylist_update_message(
                 MediationError::UnexpectedMessageFormat.json(),
             );
 
-            return response.into_response();
+            return Err(response.into_response());
         }
     };
 
@@ -55,7 +54,7 @@ pub async fn process_plain_keylist_update_message(
     // Find connection for this keylist update
 
     let connection = match connection_repository
-        .find_one_by(doc! { "client_did": sender })
+        .find_one_by(doc! { "client_did": &sender })
         .await
         .unwrap()
     {
@@ -66,7 +65,7 @@ pub async fn process_plain_keylist_update_message(
                 MediationError::UncoordinatedSender.json(),
             );
 
-            return response.into_response();
+            return Err(response.into_response());
         }
     };
 
@@ -149,17 +148,16 @@ pub async fn process_plain_keylist_update_message(
 
     // Build response
 
-    let response = (
-        StatusCode::ACCEPTED,
-        Json(json!(KeylistUpdateResponse {
-            id: format!("urn:uuid:{}", Uuid::new_v4()),
-            message_type: KEYLIST_UPDATE_RESPONSE_2_0.to_string(),
-            body: KeylistUpdateResponseBody {
-                updated: confirmations
-            },
-            ..Default::default()
-        })),
-    );
+    let mediator_did = &state.diddoc.id;
 
-    response.into_response()
+    Ok(Message::build(
+        format!("urn:uuid:{}", Uuid::new_v4()),
+        KEYLIST_UPDATE_RESPONSE_2_0.to_string(),
+        json!(KeylistUpdateResponseBody {
+            updated: confirmations
+        }),
+    )
+    .to(sender.clone())
+    .from(mediator_did.clone())
+    .finalize())
 }

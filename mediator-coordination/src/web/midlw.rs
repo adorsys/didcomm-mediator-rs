@@ -5,7 +5,8 @@ use axum::{
     middleware::Next,
     response::{IntoResponse, Response},
 };
-use didcomm::{Message, UnpackOptions};
+use didcomm::{error::ErrorKind as DidcommErrorKind, Message, PackEncryptedOptions, UnpackOptions};
+use serde_json::Value;
 use std::sync::Arc;
 
 use super::{error::MediationError, AppState};
@@ -129,4 +130,42 @@ async fn unpack_payload(
     }
 
     Ok(plain_message)
+}
+
+/// Pack response message
+pub async fn pack_response_message(
+    msg: &Message,
+    did_resolver: &LocalDIDResolver,
+    secrets_resolver: &LocalSecretsResolver,
+) -> Result<Value, Response> {
+    let from = msg.from.as_ref();
+    let to = msg.to.as_ref().and_then(|v| v.get(0));
+
+    if from.is_none() || to.is_none() {
+        let response = (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            MediationError::MessagePackingFailure(DidcommErrorKind::Malformed).json(),
+        );
+
+        return Err(response.into_response());
+    }
+
+    msg.pack_encrypted(
+        to.unwrap(),
+        from.map(|x| x.as_str()),
+        None,
+        did_resolver,
+        secrets_resolver,
+        &PackEncryptedOptions::default(),
+    )
+    .await
+    .map(|(packed_message, _metadata)| serde_json::from_str(&packed_message).unwrap())
+    .map_err(|err| {
+        let response = (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            MediationError::MessagePackingFailure(err.kind()).json(),
+        );
+
+        response.into_response()
+    })
 }
