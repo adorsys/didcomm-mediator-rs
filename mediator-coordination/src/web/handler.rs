@@ -1,19 +1,22 @@
-use std::sync::Arc;
-
 use axum::{
     extract::State,
-    http::{header::CONTENT_TYPE, HeaderMap, StatusCode},
+    http::HeaderMap,
     response::{IntoResponse, Response},
-    Json,
+    Extension,
 };
+use didcomm::Message;
+use std::sync::Arc;
 
 use crate::web::AppState;
 
 #[axum::debug_handler]
 pub async fn process_didcomm_message(
-    State(state): State<Arc<AppState>>,
-    headers: HeaderMap,
-    payload: String,
+    State(_state): State<Arc<AppState>>,
+    Extension(message): Extension<Message>,
+    _headers: HeaderMap,
 ) -> Response {
-    "".into_response()
+    serde_json::to_string_pretty(&message)
+        .unwrap()
+        .to_string()
+        .into_response()
 }

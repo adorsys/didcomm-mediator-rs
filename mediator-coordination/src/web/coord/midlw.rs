@@ -5,7 +5,6 @@ use axum::{
 use didcomm::{error::ErrorKind as DidcommErrorKind, Message, PackEncryptedOptions, UnpackOptions};
 use serde_json::{json, Value};
 
-use super::error::MediationError;
 use crate::{
     constant::{
         DIDCOMM_ENCRYPTED_MIME_TYPE, DIDCOMM_ENCRYPTED_SHORT_MIME_TYPE, MEDIATE_REQUEST_2_0,
@@ -13,6 +12,7 @@ use crate::{
     },
     didcomm::bridge::{LocalDIDResolver, LocalSecretsResolver},
     model::coord::MediationRequest,
+    web::error::MediationError,
 };
 
 macro_rules! run {

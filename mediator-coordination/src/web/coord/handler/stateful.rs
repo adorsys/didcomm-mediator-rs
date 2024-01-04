@@ -15,7 +15,7 @@ use crate::{
         entity::Connection, KeylistUpdate, KeylistUpdateAction, KeylistUpdateConfirmation,
         KeylistUpdateResponse, KeylistUpdateResponseBody, KeylistUpdateResult,
     },
-    web::{coord::error::MediationError, AppState, AppStateRepository},
+    web::{error::MediationError, AppState, AppStateRepository},
 };
 
 #[axum::debug_handler]

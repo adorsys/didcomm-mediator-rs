@@ -1,4 +1,5 @@
 mod coord;
+mod error;
 mod handler;
 mod midlw;
 

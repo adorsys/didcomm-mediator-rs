@@ -30,6 +30,8 @@ pub enum MediationError {
     NotDidcommEncryptedPayload,
     #[error("uncoordinated sender")]
     UncoordinatedSender,
+    #[error("unparseable payload")]
+    UnparseablePayload,
     #[error("unsupported did method")]
     UnsupportedDidMethod,
 }

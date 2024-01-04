@@ -109,7 +109,7 @@ mod tests {
     use crate::{
         constant::DIDCOMM_ENCRYPTED_MIME_TYPE,
         jose::jws,
-        web::coord::{error::MediationError, handler::tests::*},
+        web::{coord::handler::tests::*, error::MediationError},
     };
 
     #[tokio::test]
