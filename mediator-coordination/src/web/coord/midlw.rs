@@ -168,7 +168,8 @@ pub fn ensure_mediation_request_type(
 
 #[cfg(test)]
 mod tests {
-    use super::{super::handler::tests::*, *};
+    use super::*;
+    use crate::web::handler::tests::*;
 
     #[cfg(feature = "stateless")]
     use crate::model::stateless::coord::{
