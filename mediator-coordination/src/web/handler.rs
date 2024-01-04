@@ -31,7 +31,7 @@ pub async fn process_didcomm_message(
         _ => {
             let response = (
                 StatusCode::BAD_REQUEST,
-                MediationError::NoReturnRouteAllDecoration.json(),
+                MediationError::UnsupportedOperation.json(),
             );
 
             return response.into_response();

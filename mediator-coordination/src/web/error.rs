@@ -34,6 +34,8 @@ pub enum MediationError {
     UnparseablePayload,
     #[error("unsupported did method")]
     UnsupportedDidMethod,
+    #[error("unsupported operation")]
+    UnsupportedOperation,
 }
 
 impl MediationError {
