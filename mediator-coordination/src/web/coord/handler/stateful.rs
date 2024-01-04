@@ -1,54 +1,46 @@
 use axum::{
-    extract::{Query, State},
     http::StatusCode,
     response::{IntoResponse, Response},
     Json,
 };
+use didcomm::Message;
 use mongodb::bson::doc;
 use serde_json::json;
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::{
-    constant::{KEYLIST_UPDATE_2_0, KEYLIST_UPDATE_RESPONSE_2_0},
+    constant::KEYLIST_UPDATE_RESPONSE_2_0,
     model::stateful::coord::{
-        entity::Connection, KeylistUpdate, KeylistUpdateAction, KeylistUpdateConfirmation,
+        entity::Connection, KeylistUpdateAction, KeylistUpdateBody, KeylistUpdateConfirmation,
         KeylistUpdateResponse, KeylistUpdateResponseBody, KeylistUpdateResult,
     },
     web::{error::MediationError, AppState, AppStateRepository},
 };
 
-#[axum::debug_handler]
 pub async fn process_plain_keylist_update_message(
-    State(state): State<Arc<AppState>>,
-    Query(query): Query<HashMap<String, String>>,
-    Json(keylist_update): Json<KeylistUpdate>,
+    state: Arc<AppState>,
+    message: Message,
 ) -> Response {
-    // Temp! Read declared sender from message
+    // Extract message sender
 
-    let sender = query.get("sender").cloned();
+    let sender = message
+        .from
+        .expect("unpacking middleware failed to prevent anonymous senders");
 
-    // Validate sender
+    // Parse message body into keylist update
 
-    if sender.is_none() {
-        let response = (
-            StatusCode::BAD_REQUEST,
-            MediationError::Generic(String::from("no declared sender")).json(),
-        );
+    let keylist_update_body: KeylistUpdateBody = match serde_json::from_value(message.body) {
+        Ok(serialized) => serialized,
+        Err(_) => {
+            let response = (
+                StatusCode::BAD_REQUEST,
+                MediationError::UnexpectedMessageFormat.json(),
+            );
 
-        return response.into_response();
-    }
-
-    // Validate message type
-
-    if keylist_update.message_type != KEYLIST_UPDATE_2_0 {
-        let response = (
-            StatusCode::BAD_REQUEST,
-            MediationError::InvalidMessageType.json(),
-        );
-
-        return response.into_response();
-    }
+            return response.into_response();
+        }
+    };
 
     // Retrieve repository to connection entities
 
@@ -63,7 +55,7 @@ pub async fn process_plain_keylist_update_message(
     // Find connection for this keylist update
 
     let connection = match connection_repository
-        .find_one_by(doc! { "client_did": sender.unwrap() })
+        .find_one_by(doc! { "client_did": sender })
         .await
         .unwrap()
     {
@@ -81,7 +73,7 @@ pub async fn process_plain_keylist_update_message(
     // Prepare handles to relevant collections
 
     let mut updated_keylist = connection.keylist.clone();
-    let updates = keylist_update.body.updates;
+    let updates = keylist_update_body.updates;
 
     // Closure to check if a specific key is duplicated across commands
 

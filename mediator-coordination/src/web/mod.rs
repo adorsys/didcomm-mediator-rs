@@ -28,10 +28,6 @@ pub fn routes(state: Arc<AppState>) -> Router {
             "/mediate",
             post(coord::handler::process_didcomm_mediation_request_message),
         )
-        .route(
-            "/keylist",
-            post(coord::handler::stateful::process_plain_keylist_update_message),
-        )
         .with_state(state)
 }
 

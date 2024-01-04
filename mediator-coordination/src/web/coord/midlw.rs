@@ -139,7 +139,7 @@ pub fn parse_message_body_into_mediation_request(
     serde_json::from_value::<MediationRequest>(message.body.clone()).map_err(|_| {
         let response = (
             StatusCode::BAD_REQUEST,
-            MediationError::InvalidMediationRequestFormat.json(),
+            MediationError::UnexpectedMessageFormat.json(),
         );
 
         response.into_response()
@@ -604,7 +604,7 @@ mod tests {
         _assert_midlw_err(
             parse_message_body_into_mediation_request(&msg).unwrap_err(),
             StatusCode::BAD_REQUEST,
-            MediationError::InvalidMediationRequestFormat,
+            MediationError::UnexpectedMessageFormat,
         )
         .await;
     }

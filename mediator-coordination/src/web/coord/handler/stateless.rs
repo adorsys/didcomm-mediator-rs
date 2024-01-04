@@ -609,7 +609,7 @@ mod tests {
 
         assert_eq!(
             json_canon::to_string(&body).unwrap(),
-            json_canon::to_string(&MediationError::InvalidMediationRequestFormat.json().0).unwrap()
+            json_canon::to_string(&MediationError::UnexpectedMessageFormat.json().0).unwrap()
         )
     }
 
