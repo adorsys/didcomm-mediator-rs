@@ -7,17 +7,12 @@ use crate::{
     },
     didcore::{self, Document as DIDDocument, KeyFormat, VerificationMethod},
     ldmodel::Context,
-    methods::{errors::DIDResolutionError, traits::DIDMethod},
+    methods::{
+        common::{self, Algorithm, PublicKeyFormat},
+        errors::DIDResolutionError,
+        traits::DIDMethod,
+    },
 };
-
-use super::alg::Algorithm;
-
-#[derive(Default)]
-pub enum PublicKeyFormat {
-    #[default]
-    Multikey,
-    Jwk,
-}
 
 #[derive(Default)]
 pub struct DIDKeyMethod {
@@ -74,22 +69,10 @@ impl DIDKeyMethod {
 
         // See https://w3c-ccg.github.io/did-method-key/#format
         let multibase_value = did.strip_prefix("did:key:").unwrap();
-        let (base, multicodec) = multibase::decode(multibase_value).map_err(|_| DIDResolutionError::InvalidDid)?;
-
-        // Validate decoded multibase value
-        if base != Base58Btc || multicodec.len() < 2 {
-            return Err(DIDResolutionError::InvalidDid);
-        }
-
-        // Partition multicodec value
-        let multicodec_prefix: &[u8; 2] = &multicodec[..2].try_into().unwrap();
-        let raw_public_key_bytes = &multicodec[2..];
-
-        // Derive algorithm from multicodec prefix
-        let alg = Algorithm::from_muticodec_prefix(multicodec_prefix).ok_or(DIDResolutionError::InvalidDid)?;
+        let (alg, raw_public_key_bytes) = common::decode_multikey(multibase_value).map_err(|_| DIDResolutionError::InvalidDid)?;
 
         // Run algorithm for signature verification method expansion
-        let signature_verification_method = self.derive_signature_verification_method(alg, multibase_value, raw_public_key_bytes)?;
+        let signature_verification_method = self.derive_signature_verification_method(alg, multibase_value, &raw_public_key_bytes)?;
 
         // Build DID document
         let mut diddoc = DIDDocument {
@@ -118,7 +101,7 @@ impl DIDKeyMethod {
 
         if self.enable_encryption_key_derivation {
             // Run algorithm for encryption verification method derivation if opted in
-            let encryption_verification_method = self.derive_encryption_verification_method(alg, multibase_value, raw_public_key_bytes)?;
+            let encryption_verification_method = self.derive_encryption_verification_method(alg, multibase_value, &raw_public_key_bytes)?;
 
             // Amend DID document accordingly
             let verification_method = diddoc.verification_method.as_mut().unwrap();
