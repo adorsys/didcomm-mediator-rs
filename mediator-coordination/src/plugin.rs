@@ -5,7 +5,7 @@ use server_plugin::{Plugin, PluginError};
 use std::sync::Arc;
 
 use crate::{
-    repository::stateful::coord::MongoConnectionRepository,
+    repository::stateful::coord::{MongoConnectionRepository, MongoSecretsRepository},
     util,
     web::{self, AppStateRepository},
 };
@@ -106,6 +106,7 @@ impl Plugin for MediatorCoordinationPlugin {
         // Load persistence layer
         let repository = AppStateRepository {
             connection_repository: Arc::new(MongoConnectionRepository::from_db(&db)),
+            secret_repository: Arc::new(MongoSecretsRepository::from_db(&db)),
         };
 
         // Build router

@@ -313,6 +313,22 @@ pub mod entity {
         /// Generated DID to route messages to client.
         pub routing_did: String,
     }
+
+    #[derive(Debug, Serialize, Deserialize, Clone)]
+    pub struct Secrets {
+        #[serde(rename = "_id")]
+        pub id: ObjectId,
+
+        pub kid: String,
+        pub type_: i32,
+        pub verification_material: VerificationMaterial,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, Clone)]
+    pub struct VerificationMaterial {
+        pub format: i32,
+        pub value: String,
+    }
 }
 
 #[cfg(test)]

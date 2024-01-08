@@ -8,6 +8,7 @@ use std::sync::Arc;
 use crate::{
     didcomm::bridge::{LocalDIDResolver, LocalSecretsResolver},
     model::stateful::coord::entity::Connection,
+    model::stateful::coord::entity::Secrets,
     repository::traits::Repository,
     util,
 };
@@ -53,6 +54,7 @@ pub struct AppState {
 #[derive(Clone)]
 pub struct AppStateRepository {
     pub connection_repository: Arc<dyn Repository<Connection>>,
+    pub secret_repository: Arc<dyn Repository<Secrets>>,
 }
 
 impl AppState {

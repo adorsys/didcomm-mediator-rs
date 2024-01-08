@@ -3,8 +3,8 @@ use did_utils::{
     didcore::Document,
     key_jwk::jwk::Jwk,
     methods::{
-        did_key::{method::PublicKeyFormat, DIDKeyMethod},
-        errors::DIDResolutionError,
+        did_key::DIDKeyMethod,
+        errors::DIDResolutionError, common::PublicKeyFormat,
     },
 };
 use didcomm::{

@@ -4,9 +4,24 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use did_utils::methods::did_key::DIDKeyMethod;
+use did_utils::{
+    crypto::{ed25519::Ed25519KeyPair, traits::Generate, x25519::X25519KeyPair},
+    didcore::Service,
+    key_jwk::jwk::Jwk,
+    methods::{
+        common::ToMultikey,
+        did_key::DIDKeyMethod,
+        did_peer::{
+            self,
+            method::{Purpose, PurposedKey},
+        },
+    },
+};
+
+use did_utils::methods::did_peer::DIDPeerMethod;
+
 use didcomm::Message;
-use mongodb::bson::doc;
+use mongodb::bson::{doc, oid::ObjectId};
 use serde_json::json;
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -16,9 +31,9 @@ use crate::{
         KEYLIST_UPDATE_2_0, KEYLIST_UPDATE_RESPONSE_2_0, MEDIATE_DENY_2_0, MEDIATE_GRANT_2_0,
     },
     model::stateful::coord::{
-        entity::Connection, KeylistUpdate, KeylistUpdateAction, KeylistUpdateConfirmation,
-        KeylistUpdateResponse, KeylistUpdateResponseBody, KeylistUpdateResult, MediationDeny,
-        MediationGrant, MediationRequest,
+        entity::{Connection, Secrets, VerificationMaterial},
+        KeylistUpdate, KeylistUpdateAction, KeylistUpdateConfirmation, KeylistUpdateResponse,
+        KeylistUpdateResponseBody, KeylistUpdateResult, MediationDeny, MediationGrant,
     },
     web::{coord::error::MediationError, AppState, AppStateRepository},
 };
@@ -27,7 +42,6 @@ use crate::{
 pub async fn process_mediate_request(
     state: &AppState,
     plain_message: &Message,
-    mediation_request: &MediationRequest,
 ) -> Result<Message, Response> {
     let mediator_did = &state.diddoc.id;
 
@@ -69,26 +83,54 @@ pub async fn process_mediate_request(
         /* Issue mediate grant response */
         println!("Sending mediate grant.");
         // Create routing, store it and send mediation grant
-        let routing_did = DIDKeyMethod::generate();
+        let (routing_did, auth_keys, agreem_keys) =
+            generate_did_peer("example_endpoint".to_string());
+
+
+        let AppStateRepository {
+            secret_repository, ..
+        } = state
+            .repository
+            .as_ref()
+            .expect("missing persistence layer");
+
+        let agreem_keys_jwk: Jwk = agreem_keys.try_into().expect("ConversionError");
+
+        let new_secrets = Secrets {
+            id: ObjectId::new(),
+            kid: routing_did.clone(),
+            type_: 1,
+            verification_material: VerificationMaterial {
+                format: 1,
+                value: serde_json::to_value(agreem_keys_jwk).unwrap().to_string(),
+            },
+        };
+
+        match secret_repository.store(new_secrets).await {
+            Ok(stored_connection) => {
+                println!("Successfully stored connection: {:?}", stored_connection)
+            }
+            Err(error) => eprintln!("Error storing connection: {:?}", error),
+        }
+
 
         let mediation_grant = MediationGrant {
             id: format!("urn:uuid:{}", Uuid::new_v4()),
             message_type: MEDIATE_GRANT_2_0.to_string(),
-            routing_did: routing_did.as_ref().unwrap().to_string(),
+            routing_did: routing_did.clone(),
             ..Default::default()
         };
 
-        // Create a sample Connection entity with hardcoded data
-        let sample_connection = Connection {
+        let new_connection = Connection {
             id: None,
             client_did: sender_did.to_string(),
             mediator_did: mediator_did.to_string(),
             keylist: vec!["".to_string()],
-            routing_did: routing_did.unwrap().to_string()
+            routing_did: routing_did,
         };
 
         // Use store_one to store the sample connection
-        match connection_repository.store(sample_connection).await {
+        match connection_repository.store(new_connection).await {
             Ok(stored_connection) => {
                 println!("Successfully stored connection: {:?}", stored_connection)
             }
@@ -104,6 +146,41 @@ pub async fn process_mediate_request(
         .from(mediator_did.clone())
         .finalize())
     }
+}
+
+fn generate_did_peer(service_endpoint: String) -> (String, Ed25519KeyPair, X25519KeyPair) {
+    // Generate keys
+    let auth_keys = Ed25519KeyPair::new().unwrap();
+    let agreem_keys = X25519KeyPair::new().unwrap();
+
+    // Format them for did:peer
+    let keys = vec![
+        PurposedKey {
+            purpose: Purpose::Encryption,
+            public_key_multibase: auth_keys.to_multikey(),
+        },
+        PurposedKey {
+            purpose: Purpose::Verification,
+            public_key_multibase: agreem_keys.to_multikey(),
+        },
+    ];
+
+    // Generate service
+    let mut additional_properties = HashMap::new();
+    additional_properties.insert("accept".to_string(), json!(["didcomm/v2"]));
+
+    let services = vec![Service {
+        id: String::from("#didcomm"),
+        service_type: String::from("DIDCommMessaging"),
+        service_endpoint: service_endpoint,
+        additional_properties: Some(additional_properties),
+    }];
+
+    (
+        DIDPeerMethod::create_did_peer_2(&keys, &services).unwrap(),
+        auth_keys,
+        agreem_keys,
+    )
 }
 
 #[axum::debug_handler]
@@ -255,4 +332,36 @@ pub async fn process_plain_keylist_update_message(
     );
 
     response.into_response()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use did_utils::crypto::traits::{KeyMaterial, BYTES_LENGTH_32};
+
+    #[test]
+    fn test_generate_did_peer() {
+        // Positive Test
+        let (did_peer, auth_keys, agreem_keys) = generate_did_peer("example_endpoint".to_string());
+
+        // Check if the generated DID Peer is not empty
+        assert!(!did_peer.is_empty());
+
+        // Check if auth_keys and agreem_keys have the right size
+        assert_eq!(
+            agreem_keys.public_key_bytes().unwrap().len(),
+            BYTES_LENGTH_32
+        );
+        assert_eq!(
+            agreem_keys.private_key_bytes().unwrap().len(),
+            BYTES_LENGTH_32
+        );
+        assert_eq!(auth_keys.public_key_bytes().unwrap().len(), BYTES_LENGTH_32);
+        assert_eq!(
+            auth_keys.private_key_bytes().unwrap().len(),
+            BYTES_LENGTH_32
+        );
+    }
+
+    // Expand tests using did:peer resolver
 }

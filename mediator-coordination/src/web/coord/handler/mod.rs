@@ -49,8 +49,8 @@ pub async fn process_didcomm_mediation_request_message(
                 .await
         ),
         #[cfg(feature = "stateful")]
-        MediationRequest::Stateful(req) => {
-            midlw::run!(stateful::process_mediate_request(&state, &plain_message, &req).await)
+        MediationRequest::Stateful(_req) => {
+            midlw::run!(stateful::process_mediate_request(&state, &plain_message).await)
         }
     };
 
