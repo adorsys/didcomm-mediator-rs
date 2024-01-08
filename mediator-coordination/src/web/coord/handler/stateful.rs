@@ -10,11 +10,7 @@ use did_utils::{
     key_jwk::jwk::Jwk,
     methods::{
         common::ToMultikey,
-        did_key::DIDKeyMethod,
-        did_peer::{
-            self,
-            method::{Purpose, PurposedKey},
-        },
+        did_peer::method::{Purpose, PurposedKey},
     },
 };
 
@@ -38,7 +34,7 @@ use crate::{
     web::{coord::error::MediationError, AppState, AppStateRepository},
 };
 
-/// Process a DIDComm request
+/// Process a DIDComm mediate request
 pub async fn process_mediate_request(
     state: &AppState,
     plain_message: &Message,
@@ -84,8 +80,7 @@ pub async fn process_mediate_request(
         println!("Sending mediate grant.");
         // Create routing, store it and send mediation grant
         let (routing_did, auth_keys, agreem_keys) =
-            generate_did_peer("example_endpoint".to_string());
-
+            generate_did_peer(state.public_domain.to_string());
 
         let AppStateRepository {
             secret_repository, ..
@@ -94,9 +89,9 @@ pub async fn process_mediate_request(
             .as_ref()
             .expect("missing persistence layer");
 
-        let agreem_keys_jwk: Jwk = agreem_keys.try_into().expect("ConversionError");
+        let agreem_keys_jwk: Jwk = agreem_keys.try_into().expect("MediateRequestError");
 
-        let new_secrets = Secrets {
+        let agreem_keys_secret = Secrets {
             id: ObjectId::new(),
             kid: routing_did.clone(),
             type_: 1,
@@ -106,20 +101,33 @@ pub async fn process_mediate_request(
             },
         };
 
-        match secret_repository.store(new_secrets).await {
-            Ok(stored_connection) => {
-                println!("Successfully stored connection: {:?}", stored_connection)
+        match secret_repository.store(agreem_keys_secret).await {
+            Ok(_stored_connection) => {
+                println!("Successfully stored connection.")
             }
             Err(error) => eprintln!("Error storing connection: {:?}", error),
         }
 
+        let auth_keys_jwk: Jwk = auth_keys.try_into().expect("MediateRequestError");
 
-        let mediation_grant = MediationGrant {
-            id: format!("urn:uuid:{}", Uuid::new_v4()),
-            message_type: MEDIATE_GRANT_2_0.to_string(),
-            routing_did: routing_did.clone(),
-            ..Default::default()
+        let auth_keys_secret = Secrets {
+            id: ObjectId::new(),
+            kid: routing_did.clone(),
+            type_: 1,
+            verification_material: VerificationMaterial {
+                format: 1,
+                value: serde_json::to_value(auth_keys_jwk).unwrap().to_string(),
+            },
         };
+
+        match secret_repository.store(auth_keys_secret).await {
+            Ok(_stored_connection) => {
+                println!("Successfully stored connection.")
+            }
+            Err(error) => eprintln!("Error storing connection: {:?}", error),
+        }
+
+        let mediation_grant = create_mediation_grant(&routing_did);
 
         let new_connection = Connection {
             id: None,
@@ -131,8 +139,8 @@ pub async fn process_mediate_request(
 
         // Use store_one to store the sample connection
         match connection_repository.store(new_connection).await {
-            Ok(stored_connection) => {
-                println!("Successfully stored connection: {:?}", stored_connection)
+            Ok(_stored_connection) => {
+                println!("Successfully stored connection: ")
             }
             Err(error) => eprintln!("Error storing connection: {:?}", error),
         }
@@ -145,6 +153,15 @@ pub async fn process_mediate_request(
         .to(sender_did.clone())
         .from(mediator_did.clone())
         .finalize())
+    }
+}
+
+fn create_mediation_grant(routing_did: &str) -> MediationGrant {
+    MediationGrant {
+        id: format!("urn:uuid:{}", Uuid::new_v4()),
+        message_type: MEDIATE_GRANT_2_0.to_string(),
+        routing_did: routing_did.to_string(),
+        ..Default::default()
     }
 }
 
@@ -363,5 +380,20 @@ mod tests {
         );
     }
 
-    // Expand tests using did:peer resolver
+    #[test]
+    fn test_generate_did_peer_and_expand() {
+        // Generate a did:peer address with a service endpoint
+        let service_endpoint = "http://example.com/didcomm";
+        let (did, _, _) = generate_did_peer(service_endpoint.to_string());
+
+        // Expand the generated did:peer address to a DID document
+        let did_method = DIDPeerMethod::default();
+        let did_document = did_method.expand(&did).unwrap();
+
+        // Check that the serviceEndpoint in the DID document matches the input
+        assert_eq!(
+            did_document.service.unwrap().first().map(|s| &s.service_endpoint),
+            Some(service_endpoint.to_string()).as_ref()
+        );
+    }
 }
