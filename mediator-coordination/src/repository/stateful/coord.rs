@@ -103,3 +103,119 @@ impl Repository<Connection> for MongoConnectionRepository {
         }
     }
 }
+
+#[cfg(test)]
+pub mod tests {
+    use super::*;
+
+    use serde_json::json;
+    use std::{collections::HashMap, sync::RwLock};
+
+    pub struct MockConnectionRepository {
+        connections: RwLock<Vec<Connection>>,
+    }
+
+    impl MockConnectionRepository {
+        pub fn from(connections: Vec<Connection>) -> Self {
+            Self {
+                connections: RwLock::new(connections),
+            }
+        }
+    }
+
+    #[async_trait]
+    impl Repository<Connection> for MockConnectionRepository {
+        async fn find_all(&self) -> Result<Vec<Connection>, RepositoryError> {
+            Ok(self.connections.read().unwrap().clone())
+        }
+
+        async fn find_one(
+            &self,
+            connection_id: ObjectId,
+        ) -> Result<Option<Connection>, RepositoryError> {
+            self.find_one_by(doc! {"_id": connection_id}).await
+        }
+
+        async fn find_one_by(
+            &self,
+            filter: BsonDocument,
+        ) -> Result<Option<Connection>, RepositoryError> {
+            let filter: HashMap<String, Bson> = filter.into_iter().collect();
+
+            Ok(self
+                .connections
+                .read()
+                .unwrap()
+                .iter()
+                .find(|c| {
+                    if let Some(id) = filter.get("_id") {
+                        if json!(c.id) != json!(id) {
+                            return false;
+                        }
+                    }
+
+                    if let Some(client_did) = filter.get("client_did") {
+                        if json!(c.client_did) != json!(client_did) {
+                            return false;
+                        }
+                    }
+
+                    true
+                })
+                .cloned())
+        }
+
+        async fn store(&self, connection: Connection) -> Result<Connection, RepositoryError> {
+            // Generate a new ID for the entity
+            let connection = Connection {
+                id: Some(ObjectId::new()),
+                ..connection
+            };
+
+            // Add new connection to collection
+            self.connections.write().unwrap().push(connection.clone());
+
+            // Return added connection
+            Ok(connection)
+        }
+
+        async fn update(&self, connection: Connection) -> Result<Connection, RepositoryError> {
+            if connection.id.is_none() {
+                return Err(RepositoryError::MissingIdentifier);
+            }
+
+            // Find entity to update
+            let pos = self
+                .connections
+                .read()
+                .unwrap()
+                .iter()
+                .position(|c| c.id == connection.id);
+
+            if let Some(pos) = pos {
+                self.connections.write().unwrap()[pos] = connection.clone();
+
+                Ok(connection)
+            } else {
+                Err(RepositoryError::TargetNotFound)
+            }
+        }
+
+        async fn delete_one(&self, connection_id: ObjectId) -> Result<(), RepositoryError> {
+            // Find entity to delete
+            let pos = self
+                .connections
+                .read()
+                .unwrap()
+                .iter()
+                .position(|c| c.id.as_ref().unwrap() == &connection_id);
+
+            if let Some(pos) = pos {
+                self.connections.write().unwrap().remove(pos);
+                Ok(())
+            } else {
+                Err(RepositoryError::TargetNotFound)
+            }
+        }
+    }
+}

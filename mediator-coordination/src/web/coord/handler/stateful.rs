@@ -161,3 +161,278 @@ pub async fn process_plain_keylist_update_message(
     .from(mediator_did.clone())
     .finalize())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use crate::{
+        repository::stateful::coord::tests::MockConnectionRepository, web::handler::tests as global,
+    };
+
+    #[allow(clippy::needless_update)]
+    pub fn setup() -> Arc<AppState> {
+        let (_, state) = global::setup();
+
+        let mut state = match Arc::try_unwrap(state) {
+            Ok(state) => state,
+            Err(_) => panic!(),
+        };
+
+        state.repository = Some(AppStateRepository {
+            connection_repository: Arc::new(MockConnectionRepository::from(_initial_connections())),
+            ..state.repository.unwrap()
+        });
+
+        Arc::new(state)
+    }
+
+    #[tokio::test]
+    async fn test_keylist_update() {
+        let state = setup();
+
+        // Prepare request
+
+        let message = Message::build(
+            "id_alice_keylist_update_request".to_owned(),
+            "https://didcomm.org/coordinate-mediation/2.0/keylist-update".to_owned(),
+            json!({
+                "updates": [
+                    {
+                        "action": "remove",
+                        "recipient_did": "did:key:alice_identity_pub1@alice_mediator"
+                    },
+                    {
+                        "action": "add",
+                        "recipient_did": "did:key:alice_identity_pub2@alice_mediator"
+                    },
+                ]
+            }),
+        )
+        .header("return_route".into(), json!("all"))
+        .to(global::_mediator_did(&state))
+        .from(global::_edge_did())
+        .finalize();
+
+        // Process request
+
+        let response = process_plain_keylist_update_message(Arc::clone(&state), message)
+            .await
+            .unwrap();
+
+        // Assert metadata
+
+        assert_eq!(response.type_, KEYLIST_UPDATE_RESPONSE_2_0);
+        assert_eq!(response.from.unwrap(), global::_mediator_did(&state));
+        assert_eq!(response.to.unwrap(), vec![global::_edge_did()]);
+
+        // Assert updates
+
+        assert_eq!(
+            response.body,
+            json!({
+                "updated": [
+                    {
+                        "recipient_did": "did:key:alice_identity_pub1@alice_mediator",
+                        "action": "remove",
+                        "result": "success"
+                    },
+                    {
+                        "recipient_did":"did:key:alice_identity_pub2@alice_mediator",
+                        "action": "add",
+                        "result": "success"
+                    },
+                ]
+            })
+        );
+
+        // Assert repository state
+
+        let AppStateRepository {
+            connection_repository,
+            ..
+        } = state.repository.as_ref().unwrap();
+
+        let connections = connection_repository.find_all().await.unwrap();
+        assert_eq!(
+            connections,
+            serde_json::from_str::<Vec<Connection>>(
+                r##"[
+                    {
+                        "_id": {
+                            "$oid": "6580701fd2d92bb3cd291b2a"
+                        },
+                        "client_did": "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7",
+                        "mediator_did": "did:web:alice-mediator.com:alice_mediator_pub",
+                        "keylist": [
+                            "did:key:alice_identity_pub2@alice_mediator"
+                        ]
+                    },
+                    {
+                        "_id": {
+                            "$oid": "6580701fd2d92bb3cd291b2b"
+                        },
+                        "client_did": "did:key:other",
+                        "mediator_did": "did:web:alice-mediator.com:alice_mediator_pub",
+                        "keylist": []
+                    }
+                ]"##
+            )
+            .unwrap()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_keylist_update_no_change() {
+        let state = setup();
+
+        // Prepare request
+
+        let message = Message::build(
+            "id_alice_keylist_update_request".to_owned(),
+            "https://didcomm.org/coordinate-mediation/2.0/keylist-update".to_owned(),
+            json!({
+                "updates": [
+                    {
+                        "action": "add",
+                        "recipient_did": "did:key:alice_identity_pub1@alice_mediator"
+                    },
+                    {
+                        "action": "remove",
+                        "recipient_did": "did:key:alice_identity_pub2@alice_mediator"
+                    },
+                ]
+            }),
+        )
+        .header("return_route".into(), json!("all"))
+        .to(global::_mediator_did(&state))
+        .from(global::_edge_did())
+        .finalize();
+
+        // Process request
+
+        let response = process_plain_keylist_update_message(Arc::clone(&state), message)
+            .await
+            .unwrap();
+
+        // Assert updates
+
+        assert_eq!(
+            response.body,
+            json!({
+                "updated": [
+                    {
+                        "recipient_did": "did:key:alice_identity_pub1@alice_mediator",
+                        "action": "add",
+                        "result": "no_change"
+                    },
+                    {
+                        "recipient_did":"did:key:alice_identity_pub2@alice_mediator",
+                        "action": "remove",
+                        "result": "no_change"
+                    },
+                ]
+            })
+        );
+
+        // Assert repository state
+
+        let AppStateRepository {
+            connection_repository,
+            ..
+        } = state.repository.as_ref().unwrap();
+
+        let connections = connection_repository.find_all().await.unwrap();
+        assert_eq!(connections, _initial_connections());
+    }
+
+    #[tokio::test]
+    async fn test_keylist_update_duplicate_results_in_client_error() {
+        let state = setup();
+
+        // Prepare request
+
+        let message = Message::build(
+            "id_alice_keylist_update_request".to_owned(),
+            "https://didcomm.org/coordinate-mediation/2.0/keylist-update".to_owned(),
+            json!({
+                "updates": [
+                    {
+                        "action": "add",
+                        "recipient_did": "did:key:alice_identity_pub1@alice_mediator"
+                    },
+                    {
+                        "action": "remove",
+                        "recipient_did": "did:key:alice_identity_pub1@alice_mediator"
+                    },
+                ]
+            }),
+        )
+        .header("return_route".into(), json!("all"))
+        .to(global::_mediator_did(&state))
+        .from(global::_edge_did())
+        .finalize();
+
+        // Process request
+
+        let response = process_plain_keylist_update_message(Arc::clone(&state), message)
+            .await
+            .unwrap();
+
+        // Assert updates
+
+        assert_eq!(
+            response.body,
+            json!({
+                "updated": [
+                    {
+                        "recipient_did": "did:key:alice_identity_pub1@alice_mediator",
+                        "action": "add",
+                        "result": "client_error"
+                    },
+                    {
+                        "recipient_did":"did:key:alice_identity_pub1@alice_mediator",
+                        "action": "remove",
+                        "result": "client_error"
+                    },
+                ]
+            })
+        );
+
+        // Assert repository state
+
+        let AppStateRepository {
+            connection_repository,
+            ..
+        } = state.repository.as_ref().unwrap();
+
+        let connections = connection_repository.find_all().await.unwrap();
+        assert_eq!(connections, _initial_connections());
+    }
+
+    fn _initial_connections() -> Vec<Connection> {
+        serde_json::from_str(
+            r##"[
+                {
+                    "_id": {
+                        "$oid": "6580701fd2d92bb3cd291b2a"
+                    },
+                    "client_did": "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7",
+                    "mediator_did": "did:web:alice-mediator.com:alice_mediator_pub",
+                    "keylist": [
+                        "did:key:alice_identity_pub1@alice_mediator"
+                    ]
+                },
+                {
+                    "_id": {
+                        "$oid": "6580701fd2d92bb3cd291b2b"
+                    },
+                    "client_did": "did:key:other",
+                    "mediator_did": "did:web:alice-mediator.com:alice_mediator_pub",
+                    "keylist": []
+                }
+            ]"##,
+        )
+        .unwrap()
+    }
+}

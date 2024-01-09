@@ -222,7 +222,7 @@ pub mod entity {
     use serde::{Deserialize, Serialize};
 
     /// Record of a mediation relationship between an edge agent (client) and a mediator.
-    #[derive(Debug, Serialize, Deserialize, Clone, Default)]
+    #[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq)]
     pub struct Connection {
         #[serde(rename = "_id")]
         #[serde(skip_serializing_if = "Option::is_none")]

@@ -89,8 +89,9 @@ pub mod tests {
 
     use crate::{
         didcomm::bridge::LocalSecretsResolver,
+        repository::stateful::coord::tests::MockConnectionRepository,
         util::{self, MockFileSystem},
-        web,
+        web::{self, AppStateRepository},
     };
 
     pub fn setup() -> (Router, Arc<AppState>) {
@@ -100,7 +101,16 @@ pub mod tests {
         let diddoc = util::read_diddoc(&mock_fs, "").unwrap();
         let keystore = util::read_keystore(&mut mock_fs, "").unwrap();
 
-        let state = Arc::new(AppState::from(public_domain, diddoc, keystore, None));
+        let repository = AppStateRepository {
+            connection_repository: Arc::new(MockConnectionRepository::from(vec![])),
+        };
+
+        let state = Arc::new(AppState::from(
+            public_domain,
+            diddoc,
+            keystore,
+            Some(repository),
+        ));
         let app = web::routes(Arc::clone(&state));
 
         (app, state)
