@@ -164,6 +164,8 @@ pub async fn process_plain_keylist_update_message(
 
 #[cfg(test)]
 mod tests {
+    use serde_json::Value;
+
     use super::*;
 
     use crate::{
@@ -171,7 +173,7 @@ mod tests {
     };
 
     #[allow(clippy::needless_update)]
-    pub fn setup() -> Arc<AppState> {
+    fn setup(initial_connections: Vec<Connection>) -> Arc<AppState> {
         let (_, state) = global::setup();
 
         let mut state = match Arc::try_unwrap(state) {
@@ -180,7 +182,7 @@ mod tests {
         };
 
         state.repository = Some(AppStateRepository {
-            connection_repository: Arc::new(MockConnectionRepository::from(_initial_connections())),
+            connection_repository: Arc::new(MockConnectionRepository::from(initial_connections)),
             ..state.repository.unwrap()
         });
 
@@ -189,7 +191,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_keylist_update() {
-        let state = setup();
+        let state = setup(_initial_connections());
 
         // Prepare request
 
@@ -284,7 +286,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_keylist_update_no_change() {
-        let state = setup();
+        let state = setup(_initial_connections());
 
         // Prepare request
 
@@ -348,7 +350,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_keylist_update_duplicate_results_in_client_error() {
-        let state = setup();
+        let state = setup(_initial_connections());
 
         // Prepare request
 
@@ -410,6 +412,134 @@ mod tests {
         assert_eq!(connections, _initial_connections());
     }
 
+    #[tokio::test]
+    async fn test_keylist_update_unknown_action_results_in_client_error() {
+        let state = setup(_initial_connections());
+
+        // Prepare request
+
+        let message = Message::build(
+            "id_alice_keylist_update_request".to_owned(),
+            "https://didcomm.org/coordinate-mediation/2.0/keylist-update".to_owned(),
+            json!({
+                "updates": [
+                    {
+                        "action": "unknown",
+                        "recipient_did": "did:key:alice_identity_pub1@alice_mediator"
+                    }
+                ]
+            }),
+        )
+        .header("return_route".into(), json!("all"))
+        .to(global::_mediator_did(&state))
+        .from(global::_edge_did())
+        .finalize();
+
+        // Process request
+
+        let response = process_plain_keylist_update_message(Arc::clone(&state), message)
+            .await
+            .unwrap();
+
+        // Assert updates
+
+        assert_eq!(
+            response.body,
+            json!({
+                "updated": [
+                    {
+                        "recipient_did": "did:key:alice_identity_pub1@alice_mediator",
+                        "action": "unknown",
+                        "result": "client_error"
+                    }
+                ]
+            })
+        );
+    }
+
+    #[tokio::test]
+    async fn test_keylist_update_with_malformed_request() {
+        let state = setup(_initial_connections());
+
+        // Prepare request
+        let message = Message::build(
+            "id_alice_keylist_update_request".to_owned(),
+            "https://didcomm.org/coordinate-mediation/2.0/keylist-update".to_owned(),
+            json!("not-keylist-update-request"),
+        )
+        .header("return_route".into(), json!("all"))
+        .to(global::_mediator_did(&state))
+        .from(global::_edge_did())
+        .finalize();
+
+        // Process request
+        let err = process_plain_keylist_update_message(Arc::clone(&state), message)
+            .await
+            .unwrap_err();
+
+        // Assert issued error
+        _assert_delegate_handler_err(
+            err,
+            StatusCode::BAD_REQUEST,
+            MediationError::UnexpectedMessageFormat,
+        )
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_keylist_update_unknown_sender_results_in_unauthorized_error() {
+        let state = setup(
+            serde_json::from_str(
+                r##"[
+                {
+                    "_id": {
+                        "$oid": "6580701fd2d92bb3cd291b2a"
+                    },
+                    "client_did": "did:key:alt",
+                    "mediator_did": "did:web:alice-mediator.com:alice_mediator_pub",
+                    "keylist": []
+                }
+            ]"##,
+            )
+            .unwrap(),
+        );
+
+        // Prepare request
+        let message = Message::build(
+            "id_alice_keylist_update_request".to_owned(),
+            "https://didcomm.org/coordinate-mediation/2.0/keylist-update".to_owned(),
+            json!({
+                "updates": [
+                    {
+                        "action": "add",
+                        "recipient_did": "did:key:alice_identity_pub1@alice_mediator"
+                    }
+                ]
+            }),
+        )
+        .header("return_route".into(), json!("all"))
+        .to(global::_mediator_did(&state))
+        .from(global::_edge_did())
+        .finalize();
+
+        // Process request
+        let err = process_plain_keylist_update_message(Arc::clone(&state), message)
+            .await
+            .unwrap_err();
+
+        // Assert issued error
+        _assert_delegate_handler_err(
+            err,
+            StatusCode::UNAUTHORIZED,
+            MediationError::UncoordinatedSender,
+        )
+        .await;
+    }
+
+    //----------------------------------------------------------------------------------------------
+    // Helpers -------------------------------------------------------------------------------------
+    //----------------------------------------------------------------------------------------------
+
     fn _initial_connections() -> Vec<Connection> {
         serde_json::from_str(
             r##"[
@@ -434,5 +564,21 @@ mod tests {
             ]"##,
         )
         .unwrap()
+    }
+
+    async fn _assert_delegate_handler_err(
+        err: Response,
+        status: StatusCode,
+        mediation_error: MediationError,
+    ) {
+        assert_eq!(err.status(), status);
+
+        let body = hyper::body::to_bytes(err.into_body()).await.unwrap();
+        let body: Value = serde_json::from_slice(&body).unwrap();
+
+        assert_eq!(
+            json_canon::to_string(&body).unwrap(),
+            json_canon::to_string(&mediation_error.json().0).unwrap()
+        );
     }
 }

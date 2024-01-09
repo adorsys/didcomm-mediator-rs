@@ -15,7 +15,6 @@ use crate::{
     web::error::MediationError,
 };
 
-// TODO!!! Move associated tests to global middleware module too.
 pub use crate::web::midlw::pack_response_message;
 
 macro_rules! run {
@@ -176,7 +175,7 @@ mod tests {
         MediationRequest as StatelessMediationRequest, MediatorService,
     };
 
-    use didcomm::{error::ErrorKind as DidcommErrorKind, Message, PackEncryptedOptions};
+    use didcomm::{Message, PackEncryptedOptions};
 
     #[tokio::test]
     async fn test_ensure_content_type_is_didcomm_encrypted() {
@@ -621,87 +620,6 @@ mod tests {
                 .unwrap_err(),
             StatusCode::BAD_REQUEST,
             MediationError::InvalidMessageType,
-        )
-        .await;
-    }
-
-    #[tokio::test]
-    async fn test_pack_response_message_works() {
-        let (_, state) = setup();
-
-        let msg = Message::build(
-            "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
-            "application/json".to_string(),
-            json!({
-                "content": "a quick brown fox jumps over the lazy dog"
-            }),
-        )
-        .to(_edge_did())
-        .from(_mediator_did(&state))
-        .finalize();
-
-        let packed = pack_response_message(&msg, &state.did_resolver, &state.secrets_resolver)
-            .await
-            .unwrap();
-        let packed_str = json_canon::to_string(&packed).unwrap();
-        assert!(_edge_unpack_message(&state, &packed_str).await.is_ok());
-    }
-
-    #[tokio::test]
-    async fn test_pack_response_message_fails_on_any_end_missing() {
-        let (_, state) = setup();
-
-        macro_rules! unfinalized_msg {
-            () => {
-                Message::build(
-                    "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
-                    "application/json".to_string(),
-                    json!({
-                        "content": "a quick brown fox jumps over the lazy dog"
-                    }),
-                )
-            };
-        }
-
-        let msgs = [
-            unfinalized_msg!().to(_edge_did()).finalize(),
-            unfinalized_msg!().from(_mediator_did(&state)).finalize(),
-            unfinalized_msg!().finalize(),
-        ];
-
-        for msg in msgs {
-            _assert_midlw_err(
-                pack_response_message(&msg, &state.did_resolver, &state.secrets_resolver)
-                    .await
-                    .unwrap_err(),
-                StatusCode::INTERNAL_SERVER_ERROR,
-                MediationError::MessagePackingFailure(DidcommErrorKind::Malformed),
-            )
-            .await;
-        }
-    }
-
-    #[tokio::test]
-    async fn test_pack_response_message_on_unsupported_receiving_did() {
-        let (_, state) = setup();
-
-        let msg = Message::build(
-            "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
-            "application/json".to_string(),
-            json!({
-                "content": "a quick brown fox jumps over the lazy dog"
-            }),
-        )
-        .to(String::from("did:sov:WRfXPg8dantKVubE3HX8pw"))
-        .from(_mediator_did(&state))
-        .finalize();
-
-        _assert_midlw_err(
-            pack_response_message(&msg, &state.did_resolver, &state.secrets_resolver)
-                .await
-                .unwrap_err(),
-            StatusCode::INTERNAL_SERVER_ERROR,
-            MediationError::MessagePackingFailure(DidcommErrorKind::Unsupported),
         )
         .await;
     }
