@@ -109,7 +109,7 @@ mod tests {
     use crate::{
         constant::DIDCOMM_ENCRYPTED_MIME_TYPE,
         jose::jws,
-        web::coord::{error::MediationError, handler::tests::*},
+        web::{error::MediationError, handler::tests::*},
     };
 
     #[tokio::test]
@@ -609,7 +609,7 @@ mod tests {
 
         assert_eq!(
             json_canon::to_string(&body).unwrap(),
-            json_canon::to_string(&MediationError::InvalidMediationRequestFormat.json().0).unwrap()
+            json_canon::to_string(&MediationError::UnexpectedMessageFormat.json().0).unwrap()
         )
     }
 

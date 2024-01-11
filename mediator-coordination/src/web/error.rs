@@ -14,8 +14,6 @@ pub enum MediationError {
     DuplicateCommand,
     #[error("generic: {0}")]
     Generic(String),
-    #[error("could not parse into mediate request")]
-    InvalidMediationRequestFormat,
     #[error("invalid message type")]
     InvalidMessageType,
     #[error("assumed didcomm-encrypted message is malformed")]
@@ -30,8 +28,14 @@ pub enum MediationError {
     NotDidcommEncryptedPayload,
     #[error("uncoordinated sender")]
     UncoordinatedSender,
+    #[error("could not parse into expected message format")]
+    UnexpectedMessageFormat,
+    #[error("unparseable payload")]
+    UnparseablePayload,
     #[error("unsupported did method")]
     UnsupportedDidMethod,
+    #[error("unsupported operation")]
+    UnsupportedOperation,
 }
 
 impl MediationError {

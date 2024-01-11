@@ -2,10 +2,9 @@ use axum::{
     http::{header::CONTENT_TYPE, HeaderMap, StatusCode},
     response::{IntoResponse, Response},
 };
-use didcomm::{error::ErrorKind as DidcommErrorKind, Message, PackEncryptedOptions, UnpackOptions};
+use didcomm::{Message, UnpackOptions};
 use serde_json::{json, Value};
 
-use super::error::MediationError;
 use crate::{
     constant::{
         DIDCOMM_ENCRYPTED_MIME_TYPE, DIDCOMM_ENCRYPTED_SHORT_MIME_TYPE, MEDIATE_REQUEST_2_0,
@@ -13,7 +12,10 @@ use crate::{
     },
     didcomm::bridge::{LocalDIDResolver, LocalSecretsResolver},
     model::coord::MediationRequest,
+    web::error::MediationError,
 };
+
+pub use crate::web::midlw::pack_response_message;
 
 macro_rules! run {
     ($expression:expr) => {
@@ -139,7 +141,7 @@ pub fn parse_message_body_into_mediation_request(
     serde_json::from_value::<MediationRequest>(message.body.clone()).map_err(|_| {
         let response = (
             StatusCode::BAD_REQUEST,
-            MediationError::InvalidMediationRequestFormat.json(),
+            MediationError::UnexpectedMessageFormat.json(),
         );
 
         response.into_response()
@@ -163,52 +165,17 @@ pub fn ensure_mediation_request_type(
     Ok(())
 }
 
-/// Pack response message
-pub async fn pack_response_message(
-    msg: &Message,
-    did_resolver: &LocalDIDResolver,
-    secrets_resolver: &LocalSecretsResolver,
-) -> Result<Value, Response> {
-    let from = msg.from.as_ref();
-    let to = msg.to.as_ref().and_then(|v| v.get(0));
-
-    if from.is_none() || to.is_none() {
-        let response = (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            MediationError::MessagePackingFailure(DidcommErrorKind::Malformed).json(),
-        );
-
-        return Err(response.into_response());
-    }
-
-    msg.pack_encrypted(
-        to.unwrap(),
-        from.map(|x| x.as_str()),
-        None,
-        did_resolver,
-        secrets_resolver,
-        &PackEncryptedOptions::default(),
-    )
-    .await
-    .map(|(packed_message, _metadata)| serde_json::from_str(&packed_message).unwrap())
-    .map_err(|err| {
-        let response = (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            MediationError::MessagePackingFailure(err.kind()).json(),
-        );
-
-        response.into_response()
-    })
-}
-
 #[cfg(test)]
 mod tests {
-    use super::{super::handler::tests::*, *};
+    use super::*;
+    use crate::web::handler::tests::*;
 
     #[cfg(feature = "stateless")]
     use crate::model::stateless::coord::{
         MediationRequest as StatelessMediationRequest, MediatorService,
     };
+
+    use didcomm::{Message, PackEncryptedOptions};
 
     #[tokio::test]
     async fn test_ensure_content_type_is_didcomm_encrypted() {
@@ -604,7 +571,7 @@ mod tests {
         _assert_midlw_err(
             parse_message_body_into_mediation_request(&msg).unwrap_err(),
             StatusCode::BAD_REQUEST,
-            MediationError::InvalidMediationRequestFormat,
+            MediationError::UnexpectedMessageFormat,
         )
         .await;
     }
@@ -653,87 +620,6 @@ mod tests {
                 .unwrap_err(),
             StatusCode::BAD_REQUEST,
             MediationError::InvalidMessageType,
-        )
-        .await;
-    }
-
-    #[tokio::test]
-    async fn test_pack_response_message_works() {
-        let (_, state) = setup();
-
-        let msg = Message::build(
-            "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
-            "application/json".to_string(),
-            json!({
-                "content": "a quick brown fox jumps over the lazy dog"
-            }),
-        )
-        .to(_edge_did())
-        .from(_mediator_did(&state))
-        .finalize();
-
-        let packed = pack_response_message(&msg, &state.did_resolver, &state.secrets_resolver)
-            .await
-            .unwrap();
-        let packed_str = json_canon::to_string(&packed).unwrap();
-        assert!(_edge_unpack_message(&state, &packed_str).await.is_ok());
-    }
-
-    #[tokio::test]
-    async fn test_pack_response_message_fails_on_any_end_missing() {
-        let (_, state) = setup();
-
-        macro_rules! unfinalized_msg {
-            () => {
-                Message::build(
-                    "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
-                    "application/json".to_string(),
-                    json!({
-                        "content": "a quick brown fox jumps over the lazy dog"
-                    }),
-                )
-            };
-        }
-
-        let msgs = [
-            unfinalized_msg!().to(_edge_did()).finalize(),
-            unfinalized_msg!().from(_mediator_did(&state)).finalize(),
-            unfinalized_msg!().finalize(),
-        ];
-
-        for msg in msgs {
-            _assert_midlw_err(
-                pack_response_message(&msg, &state.did_resolver, &state.secrets_resolver)
-                    .await
-                    .unwrap_err(),
-                StatusCode::INTERNAL_SERVER_ERROR,
-                MediationError::MessagePackingFailure(DidcommErrorKind::Malformed),
-            )
-            .await;
-        }
-    }
-
-    #[tokio::test]
-    async fn test_pack_response_message_on_unsupported_receiving_did() {
-        let (_, state) = setup();
-
-        let msg = Message::build(
-            "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
-            "application/json".to_string(),
-            json!({
-                "content": "a quick brown fox jumps over the lazy dog"
-            }),
-        )
-        .to(String::from("did:sov:WRfXPg8dantKVubE3HX8pw"))
-        .from(_mediator_did(&state))
-        .finalize();
-
-        _assert_midlw_err(
-            pack_response_message(&msg, &state.did_resolver, &state.secrets_resolver)
-                .await
-                .unwrap_err(),
-            StatusCode::INTERNAL_SERVER_ERROR,
-            MediationError::MessagePackingFailure(DidcommErrorKind::Unsupported),
         )
         .await;
     }

@@ -1,6 +1,9 @@
 mod coord;
+mod error;
+mod handler;
+mod midlw;
 
-use axum::{routing::post, Router};
+use axum::{middleware, routing::post, Router};
 use did_endpoint::util::keystore::KeyStore;
 use did_utils::{didcore::Document, key_jwk::jwk::Jwk};
 use std::sync::Arc;
@@ -13,22 +16,18 @@ use crate::{
     util,
 };
 
-pub fn routes(
-    public_domain: String,
-    diddoc: Document,
-    keystore: KeyStore,
-    repository: Option<AppStateRepository>,
-) -> Router {
-    let state = AppState::from(public_domain, diddoc, keystore, repository);
-
+pub fn routes(state: Arc<AppState>) -> Router {
     Router::new()
+        // Unified route for all DIDComm messages
+        .route("/", post(handler::process_didcomm_message))
+        .route_layer(middleware::from_fn_with_state(
+            state.clone(),
+            midlw::unpack_didcomm_message,
+        ))
+        // Transitive routes
         .route(
             "/mediate",
             post(coord::handler::process_didcomm_mediation_request_message),
-        )
-        .route(
-            "/keylist",
-            post(coord::handler::stateful::process_plain_keylist_update_message),
         )
         .with_state(state)
 }
