@@ -8,25 +8,23 @@ use did_utils::{
     key_jwk::jwk::Jwk,
     methods::{
         common::ToMultikey,
-        did_peer::method::{Purpose, PurposedKey},
+        did_peer::{
+            method::{Purpose, PurposedKey},
+            DIDPeerMethod,
+        },
     },
 };
-
-use did_utils::methods::did_peer::DIDPeerMethod;
-
 use didcomm::Message;
 use mongodb::bson::{doc, oid::ObjectId};
 use serde_json::json;
-use std::{sync::Arc, collections::HashMap};
+use std::{collections::HashMap, sync::Arc};
 use uuid::Uuid;
 
 use crate::{
-    constant::{
-        KEYLIST_UPDATE_2_0, KEYLIST_UPDATE_RESPONSE_2_0, MEDIATE_DENY_2_0, MEDIATE_GRANT_2_0,
-    },
+    constant::{KEYLIST_UPDATE_RESPONSE_2_0, MEDIATE_DENY_2_0, MEDIATE_GRANT_2_0},
     model::stateful::coord::{
         entity::{Connection, Secrets, VerificationMaterial},
-        KeylistUpdate, KeylistUpdateAction, KeylistUpdateConfirmation,KeylistUpdateBody, KeylistUpdateResponse,
+        KeylistUpdateAction, KeylistUpdateBody, KeylistUpdateConfirmation,
         KeylistUpdateResponseBody, KeylistUpdateResult, MediationDeny, MediationGrant,
     },
     web::{error::MediationError, AppState, AppStateRepository},
@@ -198,7 +196,6 @@ fn generate_did_peer(service_endpoint: String) -> (String, Ed25519KeyPair, X2551
     )
 }
 
-#[axum::debug_handler]
 pub async fn process_plain_keylist_update_message(
     state: Arc<AppState>,
     message: Message,
@@ -448,6 +445,7 @@ mod tests {
                         },
                         "client_did": "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7",
                         "mediator_did": "did:web:alice-mediator.com:alice_mediator_pub",
+                        "routing_did": "did:key:generated",
                         "keylist": [
                             "did:key:alice_identity_pub2@alice_mediator"
                         ]
@@ -458,6 +456,7 @@ mod tests {
                         },
                         "client_did": "did:key:other",
                         "mediator_did": "did:web:alice-mediator.com:alice_mediator_pub",
+                        "routing_did": "did:key:generated",
                         "keylist": []
                     }
                 ]"##
@@ -679,6 +678,7 @@ mod tests {
                     },
                     "client_did": "did:key:alt",
                     "mediator_did": "did:web:alice-mediator.com:alice_mediator_pub",
+                    "routing_did": "did:key:generated",
                     "keylist": []
                 }
             ]"##,
@@ -731,6 +731,7 @@ mod tests {
                     },
                     "client_did": "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7",
                     "mediator_did": "did:web:alice-mediator.com:alice_mediator_pub",
+                    "routing_did": "did:key:generated",
                     "keylist": [
                         "did:key:alice_identity_pub1@alice_mediator"
                     ]
@@ -741,6 +742,7 @@ mod tests {
                     },
                     "client_did": "did:key:other",
                     "mediator_did": "did:web:alice-mediator.com:alice_mediator_pub",
+                    "routing_did": "did:key:generated",
                     "keylist": []
                 }
             ]"##,
@@ -802,9 +804,12 @@ mod tests {
 
         // Check that the serviceEndpoint in the DID document matches the input
         assert_eq!(
-            did_document.service.unwrap().first().map(|s| &s.service_endpoint),
+            did_document
+                .service
+                .unwrap()
+                .first()
+                .map(|s| &s.service_endpoint),
             Some(service_endpoint.to_string()).as_ref()
         );
     }
 }
-
