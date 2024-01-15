@@ -83,7 +83,7 @@ pub mod tests {
 
     use crate::{
         didcomm::bridge::LocalSecretsResolver,
-        repository::stateful::coord::tests::MockConnectionRepository,
+        repository::stateful::coord::tests::{MockConnectionRepository, MockSecretsRepository},
         util::{self, MockFileSystem},
         web::{self, AppStateRepository},
     };
@@ -97,6 +97,7 @@ pub mod tests {
 
         let repository = AppStateRepository {
             connection_repository: Arc::new(MockConnectionRepository::from(vec![])),
+            secret_repository: Arc::new(MockSecretsRepository::from(vec![])),
         };
 
         let state = Arc::new(AppState::from(
@@ -221,6 +222,7 @@ mod tests2 {
                         },
                         "client_did": "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7",
                         "mediator_did": "did:web:alice-mediator.com:alice_mediator_pub",
+                        "routing_did": "did:key:generated",
                         "keylist": [
                             "did:key:alice_identity_pub1@alice_mediator"
                         ]

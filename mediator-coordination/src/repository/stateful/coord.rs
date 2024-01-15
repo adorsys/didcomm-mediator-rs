@@ -104,7 +104,7 @@ impl Repository<Connection> for MongoConnectionRepository {
     }
 }
 
-impl Entity for Secrets {} 
+impl Entity for Secrets {}
 
 pub struct MongoSecretsRepository {
     collection: Collection<Secrets>, // Use the Secrets entity for the collection
@@ -132,18 +132,12 @@ impl Repository<Secrets> for MongoSecretsRepository {
         Ok(secrets)
     }
 
-    async fn find_one(
-        &self,
-        secrets_id: ObjectId,
-    ) -> Result<Option<Secrets>, RepositoryError> {
+    async fn find_one(&self, secrets_id: ObjectId) -> Result<Option<Secrets>, RepositoryError> {
         // Query the database for the specified secrets ID
         self.find_one_by(doc! {"_id": secrets_id}).await
     }
 
-    async fn find_one_by(
-        &self,
-        filter: BsonDocument,
-    ) -> Result<Option<Secrets>, RepositoryError> {
+    async fn find_one_by(&self, filter: BsonDocument) -> Result<Option<Secrets>, RepositoryError> {
         // Query the database for the specified secrets ID
         Ok(self.collection.find_one(filter, None).await?)
     }
@@ -154,10 +148,7 @@ impl Repository<Secrets> for MongoSecretsRepository {
 
         // Return persisted secrets
         Ok(match metadata.inserted_id {
-            Bson::ObjectId(oid) => Secrets {
-                id: oid,
-                ..secrets
-            },
+            Bson::ObjectId(oid) => Secrets { id: oid, ..secrets },
             _ => unreachable!(),
         })
     }
@@ -182,7 +173,6 @@ impl Repository<Secrets> for MongoSecretsRepository {
         } else {
             Err(RepositoryError::TargetNotFound)
         }
-
     }
 
     async fn delete_one(&self, secrets_id: ObjectId) -> Result<(), RepositoryError> {
@@ -307,6 +297,94 @@ pub mod tests {
 
             if let Some(pos) = pos {
                 self.connections.write().unwrap().remove(pos);
+                Ok(())
+            } else {
+                Err(RepositoryError::TargetNotFound)
+            }
+        }
+    }
+
+    pub struct MockSecretsRepository {
+        secrets: RwLock<Vec<Secrets>>,
+    }
+
+    impl MockSecretsRepository {
+        pub fn from(secrets: Vec<Secrets>) -> Self {
+            Self {
+                secrets: RwLock::new(secrets),
+            }
+        }
+    }
+
+    #[async_trait]
+    impl Repository<Secrets> for MockSecretsRepository {
+        async fn find_all(&self) -> Result<Vec<Secrets>, RepositoryError> {
+            Ok(self.secrets.read().unwrap().clone())
+        }
+
+        async fn find_one(&self, secrets_id: ObjectId) -> Result<Option<Secrets>, RepositoryError> {
+            self.find_one_by(doc! {"_id": secrets_id}).await
+        }
+
+        async fn find_one_by(
+            &self,
+            filter: BsonDocument,
+        ) -> Result<Option<Secrets>, RepositoryError> {
+            let filter: HashMap<String, Bson> = filter.into_iter().collect();
+
+            Ok(self
+                .secrets
+                .read()
+                .unwrap()
+                .iter()
+                .find(|s| {
+                    if let Some(id) = filter.get("_id") {
+                        if json!(s.id) != json!(id) {
+                            return false;
+                        }
+                    }
+
+                    true
+                })
+                .cloned())
+        }
+
+        async fn store(&self, secrets: Secrets) -> Result<Secrets, RepositoryError> {
+            // Add new entity to collection
+            self.secrets.write().unwrap().push(secrets.clone());
+
+            // Return added entity
+            Ok(secrets)
+        }
+
+        async fn update(&self, secrets: Secrets) -> Result<Secrets, RepositoryError> {
+            // Find entity to update
+            let pos = self
+                .secrets
+                .read()
+                .unwrap()
+                .iter()
+                .position(|c| c.id == secrets.id);
+
+            if let Some(pos) = pos {
+                self.secrets.write().unwrap()[pos] = secrets.clone();
+                Ok(secrets)
+            } else {
+                Err(RepositoryError::TargetNotFound)
+            }
+        }
+
+        async fn delete_one(&self, secrets_id: ObjectId) -> Result<(), RepositoryError> {
+            // Find entity to delete
+            let pos = self
+                .secrets
+                .read()
+                .unwrap()
+                .iter()
+                .position(|s| s.id == secrets_id);
+
+            if let Some(pos) = pos {
+                self.secrets.write().unwrap().remove(pos);
                 Ok(())
             } else {
                 Err(RepositoryError::TargetNotFound)

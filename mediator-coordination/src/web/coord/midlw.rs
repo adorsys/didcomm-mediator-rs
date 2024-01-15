@@ -149,6 +149,7 @@ pub fn parse_message_body_into_mediation_request(
 }
 
 /// Validate that mediation request's URI type is as expected
+#[allow(dead_code)]
 pub fn ensure_mediation_request_type(
     mediation_request: &Value,
     message_type: &str,
