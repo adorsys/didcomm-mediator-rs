@@ -441,6 +441,59 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_keylist_query_success() {
+        let state = setup(_initial_connections());
+
+        // Prepare request
+        let message = Message::build(
+            "id_alice_keylist_query".to_owned(),
+            "https://didcomm.org/coordinate-mediation/2.0/keylist-query".to_owned(),
+            json!({}),
+        )
+        .to(global::_mediator_did(&state))
+        .from(global::_edge_did())
+        .finalize();
+
+        // Process request
+        let response = process_plain_keylist_query_message(Arc::clone(&state), message)
+            .await
+            .unwrap();
+
+        assert_eq!(response.type_, KEYLIST_2_0);
+        assert_eq!(response.from.unwrap(), global::_mediator_did(&state));
+        assert_eq!(response.to.unwrap(), vec![global::_edge_did()]);
+    }
+
+    #[tokio::test]
+    async fn test_keylist_query_malformed_request() {
+        let state = setup(_initial_connections());
+
+        // Prepare request
+        let message = Message::build(
+            "id_alice_keylist_update_request".to_owned(),
+            "https://didcomm.org/coordinate-mediation/2.0/keylist-query".to_owned(),
+            json!("not-keylist-update-request"),
+        )
+        .header("return_route".into(), json!("all"))
+        .to(global::_mediator_did(&state))
+        .from(global::_edge_did())
+        .finalize();
+
+        // Process request
+        let err = process_plain_keylist_update_message(Arc::clone(&state), message)
+            .await
+            .unwrap_err();
+
+        // Assert issued error
+        _assert_delegate_handler_err(
+            err,
+            StatusCode::BAD_REQUEST,
+            MediationError::UnexpectedMessageFormat,
+        )
+        .await;
+    }
+
+    #[tokio::test]
     async fn test_keylist_update() {
         let state = setup(_initial_connections());
 
