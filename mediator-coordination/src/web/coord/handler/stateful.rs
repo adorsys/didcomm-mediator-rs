@@ -21,11 +21,12 @@ use std::{collections::HashMap, sync::Arc};
 use uuid::Uuid;
 
 use crate::{
-    constant::{KEYLIST_UPDATE_RESPONSE_2_0, MEDIATE_DENY_2_0, MEDIATE_GRANT_2_0},
+    constant::{KEYLIST_2_0, KEYLIST_UPDATE_RESPONSE_2_0, MEDIATE_DENY_2_0, MEDIATE_GRANT_2_0},
     model::stateful::coord::{
         entity::{Connection, Secrets, VerificationMaterial},
-        KeylistUpdateAction, KeylistUpdateBody, KeylistUpdateConfirmation,
-        KeylistUpdateResponseBody, KeylistUpdateResult, MediationDeny, MediationGrant,
+        Keylist, KeylistBody, KeylistEntry, KeylistUpdateAction, KeylistUpdateBody,
+        KeylistUpdateConfirmation, KeylistUpdateResponseBody, KeylistUpdateResult, MediationDeny,
+        MediationGrant,
     },
     web::{error::MediationError, AppState, AppStateRepository},
 };
@@ -339,6 +340,77 @@ pub async fn process_plain_keylist_update_message(
     .to(sender.clone())
     .from(mediator_did.clone())
     .finalize())
+}
+
+pub async fn process_plain_keylist_query_message(
+    state: Arc<AppState>,
+    message: Message,
+) -> Result<Message, Response> {
+    println!("Processing keylist query...");
+    let sender = message
+        .from
+        .expect("unpacking middleware failed to prevent anonymous senders");
+
+    let AppStateRepository {
+        connection_repository,
+        ..
+    } = state
+        .repository
+        .as_ref()
+        .expect("missing persistence layer");
+
+    let connection = match connection_repository
+        .find_one_by(doc! { "client_did": &sender })
+        .await
+        .unwrap()
+    {
+        Some(connection) => connection,
+        None => {
+            let response = (
+                StatusCode::UNAUTHORIZED,
+                MediationError::UncoordinatedSender.json(),
+            );
+
+            return Err(response.into_response());
+        }
+    };
+
+    println!("keylist: {:?}", connection);
+
+    let keylist_entries = connection
+        .keylist
+        .iter()
+        .map(|key| KeylistEntry {
+            recipient_did: key.clone(),
+        })
+        .collect::<Vec<KeylistEntry>>();
+
+    let body = KeylistBody {
+        keys: keylist_entries,
+        pagination: None,
+    };
+
+    let keylist_object = Keylist {
+        id: format!("urn:uuid:{}", Uuid::new_v4()),
+        message_type: KEYLIST_2_0.to_string(),
+        body: body,
+        additional_properties: None,
+    };
+
+    let mediator_did = &state.diddoc.id;
+
+    let message = Message::build(
+        format!("urn:uuid:{}", Uuid::new_v4()),
+        KEYLIST_2_0.to_string(),
+        json!(keylist_object),
+    )
+    .to(sender.clone())
+    .from(mediator_did.clone())
+    .finalize();
+
+    println!("message: {:?}", message);
+
+    Ok(message)
 }
 
 #[cfg(test)]

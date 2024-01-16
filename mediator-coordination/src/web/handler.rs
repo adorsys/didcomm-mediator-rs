@@ -8,7 +8,7 @@ use hyper::{header::CONTENT_TYPE, StatusCode};
 use std::sync::Arc;
 
 use crate::{
-    constant::{DIDCOMM_ENCRYPTED_MIME_TYPE, KEYLIST_UPDATE_2_0},
+    constant::{DIDCOMM_ENCRYPTED_MIME_TYPE, KEYLIST_UPDATE_2_0, KEYLIST_QUERY_2_0},
     web::{self, error::MediationError, AppState},
 };
 
@@ -20,6 +20,13 @@ pub async fn process_didcomm_message(
     let delegate_response = match message.type_.as_str() {
         KEYLIST_UPDATE_2_0 => {
             web::coord::handler::stateful::process_plain_keylist_update_message(
+                Arc::clone(&state),
+                message,
+            )
+            .await
+        },
+        KEYLIST_QUERY_2_0 => {
+            web::coord::handler::stateful::process_plain_keylist_query_message(
                 Arc::clone(&state),
                 message,
             )

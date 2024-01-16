@@ -21,3 +21,9 @@ Cargo.lock
 
 # Mac OS X Finder metadata
 .DS_Store
+
+# Ignore .env files in the root directory
+*.env
+
+# Ignore .env files in all subdirectories
+**/*.env
