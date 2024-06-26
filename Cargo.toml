@@ -1,4 +1,6 @@
 [workspace]
+
 members = [
-    "did-endpoint", "generic-server", "mediator-coordination", "mediator-server", "oob-messages", "server-plugin",
+    "did-endpoint", "generic-server", "mediator-coordination", "mediator-server", "oob-messages", "server-plugin"
 ]
+resolver = "2"
