@@ -1,0 +1,4 @@
+[workspace]
+members = [
+    "did-endpoint", "generic-server", "mediator-coordination", "mediator-server", "oob-messages", "server-plugin",
+]
