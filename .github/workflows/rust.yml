@@ -1,9 +1,13 @@
 name: Rust CI
 
 on:
+  push:
+    branches:
+      - main
   pull_request:
     branches:
       - main
+
 jobs:
   build:
     name: Build and Test
@@ -17,34 +21,11 @@ jobs:
       uses: actions-rs/toolchain@v1
       with:
         toolchain: stable
-        override: true
 
-    - name: Build and Test Did Utils
-      run: |
-        cd did-utils
-        cargo build
-        cargo test
+    - name: Install system dependencies
+      run: sudo apt-get update && sudo apt-get install -y libssl-dev pkg-config
 
-    - name: Build and Test Did Endpoint
+    - name: Build and Run Test
       run: |
-        cd did-endpoint
-        cargo build
-        cargo test
-
-    - name: Build and Test Generic Server
-      run: |
-        cd generic-server
-        cargo build
-        cargo test
-
-    - name: Build and Mediator Server
-      run: |
-        cd mediator-server
-        cargo build
-        cargo test
-
-    - name: Build and Test Plugin for Mediator Coordination
-      run: |
-        cd mediator-coordination
-        cargo build
-        cargo test
+        cargo build --workspace --all-features
+        cargo test --workspace --all-features
