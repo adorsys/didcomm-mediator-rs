@@ -3,7 +3,7 @@ name: Rust CI
 on:
   push:
     branches:
-      - main
+      - 92-update-github-workflow
   pull_request:
     branches:
       - main
