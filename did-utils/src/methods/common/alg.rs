@@ -1,11 +1,14 @@
 use num_bigint::{BigInt, Sign};
 
-use crate::{crypto::traits::Error as CryptoError,     key_jwk::ec::{Ec, EcCurves},
-key_jwk::jwk::Jwk,
-key_jwk::key::Key,
-key_jwk::okp::{Okp, OkpCurves},
-key_jwk::prm::Parameters,
-key_jwk::Bytes,};
+use crate::{
+    crypto::traits::Error as CryptoError,
+    key_jwk::ec::{Ec, EcCurves},
+    key_jwk::jwk::Jwk,
+    key_jwk::key::Key,
+    key_jwk::okp::{Okp, OkpCurves},
+    key_jwk::prm::Parameters,
+    key_jwk::Bytes,
+};
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 #[allow(unused, clippy::upper_case_acronyms)]
