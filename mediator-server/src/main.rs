@@ -6,7 +6,7 @@ use axum::{
 };
 use serde_json::json;
 use std::net::SocketAddr;
-use tokio_util::task::TaskTracker;
+use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
 mod constants;
@@ -37,21 +37,17 @@ async fn main() -> Result<()> {
 
     // create a messager which will send the shutdown message to the server and its processes
     // any process which wishes to stop the server can send a shutdown message to the shutdown transmitter
-    let (mut shutdown_tx, mut shutdown_rx) = tokio::sync::mpsc::channel::<String>(2);
+    let (shutdown_tx, mut shutdown_rx) = tokio::sync::mpsc::channel::<String>(2);
 
-    // Create a tracker wish will use to track and wait for operations to finish
-    // before shutdown
-    let tracker = TaskTracker::new();
+   // create cancellation tokens which when closed will tell processes to shutdown
+   let token = CancellationToken::new();
 
-    // first condition satisfied
-    tracker.close();
-    // shutdown_tx.send("value");
     // region: --- Start Server
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
     println!("->> Listening on {addr}\n");
 
     // spawning task tracker on server to handle server's shutdown
-    tracker.spawn(async move {
+    tokio::spawn(async move {
         axum::Server::bind(&addr)
             .serve(routes_all.into_make_service())
             .await
@@ -59,11 +55,11 @@ async fn main() -> Result<()> {
     });
     // endregion: --- Start Server
 
-    // gracyfully shuting down the server on CTRL-C or on shutdown alert from shutdown transmitter
+    // gracyfully shutting down the server on CTRL-C or on shutdown alert from shutdown transmitter
     // select on the operations for which we wish to gracefully shutdown the server
     tokio::select! {
-            _shutdown_message = shutdown_rx.recv() => { print!("{}", _shutdown_message.unwrap()); tracker.wait().await;},
-            _ = tokio::signal::ctrl_c() => {eprintln!("shutting down")},
+            _shutdown_message = shutdown_rx.recv() => {eprintln!("shutting down"); token.cancel()},
+            _ = tokio::signal::ctrl_c() => {eprintln!("shutting down"); token.cancel()},
     }
 
     Ok(())
