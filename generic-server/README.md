@@ -78,7 +78,10 @@ impl Plugin for MyPlugin {
         // Initialization logic here
         Ok(())
     }
-
+    fn unmount(&self) -> Result<(), PluginError> {
+        // Initialization logic here
+        Ok(())
+    }
     fn routes(&self) -> Router {
         // Define and return routes here
         Router::new().route("/myplugin", get(my_plugin_handler))
