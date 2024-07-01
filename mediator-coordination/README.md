@@ -6,7 +6,7 @@ The mediator-coordination is a plugin for the generic-server that manage DIDComm
 
 add the following dependency to your `Cargo.toml`:
 
-```cargo
+```rust
 [dependencies]
 mediator-coordination = "0.1.0"
 ```
