@@ -4,8 +4,10 @@ use axum::{
     response::{IntoResponse, Response},
     Json, Router,
 };
+use once_cell::sync::Lazy;
 use serde_json::json;
-use std::net::SocketAddr;
+use std::{net::SocketAddr, sync::Arc};
+use tokio::sync::{mpsc::Sender, Mutex};
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
@@ -23,9 +25,15 @@ pub use self::{
     ctx::Ctx,
     error::{ClientError, Error, Result},
 };
+// create a global signal shutdown signal transmitter
+static SHUTDOWN: Lazy<Arc<Mutex<Option<Sender<String>>>>> = Lazy::new(|| Arc::new(Mutex::new(None)));
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    run_shutdown().await;
+    Ok(())
+}
+    async fn run_shutdown() {
     let mc = RecipientController::new().await;
     let routes_mediate_request = coordinate_mediation::routes_mediate_request::routes(mc.clone());
     let routes_all = Router::new()
@@ -39,14 +47,18 @@ async fn main() -> Result<()> {
     // any process which wishes to stop the server can send a shutdown message to the shutdown transmitter
     let (shutdown_tx, mut shutdown_rx) = tokio::sync::mpsc::channel::<String>(2);
 
-   // create cancellation tokens which when closed will tell processes to shutdown
-   let token = CancellationToken::new();
+    // create cancellation tokens which when closed will tell processes to shutdown
+    let token = CancellationToken::new();
 
     // region: --- Start Server
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
     println!("->> Listening on {addr}\n");
 
-    // spawning task tracker on server to handle server's shutdown
+// initialising global shutdown transmitter
+ let mut lock = SHUTDOWN.lock().await;
+ lock.replace(shutdown_tx);
+
+    // spawning task on server to handle server's shutdown
     tokio::spawn(async move {
         axum::Server::bind(&addr)
             .serve(routes_all.into_make_service())
@@ -61,9 +73,8 @@ async fn main() -> Result<()> {
             _shutdown_message = shutdown_rx.recv() => {eprintln!("shutting down"); token.cancel()},
             _ = tokio::signal::ctrl_c() => {eprintln!("shutting down"); token.cancel()},
     }
-
-    Ok(())
 }
+
 async fn main_response_mapper(uri: Uri, req_method: Method, res: Response) -> Response {
     println!("->> {:<12} - main_response_mapper", "RESPONSE_MAPPER");
     let uuid = Uuid::new_v4();
@@ -95,4 +106,27 @@ async fn main_response_mapper(uri: Uri, req_method: Method, res: Response) -> Re
     println!();
 
     error_response.unwrap_or(res)
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_server_shutdown_with_shutdown_signal() {
+      
+        // run server in background
+        tokio::spawn(run_shutdown());
+
+        // send shutdown signal
+        let mut lock = SHUTDOWN.lock().await;
+        let sender = lock.as_mut();
+        match sender {
+            Some(sender) => {
+                sender.send("Shutdown".to_owned()).await.unwrap();
+
+            }
+            None => {}
+        }
+
+    }
 }
