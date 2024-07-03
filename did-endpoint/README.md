@@ -74,7 +74,7 @@ let diddoc = gen_diddoc(
 ```
 - **Builds and persists DID document:**
 ```rust
-expected_verification_methods = vec![
+let expected_verification_methods = vec![
         VerificationMethod {
             id: "did:web:example.com#keys-1".to_string(),
             public_key: Some(KeyFormat::Jwk(authentication_key)),
@@ -106,7 +106,7 @@ expected_verification_methods = vec![
 ```
 - **Validates the integrity of the persisted diddoc:**
 ```rust
-(storage_dirpath, server_public_domain) = setup();
+let (storage_dirpath, server_public_domain) = setup();
 
         didgen(&storage_dirpath, &server_public_domain).unwrap();
         assert!(validate_diddoc(&storage_dirpath).is_ok());
