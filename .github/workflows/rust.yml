@@ -22,10 +22,13 @@ jobs:
       with:
         toolchain: stable
 
+    - name: Install Nextest test runner
+      uses: taiki-e/install-action@nextest
+
     - name: Install system dependencies
-      run: sudo apt-get update && sudo apt-get install -y libssl-dev pkg-config
+      run: sudo apt update && sudo apt install -y libssl-dev pkg-config
 
     - name: Build and Run Test
       run: |
         cargo build --workspace --all-features
-        cargo test --workspace --all-features
+        cargo nextest run --workspace --all-features
