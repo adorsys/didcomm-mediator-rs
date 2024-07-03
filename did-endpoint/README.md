@@ -9,8 +9,7 @@ The DID endpoint aims to simplify the management of Decentralized Identifiers (D
 - **Turns an HTTP(S) URL into a did:web id:** 
 - **Generates keys and forward them for DID generation:**
 - **Builds and persists DID document:**
-- **Validates the integrity of the persisted diddoc:**
-- **generates a verifiable presentation (VP):**
+- **Proof of Possession:**
 
 ## Usage
 - **Turns an HTTP(S) URL into a did:web id:** 
@@ -104,60 +103,26 @@ let expected_verification_methods = vec![
         },
     ]
 ```
-- **Validates the integrity of the persisted diddoc:**
-```rust
-let (storage_dirpath, server_public_domain) = setup();
+- ## **Proof of Possession:**
+- **Challenge Handling:**
+    Retrieves a challenge from incoming query parameters to initiate PoP.
+- Key Store Retrieval:
 
-        didgen(&storage_dirpath, &server_public_domain).unwrap();
-        assert!(validate_diddoc(&storage_dirpath).is_ok());
+    Fetches cryptographic keys from a specified storage directory (STORAGE_DIRPATH) to sign and verify proofs.
+- DID Document and Verification Methods:
 
-        cleanup(&storage_dirpath);
-```
-- **generates a verifiable presentation (VP):**
-```rust
-        // Generate test-restricted did.json
-        let (storage_dirpath, expected_diddoc) = setup_ephemeral_diddoc();
+    Loads the DID document and its associated verification methods, which contain public keys for cryptographic operations.
+- Verifiable Credential (VC) Construction:
 
-        let app = routes();
-        let response = app
-            .oneshot(
-                Request::builder()
-                    .uri(format!(
-                        "/.well-known/did/pop.json?challenge={}",
-                        uuid::Uuid::new_v4()
-                    ))
-                    .body(Body::empty())
-                    .unwrap(),
-            )
-            .await
-            .unwrap();
+    Constructs a Verifiable Credential (VC) using the DID document, indicating it as a type of Verifiable Credential and DID Document.
+- Verifiable Presentation (VP) Creation:
 
-        assert_eq!(response.status(), StatusCode::OK);
+    Constructs a Verifiable Presentation (VP) containing the VC and other necessary metadata, such as context and ID.
+- Proof of Possession Generation:
 
-        let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
-        let vp: VerifiablePresentation = serde_json::from_slice(&body).unwrap();
+    Generates proofs of possession for each verification method listed in the DID document.
+    Uses cryptographic keys to sign the challenge and embeds these proofs into the VP.
+- Output:
 
-        let vc = vp.verifiable_credential.get(0).unwrap();
-        let diddoc = serde_json::from_value(json!(vc.credential_subject)).unwrap();
+    Returns the final VP with embedded proofs as a JSON response
 
-        assert_eq!(
-            json_canon::to_string(&diddoc).unwrap(),
-            json_canon::to_string(&expected_diddoc).unwrap()
-        );
-
-        let Some(proofs) = &vp.proof else { panic!("Verifiable presentation carries no proof") };
-        let Proofs::SetOfProofs(proofs) = proofs else { unreachable!() };
-        for proof in proofs {
-            let pubkey = resolve_vm_for_public_key(&diddoc, &proof.verification_method)
-                .expect("ResolutionError");
-            let verifier = EdDsaJcs2022 {
-                proof: proof.clone(),
-                key_pair: pubkey.try_into().expect("Failure to convert to KeyPair"),
-                proof_value_codec: None,
-            };
-
-            assert!(verifier.verify(json!(vp)).is_ok());
-        }
-
-        cleanup(&storage_dirpath);
-```
