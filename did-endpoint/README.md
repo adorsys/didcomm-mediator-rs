@@ -106,23 +106,23 @@ let expected_verification_methods = vec![
 - ## **Proof of Possession:**
 - **Challenge Handling:**
     Retrieves a challenge from incoming query parameters to initiate PoP.
-- Key Store Retrieval:
+- **Key Store Retrieval:**
 
     Fetches cryptographic keys from a specified storage directory (STORAGE_DIRPATH) to sign and verify proofs.
-- DID Document and Verification Methods:
+- **DID Document and Verification Methods:**
 
     Loads the DID document and its associated verification methods, which contain public keys for cryptographic operations.
-- Verifiable Credential (VC) Construction:
+- **Verifiable Credential (VC) Construction:**
 
     Constructs a Verifiable Credential (VC) using the DID document, indicating it as a type of Verifiable Credential and DID Document.
-- Verifiable Presentation (VP) Creation: 
+- **Verifiable Presentation (VP) Creation:**
 
     Constructs a Verifiable Presentation (VP) containing the VC and other necessary metadata, such as context and ID.
-- Proof of Possession Generation:
+- **Proof of Possession Generation:**
 
     Generates proofs of possession for each verification method listed in the DID document.
     Uses cryptographic keys to sign the challenge and embeds these proofs into the VP.
-- Output:
+- **Output:**
 
-    Returns the final VP with embedded proofs as a JSON response
+    Returns the final VP with embedded proofs as a JSON response 
 
