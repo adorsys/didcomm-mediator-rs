@@ -3,7 +3,7 @@
 The `did-endpoint` is a robust, flexible, and extendable framework for managing Decentralized Identifiers (DIDs)
 
 ## Purpose
-The did-endpoint aims to simplify the management of DIDs by providing a centralized service that supports multiple DID methods
+The DID endpoint aims to simplify the management of Decentralized Identifiers (DIDs) by providing a decentralized service that supports multiple DID methods.
 
 ## Features
 - **Turns an HTTP(S) URL into a did:web id:** 
@@ -15,16 +15,15 @@ The did-endpoint aims to simplify the management of DIDs by providing a centrali
 ## Usage
 - **Turns an HTTP(S) URL into a did:web id:** 
 ```rust
-can_url_to_did_web_id() -> Result<(), Box<dyn Error>> {
-        assert_eq!(
+        //This is a function call to url_to_did_web_id with the argument "localhost:8080".
+        //"localhost:8080" is the URL that you want to convert into a did:web identifier.
             url_to_did_web_id("localhost:8080")?,
+        //This is the expected output, which is the did:web identifier corresponding to the given URL
             "did:web:localhost%3A8080",
-        );
-}
 ```
 - **Generates keys and forward them for DID generation::**
 ```rust
-authentication_key = Jwk {
+let authentication_key = Jwk {
             key: Key::Okp(Okp {
                 crv: OkpCurves::Ed25519,
                 x: Bytes::from(
@@ -38,7 +37,7 @@ authentication_key = Jwk {
             prm: Parameters::default(),
         };
 
-assertion_key = Jwk {
+let assertion_key = Jwk {
         key: Key::Okp(Okp {
             crv: OkpCurves::Ed25519,
             x: Bytes::from(
@@ -52,7 +51,7 @@ assertion_key = Jwk {
             prm: Parameters::default(),
         };
 
-    agreement_key = Jwk {
+let agreement_key = Jwk {
         key: Key::Okp(Okp {
             crv: OkpCurves::X25519,
             x: Bytes::from(
@@ -65,7 +64,7 @@ assertion_key = Jwk {
         }),
         prm: Parameters::default(),
     }
-diddoc = gen_diddoc(
+let diddoc = gen_diddoc(
             &storage_dirpath,
             &server_public_domain,
             authentication_key.clone(),
