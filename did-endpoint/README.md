@@ -5,7 +5,7 @@ The `did-endpoint` is a robust, flexible, and extendable framework for managing 
 ## Purpose
 The DID endpoint aims to simplify the management of Decentralized Identifiers (DIDs) by providing a decentralized service that supports multiple DID methods.
 
-## Features
+## Features 
 - **Turns an HTTP(S) URL into a did:web id:** 
 - **Generates keys and forward them for DID generation:**
 - **Builds and persists DID document:**
