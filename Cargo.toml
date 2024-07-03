@@ -5,6 +5,7 @@ license = "Apache-2.0 OR MIT"
 
 [workspace]
 members = [
+    "did-utils",
     "did-endpoint",
     "generic-server",
     "mediator-coordination",
