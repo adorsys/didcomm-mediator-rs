@@ -115,7 +115,7 @@ let expected_verification_methods = vec![
 - Verifiable Credential (VC) Construction:
 
     Constructs a Verifiable Credential (VC) using the DID document, indicating it as a type of Verifiable Credential and DID Document.
-- Verifiable Presentation (VP) Creation:
+- Verifiable Presentation (VP) Creation: 
 
     Constructs a Verifiable Presentation (VP) containing the VC and other necessary metadata, such as context and ID.
 - Proof of Possession Generation:
