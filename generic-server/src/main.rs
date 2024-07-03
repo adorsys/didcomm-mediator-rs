@@ -1,12 +1,13 @@
 use axum::Server;
-use generic_server::app;
+use generic_server::{app, unload_for_shutdown};
 use once_cell::sync::Lazy;
 use std::{net::SocketAddr, sync::Arc};
 use tokio::sync::{mpsc::Sender, Mutex};
 use tokio_util::sync::CancellationToken;
 
-// create a global signal shutdown signal transmitter
-static SHUTDOWN: Lazy<Arc<Mutex<Option<Sender<String>>>>> = Lazy::new(|| Arc::new(Mutex::new(None)));
+// create a global shutdown signal transmitter
+static SHUTDOWN: Lazy<Arc<Mutex<Option<Sender<String>>>>> =
+    Lazy::new(|| Arc::new(Mutex::new(None)));
 #[tokio::main]
 async fn main() {
     // Start server
@@ -41,8 +42,8 @@ async fn run_and_shutdown_server(add: SocketAddr) {
     lock.replace(shutdown_tx);
 
     tokio::select! {
-        _msg = shutdown_rx.recv() => {eprintln!("\nshutting down gracefully:{:?}", _msg); token.cancel()}
-        _ = tokio::signal::ctrl_c() => {eprintln!("\nshutting down gracefully"); token.cancel()}
+        _msg = shutdown_rx.recv() => {eprintln!("\nUmounting plugins\nshutting down gracefully:{:?}", _msg); unload_for_shutdown(); token.cancel(); }
+        _ = tokio::signal::ctrl_c() => {eprintln!("\nUnmounting Plugins\nshutting down gracefully"); unload_for_shutdown(); token.cancel(); }
     };
 }
 fn config_tracing() {
@@ -62,7 +63,7 @@ fn config_tracing() {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{SHUTDOWN, run_and_shutdown_server};
     use std::net::SocketAddr;
 
     #[tokio::test]
@@ -80,10 +81,9 @@ mod tests {
         match sender {
             Some(sender) => {
                 sender.send("value".to_owned()).await.unwrap();
-
             }
             None => {}
         }
-
+        
     }
 }
