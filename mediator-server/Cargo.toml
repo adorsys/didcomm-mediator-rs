@@ -1,5 +1,5 @@
 [package]
-name = "didcomm-mediator-rs2"
+name = "mediator-server"
 version = "0.1.0"
 edition = "2021"
 authors = ["Francis Pouatcha"]
