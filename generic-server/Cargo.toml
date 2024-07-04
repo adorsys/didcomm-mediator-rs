@@ -31,8 +31,7 @@ nix = { version = "0.29.0", features = ["feature"] }
 
 [dev-dependencies]
 tower = { version = "0.4.13", features = ["util"] }
-assert_cmd = "2.0"
-predicates = "3.0.4"
+
 [features]
 default = ["plugin-index", "plugin-did_endpoint", "plugin-oob_messages"]
 
