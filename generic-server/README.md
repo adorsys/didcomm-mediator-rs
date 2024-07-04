@@ -6,48 +6,9 @@ This server provides a system for building versatile applications by integrating
 * **Plugin System:** Enables developers to extend server behavior through custom plugins.
 * **Routing and Transport:** Handles communication between clients and plugins using industry-standard protocols (e.g., HTTP).
 
-## Usage
-
-```rust
-      // initialisation: 
-      //This initializes the container with default values and references the registered plugins
-        Self {
-            loaded: false,
-            collected_routes: vec![],
-            plugins: &*PLUGINS,
-        }
-
-    // Finding Plugins:
-    //This method searches for a plugin by its name.
-        find_plugin(&self, name: &str) -> Option<&dyn Plugin> {
-        self.plugins
-            .iter()
-            .find_map(|plugin| (name == plugin.name()).then_some(&**plugin))
-    }
-
-    //Loading Plugins
-    //This method loads all referenced plugins, checks for duplicates, mounts them, collects routes, and handles errors.
-    pub fn load(&mut self) -> Result<(), PluginContainerError> {
-    // ... (code truncated for brevity)
-}
-
-    // Merging Routes:
-   //This method merges routes from all successfully initialized plugins into a single Router.
-
-
-    pub fn routes(&self) -> Result<Router, PluginContainerError> {
-        if self.loaded {
-            Ok(self
-                .collected_routes
-                .iter()
-                .fold(Router::new(), |acc, e| acc.merge(e.clone())))
-        } else {
-            Err(PluginContainerError::Unloaded)
-        }
-    }
-```
-# Extending Server Functionalities with Plugins
-## To add a new plugin:
+# Usage
+## Extending Server Functionalities with Plugins
+### To add a new plugin:
 
 **1- Implement the `Plugin` Trait:**
 
