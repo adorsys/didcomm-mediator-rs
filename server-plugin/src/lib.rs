@@ -15,7 +15,7 @@ pub trait Plugin: Sync {
     fn name(&self) -> &'static str;
 
     /// Provide initialization actions as needed
-    fn mount(&self) -> Result<(), PluginError>;
+    fn mount(&mut self) -> Result<(), PluginError>;
 
     /// Revert initialization actions as needed
     fn unmount(&self) -> Result<(), PluginError>;

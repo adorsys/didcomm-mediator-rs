@@ -113,7 +113,7 @@ mod tests {
             "first"
         }
 
-        fn mount(&self) -> Result<(), PluginError> {
+        fn mount(&mut self) -> Result<(), PluginError> {
             Ok(())
         }
 
@@ -132,7 +132,7 @@ mod tests {
             "second"
         }
 
-        fn mount(&self) -> Result<(), PluginError> {
+        fn mount(&mut self) -> Result<(), PluginError> {
             Ok(())
         }
 
@@ -151,7 +151,7 @@ mod tests {
             "second"
         }
 
-        fn mount(&self) -> Result<(), PluginError> {
+        fn mount(&mut self) -> Result<(), PluginError> {
             Ok(())
         }
 
@@ -170,7 +170,7 @@ mod tests {
             "faulty"
         }
 
-        fn mount(&self) -> Result<(), PluginError> {
+        fn mount(&mut self) -> Result<(), PluginError> {
             Err(PluginError::InitError)
         }
 
