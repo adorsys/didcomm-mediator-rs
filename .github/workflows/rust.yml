@@ -12,10 +12,10 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
 
     - name: Cache dependencies
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: |
           ~/.cargo/bin
@@ -40,3 +40,4 @@ jobs:
       run: |
         cargo build --workspace --all-features
         cargo nextest run --workspace --all-features
+        
