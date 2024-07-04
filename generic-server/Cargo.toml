@@ -27,6 +27,7 @@ did-endpoint = { path = "../did-endpoint", optional = true }
 oob-messages = { path = "../oob-messages", optional = true }
 tokio-util = {version = "0.7.11", features = ["rt"] }
 once_cell = "1.19.0"
+nix = { version = "0.29.0", features = ["feature"] }
 
 [dev-dependencies]
 tower = { version = "0.4.13", features = ["util"] }

@@ -1,13 +1,8 @@
 use axum::Server;
 use generic_server::{app, unload_for_shutdown};
-use once_cell::sync::Lazy;
-use std::{net::SocketAddr, sync::Arc};
-use tokio::sync::{mpsc::Sender, Mutex};
+use std::net::SocketAddr;
 use tokio_util::sync::CancellationToken;
 
-// create a global shutdown signal transmitter
-static SHUTDOWN: Lazy<Arc<Mutex<Option<Sender<String>>>>> =
-    Lazy::new(|| Arc::new(Mutex::new(None)));
 #[tokio::main]
 async fn main() {
     // Start server
@@ -26,10 +21,7 @@ async fn run_and_shutdown_server(add: SocketAddr) {
 
     // Enable logging
     config_tracing();
-    // create a messager which will send the shutdown message to the server and its processes
-    // any process which wishes to stop the server can send a shutdown message to the shutdown transmitter
-    let (shutdown_tx, mut shutdown_rx) = tokio::sync::mpsc::channel::<String>(2);
-
+    
     // spawn task for server
     tokio::spawn(async move {
         Server::bind(&add)
@@ -37,12 +29,8 @@ async fn run_and_shutdown_server(add: SocketAddr) {
             .await
             .unwrap();
     });
-    // watching on shutdown events/signals to gracefully shutdown servers
-    let mut lock = SHUTDOWN.lock().await;
-    lock.replace(shutdown_tx);
 
     tokio::select! {
-        _msg = shutdown_rx.recv() => {eprintln!("\nUmounting plugins\nshutting down gracefully:{:?}", _msg); unload_for_shutdown(); token.cancel(); }
         _ = tokio::signal::ctrl_c() => {eprintln!("\nUnmounting Plugins\nshutting down gracefully"); unload_for_shutdown(); token.cancel(); }
     };
 }
@@ -63,8 +51,11 @@ fn config_tracing() {
 
 #[cfg(test)]
 mod tests {
-    use super::{SHUTDOWN, run_and_shutdown_server};
+    use tokio::signal;
+
+    use super::run_and_shutdown_server;
     use std::net::SocketAddr;
+
 
     #[tokio::test]
     async fn test_server_shutdown() {
@@ -74,16 +65,8 @@ mod tests {
 
         // run server in background
         tokio::spawn(run_and_shutdown_server(addr));
+        // send a shutdown signal to main thread
+        signal::unix::SignalKind::terminate();
 
-        // send shutdown signal
-        let mut lock = SHUTDOWN.lock().await;
-        let sender = lock.as_mut();
-        match sender {
-            Some(sender) => {
-                sender.send("value".to_owned()).await.unwrap();
             }
-            None => {}
-        }
-        
-    }
 }
