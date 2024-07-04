@@ -1,12 +1,6 @@
 name: Rust CI
 
-on:
-  push:
-    branches:
-      - ci-use-cargo-nextest-to-speed-up-the-testing-workflow
-  pull_request:
-    branches:
-      - main
+on: [push, pull_request]
 
 env:
   CARGO_TERM_COLOR: always
@@ -20,7 +14,7 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
 
-    - name : Cache dependencies
+    - name: Cache dependencies
       uses: actions/cache@v3
       with:
         path: |
@@ -29,9 +23,9 @@ jobs:
           ~/.cargo/registry/cache/
           ~/.cargo/git/db/
           target/
-        key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
         restore-keys: |
-          ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
+          ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
           ${{ runner.os }}-cargo
 
     - name: Set up Rust
@@ -41,9 +35,6 @@ jobs:
 
     - name: Install Nextest test runner
       uses: taiki-e/install-action@nextest
-
-    - name: Install system dependencies
-      run: sudo apt update && sudo apt install -y libssl-dev pkg-config
 
     - name: Build and Run Test
       run: |
