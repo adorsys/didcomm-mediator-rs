@@ -99,7 +99,7 @@ mod tests {
     use super::*;
     use tokio::signal;
     #[tokio::test]
-    async fn test_server_shutdown_with_shutdown_signal() {
+    async fn test_server_shutdown() {
         // run server in background
         tokio::spawn(run_shutdown());
         // send a shutdown signal to main thread
