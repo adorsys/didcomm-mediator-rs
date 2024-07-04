@@ -2,7 +2,7 @@
 
 A Rust library for implementing out of band messages for DID-based applications.
 
->Out of band messages (OOB) messages are the initiators of a didcomm communication where by sender provides his identifier in an unencrypted messages (QR-code or Invitation link) which the other party can scan with his/her edge device, hence no private information should be send in this way. The protocol used here is the version 2 ```https://didcomm.org/out-of-band/2.0/invitation```
+>Out of band messages (OOB) messages are the initiators of a didcomm communication where by sender provides his identifier in an unencrypted messages (QR-code or Invitation link) which the other party can scan with his/her edge device, hence no private information should be send in this way. The protocol used here is the version 2 https://didcomm.org/out-of-band/2.0/invitation
 
 ## Features
 -  Creates out of band invitation URL and QR codes.
