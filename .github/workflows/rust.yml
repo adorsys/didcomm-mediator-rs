@@ -29,9 +29,7 @@ jobs:
           ${{ runner.os }}-cargo
 
     - name: Set up Rust
-      uses: actions-rs/toolchain@v1
-      with:
-        toolchain: stable
+      uses: actions-rust-lang/setup-rust-toolchain@v1
 
     - name: Install Nextest test runner
       uses: taiki-e/install-action@nextest
@@ -40,4 +38,3 @@ jobs:
       run: |
         cargo build --workspace --all-features
         cargo nextest run --workspace --all-features
-        
