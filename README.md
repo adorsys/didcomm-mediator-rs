@@ -60,8 +60,8 @@ sudo apt install -y libssl-dev pkg-config
 
 ### Prerequisites
 Ensure you have the following installed:
- * Rust
- * Cargo
+ * [Rust](https://www.rust-lang.org/tools/install)
+ * [Cargo](https://www.rust-lang.org/tools/install)
 
 ## Setup
 1. Create a working directory eg(cd didcomm-mediator-rs) and cd into your directory.
