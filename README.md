@@ -79,17 +79,6 @@ If you encounter any issues while running the application, here are some trouble
   * Ensure that you have the latest version of Rust and Cargo installed.
   * CHeck for any missing dependencies using `cargo check`.
 
-  2. Runtime Errors:
-  * Ensure that the configuration file is valid and that all required fields are present.
-  * Ensure the mediator service is running and accessible.
-
-### Solutons
- Check the missing dependencies 
-
-### Configuration Errors:
- * Double-check configuration files for typos or missing entries.
- * Refer to the crate-specific documentation for required configuration settings.
-
 ## Examples
 ### Sending a DIDComm Message
  1. Start the mediator service:
