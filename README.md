@@ -79,33 +79,11 @@ If you encounter any issues while running the application, here are some trouble
   * Ensure that you have the latest version of Rust and Cargo installed.
   * CHeck for any missing dependencies using `cargo check`.
 
-## Examples
-### Sending a DIDComm Message
+## Example
  1. Start the mediator service:
 
 cd didcomm-mediator-rs/mediator
 cargo run
-
-2. Send a message using curl:
-
-curl -X POST http://localhost:8000/messages \
--H "Content-Type: application/json" \
--d '{
-    "id": "1234567890",
-    "type": "https://didcomm.org/routing/2.0/forward",
-    "to": ["did:example:bob"],
-    "message": {
-        "@id": "abcdefg",
-        "@type": "https://didcomm.org/routing/2.0/forward",
-        "to": ["did:example:alice"],
-        "message": {
-            "@id": "123",
-            "@type": "https://didcomm.org/message/1.0",
-            "body": "Hello, Alice!"
-        }
-    }
-}'
-This example demonstrates sending a routing message to the mediator, which it will forward to the intended recipient.
 
 ## License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
