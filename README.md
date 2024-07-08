@@ -69,13 +69,6 @@ Ensure you have the following installed:
 
 git clone https://github.com/adorsys/didcomm-mediator-rs.git
 
-## Configuration Options
-The following configuration options are available:
-* `--config-file`: Path to the configuration file. Defaults to `config.toml`.
-* `--config`: Configuration options in TOML format. Overrides the configuration file.
-* `--log-level`: Log level. Can be one of `trace`, `debug`, `
-info`, `warn`, `error`, or `off`. Defaults to `info`.
-
 ## Troubleshooting Tips
 If you encounter any issues while running the application, here are some troubleshooting tips to help you resolve them
  
