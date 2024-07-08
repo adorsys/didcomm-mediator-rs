@@ -1,3 +1,4 @@
+use std::sync::Mutex;
 use std::collections::{HashMap, HashSet};
 
 use axum::Router;
@@ -15,7 +16,7 @@ pub enum PluginContainerError {
 pub struct PluginContainer<'a> {
     loaded: bool,
     collected_routes: Vec<Router>,
-    plugins: &'a Vec<Box<dyn Plugin>>,
+    plugins: &'a Mutex<Vec<Box<dyn Plugin + Send>>>,
 }
 
 impl<'a> Default for PluginContainer<'a> {
@@ -35,12 +36,11 @@ impl<'a> PluginContainer<'a> {
     }
 
     /// Search loaded plugin based on name string
-    pub fn find_plugin(&self, name: &str) -> Option<&dyn Plugin> {
-        self.plugins
-            .iter()
-            .find_map(|plugin| (name == plugin.name()).then_some(&**plugin))
-    }
-
+    pub fn find_plugin(&self, name: &str) -> Option<usize> {
+        let plugins = self.plugins.lock().unwrap();
+        plugins.iter().position(|plugin| name == plugin.name())
+    }    
+    
     /// Load referenced plugins
     ///
     /// This entails mounting them and merging their routes internally (only
@@ -50,20 +50,24 @@ impl<'a> PluginContainer<'a> {
     pub fn load(&mut self) -> Result<(), PluginContainerError> {
         tracing::debug!("loading plugin container");
 
+        // Obtain lock
+        let mut plugins = self.plugins.lock().unwrap();
+
         // Checking for duplicates
-        let unique_plugins: HashSet<_> = self.plugins.iter().collect();
-        if unique_plugins.len() != self.plugins.len() {
-            tracing::error!("found duplicate entries in plugin registry");
-            return Err(PluginContainerError::DuplicateEntry);
+        let mut seen_names = HashSet::new();
+        for plugin in plugins.iter() {
+            if !seen_names.insert(plugin.name().to_string()) {
+                tracing::error!("found duplicate entry in plugin registry: {}", plugin.name());
+                return Err(PluginContainerError::DuplicateEntry);
+            }
         }
 
         // Reset collection of routes
-        self.collected_routes.truncate(0);
+        self.collected_routes.clear();
 
         // Mount plugins and collect routes on successful status
-        let errors: HashMap<_, _> = self
-            .plugins
-            .iter()
+        let errors: HashMap<_, _> = plugins
+            .iter_mut()
             .filter_map(|plugin| match plugin.mount() {
                 Ok(_) => {
                     tracing::info!("mounted plugin {}", plugin.name());
@@ -107,6 +111,7 @@ mod tests {
     use super::*;
     use axum::routing::get;
 
+    // Define plugin structs for testing
     struct FirstPlugin;
     impl Plugin for FirstPlugin {
         fn name(&self) -> &'static str {
@@ -185,48 +190,71 @@ mod tests {
 
     #[test]
     fn test_loading() {
+        // Mock plugins for testing
+        let plugins: Mutex<Vec<Box<dyn Plugin + Send>>> = Mutex::new(vec![
+            Box::new(FirstPlugin {}),
+            Box::new(SecondPlugin {}),
+        ]);
+
+        // Initialize PluginContainer with the mock plugins
         let mut container = PluginContainer {
             loaded: false,
             collected_routes: vec![],
-            plugins: &vec![Box::new(FirstPlugin {}), Box::new(SecondPlugin {})],
+            plugins: &plugins,
         };
 
+        // Test loading plugins
         assert!(container.load().is_ok());
         assert!(container.routes().is_ok());
 
+        // Verify find_plugin method
         assert!(container.find_plugin("first").is_some());
         assert!(container.find_plugin("second").is_some());
         assert!(container.find_plugin("non-existent").is_none());
 
-        // The actual routes collected are actually hard to test
-        // given that axum::Router seems not to provide public
-        // directives to inquire internal state.
-        // See: https://github.com/tokio-rs/axum/discussions/860
+        // Verify collected routes
         assert_eq!(container.collected_routes.len(), 2);
     }
 
     #[test]
     fn test_double_loading() {
+        // Mock plugins for testing
+        let plugins: Mutex<Vec<Box<dyn Plugin + Send>>> = Mutex::new(vec![
+            Box::new(FirstPlugin {}),
+            Box::new(SecondPlugin {}),
+        ]);
+
+        // Initialize PluginContainer with the mock plugins
         let mut container = PluginContainer {
             loaded: false,
             collected_routes: vec![],
-            plugins: &vec![Box::new(FirstPlugin {}), Box::new(SecondPlugin {})],
+            plugins: &plugins,
         };
 
+        // Test loading plugins twice
         assert!(container.load().is_ok());
         assert!(container.load().is_ok());
 
+        // Verify collected routes
         assert_eq!(container.collected_routes.len(), 2);
     }
 
     #[test]
     fn test_loading_with_duplicates() {
+        // Mock plugins for testing
+        let plugins: Mutex<Vec<Box<dyn Plugin + Send>>> = Mutex::new(vec![
+            Box::new(SecondPlugin {}),
+            Box::new(SecondAgainPlugin {}),
+        ]);
+
+        // Initialize PluginContainer with the mock plugins
         let mut container = PluginContainer {
             loaded: false,
             collected_routes: vec![],
-            plugins: &vec![Box::new(SecondPlugin {}), Box::new(SecondAgainPlugin {})],
+            plugins: &plugins,
         };
 
+        // Test loading plugins with duplicate names
         assert_eq!(
             container.load().unwrap_err(),
             PluginContainerError::DuplicateEntry
@@ -235,10 +263,15 @@ mod tests {
 
     #[test]
     fn test_loading_with_failing_plugin() {
+           // Mock plugins for testing
+           let plugins: Mutex<Vec<Box<dyn Plugin + Send>>> = Mutex::new(vec![
+            Box::new(FirstPlugin {}),
+            Box::new(FaultyPlugin {}),
+        ]);
         let mut container = PluginContainer {
             loaded: false,
             collected_routes: vec![],
-            plugins: &vec![Box::new(FirstPlugin {}), Box::new(FaultyPlugin {})],
+            plugins: &plugins,
         };
 
         let err = container.load().unwrap_err();
@@ -257,12 +290,20 @@ mod tests {
 
     #[test]
     fn test_route_extraction_without_loading() {
+        // Mock plugins for testing
+        let plugins: Mutex<Vec<Box<dyn Plugin + Send>>> = Mutex::new(vec![
+            Box::new(FirstPlugin {}),
+            Box::new(SecondPlugin {}),
+        ]);
+
+        // Initialize PluginContainer with the mock plugins
         let container = PluginContainer {
             loaded: false,
             collected_routes: vec![],
-            plugins: &vec![Box::new(FirstPlugin {}), Box::new(SecondPlugin {})],
+            plugins: &plugins,
         };
 
+        // Test route extraction without loading
         assert_eq!(
             container.routes().unwrap_err(),
             PluginContainerError::Unloaded
