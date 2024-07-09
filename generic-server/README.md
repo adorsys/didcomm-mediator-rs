@@ -10,21 +10,17 @@ This server provides a system for building versatile applications by integrating
 ## Extending Server Functionalities with Plugins
 ### To add a new plugin:
 
-**1- Implement the `Plugin` Trait:**
+**1. Implement the `Plugin` Trait:**
 
-- Define the necessary methods (e.g., name(), mount(), and routes()).
+ Define the necessary methods (e.g., name(), mount(), and routes()).
 
-**2-Register the Plugin:**
+**2. Register the Plugin:**
 
-- Add the plugin to the static PLUGINS array.
+ Add the plugin to the static PLUGINS array.This array are located in your main server configuration file or a central location where the server initializes and manages plugins.
 
-**3-Load the Plugin:**
+**4. Utilize the Plugin:**
 
-- Ensure the plugin container is re-initialized to include the new plugin.**
-
-**4- Utilize the Plugin:**
-
-- The server will automatically handle routing based on the newly added plugin's routes.
+ The server will automatically handle routing based on the newly added plugin's routes.
 
 ## Example Plugin Implementation
 ```rust
