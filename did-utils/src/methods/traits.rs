@@ -1,3 +1,5 @@
+//! Trait definitions for DID methods.
+
 use std::{
     collections::HashMap,
     fmt::{self, Display, Formatter},
@@ -10,9 +12,6 @@ use serde_json::{json, Value};
 
 use crate::{didcore::Document as DIDDocument, ldmodel::Context, methods::errors::DIDResolutionError};
 
-/////////////////////////////////////////////////////////////////////////////////////
-///  DID METHOD  -----------------------------------------------------------------///
-/////////////////////////////////////////////////////////////////////////////////////
 
 /// Abstract contract for DID methods.
 ///
@@ -21,7 +20,7 @@ use crate::{didcore::Document as DIDDocument, ldmodel::Context, methods::errors:
 /// turned out DID methods might be too specific in their underlying modus
 /// operandus that such signatures would be counterproductive.
 ///
-/// TODO! Enrich this common interface.
+// TODO! Enrich this common interface.
 pub trait DIDMethod: DIDResolver {
     /// Returns the DIDMethod's registered name, prefixed with `did:`,
     /// e.g. did:key, did:web, etc.
@@ -36,13 +35,10 @@ pub trait DIDMethod: DIDResolver {
     }
 }
 
-/////////////////////////////////////////////////////////////////////////////////////
-///  DID RESOLUTION  -------------------------------------------------------------///
-/////////////////////////////////////////////////////////////////////////////////////
 
 /// Abstract contract for DID resolution.
 ///
-/// See https://w3c-ccg.github.io/did-resolution.
+/// See `<https://w3c.github.io/did-resolution>`
 #[async_trait]
 pub trait DIDResolver {
     /// Resolves a DID address into its corresponding DID document.
@@ -50,7 +46,7 @@ pub trait DIDResolver {
 
     /// Dereferences a DID URL into its corresponding resource.
     async fn dereference(&self, did_url: &str, _options: &DereferencingOptions) -> DereferencingOutput {
-        let context = Context::SingleString(String::from("https://w3id.org/did-resolution/v1"));
+        let context = Context::SingleString(String::from("https://www.w3.org/ns/did/v1"));
 
         let res = super::utils::parse_did_url(did_url);
         if res.is_err() {
@@ -137,14 +133,14 @@ pub trait DIDResolver {
 /// Formerly known as "DID resolution input metadata", they provide
 /// additional configuration for the DID resolution process.
 ///
-/// See https://www.w3.org/TR/did-core/#did-resolution-options
+/// See `<https://www.w3.org/TR/did-core/#did-resolution-options>`
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct DIDResolutionOptions {
     // See https://www.w3.org/TR/did-spec-registries/#accept
     #[serde(skip_serializing_if = "Option::is_none")]
     pub accept: Option<MediaType>,
-    // See https://w3c-ccg.github.io/did-resolution/#caching
+    // See https://w3c.github.io/did-resolution/#caching
     #[serde(skip_serializing_if = "Option::is_none")]
     pub no_cache: Option<bool>,
     // Dynamic properties
@@ -155,7 +151,7 @@ pub struct DIDResolutionOptions {
 
 /// DID Resolution Output.
 ///
-/// See https://w3c-ccg.github.io/did-resolution/#did-resolution-result
+/// See `<https://www.w3.org/TR/did-core/#did-resolution>`
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ResolutionOutput {
@@ -177,7 +173,7 @@ pub struct ResolutionOutput {
 
 /// DID Resolution Metadata.
 ///
-/// See https://www.w3.org/TR/did-core/#did-resolution-metadata
+/// See `<https://www.w3.org/TR/did-core/#did-resolution-metadata>`
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct DIDResolutionMetadata {
@@ -195,7 +191,7 @@ pub struct DIDResolutionMetadata {
 
 /// DID Document Metadata.
 ///
-/// See https://www.w3.org/TR/did-core/#did-document-metadata
+/// See `<https://www.w3.org/TR/did-core/#did-document-metadata>`
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct DIDDocumentMetadata {
@@ -231,22 +227,22 @@ pub struct DIDDocumentMetadata {
 
 /// DID URL Dereferencing Options.
 ///
-/// See https://www.w3.org/TR/did-core/#did-url-dereferencing-options
+/// See `<https://www.w3.org/TR/did-core/#did-url-dereferencing-options>`
 pub type DereferencingOptions = DIDResolutionOptions;
 
 /// DID URL Dereferencing Metadata.
 ///
-/// See https://www.w3.org/TR/did-core/#did-url-dereferencing-metadata
+/// See `<https://www.w3.org/TR/did-core/#did-url-dereferencing-metadata>`
 pub type DereferencingMetadata = DIDResolutionMetadata;
 
 /// Content Metadata.
 ///
-/// See https://www.w3.org/TR/did-core/#metadata-structure
+/// See `<https://www.w3.org/TR/did-core/#metadata-structure>`
 pub type ContentMetadata = DIDDocumentMetadata;
 
 /// Dereferencing Output.
 ///
-/// See https://w3c-ccg.github.io/did-resolution/#did-resolution-result
+/// See `<https://www.w3.org/TR/did-core/#did-url-dereferencing>`
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct DereferencingOutput {
@@ -257,7 +253,7 @@ pub struct DereferencingOutput {
     pub context: Context,
     // See https://www.w3.org/TR/did-core/#dfn-diddocument
     pub content: Option<Content>,
-    // See https://www.w3.org/TR/did-core/#dfn-didresolutionmetadata
+    // See https://www.w3.org/TR/did-core/#did-url-dereferencing-metadata
     pub dereferencing_metadata: Option<DereferencingMetadata>,
     // See https://www.w3.org/TR/did-core/#dfn-diddocumentmetadata
     pub content_metadata: Option<ContentMetadata>,
@@ -297,8 +293,11 @@ impl Display for MediaType {
     }
 }
 
-/// Serves derefencing query given a DID document
-fn dereference_did_document(diddoc: &DIDDocument, query: &HashMap<String, String>, fragment: &Option<String>) -> Result<Content, DIDResolutionError> {
+/// Serves derefencing query given a DID document.
+fn dereference_did_document(diddoc: &DIDDocument,
+                            query: &HashMap<String, String>,
+                            fragment: &Option<String>
+) -> Result<Content, DIDResolutionError> {
     // Primary resource
     if let Some(service) = query.get("service") {
         let entries = diddoc.service.clone().unwrap_or_default();

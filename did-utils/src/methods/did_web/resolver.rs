@@ -1,3 +1,10 @@
+//! A module for resolving DID Web documents using HTTP and HTTPS schemes.
+//!
+//! This module provides functionnalities for resolving DID Web documents by fetching
+//! them over HTTP or HTTPS. The resolver follows the [W3C DID Resolution specification].
+//! 
+//! [W3C DID Resolution specification]: https://w3c.github.io/did-resolution/
+
 use async_trait::async_trait;
 use hyper::{
     client::{ connect::Connect, HttpConnector },
@@ -23,12 +30,15 @@ use crate::ldmodel::Context;
 
 use crate::didcore::Document as DIDDocument;
 
+/// A struct for resolving DID Web documents.
 pub struct DidWebResolver<C> where C: Connect + Send + Sync + Clone + 'static {
     client: Client<C>,
     scheme: Scheme,
 }
 
 impl DidWebResolver<HttpConnector> {
+    
+    /// Creates a new `DidWebResolver` with the default HTTP scheme.
     pub fn http() -> DidWebResolver<HttpConnector> {
         DidWebResolver {
             client: Client::builder().build::<_, Body>(HttpConnector::new()),
@@ -38,6 +48,8 @@ impl DidWebResolver<HttpConnector> {
 }
 
 impl DidWebResolver<HttpsConnector<HttpConnector>> {
+
+    /// Creates a new `DidWebResolver` with the HTTPS scheme.
     pub fn https() -> DidWebResolver<HttpsConnector<HttpConnector>> {
         DidWebResolver {
             client: Client::builder().build::<_, Body>(HttpsConnector::new()),
@@ -47,6 +59,19 @@ impl DidWebResolver<HttpsConnector<HttpConnector>> {
 }
 
 impl<C> DidWebResolver<C> where C: Connect + Send + Sync + Clone + 'static {
+
+    /// Fetches a DID document from the given URL.
+    ///
+    /// This method performs an HTTP GET request to the provided URL
+    /// and attempts to returns the response body as a string.
+    /// 
+    /// # Arguments
+    ///
+    /// * `url` - The URL to fetch the DID document from.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing the DID document as a string or a `DidWebError`.
     async fn fetch_did_document(&self, url: Uri) -> Result<String, DidWebError> {
         let res = self.client.get(url).await?;
 
@@ -61,6 +86,20 @@ impl<C> DidWebResolver<C> where C: Connect + Send + Sync + Clone + 'static {
 }
 
 impl<C> DidWebResolver<C> where C: Connect + Send + Sync + Clone + 'static {
+
+    /// Fetches and parses a DID document for the given DID.
+    ///
+    /// This method first parses the DID Web URL format from the given DID and then constructs
+    /// an URI based on the scheme, domain name, and path. It then fetches the DID document and
+    /// parses the response body.
+    /// 
+    /// # Arguments
+    ///
+    /// * `did` - The DID to resolve.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing the resolved `DIDDocument` or a `DidWebError`.
     async fn resolver_fetcher(&self, did: &str) -> Result<DIDDocument, DidWebError> {
         let (path, domain_name) = match parse_did_web_url(did) {
             Ok((path, domain_name)) => (path, domain_name),
@@ -101,6 +140,15 @@ impl<C> DidWebResolver<C> where C: Connect + Send + Sync + Clone + 'static {
     }
 }
 
+/// Parses a DID Web URL and returns the path and domain name.
+///
+/// # Arguments
+///
+/// * `did` - The DID to parse.
+///
+/// # Returns
+///
+/// A `Result` containing the path and domain name or a `DidWebError`.
 pub fn parse_did_web_url(did: &str) -> Result<(String, String), DidWebError> {
     let mut parts = did.split(':').peekable();
     let domain_name = match (parts.next(), parts.next(), parts.next()) {
@@ -122,6 +170,17 @@ pub fn parse_did_web_url(did: &str) -> Result<(String, String), DidWebError> {
 
 #[async_trait]
 impl<C> DIDResolver for DidWebResolver<C> where C: Connect + Send + Sync + Clone + 'static {
+
+    /// Resolves a DID to a DID document.
+    ///
+    /// # Arguments
+    ///
+    /// * `did` - The DID to resolve.
+    /// * `_options` - The options for DID resolution.
+    ///
+    /// # Returns
+    ///
+    /// A `ResolutionOutput` containing the resolved DID document and metadata.
     async fn resolve(&self, did: &str, _options: &DIDResolutionOptions) -> ResolutionOutput {
         let context = Context::SingleString(String::from("https://www.w3.org/ns/did/v1"));
 
