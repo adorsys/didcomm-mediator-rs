@@ -18,7 +18,7 @@ This server provides a system for building versatile applications by integrating
 
  Add the plugin to the static PLUGINS array.This array are located in your main server configuration file or a central location where the server initializes and manages plugins.
 
-**4. Utilize the Plugin:**
+**3. Utilize the Plugin:**
 
  The server will automatically handle routing based on the newly added plugin's routes.
 
