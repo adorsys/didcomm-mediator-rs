@@ -1,3 +1,5 @@
+//! Provides generic key types and associated utilities used in JSON Web Keys (JWKs).
+
 use serde::{Deserialize, Serialize};
 
 use crate::key_jwk::{ec::Ec, oct::Oct, okp::Okp, rsa::Rsa};
@@ -10,7 +12,7 @@ pub enum Key {
     /// An elliptic-curve key.
     Ec(Ec),
 
-    /// An RSA key.
+    /// A RSA key.
     Rsa(Rsa),
 
     /// A symmetric key.

@@ -1,3 +1,5 @@
+//! Contains types and utilities for handling secret keys.
+
 extern crate alloc;
 use alloc::boxed::Box;
 

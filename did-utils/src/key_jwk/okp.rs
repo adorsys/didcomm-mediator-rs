@@ -1,9 +1,11 @@
+//! Defines types for working with Octet Key Pairs (OKP).
+
 use serde::{Deserialize, Serialize};
 
 use crate::key_jwk::secret::Secret;
 use crate::key_jwk::Bytes;
 
-/// A octet key pair CFRG-curve key, as defined in [RFC 8037]
+/// An octet key pair CFRG-curve key, as defined in [RFC 8037]
 ///
 /// [RFC 8037]: https://www.rfc-editor.org/rfc/rfc8037
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
