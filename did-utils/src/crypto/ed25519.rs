@@ -1,3 +1,7 @@
+//! Implements the Ed25519 key pair.
+//! 
+//! See [RFC 8032](https://tools.ietf.org/html/rfc8032) for details.
+
 use super::traits::{CoreSign, Error, Generate, KeyMaterial, BYTES_LENGTH_32};
 use super::utils::{generate_seed, clone_slice_to_array};
 use super::x25519::X25519KeyPair;
@@ -9,16 +13,29 @@ use sha2::{Digest, Sha512};
 pub type Ed25519KeyPair = AsymmetricKey<VerifyingKey, SigningKey>;
 
 impl std::fmt::Debug for Ed25519KeyPair {
+    /// Returns a string representation of the public key.
+    ///
+    /// This function is used to implement the `fmt::Debug` trait.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!("{:?}", self.public_key))
     }
 }
 
 impl KeyMaterial for Ed25519KeyPair {
+    /// Returns the bytes of the public key.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing the bytes of the public key or an `Error`.
     fn public_key_bytes(&self) -> Result<[u8; BYTES_LENGTH_32], Error> {
         Ok(clone_slice_to_array(self.public_key.as_bytes()))
     }
 
+    /// Returns the bytes of the private key.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing the bytes of the private key or an `Error`.
     fn private_key_bytes(&self) -> Result<[u8; BYTES_LENGTH_32], Error> {
         match &self.secret_key {
             Some(sk) => {
@@ -30,10 +47,28 @@ impl KeyMaterial for Ed25519KeyPair {
 }
 
 impl Generate for Ed25519KeyPair {
+    /// Generates a new Ed25519 key pair.
+    ///
+    /// If the initial seed is empty or invalid, generates a new seed.
+    ///
+    /// # Returns
+    ///
+    /// A new `Ed25519KeyPair` instance or an `Error`.
     fn new() -> Result<Ed25519KeyPair, Error> {
         Self::new_with_seed(vec![].as_slice())
     }
 
+    /// Generates a new Ed25519 key pair with a seed.
+    ///
+    /// If the seed is empty or invalid, generates a new seed.
+    ///
+    /// # Arguments
+    ///
+    /// * `seed` - The initial seed to use.
+    ///
+    /// # Returns
+    ///
+    /// A new `Ed25519KeyPair` instance.
     fn new_with_seed(seed: &[u8]) -> Result<Ed25519KeyPair, Error> {
         match generate_seed(seed) {
             Ok(secret_seed) => {
@@ -47,6 +82,15 @@ impl Generate for Ed25519KeyPair {
         }
     }
 
+    /// Creates a new `Ed25519KeyPair` from a public key.
+    ///
+    /// # Arguments
+    ///
+    /// * `public_key` - The bytes of the public key.
+    ///
+    /// # Returns
+    ///
+    /// A new `Ed25519KeyPair` instance.
     fn from_public_key(public_key: &[u8; BYTES_LENGTH_32]) -> Result<Ed25519KeyPair, Error> {
         match public_key.len() {
             BYTES_LENGTH_32 => {
@@ -62,6 +106,15 @@ impl Generate for Ed25519KeyPair {
         }        
     }
 
+    /// Creates a new `Ed25519KeyPair` from a secret key.
+    ///
+    /// # Arguments
+    ///
+    /// * `secret_key` - The bytes of the secret key.
+    ///
+    /// # Returns
+    ///
+    /// A new `Ed25519KeyPair` instance.
     fn from_secret_key(secret_key: &[u8; BYTES_LENGTH_32]) -> Result<Ed25519KeyPair, Error> {
         match secret_key.len() {
             BYTES_LENGTH_32 => {
@@ -77,11 +130,25 @@ impl Generate for Ed25519KeyPair {
 }
 
 impl CoreSign for Ed25519KeyPair {
+    /// Signs a payload using the secret key of the `Ed25519KeyPair`.
+    ///
+    /// # Arguments
+    ///
+    /// * `payload` - The payload to sign.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing the signature as bytes or an `Error`.
     fn sign(&self, payload: &[u8]) -> Result<Vec<u8>, Error> {
+        // Check if the secret key is present
         match &self.secret_key {
             Some(sk) => {
+                // Try to sign the payload
                 match sk.try_sign(payload) {
-                    Ok(signature) => Ok(signature.to_bytes().to_vec()),
+                    Ok(signature) => {
+                        // Convert the signature to bytes and return it
+                        Ok(signature.to_bytes().to_vec())
+                    }
                     Err(_) => Err(Error::SignatureError),
                 }
             },
@@ -89,7 +156,19 @@ impl CoreSign for Ed25519KeyPair {
         }
     }
 
+    /// Verifies a payload using the public key of the `Ed25519KeyPair`.
+    ///
+    /// # Arguments
+    ///
+    /// * `payload` - The payload to verify.
+    /// * `signature` - The signature to verify against the payload.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing `()`, or an `Error` if the verification fails.
     fn verify(&self, payload: &[u8], signature: &[u8]) -> Result<(), Error> {
+        // Try to convert the signature to a `Signature` instance
+        // This conversion is necessary because the `signature` argument is represented as bytes
         match Signature::try_from(signature) {
             Ok(sig) => {
                 match self.public_key.verify(payload, &sig) {
@@ -103,26 +182,39 @@ impl CoreSign for Ed25519KeyPair {
 }
 
 impl Ed25519KeyPair {
+    /// Returns the X25519 key pair corresponding to the Ed25519 key pair.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing the X25519 key pair as `X25519KeyPair` or an `Error`.
     pub fn get_x25519(&self) -> Result<X25519KeyPair, Error> {
+        // Check if the secret key is present
         match &self.secret_key {
             Some(sk) => {
                 let bytes: [u8; BYTES_LENGTH_32] = sk.to_bytes();
+                // Compute the SHA-512 hash of the secret key
                 let mut hasher = Sha512::new();
                 hasher.update(bytes);
                 let hash = hasher.finalize();
+                // Copy the first 32 bytes of the hash to the output buffer
                 let mut output = [0u8; BYTES_LENGTH_32];
                 output.copy_from_slice(&hash[..BYTES_LENGTH_32]);
+                // Adjust the first byte and the last byte of the output buffer
                 output[0] &= 248;
                 output[31] &= 127;
                 output[31] |= 64;
 
+                // Create a new X25519 key pair using the output buffer
                 X25519KeyPair::new_with_seed(&output)
             }
             None => {
+                // Get the bytes of the public key
                 match self.public_key_bytes() {
                     Ok(pk_bytes) => {
+                        // Decompress the compressed Ed25519 point
                         match CompressedEdwardsY(pk_bytes).decompress() {
                             Some(point) => {
+                                // Convert the point to Montgomery form and create a new X25519 key pair
                                 let montgomery = point.to_montgomery();
                                 X25519KeyPair::from_public_key(montgomery.as_bytes())
                             }
@@ -137,7 +229,7 @@ impl Ed25519KeyPair {
 }
 
 #[cfg(test)]
-pub mod tests {
+mod tests {
     use crate::crypto::traits::{CoreSign, Generate, KeyMaterial, BYTES_LENGTH_32};
 
     use super::Ed25519KeyPair;
