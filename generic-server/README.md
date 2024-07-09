@@ -16,7 +16,7 @@ This server provides a system for building versatile applications by integrating
 
 **2. Register the Plugin:**
 
- Add the plugin to the static PLUGINS array.This array are located in your main server configuration file or a central location where the server initializes and manages plugins.
+ Add the plugin to the static PLUGINS array (located in `src/plugin/mod.rs`).
 
 **3. Utilize the Plugin:**
 
