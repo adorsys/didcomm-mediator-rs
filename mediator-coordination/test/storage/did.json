@@ -3,12 +3,12 @@
     "https://www.w3.org/ns/did/v1",
     "https://w3id.org/security/suites/jws-2020/v1"
   ],
-  "id": "did:web:alice-mediator.com:alice_mediator_pub",
+  "id": "did:web:mediators-r-us.com",
   "verificationMethod": [
     {
-      "id": "did:web:alice-mediator.com:alice_mediator_pub#keys-1",
+      "id": "did:web:mediators-r-us.com#keys-1",
       "type": "JsonWebKey2020",
-      "controller": "did:web:alice-mediator.com:alice_mediator_pub",
+      "controller": "did:web:mediators-r-us.com",
       "publicKeyJwk": {
         "kty": "OKP",
         "crv": "Ed25519",
@@ -16,9 +16,9 @@
       }
     },
     {
-      "id": "did:web:alice-mediator.com:alice_mediator_pub#keys-2",
+      "id": "did:web:mediators-r-us.com#keys-2",
       "type": "JsonWebKey2020",
-      "controller": "did:web:alice-mediator.com:alice_mediator_pub",
+      "controller": "did:web:mediators-r-us.com",
       "publicKeyJwk": {
         "kty": "OKP",
         "crv": "Ed25519",
@@ -26,9 +26,9 @@
       }
     },
     {
-      "id": "did:web:alice-mediator.com:alice_mediator_pub#keys-3",
+      "id": "did:web:mediators-r-us.com#keys-3",
       "type": "JsonWebKey2020",
-      "controller": "did:web:alice-mediator.com:alice_mediator_pub",
+      "controller": "did:web:mediators-r-us.com",
       "publicKeyJwk": {
         "kty": "OKP",
         "crv": "X25519",
@@ -37,12 +37,19 @@
     }
   ],
   "authentication": [
-    "did:web:alice-mediator.com:alice_mediator_pub#keys-1"
+    "did:web:mediators-r-us.com#keys-1"
   ],
   "assertionMethod": [
-    "did:web:alice-mediator.com:alice_mediator_pub#keys-2"
+    "did:web:mediators-r-us.com#keys-2"
   ],
   "keyAgreement": [
-    "did:web:alice-mediator.com:alice_mediator_pub#keys-3"
+    "did:web:mediators-r-us.com#keys-3"
+  ],
+  "service": [
+    {
+      "id": "did:web:mediators-r-us.com#pop-domain",
+      "type": "LinkedDomains",
+      "serviceEndpoint": "http://mediators-r-us.com/.well-known/did/pop.json"
+    }
   ]
 }
