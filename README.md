@@ -66,8 +66,9 @@ Ensure you have the following installed:
 1. Create a working directory eg(cd didcomm-mediator-rs) and cd into your directory.
 
  2. Clone the repository using the following command:
-
+```sh
 git clone https://github.com/adorsys/didcomm-mediator-rs.git
+```
 
 ## Troubleshooting Tips
 If you encounter any issues while running the application, here are some troubleshooting tips to help you resolve them
@@ -77,13 +78,20 @@ If you encounter any issues while running the application, here are some trouble
   1. Build Errors:
   * Ensure that you have the required system packages installed. `libssl-dev` and `pkg-config` 
   * Ensure that you have the latest version of Rust and Cargo installed.
-  * CHeck for any missing dependencies using `cargo check`.
+  * CHeck for any missing dependencies using 
+```sh
+cargo check
+```
 
 ## Example
  1. Start the mediator service:
 
+```sh
 cd didcomm-mediator-rs/mediator
+```
+```sh
 cargo run
+```
 
 ## License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
