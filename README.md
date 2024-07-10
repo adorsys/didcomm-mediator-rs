@@ -84,12 +84,10 @@ cargo check
 ```
 
 ## Example
- 1. Start the mediator service:
+ Start the mediator service:
 
 ```sh
 cd didcomm-mediator-rs/mediator
-```
-```sh
 cargo run
 ```
 
