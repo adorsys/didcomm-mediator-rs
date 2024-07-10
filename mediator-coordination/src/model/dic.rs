@@ -1,5 +1,5 @@
 use did_utils::key_jwk::jwk::Jwk;
-use serde::{de::Error, Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 
@@ -95,59 +95,6 @@ impl JwtAssertable for DDICPayload {
     fn sign(&self, jwk: &Jwk, kid: Option<String>) -> Result<String, JwsError> {
         self.sign_with_typ("ddic/v001", jwk, kid)
     }
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-#[serde(untagged)]
-pub enum CompactDIC {
-    #[serde(serialize_with = "CompactDIC::serialize_inbox_variant")]
-    #[serde(deserialize_with = "CompactDIC::deserialize_inbox_variant")]
-    Inbox(String),
-
-    #[serde(serialize_with = "CompactDIC::serialize_outbox_variant")]
-    #[serde(deserialize_with = "CompactDIC::deserialize_outbox_variant")]
-    Outbox(String),
-}
-
-#[allow(unused)]
-impl CompactDIC {
-    /// Retrieve tag-less JWS string
-    pub fn plain_jws(&self) -> String {
-        match self {
-            CompactDIC::Inbox(s) => s.clone(),
-            CompactDIC::Outbox(s) => s.clone(),
-        }
-    }
-}
-
-macro_rules! compact_dic_variant_serder {
-    ($S: ident) => {
-        paste::paste! {
-            fn [<serialize_ $S _variant>]<S>(value: &String, serializer: S) -> Result<S::Ok, S::Error>
-            where
-                S: Serializer,
-            {
-                const S: &'static str = stringify!($S);
-                serializer.serialize_str(&format!("{S}:{value}"))
-            }
-
-            fn [<deserialize_ $S _variant>]<'de, D>(deserializer: D) -> Result<String, D::Error>
-            where
-                D: Deserializer<'de>,
-            {
-                const S: &'static str = stringify!($S);
-                match String::deserialize(deserializer)? {
-                    s if s.starts_with(&format!("{S}:")) => Ok(s[(S.len() + 1)..].to_string()),
-                    _ => Err(Error::custom("invalid tag")),
-                }
-            }
-        }
-    };
-}
-
-impl CompactDIC {
-    compact_dic_variant_serder!(inbox);
-    compact_dic_variant_serder!(outbox);
 }
 
 #[cfg(test)]
@@ -269,11 +216,11 @@ mod tests {
         // Sign
         let jwt = dic_payload.sign(&jwk, None).unwrap();
         let expected_jwt = concat!(
-            "eyJhbGciOiJFZERTQSIsInR5cCI6ImRpYy92MDAxIn0.eyJpc3MiOiJkaWQ6d2ViOmFsaWNl",
+            "eyJ0eXAiOiJkaWMvdjAwMSIsImFsZyI6IkVkRFNBIn0.eyJpc3MiOiJkaWQ6d2ViOmFsaWNl",
             "LW1lZGlhdG9yLmNvbTphbGljZV9tZWRpYXRvcl9wdWIiLCJub25jZSI6IjQzZjg0ODY4LTA2",
             "MzItNDQ3MS1iNmRkLWQ2M2ZhMTJjMjFmNiIsInNsIjoiZ29sZCIsInN1YiI6ImRpZDprZXk6",
-            "YWxpY2VfaWRlbnRpdHlfcHViQGFsaWNlX21lZGlhdG9yIn0.C0yYq_BE1X-B1l9Hj_jJxXXn",
-            "-eLoxCzYEY6eO_2aFu2A4FausK5vZoezjoh0xaj3MEmK24XpwfrQDXrFxuXrAA",
+            "YWxpY2VfaWRlbnRpdHlfcHViQGFsaWNlX21lZGlhdG9yIn0.tslxNKmgVX_LhKIM5SH9KIxp",
+            "_jCAXGNmjuisS2SmmGlXf2LuR3iUeAPXWm9f0XA1_jvVXw7gJLlbJFer6zSCDA"
         );
         assert_eq!(jwt, expected_jwt);
 
@@ -299,51 +246,17 @@ mod tests {
         // Sign
         let jwt = ddic_payload.sign(&jwk, None).unwrap();
         let expected_jwt = concat!(
-            "eyJhbGciOiJFZERTQSIsInR5cCI6ImRkaWMvdjAwMSJ9.eyJkaWMtc3ViIjoiZGlkOmtleTp",
+            "eyJ0eXAiOiJkZGljL3YwMDEiLCJhbGciOiJFZERTQSJ9.eyJkaWMtc3ViIjoiZGlkOmtleTp",
             "hbGljZV9pZGVudGl0eV9wdWJAYWxpY2VfbWVkaWF0b3IiLCJpc3MiOiJkaWQ6d2ViOmFsaWN",
             "lLW1lZGlhdG9yLmNvbTphbGljZV9tZWRpYXRvcl9wdWIiLCJub25jZSI6IjQzZjg0ODY4LTA",
             "2MzItNDQ3MS1iNmRkLWQ2M2ZhMTJjMjFmNiIsInN1YiI6ImRpZDprZXk6Ym9iX2lkZW50aXR",
-            "5X3B1YkBhbGljZSJ9.gmFYNNmdnL0PX3MFVv-APnmLn55cI7GPRfkAZTcYqR76aZGEmjPFmB",
-            "pDOeBZYDwM5GcDHOIB6m1xwRQ1xwvKDA",
+            "5X3B1YkBhbGljZSJ9.TMrKBQ22yCY-A07bIaR6c73Y9LK-rorKv9wvoh1NnYGgr2IzIvMP8g",
+            "NjQmizpgjdyVXz8KlXr8F_ARl_iQ-MDA"
         );
         assert_eq!(jwt, expected_jwt);
 
         // Verify
         let jwk = jwk.to_public();
         assert!(jws::verify_compact_jws(&jwt, &jwk).is_ok());
-    }
-
-    #[test]
-    fn can_serialize_compact_dic() {
-        let compact_dic = CompactDIC::Inbox(String::from("abcd123"));
-        let serialized = serde_json::to_string(&compact_dic).unwrap();
-        assert_eq!(serialized, r#""inbox:abcd123""#);
-
-        let compact_dic = CompactDIC::Outbox(String::from("abcd123"));
-        let serialized = serde_json::to_string(&compact_dic).unwrap();
-        assert_eq!(serialized, r#""outbox:abcd123""#);
-    }
-
-    #[test]
-    fn can_deserialize_compact_dic() {
-        let text = r#""inbox:abcd123""#;
-        let compact_dic: CompactDIC = serde_json::from_str(text).unwrap();
-        assert_eq!(compact_dic, CompactDIC::Inbox(String::from("abcd123")));
-
-        let text = r#""outbox:abcd123""#;
-        let compact_dic: CompactDIC = serde_json::from_str(text).unwrap();
-        assert_eq!(compact_dic, CompactDIC::Outbox(String::from("abcd123")));
-
-        let text = r#""abcd123""#;
-        let err = serde_json::from_str::<CompactDIC>(text).unwrap_err();
-        assert!(err.to_string().contains("data did not match any variant"));
-    }
-    #[test]
-    fn can_retrieve_plain_jws_from_compact_dic() {
-        let compact_dic = CompactDIC::Inbox(String::from("abcd123"));
-        assert_eq!(compact_dic.plain_jws(), "abcd123");
-
-        let compact_dic = CompactDIC::Outbox(String::from("abcd123"));
-        assert_eq!(compact_dic.plain_jws(), "abcd123");
     }
 }
