@@ -75,10 +75,10 @@ If you encounter any issues while running the application, here are some trouble
  
  ### Common Issues
 
-  1. Build Errors:
+   Build Errors:
   * Ensure that you have the required system packages installed. `libssl-dev` and `pkg-config` 
   * Ensure that you have the latest version of Rust and Cargo installed.
-  * CHeck for any missing dependencies using 
+  * Check for any missing dependencies using 
 ```sh
 cargo check
 ```
