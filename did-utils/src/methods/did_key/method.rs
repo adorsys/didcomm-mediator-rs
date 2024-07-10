@@ -1,3 +1,5 @@
+//! Implementation of the DID Key method.
+
 use multibase::Base::Base58Btc;
 
 use crate::{
@@ -66,7 +68,7 @@ impl DIDKeyMethod {
 
     /// Expands did:key address into DID document
     ///
-    /// See https://w3c-ccg.github.io/did-method-key/#create
+    /// See [Create a did key](https://w3c-ccg.github.io/did-method-key/#create)
     pub fn expand(&self, did: &str) -> Result<DIDDocument, DIDResolutionError> {
         if !did.starts_with("did:key:") {
             return Err(DIDResolutionError::InvalidDid);

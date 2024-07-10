@@ -12,7 +12,16 @@ use super::DIDKeyMethod;
 
 #[async_trait]
 impl DIDResolver for DIDKeyMethod {
-    /// Resolves a DID address into its corresponding DID document.
+    
+    /// Resolves a DID using the did:key method.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `did` - The DID address to resolve.
+    /// 
+    /// # Returns
+    /// 
+    /// A `ResolutionOutput` struct containing the resolved DID document and metadata.
     async fn resolve(&self, did: &str, _options: &DIDResolutionOptions) -> ResolutionOutput {
         let context = Context::SingleString(String::from("https://w3id.org/did-resolution/v1"));
 

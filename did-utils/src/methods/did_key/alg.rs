@@ -1,12 +1,15 @@
+//! //! Support for various cryptographic algorithms used in the DID method.
+
 use num_bigint::{BigInt, Sign};
 
-use crate::{crypto::traits::Error as CryptoError,     key_jwk::ec::{Ec, EcCurves},
+use crate::{crypto::traits::Error as CryptoError, key_jwk::ec::{Ec, EcCurves},
 key_jwk::jwk::Jwk,
 key_jwk::key::Key,
 key_jwk::okp::{Okp, OkpCurves},
 key_jwk::prm::Parameters,
 key_jwk::Bytes,};
 
+/// Supported cryptographic algorithms.
 #[derive(Debug, Copy, Clone, PartialEq)]
 #[allow(unused, clippy::upper_case_acronyms)]
 pub enum Algorithm {
@@ -26,6 +29,12 @@ use Algorithm::*;
 // - https://w3c-ccg.github.io/did-method-key/#signature-method-creation-algorithm
 // - https://w3c-ccg.github.io/did-method-key/#encryption-method-creation-algorithm
 impl Algorithm {
+
+    /// Returns the multicodec prefix associated with the algorithm.
+    ///
+    /// # Returns
+    ///
+    /// A two-byte array representing the multicodec prefix.
     pub fn muticodec_prefix(&self) -> [u8; 2] {
         match self {
             Ed25519 => [0xed, 0x01],
@@ -39,6 +48,15 @@ impl Algorithm {
         }
     }
 
+    /// Creates an `Algorithm` enum variant from the given multicodec prefix.
+    ///
+    /// # Parameters
+    ///
+    /// - `prefix`: A two-byte array representing the multicodec prefix.
+    ///
+    /// # Returns
+    ///
+    /// An `Option` containing the corresponding `Algorithm` variant.
     pub fn from_muticodec_prefix(prefix: &[u8; 2]) -> Option<Self> {
         match prefix {
             [0xed, 0x01] => Some(Ed25519),
@@ -53,6 +71,11 @@ impl Algorithm {
         }
     }
 
+    /// Returns the length of the public key for the algorithm, if known.
+    ///
+    /// # Returns
+    ///
+    /// An `Option` containing the length of the public key in bytes.
     pub fn public_key_length(&self) -> Option<usize> {
         match self {
             Ed25519 => Some(32),
@@ -66,6 +89,15 @@ impl Algorithm {
         }
     }
 
+    /// Builds a JSON Web Key from raw public key bytes.
+    ///
+    /// # Parameters
+    ///
+    /// - `raw_public_key_bytes`: The raw public key bytes.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing the constructed `Jwk` or a `CryptoError`.
     pub fn build_jwk(&self, raw_public_key_bytes: &[u8]) -> Result<Jwk, CryptoError> {
         match self {
             Ed25519 => Ok(Jwk {
@@ -113,6 +145,15 @@ impl Algorithm {
         }
     }
 
+    /// Uncompresses a compressed public key.
+    ///
+    /// # Parameters
+    ///
+    /// - `compressed_key_bytes`: The compressed public key bytes.
+    ///
+    /// # Returns
+    ///
+    /// The bytes representing the uncompressed key or a `CryptoError`.
     pub fn uncompress_public_key(&self, compressed_key_bytes: &[u8]) -> Result<Vec<u8>, CryptoError> {
         if let Some(required_length) = self.public_key_length() {
             if required_length != compressed_key_bytes.len() {
