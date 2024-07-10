@@ -1,5 +1,5 @@
-use std::sync::{Mutex,Arc};
 use std::collections::{HashMap, HashSet};
+use std::sync::{Arc, Mutex};
 
 use axum::Router;
 use server_plugin::{Plugin, PluginError};
@@ -15,16 +15,16 @@ pub enum PluginContainerError {
 pub struct PluginContainer {
     loaded: bool,
     collected_routes: Vec<Router>,
-    plugins: Arc<Vec<Arc<Mutex<dyn Plugin >>>>,
+    plugins: Arc<Vec<Arc<Mutex<dyn Plugin>>>>,
 }
 
-impl<'a> Default for PluginContainer {
+impl Default for PluginContainer {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<'a> PluginContainer {
+impl PluginContainer {
     /// Instantiate an object aware of all statically registered plugins
     pub fn new() -> Self {
         Self {
@@ -35,13 +35,13 @@ impl<'a> PluginContainer {
     }
 
     /// Search loaded plugin based on name string
-    pub fn find_plugin(&self, name: &str) -> Option<Arc<Mutex<dyn Plugin >>> {
+    pub fn find_plugin(&self, name: &str) -> Option<Arc<Mutex<dyn Plugin>>> {
         self.plugins.iter().find_map(|arc_plugin| {
             let plugin = arc_plugin.lock().unwrap();
             (plugin.name() == name).then_some(Arc::clone(&arc_plugin))
         })
-    }   
-    
+    }
+
     /// Load referenced plugins
     ///
     /// This entails mounting them and merging their routes internally (only
@@ -50,22 +50,27 @@ impl<'a> PluginContainer {
     /// initialized are returned in a map with respectively raised errors.
     pub fn load(&mut self) -> Result<(), PluginContainerError> {
         tracing::debug!("loading plugin container");
-    
+
         // Checking for duplicates before mounting plugins
         let mut seen_names = HashSet::new();
         for plugin in self.plugins.iter() {
             let plugin = plugin.lock().unwrap();
             if !seen_names.insert(plugin.name().to_string()) {
-                tracing::error!("found duplicate entry in plugin registry: {}", plugin.name());
+                tracing::error!(
+                    "found duplicate entry in plugin registry: {}",
+                    plugin.name()
+                );
                 return Err(PluginContainerError::DuplicateEntry);
             }
         }
-    
+
         // Reset collection of routes
         self.collected_routes.clear();
-    
+
         // Mount plugins and collect routes on successful status
-        let errors: HashMap<_, _> = self.plugins.iter()
+        let errors: HashMap<_, _> = self
+            .plugins
+            .iter()
             .filter_map(|plugin| {
                 let mut plugin = plugin.lock().unwrap();
                 match plugin.mount() {
@@ -81,10 +86,10 @@ impl<'a> PluginContainer {
                 }
             })
             .collect();
-    
+
         // Flag as loaded
         self.loaded = true;
-    
+
         // Return state of completion
         if errors.is_empty() {
             tracing::debug!("plugin container loaded");
@@ -93,7 +98,6 @@ impl<'a> PluginContainer {
             Err(PluginContainerError::PluginErrorMap(errors))
         }
     }
-        
 
     /// Merge collected routes from all plugins successfully initialized.
     pub fn routes(&self) -> Result<Router, PluginContainerError> {
@@ -215,36 +219,39 @@ mod tests {
         assert!(container.find_plugin("non-existent").is_none());
 
         // Verify collected routes
+        // The actual routes collected are actually hard to test
+        // given that axum::Router seems not to provide public
+        // directives to inquire internal state.
+        // See: https://github.com/tokio-rs/axum/discussions/860
         assert_eq!(container.collected_routes.len(), 2);
     }
 
     #[test]
     fn test_double_loading() {
         // Mock plugins for testing
-        let plugins: Arc<Vec<Arc<Mutex<dyn Plugin >>>> = Arc::new(vec![
+        let plugins: Arc<Vec<Arc<Mutex<dyn Plugin>>>> = Arc::new(vec![
             Arc::new(Mutex::new(FirstPlugin {})),
             Arc::new(Mutex::new(SecondPlugin {})),
         ]);
-    
+
         // Initialize PluginContainer with the mock plugins
         let mut container = PluginContainer {
             loaded: false,
             collected_routes: vec![],
             plugins: Arc::clone(&plugins),
         };
-    
+
         // Test loading plugins twice
         assert!(container.load().is_ok());
         assert!(container.load().is_ok()); // Load again, should succeed without errors
-    
+
         // Verify collected routes
         assert_eq!(container.collected_routes.len(), 2);
     }
-    
+
     #[test]
     fn test_loading_with_duplicates() {
-        // Mock plugins for testing with duplicate name "second"
-        let plugins: Arc<Vec<Arc<Mutex<dyn Plugin >>>> = Arc::new(vec![
+        let plugins: Arc<Vec<Arc<Mutex<dyn Plugin>>>> = Arc::new(vec![
             Arc::new(Mutex::new(FirstPlugin {})),
             Arc::new(Mutex::new(SecondPlugin {})),
             Arc::new(Mutex::new(SecondAgainPlugin {})), // Duplicate "second" name
@@ -267,7 +274,10 @@ mod tests {
                 println!("DuplicateEntry error detected as expected.");
             }
             Err(err) => {
-                panic!("Expected PluginContainerError::DuplicateEntry, got {:?}", err);
+                panic!(
+                    "Expected PluginContainerError::DuplicateEntry, got {:?}",
+                    err
+                );
             }
             Ok(_) => {
                 panic!("Expected an error, but got Ok instead");
@@ -278,11 +288,10 @@ mod tests {
         assert_eq!(container.collected_routes.len(), 0); // No routes should be collected on error
     }
 
-
     #[test]
     fn test_loading_with_failing_plugin() {
         // Mock plugins for testing
-        let plugins: Arc<Vec<Arc<Mutex<dyn Plugin >>>> = Arc::new(vec![
+        let plugins: Arc<Vec<Arc<Mutex<dyn Plugin>>>> = Arc::new(vec![
             Arc::new(Mutex::new(FirstPlugin {})),
             Arc::new(Mutex::new(FaultyPlugin {})),
         ]);
@@ -309,13 +318,12 @@ mod tests {
         assert_eq!(container.collected_routes.len(), 1);
     }
 
-
     #[test]
     fn test_route_extraction_without_loading() {
         // Mock plugins for testing
         let plugins: Arc<Vec<Arc<Mutex<dyn Plugin>>>> = Arc::new(vec![
             Arc::new(Mutex::new(FirstPlugin {})),
-            Arc::new(Mutex::new(FaultyPlugin {})),
+            Arc::new(Mutex::new(SecondPlugin {})),
         ]);
 
         // Initialize PluginContainer with the mock plugins
