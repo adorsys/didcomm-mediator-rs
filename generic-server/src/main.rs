@@ -1,7 +1,6 @@
 use axum::Server;
 use generic_server::app;
 use std::net::SocketAddr;
-use tokio_util::sync::CancellationToken;
 
 #[tokio::main]
 async fn main() {
