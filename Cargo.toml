@@ -9,7 +9,6 @@ members = [
     "did-endpoint",
     "generic-server",
     "mediator-coordination",
-    "mediator-server",
     "oob-messages",
     "server-plugin"
 ]
@@ -20,6 +19,5 @@ did-utils = { path = "./did-utils" }
 did-endpoint = { path = "./did-endpoint" }
 generic-server = { path = "./generic-server" }
 mediator-coordination = { path = "./mediator-coordination" }
-mediator-server = { path = "./mediator-server" }
 oob-messages = { path = "./oob-messages" }
 server-plugin = { path = "./server-plugin" }
