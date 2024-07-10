@@ -254,40 +254,26 @@ mod tests {
         let plugins: Arc<Vec<Arc<Mutex<dyn Plugin>>>> = Arc::new(vec![
             Arc::new(Mutex::new(FirstPlugin {})),
             Arc::new(Mutex::new(SecondPlugin {})),
-            Arc::new(Mutex::new(SecondAgainPlugin {})), // Duplicate "second" name
+            Arc::new(Mutex::new(SecondAgainPlugin {})), 
         ]);
-
+    
         // Initialize PluginContainer with the mock plugins
         let mut container = PluginContainer {
             loaded: false,
             collected_routes: vec![],
             plugins: Arc::clone(&plugins),
         };
-
+    
         // Attempt to load plugins with duplicates
         let result = container.load();
-
+    
         // Assert that the result is an error due to duplicate entries
-        match result {
-            Err(PluginContainerError::DuplicateEntry) => {
-                // Expected error, continue
-                println!("DuplicateEntry error detected as expected.");
-            }
-            Err(err) => {
-                panic!(
-                    "Expected PluginContainerError::DuplicateEntry, got {:?}",
-                    err
-                );
-            }
-            Ok(_) => {
-                panic!("Expected an error, but got Ok instead");
-            }
-        }
-
+        assert_eq!(result.unwrap_err(), PluginContainerError::DuplicateEntry);
+    
         // Verify collected routes (should not be affected by duplicates)
         assert_eq!(container.collected_routes.len(), 0); // No routes should be collected on error
     }
-
+    
     #[test]
     fn test_loading_with_failing_plugin() {
         // Mock plugins for testing
