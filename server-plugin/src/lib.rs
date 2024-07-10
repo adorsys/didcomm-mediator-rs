@@ -10,7 +10,7 @@ pub enum PluginError {
     InitError,
 }
 
-pub trait Plugin: Sync {
+pub trait Plugin: Sync + Send {
     /// Define a unique identifier
     fn name(&self) -> &'static str;
 

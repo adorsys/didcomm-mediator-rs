@@ -15,7 +15,7 @@ pub enum PluginContainerError {
 pub struct PluginContainer {
     loaded: bool,
     collected_routes: Vec<Router>,
-    plugins: Arc<Vec<Arc<Mutex<dyn Plugin + Send>>>>,
+    plugins: Arc<Vec<Arc<Mutex<dyn Plugin >>>>,
 }
 
 impl<'a> Default for PluginContainer {
@@ -35,7 +35,7 @@ impl<'a> PluginContainer {
     }
 
     /// Search loaded plugin based on name string
-    pub fn find_plugin(&self, name: &str) -> Option<Arc<Mutex<dyn Plugin + Send>>> {
+    pub fn find_plugin(&self, name: &str) -> Option<Arc<Mutex<dyn Plugin >>> {
         self.plugins.iter().find_map(|arc_plugin| {
             let plugin = arc_plugin.lock().unwrap();
             (plugin.name() == name).then_some(Arc::clone(&arc_plugin))
@@ -193,7 +193,7 @@ mod tests {
     #[test]
     fn test_loading() {
         // Mock plugins for testing
-        let plugins: Arc<Vec<Arc<Mutex<dyn Plugin + Send>>>> = Arc::new(vec![
+        let plugins: Arc<Vec<Arc<Mutex<dyn Plugin>>>> = Arc::new(vec![
             Arc::new(Mutex::new(FirstPlugin {})),
             Arc::new(Mutex::new(SecondPlugin {})),
         ]);
@@ -221,7 +221,7 @@ mod tests {
     #[test]
     fn test_double_loading() {
         // Mock plugins for testing
-        let plugins: Arc<Vec<Arc<Mutex<dyn Plugin + Send>>>> = Arc::new(vec![
+        let plugins: Arc<Vec<Arc<Mutex<dyn Plugin >>>> = Arc::new(vec![
             Arc::new(Mutex::new(FirstPlugin {})),
             Arc::new(Mutex::new(SecondPlugin {})),
         ]);
@@ -244,7 +244,7 @@ mod tests {
     #[test]
     fn test_loading_with_duplicates() {
         // Mock plugins for testing with duplicate name "second"
-        let plugins: Arc<Vec<Arc<Mutex<dyn Plugin + Send>>>> = Arc::new(vec![
+        let plugins: Arc<Vec<Arc<Mutex<dyn Plugin >>>> = Arc::new(vec![
             Arc::new(Mutex::new(FirstPlugin {})),
             Arc::new(Mutex::new(SecondPlugin {})),
             Arc::new(Mutex::new(SecondAgainPlugin {})), // Duplicate "second" name
@@ -282,7 +282,7 @@ mod tests {
     #[test]
     fn test_loading_with_failing_plugin() {
         // Mock plugins for testing
-        let plugins: Arc<Vec<Arc<Mutex<dyn Plugin + Send>>>> = Arc::new(vec![
+        let plugins: Arc<Vec<Arc<Mutex<dyn Plugin >>>> = Arc::new(vec![
             Arc::new(Mutex::new(FirstPlugin {})),
             Arc::new(Mutex::new(FaultyPlugin {})),
         ]);
@@ -313,7 +313,7 @@ mod tests {
     #[test]
     fn test_route_extraction_without_loading() {
         // Mock plugins for testing
-        let plugins: Arc<Vec<Arc<Mutex<dyn Plugin + Send>>>> = Arc::new(vec![
+        let plugins: Arc<Vec<Arc<Mutex<dyn Plugin>>>> = Arc::new(vec![
             Arc::new(Mutex::new(FirstPlugin {})),
             Arc::new(Mutex::new(FaultyPlugin {})),
         ]);

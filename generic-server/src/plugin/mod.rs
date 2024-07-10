@@ -9,7 +9,7 @@ use server_plugin::Plugin;
 mod index;
 
 lazy_static! {
-    pub static ref PLUGINS: Arc<Vec<Arc<Mutex<dyn Plugin + 'static + Send>>>> = Arc::new(vec![
+    pub static ref PLUGINS: Arc<Vec<Arc<Mutex<dyn Plugin + 'static >>>> = Arc::new(vec![
         #[cfg(feature = "plugin-index")]
         Arc::new(Mutex::new(index::IndexPlugin::default())),
         #[cfg(feature = "plugin-did_endpoint")]
