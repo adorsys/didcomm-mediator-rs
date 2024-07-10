@@ -13,8 +13,6 @@ async fn main() {
 }
 
 async fn generic_server_with_gracefull_shutdown(addr: SocketAddr) {
-    // creating cancellation token tell server task and process to shutdown
-    let token = CancellationToken::new();
 
     // Load dotenv-flow variables
     dotenv_flow::dotenv_flow().ok();
@@ -36,7 +34,7 @@ async fn generic_server_with_gracefull_shutdown(addr: SocketAddr) {
     tokio::select! {
         _ = tokio::signal::ctrl_c() => {
            tracing::info!("\nshuting down gracefully");
-            let _ = plugin_container.unload(); token.cancel();}
+            let _ = plugin_container.unload();}
     };
 }
 fn config_tracing() {
