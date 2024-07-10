@@ -118,7 +118,7 @@ impl<'a> PluginContainer<'a> {
             Err(PluginContainerError::PluginErrorMap(errors))
         }
     }
-    
+
     /// Merge collected routes from all plugins successfully initialized.
     pub fn routes(&self) -> Result<Router, PluginContainerError> {
         if self.loaded {
@@ -297,5 +297,21 @@ mod tests {
             container.routes().unwrap_err(),
             PluginContainerError::Unloaded
         );
+    }
+    #[test]
+    fn test_unloading() {
+        // loading container from test_loading
+        let mut container = PluginContainer {
+            loaded: false,
+            collected_routes: vec![],
+            plugins: &vec![Box::new(FirstPlugin {}), Box::new(SecondPlugin {})],
+        };
+        assert!(container.load().is_ok());
+        assert!(container.routes().is_ok());
+
+        // unloading container and clearing routes
+        assert!(container.unload().is_ok());
+
+        assert_eq!(container.collected_routes.len(), 0);
     }
 }

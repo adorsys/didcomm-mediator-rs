@@ -21,9 +21,10 @@ async fn generic_server_with_gracefull_shutdown(addr: SocketAddr) {
 
     // Enable logging
     config_tracing();
-    
+
     // Load plugins
     let (mut plugin_container, router) = app();
+
     // spawn task for server
     tokio::spawn(async move {
         Server::bind(&addr)
@@ -34,12 +35,15 @@ async fn generic_server_with_gracefull_shutdown(addr: SocketAddr) {
 
     tokio::select! {
         _ = tokio::signal::ctrl_c() => {
+           tracing::info!("\nshuting down gracefully");
             let _ = plugin_container.unload(); token.cancel();}
     };
 }
 fn config_tracing() {
     use tracing::Level;
+
     use tracing_subscriber::{filter, layer::SubscriberExt, util::SubscriberInitExt};
+
     let tracing_layer = tracing_subscriber::fmt::layer();
     let filter = filter::Targets::new()
         .with_target("hyper::proto", Level::INFO)
@@ -54,11 +58,8 @@ fn config_tracing() {
 
 #[cfg(test)]
 mod tests {
-    use tokio::signal;
-
     use super::generic_server_with_gracefull_shutdown;
     use std::net::SocketAddr;
-
 
     #[tokio::test]
     async fn test_server_shutdown() {
@@ -69,7 +70,5 @@ mod tests {
         // run server in background
         tokio::spawn(generic_server_with_gracefull_shutdown(addr));
         // send a shutdown signal to main thread
-        signal::unix::SignalKind::terminate();
-
-            }
+    }
 }
