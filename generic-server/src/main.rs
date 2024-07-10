@@ -1,5 +1,5 @@
 use axum::Server;
-use generic_server::{app, unload_for_shutdown};
+use generic_server::app;
 use std::net::SocketAddr;
 use tokio_util::sync::CancellationToken;
 
@@ -9,11 +9,11 @@ async fn main() {
     let port = std::env::var("SERVER_LOCAL_PORT").unwrap_or("3000".to_owned());
     let addr: SocketAddr = format!("127.0.0.1:{port}").parse().unwrap();
     tracing::info!("listening on {addr}");
-    run_and_shutdown_server(addr).await
+    generic_server_with_gracefull_shutdown(addr).await
 }
 
-async fn run_and_shutdown_server(add: SocketAddr) {
-    //creating cancellation token which can be cloned and closed to tell server and process to finish
+async fn generic_server_with_gracefull_shutdown(addr: SocketAddr) {
+    // creating cancellation token tell server task and process to shutdown
     let token = CancellationToken::new();
 
     // Load dotenv-flow variables
@@ -22,16 +22,19 @@ async fn run_and_shutdown_server(add: SocketAddr) {
     // Enable logging
     config_tracing();
     
+    // Load plugins
+    let (mut plugin_container, router) = app();
     // spawn task for server
     tokio::spawn(async move {
-        Server::bind(&add)
-            .serve(app().into_make_service())
+        Server::bind(&addr)
+            .serve(router.into_make_service())
             .await
             .unwrap();
     });
 
     tokio::select! {
-        _ = tokio::signal::ctrl_c() => {eprintln!("\nUnmounting Plugins\nshutting down gracefully"); unload_for_shutdown(); token.cancel(); }
+        _ = tokio::signal::ctrl_c() => {
+            let _ = plugin_container.unload(); token.cancel();}
     };
 }
 fn config_tracing() {
@@ -53,7 +56,7 @@ fn config_tracing() {
 mod tests {
     use tokio::signal;
 
-    use super::run_and_shutdown_server;
+    use super::generic_server_with_gracefull_shutdown;
     use std::net::SocketAddr;
 
 
@@ -64,7 +67,7 @@ mod tests {
         tracing::info!("listening on {addr}");
 
         // run server in background
-        tokio::spawn(run_and_shutdown_server(addr));
+        tokio::spawn(generic_server_with_gracefull_shutdown(addr));
         // send a shutdown signal to main thread
         signal::unix::SignalKind::terminate();
 

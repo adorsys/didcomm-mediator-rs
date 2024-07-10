@@ -1,6 +1,6 @@
-use std::collections::{HashMap, HashSet};
 use axum::Router;
 use server_plugin::{Plugin, PluginError};
+use std::collections::{HashMap, HashSet};
 
 use super::PLUGINS;
 
@@ -88,20 +88,20 @@ impl<'a> PluginContainer<'a> {
         }
     }
 
+    /// unload container plugins
     pub fn unload(&mut self) -> Result<(), PluginContainerError> {
         // Unmount plugins and clearing the vector of routes
         let errors: HashMap<_, _> = self
             .plugins
             .iter()
-            .filter_map(|plugins| match plugins.unmount() {
+            .filter_map(|plugin| match plugin.unmount() {
                 Ok(_) => {
-                    tracing::info!("Unmounted plugins {}", plugins.name());
-                    self.collected_routes.clear();
+                    tracing::info!("Unmounted plugin {}", plugin.name());
                     None
                 }
                 Err(err) => {
-                    tracing::error!("error unmounting plugins {}", plugins.name());
-                    Some((plugins.name().to_owned(), err))
+                    tracing::error!("error unmounting plugin {}", plugin.name());
+                    Some((plugin.name().to_owned(), err))
                 }
             })
             .collect();
@@ -111,12 +111,14 @@ impl<'a> PluginContainer<'a> {
 
         // Return state of completion
         if errors.is_empty() {
+            self.collected_routes.clear();
             tracing::debug!("plugin container unloaded");
             Ok(())
         } else {
             Err(PluginContainerError::PluginErrorMap(errors))
         }
     }
+    
     /// Merge collected routes from all plugins successfully initialized.
     pub fn routes(&self) -> Result<Router, PluginContainerError> {
         if self.loaded {
