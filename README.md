@@ -55,3 +55,35 @@ You can install them using the following command:
 sudo apt update
 sudo apt install -y libssl-dev pkg-config
 ```
+
+## Step-by-Step Guides
+
+### Prerequisites
+Ensure you have the following installed:
+ * [Rust & Cargo](https://www.rust-lang.org/tools/install)
+
+## Setup
+1. Create a working directory eg(cd didcomm-mediator-rs) and cd into your directory.
+
+ 2. Clone the repository using the following command:
+
+git clone https://github.com/adorsys/didcomm-mediator-rs.git
+
+## Troubleshooting Tips
+If you encounter any issues while running the application, here are some troubleshooting tips to help you resolve them
+ 
+ ### Common Issues
+
+  1. Build Errors:
+  * Ensure that you have the required system packages installed. `libssl-dev` and `pkg-config` 
+  * Ensure that you have the latest version of Rust and Cargo installed.
+  * CHeck for any missing dependencies using `cargo check`.
+
+## Example
+ 1. Start the mediator service:
+
+cd didcomm-mediator-rs/mediator
+cargo run
+
+## License
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
