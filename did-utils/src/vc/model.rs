@@ -6,6 +6,7 @@ use serde_json::Value;
 
 use crate::{ldmodel::Context, didcore::Proofs};
 
+/// Represents a Verifiable Credential.
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct VerifiableCredential {

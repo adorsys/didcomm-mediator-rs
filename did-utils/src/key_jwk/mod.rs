@@ -8,7 +8,7 @@
 //! - [`ec`]:     Provides support for working with elliptic-curve keys.
 //! - [`jwk`]:    Contains types and utilities for working with JSON Web Keys (JWKs).
 //! - [`key`]:    Provides generic key types and associated utilities used in JSON Web Keys (JWKs).
-//! - [`oct`]:    Provides supportfor working with octet sequence keys.
+//! - [`oct`]:    Provides support for working with octet sequence keys.
 //! - [`okp`]:    Provides support for working with Octet Key Pairs (OKP).
 //! - [`prm`]:    Defines parameter-related types for keys and cryptographic operations.
 //! - [`rsa`]:    Provides support for working with RSA keys.

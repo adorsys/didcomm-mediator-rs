@@ -1,4 +1,4 @@
-//! //! Support for various cryptographic algorithms used in the DID method.
+//! Support for various cryptographic algorithms used in the `did:key` method.
 
 use num_bigint::{BigInt, Sign};
 

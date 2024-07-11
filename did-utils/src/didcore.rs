@@ -1,3 +1,10 @@
+//! Implements the DID Core specification
+//! 
+//! As specified by [Decentralized Identifiers (DIDs) v1.0 - Core architecture,
+//! data model, and representations][did-core].
+//!
+//! [did-core]: https://www.w3.org/TR/did-core/
+
 use std::collections::HashMap;
 
 use chrono::{DateTime, Utc};
@@ -8,6 +15,9 @@ use crate::{key_jwk::jwk::Jwk, ldmodel::Context, proof::model::Proof};
 
 // === Structure of a did document ===
 
+/// Represents a DID Document according to the [DID Core specification][did-core].
+/// 
+/// [did-core]: https://www.w3.org/TR/did-core/
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Document {
@@ -67,6 +77,7 @@ pub struct Document {
     pub proof: Option<Proofs>,
 }
 
+/// Represents a DID Document controller(s).
 #[derive(Serialize, Debug, Clone, PartialEq, Deserialize)]
 #[serde(untagged)]
 pub enum Controller {
@@ -74,7 +85,11 @@ pub enum Controller {
     SetOfString(Vec<String>),
 }
 
-// See https://www.w3.org/TR/did-core/#services
+/// Represents a [service] in a DID Document.
+/// 
+/// A service defines how to interact with the DID subject.
+/// 
+/// [service]: https://www.w3.org/TR/did-core/#services
 #[derive(Serialize, Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Service {
@@ -91,6 +106,9 @@ pub struct Service {
     pub additional_properties: Option<HashMap<String, Value>>,
 }
 
+/// Represents a [verification method] in a DID Document.
+/// 
+/// [verification method]: https://www.w3.org/TR/did-core/#verification-methods
 #[derive(Serialize, Debug, Clone, PartialEq, Default, Deserialize)]
 pub struct VerificationMethod {
     pub id: String,
@@ -121,6 +139,7 @@ pub struct VerificationMethod {
     pub additional_properties: Option<HashMap<String, Value>>,
 }
 
+/// Represents different formats of keys used in verification methods.
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[serde(untagged)]
 pub enum KeyFormat {
@@ -129,7 +148,7 @@ pub enum KeyFormat {
     Jwk(Jwk),
 }
 
-// === Authentication ===
+/// Represents the authentication methods in a DID Document.
 #[derive(Serialize, Debug, Clone, PartialEq, Deserialize)]
 #[serde(untagged)]
 pub enum Authentication {
@@ -137,7 +156,7 @@ pub enum Authentication {
     Embedded(Box<VerificationMethod>),
 }
 
-// === Assertion Method ===
+/// Represents the assertion methods in a DID Document.
 #[derive(Serialize, Debug, Clone, PartialEq, Deserialize)]
 #[serde(untagged)]
 pub enum AssertionMethod {
@@ -145,7 +164,7 @@ pub enum AssertionMethod {
     Embedded(Box<VerificationMethod>),
 }
 
-// === Capability Delegation ===
+/// Represents the capability delegation methods in a DID Document.
 #[derive(Serialize, Debug, Clone, PartialEq, Deserialize)]
 #[serde(untagged)]
 pub enum CapabilityDelegation {
@@ -153,7 +172,7 @@ pub enum CapabilityDelegation {
     Embedded(Box<VerificationMethod>),
 }
 
-// === Capability Invocation ===
+/// Represents the capability invocation methods in a DID Document.
 #[derive(Serialize, Debug, Clone, PartialEq, Deserialize)]
 #[serde(untagged)]
 pub enum CapabilityInvocation {
@@ -161,7 +180,7 @@ pub enum CapabilityInvocation {
     Embedded(Box<VerificationMethod>),
 }
 
-// === Key Agreement ===
+/// Represents the key agreement methods in a DID Document.
 #[derive(Serialize, Debug, Clone, PartialEq, Deserialize)]
 #[serde(untagged)]
 pub enum KeyAgreement {
@@ -170,6 +189,8 @@ pub enum KeyAgreement {
 }
 
 impl VerificationMethod {
+
+    /// Serializes the private key format into a JSON map with the appropriate key format field.
     fn serialize_private_key_format<S>(value: &Option<KeyFormat>, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -194,6 +215,7 @@ impl VerificationMethod {
         }
     }
 
+    /// Serializes the public key format into a JSON map with the appropriate key format field.
     fn serialize_public_key_format<S>(value: &Option<KeyFormat>, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -218,6 +240,7 @@ impl VerificationMethod {
         }
     }
 
+    /// Deserializes the private key format from a JSON map with the appropriate key format field.
     pub fn deserialize_public_key_format<'de, D>(deserializer: D) -> Result<Option<KeyFormat>, D::Error>
     where
         D: Deserializer<'de>,
@@ -247,6 +270,7 @@ impl VerificationMethod {
         Ok(None)
     }
 
+    /// Deserializes the private key format from a JSON map with the appropriate key format field.
     pub fn deserialize_private_key_format<'de, D>(deserializer: D) -> Result<Option<KeyFormat>, D::Error>
     where
         D: Deserializer<'de>,
@@ -277,7 +301,7 @@ impl VerificationMethod {
     }
 }
 
-// === Proof ===
+/// Represents the proofs in a DID Document.
 #[derive(Serialize, Debug, Clone, PartialEq, Deserialize)]
 #[serde(untagged)]
 pub enum Proofs {
@@ -286,7 +310,7 @@ pub enum Proofs {
 }
 
 #[cfg(test)]
-pub mod tests {
+mod tests {
     use super::*;
     use crate::key_jwk::key::Key;
     use multibase::Base::Base64Url;
