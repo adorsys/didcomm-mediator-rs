@@ -108,7 +108,7 @@ impl PluginContainer {
                 let plugin = plugin.lock().unwrap();
                 match plugin.unmount() {
                     Ok(_) => {
-                        tracing::info!("Unmounted plugin {}", plugin.name());
+                        tracing::info!("unmounted plugin {}", plugin.name());
                         None
                     }
                     Err(err) => {
@@ -358,6 +358,7 @@ mod tests {
             PluginContainerError::Unloaded
         );
     }
+    
     #[test]
     fn test_unloading() {
         // Initialize PluginContainer with the mock plugins
