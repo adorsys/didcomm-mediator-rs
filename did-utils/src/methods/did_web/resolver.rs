@@ -14,18 +14,17 @@ use hyper::{
     Uri,
 };
 use hyper_tls::HttpsConnector;
+use crate::methods::resolution::{
+    DIDResolutionMetadata,
+    DIDResolutionOptions,
+    MediaType,
+    ResolutionOutput,
+};
 
 use crate::methods::{
     errors::DidWebError,
-    traits::{
-        DIDResolutionMetadata,
-        DIDResolutionOptions,
-        DIDResolver,
-        MediaType,
-        ResolutionOutput,
-    },
+    traits::DIDResolver,
 };
-
 use crate::ldmodel::Context;
 
 use crate::didcore::Document as DIDDocument;

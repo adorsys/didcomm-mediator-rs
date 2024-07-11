@@ -4,8 +4,15 @@ use crate::{
     ldmodel::Context,
     methods::{
         errors::DIDResolutionError,
-        traits::{DIDResolutionMetadata, DIDResolutionOptions, DIDResolver, MediaType, ResolutionOutput},
+        traits::DIDResolver,
     },
+};
+
+use crate::methods::resolution::{
+    DIDResolutionMetadata,
+    DIDResolutionOptions,
+    MediaType,
+    ResolutionOutput,
 };
 
 use super::DIDKeyMethod;
@@ -59,7 +66,7 @@ impl DIDResolver for DIDKeyMethod {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::methods::traits::DereferencingOptions;
+    use crate::methods::resolution::DereferencingOptions;
     use serde_json::Value;
 
     #[async_std::test]

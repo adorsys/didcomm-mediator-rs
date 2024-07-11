@@ -15,7 +15,8 @@
 //! ### did:key usage
 //! 
 //! ```rust
-//! use did_utils::methods::{traits::*, DIDKeyMethod};
+//! use did_utils::methods::{traits::DIDResolver, DIDKeyMethod};
+//! use did_utils::methods::DIDResolutionOptions;
 //! 
 //! async fn test_did_key() {
 //!     let did_method = DIDKeyMethod {
@@ -33,7 +34,8 @@
 //! ```rust
 //! async fn resolves_did_web_document() {
 //! 
-//!     use did_utils::methods::{traits::*, DidWebResolver};
+//!     use did_utils::methods::{traits::DIDResolver, DidWebResolver};
+//!     use did_utils::methods::DIDResolutionOptions;
 //! 
 //!     let port = 3000;
 //!     let host = "localhost";
@@ -43,22 +45,26 @@
 //!     let did: &str = &formatted_string;
 //! 
 //!     let did_web_resolver = DidWebResolver::http();
-//!     let output: ResolutionOutput = did_web_resolver.resolve(
+//!     let output = did_web_resolver.resolve(
 //!         did,
 //!         &DIDResolutionOptions::default()
 //!     ).await;
 //! }
 //! ```
 
+pub mod did_key;
+pub mod did_web;
 pub mod errors;
 pub mod traits;
 
-pub mod did_key;
-pub mod did_web;
-
 pub(crate) mod utils;
+pub(crate) mod resolution;
 
-pub use errors::*;
-pub use traits::*;
+// Re-exported items
+pub use errors::{DIDResolutionError, DidWebError, ParsingErrorSource};
+pub use traits::{DIDMethod, DIDResolver};
 pub use did_web::resolver::DidWebResolver;
 pub use did_key::method::DIDKeyMethod;
+pub use resolution::{DereferencingOptions, DereferencingMetadata, ContentMetadata, DereferencingOutput,
+                     DIDResolutionOptions, ResolutionOutput, DIDResolutionMetadata, DIDDocumentMetadata
+};

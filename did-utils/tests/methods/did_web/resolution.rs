@@ -1,7 +1,7 @@
 #![allow(unused_imports)]
 use did_utils::methods::{
     did_web::resolver::DidWebResolver,
-    traits::{ DIDResolutionOptions, DIDResolver, ResolutionOutput },
+    { DIDResolutionOptions, DIDResolver, ResolutionOutput },
 };
 
 use hyper::{ service::{ make_service_fn, service_fn }, Body, Request, Response, Server };
