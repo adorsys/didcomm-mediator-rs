@@ -45,3 +45,13 @@ impl Plugin for MyPlugin {
     }
 }
 ```
+## Example Register the Plugin
+```rust
+    pub static ref PLUGINS: Vec<Box<dyn Plugin>> = vec![
+        #[cfg(feature = "plugin-index")]
+        Box::<index::IndexPlugin>::default(),
+        #[cfg(feature = "plugin-did_endpoint")]
+        Box::<did_endpoint::plugin::DidEndpointPlugin>::default(),
+        #[cfg(feature = "plugin-oob_messages")]
+        Box::<oob_messages::plugin::OOBMessagesPlugin>::default()
+```
