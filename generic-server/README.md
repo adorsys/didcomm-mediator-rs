@@ -50,6 +50,6 @@ impl Plugin for MyPlugin {
 ```rust
     pub static ref PLUGINS: Vec<Box<dyn Plugin>> = vec![
         #[cfg(feature = "plugin-MyPlugin")]
-        Box::<example::plugin::MyPluginp>::default(),
+        Box::<example::plugin::MyPlugin>::default(),
     ];
 ```
