@@ -1,35 +1,14 @@
 //! Traits for cryptographic operations.
-//! 
-//! We are desiging the application to support many curve algorithms.
-//! This module will design an interface common to all curves, so that we can change the curve
-//! without altering consuming modules.
 
 // Inspired from https://github.com/decentralized-identity/did-key.rs
 // We are desiging the application to support many curve algorithms.
 // This module will design an interface common to all curves, so that we can change the curve
 // without altering consuming modules.
 
+use super::errors::Error;
 
 /// The length of a 32-byte key material.
 pub const BYTES_LENGTH_32: usize = 32;
-
-/// The set of errors that can occur during key operations.
-#[derive(Debug)]
-pub enum Error {
-    CanNotComputePublicKey,
-    CanNotRetrieveSignature,
-    InvalidCurve,
-    InvalidKeyLength,
-    InvalidSecretKey,
-    InvalidSeed,
-    InvalidPublicKey,
-    SignatureError,
-    VerificationError,
-    InvalidProof,
-    InvalidCall(String),
-    Unsupported,
-    Unknown(String),
-}
 
 /// A trait for types that hold key material bytes.
 pub trait KeyMaterial {

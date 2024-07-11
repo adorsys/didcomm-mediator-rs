@@ -1,15 +1,14 @@
-//! Implements the X25519 key pair.
-//!
 //! This module contains the implementation of the X25519 key pair.
 
 use x25519_dalek::{PublicKey, StaticSecret};
 
-use super::traits::{BYTES_LENGTH_32, Error};
+use super::traits::BYTES_LENGTH_32;
 use super::utils::{generate_seed, clone_slice_to_array};
 use super::{
     traits::{Generate, KeyMaterial, ECDH},
     AsymmetricKey,
 };
+use super::errors::Error;
 
 pub type X25519KeyPair = AsymmetricKey<PublicKey, StaticSecret>;
 

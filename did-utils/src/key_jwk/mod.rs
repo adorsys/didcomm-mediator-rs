@@ -24,12 +24,13 @@ pub mod prm;
 pub mod rsa;
 pub mod secret;
 
+// Re-exports
 pub use bytes::Bytes;
-pub use ec::*;
-pub use jwk::*;
+pub use ec::{Ec, EcCurves};
+pub use jwk::{Jwk, JwkSet};
 pub use key::Key;
 pub use oct::Oct;
-pub use okp::*;
-pub use prm::*;
-pub use rsa::*;
+pub use okp::{Okp, OkpCurves};
+pub use prm::Parameters;
+pub use rsa::Rsa;
 pub use secret::Secret;

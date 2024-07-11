@@ -5,7 +5,8 @@ use multibase::Base::Base58Btc;
 use crate::{
     crypto::{
         ed25519::Ed25519KeyPair,
-        traits::{Error as CryptoError, Generate, KeyMaterial},
+        traits::{Generate, KeyMaterial},
+        errors::Error as CryptoError,
     },
     didcore::{self, Document as DIDDocument, KeyFormat, VerificationMethod},
     ldmodel::Context,

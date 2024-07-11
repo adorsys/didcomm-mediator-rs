@@ -5,7 +5,6 @@
 //! - [`ed25519`]: Provides Ed25519 key pair generation and signature functionality.
 //! - [`x25519`]: Provides X25519 key pair generation and Diffie-Hellman key exchange functionality.
 //! - [`traits`]: Defines common traits for cryptographic operations.
-//! - [`utils`]: Contains utility functions for cryptographic operations.
 //! - [`mod@sha256_hash`]: Provides functionality for SHA-256 hashing.
 //!
 //! The module also re-exports key types and utilities for easier access.
@@ -39,19 +38,21 @@
 //! let hash = sha256_hash(json_file.as_bytes());
 //!```
 
+mod format;
+mod utils;
+
+pub mod errors;
 pub mod ed25519;
 pub mod traits;
-pub mod utils;
 pub mod x25519;
 pub mod sha256_hash;
 
-pub use crate::crypto::traits::*;
-pub use crate::crypto::utils::*;
-pub use crate::crypto::ed25519::Ed25519KeyPair;
-pub use crate::crypto::x25519::X25519KeyPair;
-pub use crate::crypto::sha256_hash::*;
+pub use errors::Error;
+pub use traits::{Generate, CoreSign, ECDH, BYTES_LENGTH_32};
+pub use ed25519::Ed25519KeyPair;
+pub use x25519::X25519KeyPair;
+pub use sha256_hash::sha256_hash;
 
-mod format;
 
 /// A wrapper struct for an asymmetric key pair.
 ///

@@ -26,8 +26,9 @@
 use crate::{
     crypto::{
         ed25519::Ed25519KeyPair,
-        traits::{Error as CryptoError, Generate, KeyMaterial, BYTES_LENGTH_32},
+        traits::{Generate, KeyMaterial, BYTES_LENGTH_32},
         x25519::X25519KeyPair,
+        errors::Error as CryptoError,
     },
     key_jwk::{
         jwk::Jwk,

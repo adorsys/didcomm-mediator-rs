@@ -1,3 +1,5 @@
+//! This module provides utilitiy for computing the SHA256 hash of a given input.
+
 use sha2::{Sha256, Digest};
 
 /// Compute the SHA256 hash of a given input.

@@ -2,7 +2,7 @@
 
 use num_bigint::{BigInt, Sign};
 
-use crate::{crypto::traits::Error as CryptoError, key_jwk::ec::{Ec, EcCurves},
+use crate::{crypto::errors::Error as CryptoError, key_jwk::ec::{Ec, EcCurves},
 key_jwk::jwk::Jwk,
 key_jwk::key::Key,
 key_jwk::okp::{Okp, OkpCurves},

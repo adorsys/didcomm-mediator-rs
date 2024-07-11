@@ -17,7 +17,7 @@ use super::traits::BYTES_LENGTH_32;
 /// # Errors
 ///
 /// Returns an error if the initial seed is invalid.
-pub fn generate_seed(initial_seed: &[u8]) -> Result<[u8; BYTES_LENGTH_32], &str> {
+pub(super) fn generate_seed(initial_seed: &[u8]) -> Result<[u8; BYTES_LENGTH_32], &str> {
     let mut seed = [0u8; BYTES_LENGTH_32];
     if initial_seed.is_empty() || initial_seed.len() != BYTES_LENGTH_32 {
         getrandom::getrandom(&mut seed).expect("couldn't generate random seed");
@@ -45,7 +45,7 @@ pub fn generate_seed(initial_seed: &[u8]) -> Result<[u8; BYTES_LENGTH_32], &str>
 /// # Panics
 ///
 /// Panics if the length of the slice is not equal to `BYTES_LENGTH_32`.
-pub fn clone_slice_to_array(slice: &[u8; BYTES_LENGTH_32]) -> [u8; BYTES_LENGTH_32] {
+pub(super) fn clone_slice_to_array(slice: &[u8; BYTES_LENGTH_32]) -> [u8; BYTES_LENGTH_32] {
     
     let mut array = [0u8; BYTES_LENGTH_32];
 
