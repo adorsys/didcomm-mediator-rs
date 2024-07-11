@@ -1,8 +1,7 @@
-use std::collections::{HashMap, HashSet};
-use std::sync::{Arc, Mutex};
-
 use axum::Router;
 use server_plugin::{Plugin, PluginError};
+use std::collections::{HashMap, HashSet};
+use std::sync::{Arc, Mutex};
 
 use super::PLUGINS;
 
@@ -93,6 +92,40 @@ impl PluginContainer {
         // Return state of completion
         if errors.is_empty() {
             tracing::debug!("plugin container loaded");
+            Ok(())
+        } else {
+            Err(PluginContainerError::PluginErrorMap(errors))
+        }
+    }
+
+    /// unload container plugins
+    pub fn unload(&mut self) -> Result<(), PluginContainerError> {
+        // Unmount plugins and clearing the vector of routes
+        let errors: HashMap<_, _> = self
+            .plugins
+            .iter()
+            .filter_map(|plugin| {
+                let plugin = plugin.lock().unwrap();
+                match plugin.unmount() {
+                    Ok(_) => {
+                        tracing::info!("unmounted plugin {}", plugin.name());
+                        None
+                    }
+                    Err(err) => {
+                        tracing::error!("error unmounting plugin {}", plugin.name());
+                        Some((plugin.name().to_owned(), err))
+                    }
+                }
+            })
+            .collect();
+
+        // Flag as unloaded
+        self.loaded = false;
+
+        // Return state of completion
+        if errors.is_empty() {
+            self.collected_routes.clear();
+            tracing::debug!("plugin container unloaded");
             Ok(())
         } else {
             Err(PluginContainerError::PluginErrorMap(errors))
@@ -254,26 +287,26 @@ mod tests {
         let plugins: Arc<Vec<Arc<Mutex<dyn Plugin>>>> = Arc::new(vec![
             Arc::new(Mutex::new(FirstPlugin {})),
             Arc::new(Mutex::new(SecondPlugin {})),
-            Arc::new(Mutex::new(SecondAgainPlugin {})), 
+            Arc::new(Mutex::new(SecondAgainPlugin {})),
         ]);
-    
+
         // Initialize PluginContainer with the mock plugins
         let mut container = PluginContainer {
             loaded: false,
             collected_routes: vec![],
             plugins: Arc::clone(&plugins),
         };
-    
+
         // Attempt to load plugins with duplicates
         let result = container.load();
-    
+
         // Assert that the result is an error due to duplicate entries
         assert_eq!(result.unwrap_err(), PluginContainerError::DuplicateEntry);
-    
+
         // Verify collected routes (should not be affected by duplicates)
         assert_eq!(container.collected_routes.len(), 0); // No routes should be collected on error
     }
-    
+
     #[test]
     fn test_loading_with_failing_plugin() {
         // Mock plugins for testing
@@ -324,5 +357,27 @@ mod tests {
             container.routes().unwrap_err(),
             PluginContainerError::Unloaded
         );
+    }
+    
+    #[test]
+    fn test_unloading() {
+        // Initialize PluginContainer with the mock plugins
+        let mut container = PluginContainer {
+            loaded: false,
+            collected_routes: vec![],
+            plugins: Arc::new(vec![
+                Arc::new(Mutex::new(FirstPlugin {})),
+                Arc::new(Mutex::new(SecondPlugin {})),
+            ]),
+        };
+        // Test unloading plugins
+        assert!(container.load().is_ok());
+
+        // Verify collected routes
+        assert_eq!(container.collected_routes.len(), 2);
+
+        // unloading container and clearing routes
+        assert!(container.unload().is_ok());
+        assert_eq!(container.collected_routes.len(), 0);
     }
 }
