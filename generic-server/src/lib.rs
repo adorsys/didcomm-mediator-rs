@@ -6,7 +6,7 @@ use axum::Router;
 use tower_http::catch_panic::CatchPanicLayer;
 use tower_http::trace::TraceLayer;
 
-pub fn app() -> (PluginContainer<'static>, Router) {
+pub fn app() -> (PluginContainer, Router) {
     let mut container = PluginContainer::default();
     let _ = container.load();
 

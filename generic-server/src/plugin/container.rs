@@ -1,7 +1,7 @@
-use std::collections::{HashMap, HashSet};
-use std::sync::{Arc, Mutex};
 use axum::Router;
 use server_plugin::{Plugin, PluginError};
+use std::collections::{HashMap, HashSet};
+use std::sync::{Arc, Mutex};
 
 use super::PLUGINS;
 
@@ -104,14 +104,17 @@ impl PluginContainer {
         let errors: HashMap<_, _> = self
             .plugins
             .iter()
-            .filter_map(|plugin| match plugin.unmount() {
-                Ok(_) => {
-                    tracing::info!("Unmounted plugin {}", plugin.name());
-                    None
-                }
-                Err(err) => {
-                    tracing::error!("error unmounting plugin {}", plugin.name());
-                    Some((plugin.name().to_owned(), err))
+            .filter_map(|plugin| {
+                let plugin = plugin.lock().unwrap();
+                match plugin.unmount() {
+                    Ok(_) => {
+                        tracing::info!("Unmounted plugin {}", plugin.name());
+                        None
+                    }
+                    Err(err) => {
+                        tracing::error!("error unmounting plugin {}", plugin.name());
+                        Some((plugin.name().to_owned(), err))
+                    }
                 }
             })
             .collect();
@@ -284,26 +287,26 @@ mod tests {
         let plugins: Arc<Vec<Arc<Mutex<dyn Plugin>>>> = Arc::new(vec![
             Arc::new(Mutex::new(FirstPlugin {})),
             Arc::new(Mutex::new(SecondPlugin {})),
-            Arc::new(Mutex::new(SecondAgainPlugin {})), 
+            Arc::new(Mutex::new(SecondAgainPlugin {})),
         ]);
-    
+
         // Initialize PluginContainer with the mock plugins
         let mut container = PluginContainer {
             loaded: false,
             collected_routes: vec![],
             plugins: Arc::clone(&plugins),
         };
-    
+
         // Attempt to load plugins with duplicates
         let result = container.load();
-    
+
         // Assert that the result is an error due to duplicate entries
         assert_eq!(result.unwrap_err(), PluginContainerError::DuplicateEntry);
-    
+
         // Verify collected routes (should not be affected by duplicates)
         assert_eq!(container.collected_routes.len(), 0); // No routes should be collected on error
     }
-    
+
     #[test]
     fn test_loading_with_failing_plugin() {
         // Mock plugins for testing
@@ -361,7 +364,10 @@ mod tests {
         let mut container = PluginContainer {
             loaded: false,
             collected_routes: vec![],
-            plugins: &vec![Box::new(FirstPlugin {}), Box::new(SecondPlugin {})],
+            plugins: Arc::new(vec![
+                Arc::new(Mutex::new(FirstPlugin {})),
+                Arc::new(Mutex::new(SecondPlugin {})),
+            ]),
         };
         assert!(container.load().is_ok());
         assert!(container.routes().is_ok());
