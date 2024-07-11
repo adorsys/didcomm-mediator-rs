@@ -8,7 +8,7 @@ async fn main() {
     let port = std::env::var("SERVER_LOCAL_PORT").unwrap_or("3000".to_owned());
     let addr: SocketAddr = format!("127.0.0.1:{port}").parse().unwrap();
     tracing::info!("listening on {addr}");
-    generic_server_with_graceful_shutdown(addr).await
+    generic_server_with_graceful_shutdown(addr).await;
 }
 
 async fn generic_server_with_graceful_shutdown(addr: SocketAddr) {
@@ -31,14 +31,14 @@ async fn generic_server_with_graceful_shutdown(addr: SocketAddr) {
 
     tokio::select! {
         _ = tokio::signal::ctrl_c() => {
-           tracing::info!("shuting down gracefully");
+           tracing::info!("shutting down gracefully");
             let _ = plugin_container.unload();
         }
     };
 }
+
 fn config_tracing() {
     use tracing::Level;
-
     use tracing_subscriber::{filter, layer::SubscriberExt, util::SubscriberInitExt};
 
     let tracing_layer = tracing_subscriber::fmt::layer();
