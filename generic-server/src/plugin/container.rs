@@ -360,7 +360,7 @@ mod tests {
     }
     #[test]
     fn test_unloading() {
-        // loading container from test_loading
+        // Initialize PluginContainer with the mock plugins
         let mut container = PluginContainer {
             loaded: false,
             collected_routes: vec![],
@@ -369,12 +369,14 @@ mod tests {
                 Arc::new(Mutex::new(SecondPlugin {})),
             ]),
         };
+        // Test unloading plugins
         assert!(container.load().is_ok());
-        assert!(container.routes().is_ok());
+
+        // Verify collected routes
+        assert_eq!(container.collected_routes.len(), 2);
 
         // unloading container and clearing routes
         assert!(container.unload().is_ok());
-
         assert_eq!(container.collected_routes.len(), 0);
     }
 }
