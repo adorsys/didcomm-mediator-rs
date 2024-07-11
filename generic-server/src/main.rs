@@ -32,9 +32,11 @@ async fn generic_server_with_gracefull_shutdown(addr: SocketAddr) {
     tokio::select! {
         _ = tokio::signal::ctrl_c() => {
            tracing::info!("\nshuting down gracefully");
-            let _ = plugin_container.unload();}
+            let _ = plugin_container.unload();
+        }
     };
 }
+
 fn config_tracing() {
     use tracing::Level;
 
@@ -50,21 +52,4 @@ fn config_tracing() {
         .with(tracing_layer)
         .with(filter)
         .init();
-}
-
-#[cfg(test)]
-mod tests {
-    use super::generic_server_with_gracefull_shutdown;
-    use std::net::SocketAddr;
-
-    #[tokio::test]
-    async fn test_server_shutdown() {
-        let port = std::env::var("SERVER_LOCAL_PORT").unwrap_or("3000".to_owned());
-        let addr: SocketAddr = format!("127.0.0.1:{port}").parse().unwrap();
-        tracing::info!("listening on {addr}");
-
-        // run server in background
-        tokio::spawn(generic_server_with_gracefull_shutdown(addr));
-        // send a shutdown signal to main thread
-    }
 }

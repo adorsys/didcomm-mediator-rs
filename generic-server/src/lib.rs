@@ -9,13 +9,11 @@ use tower_http::trace::TraceLayer;
 pub fn app() -> (PluginContainer<'static>, Router) {
     let mut container = PluginContainer::default();
     let _ = container.load();
- 
-    let router = Router::new() 
-            .merge(container.routes().unwrap_or_default())
-            .layer(TraceLayer::new_for_http())
-            .layer(CatchPanicLayer::new());
+
+    let router = Router::new()
+        .merge(container.routes().unwrap_or_default())
+        .layer(TraceLayer::new_for_http())
+        .layer(CatchPanicLayer::new());
+
     (container, router)
 }
-
-
-
