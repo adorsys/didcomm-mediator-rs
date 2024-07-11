@@ -23,7 +23,7 @@ This server provides a system for building versatile applications by integrating
  The server will automatically handle routing based on the newly added plugin's routes.
 
 ## Example 
-### 1- Plugin Implementation
+### 1. Plugin Implementation
 ```rust
 struct MyPlugin;
 
@@ -46,9 +46,10 @@ impl Plugin for MyPlugin {
     }
 }
 ```
-### 2- Register the Plugin
+### 2. Register the Plugin
 ```rust
     pub static ref PLUGINS: Vec<Box<dyn Plugin>> = vec![
         #[cfg(feature = "plugin-MyPlugin")]
-        Box::<MyPlugin::MyPluginplugin>::default(),
+        Box::<example::plugin::MyPluginp>::default(),
+    ];
 ```
