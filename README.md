@@ -63,11 +63,11 @@ Ensure you have the following installed:
  * [Rust & Cargo](https://www.rust-lang.org/tools/install)
 
 ## Setup
-1. Create a working directory eg(cd didcomm-mediator-rs) and cd into your directory.
+1. (Optional) Create a working directory eg(cd didcomm-mediator-rs) and cd into your directory.
 
  2. Clone the repository using the following command:
 ```sh
-git clone https://github.com/adorsys/didcomm-mediator-rs.git
+git clone git@github.com:adorsys/didcomm-mediator-rs.git
 ```
 
 ## Troubleshooting Tips
@@ -84,12 +84,15 @@ cargo check
 ```
 
 ## Example
- Start the mediator service:
-
+ Starting the mediator service:
+ 
+Since the didcomm-mediator-rs is made up of so many `crates` both `libraries` and `binaries`, to run anything you have to explicitly specify the `crate` and the `binary` you want to run like for example
 ```sh
-cd didcomm-mediator-rs/mediator
-cargo run
+cargo run -p <package> --bin <binary>
 ```
-
+Otherwise you just do a general test
+```sh
+cargo test
+```
 ## License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
