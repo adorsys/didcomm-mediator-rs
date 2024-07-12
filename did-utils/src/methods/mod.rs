@@ -32,11 +32,10 @@
 //! ### did:web usage
 //! 
 //! ```rust
+//! use did_utils::methods::{traits::DIDResolver, DidWebResolver};
+//! use did_utils::methods::DIDResolutionOptions;
+//! 
 //! async fn resolves_did_web_document() {
-//! 
-//!     use did_utils::methods::{traits::DIDResolver, DidWebResolver};
-//!     use did_utils::methods::DIDResolutionOptions;
-//! 
 //!     let port = 3000;
 //!     let host = "localhost";
 //! 
