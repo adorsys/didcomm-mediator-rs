@@ -23,6 +23,9 @@ use serde_json::Value;
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct MediationRequest {
+    // Return route header, specifies how communication is done.
+    return_route: ReturnRouteHeader,
+
     /// Uniquely identifies a mediation request message.
     #[serde(rename = "@id")]
     pub id: String,
@@ -75,7 +78,7 @@ pub struct MediationGrant {
     pub message_type: String,
 
     /// Mediator's endpoint.
-    pub routing_did: String,
+    pub body: MediationGrantBody,
 }
 
 /// Header for Transports Return Route Extension
@@ -287,7 +290,11 @@ pub struct KeylistPagination {
     pub offset: i32,
     pub remaining: i32,
 }
-
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[serde(rename_all = "snake_case")]
+pub struct MediationGrantBody {
+    pub routing_did: String,
+}
 /// Resources to map in a database.
 pub mod entity {
     use mongodb::bson::oid::ObjectId;
@@ -761,7 +768,9 @@ mod tests {
         let mediation_grant = MediationGrant {
             id: "id_alice_mediation_grant".to_string(),
             message_type: MEDIATE_GRANT_2_0.to_string(),
-            routing_did: "routing_did".to_string(),
+            body: MediationGrantBody {
+                routing_did: "routing_did".to_string(),
+            },
             ..Default::default()
         };
 
