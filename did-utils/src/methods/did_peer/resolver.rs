@@ -4,8 +4,9 @@ use super::DIDPeerMethod;
 use crate::{
     ldmodel::Context,
     methods::{
+        traits::DIDResolver,
         errors::DIDResolutionError,
-        traits::{DIDResolutionMetadata, DIDResolutionOptions, DIDResolver, MediaType, ResolutionOutput},
+        resolution::{DIDResolutionMetadata, DIDResolutionOptions, MediaType, ResolutionOutput},
     },
 };
 
