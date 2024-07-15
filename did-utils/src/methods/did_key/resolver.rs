@@ -4,15 +4,31 @@ use crate::{
     ldmodel::Context,
     methods::{
         errors::DIDResolutionError,
-        traits::{DIDResolutionMetadata, DIDResolutionOptions, DIDResolver, MediaType, ResolutionOutput},
+        traits::DIDResolver,
     },
+};
+
+use crate::methods::resolution::{
+    DIDResolutionMetadata,
+    DIDResolutionOptions,
+    MediaType,
+    ResolutionOutput,
 };
 
 use super::DIDKeyMethod;
 
 #[async_trait]
 impl DIDResolver for DIDKeyMethod {
-    /// Resolves a DID address into its corresponding DID document.
+    
+    /// Resolves a DID using the did:key method.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `did` - The DID address to resolve.
+    /// 
+    /// # Returns
+    /// 
+    /// A `ResolutionOutput` struct containing the resolved DID document and metadata.
     async fn resolve(&self, did: &str, _options: &DIDResolutionOptions) -> ResolutionOutput {
         let context = Context::SingleString(String::from("https://w3id.org/did-resolution/v1"));
 
@@ -50,7 +66,7 @@ impl DIDResolver for DIDKeyMethod {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::methods::traits::DereferencingOptions;
+    use crate::methods::resolution::DereferencingOptions;
     use serde_json::Value;
 
     #[async_std::test]

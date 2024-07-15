@@ -1,9 +1,12 @@
+//! Implementation of the DID Key method.
+
 use multibase::Base::Base58Btc;
 
 use crate::{
     crypto::{
         ed25519::Ed25519KeyPair,
-        traits::{Error as CryptoError, Generate, KeyMaterial},
+        traits::{Generate, KeyMaterial},
+        errors::Error as CryptoError,
     },
     didcore::{self, Document as DIDDocument, KeyFormat, VerificationMethod},
     ldmodel::Context,
@@ -61,7 +64,7 @@ impl DIDKeyMethod {
 
     /// Expands did:key address into DID document
     ///
-    /// See https://w3c-ccg.github.io/did-method-key/#create
+    /// See [Create a did key](https://w3c-ccg.github.io/did-method-key/#create)
     pub fn expand(&self, did: &str) -> Result<DIDDocument, DIDResolutionError> {
         if !did.starts_with("did:key:") {
             return Err(DIDResolutionError::InvalidDid);
