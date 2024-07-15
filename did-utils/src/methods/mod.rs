@@ -6,9 +6,11 @@
 //! - [`traits`]: Defines traits for DID resolution.
 //! - [`did_key`]: Implements resolution for [`did:key`] method.
 //! - [`did_web`]: Implements resolution for [`did:web`] method.
+//! - [`did_peer`]: Implements resolution for [`did:peer`] method.
 //! 
 //! [`did:key`]: https://w3c-ccg.github.io/did-method-key/
 //! [`did:web`]: https://w3c-ccg.github.io/did-method-web/
+//! [`did:peer`]: https://identity.foundation/peer-did-method-spec/
 //! 
 //! # Examples
 //! 
@@ -51,7 +53,6 @@
 //! }
 //! ```
 
-pub mod common;
 pub mod did_key;
 pub mod did_peer;
 pub mod did_web;
@@ -59,6 +60,7 @@ pub mod errors;
 pub mod traits;
 
 mod utils;
+mod common;
 mod resolution;
 
 // Re-exported items
@@ -66,6 +68,7 @@ pub use errors::{DIDResolutionError, DidWebError, ParsingErrorSource};
 pub use traits::{DIDMethod, DIDResolver};
 pub use did_web::resolver::DidWebResolver;
 pub use did_key::method::DIDKeyMethod;
+pub use did_peer::method::DIDPeerMethod;
 pub use resolution::{DereferencingOptions, DereferencingMetadata, ContentMetadata, DereferencingOutput,
                      DIDResolutionOptions, ResolutionOutput, DIDResolutionMetadata, DIDDocumentMetadata
 };

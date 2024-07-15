@@ -2,7 +2,7 @@ use multibase::Base::{Base58Btc, Base64Url};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
-use super::{error::DIDPeerMethodError, util::abbreviate_service_for_did_peer_2};
+use super::{errors::DIDPeerMethodError, util::abbreviate_service_for_did_peer_2};
 use crate::{
     crypto::{
         ed25519::Ed25519KeyPair,

@@ -8,7 +8,8 @@ use crate::{
     key_jwk::key::Key,
     key_jwk::okp::{Okp, OkpCurves},
     key_jwk::prm::Parameters,
-    key_jwk::Bytes,};
+    key_jwk::Bytes,
+};
 
 /// Supported cryptographic algorithms.
 #[derive(Debug, Copy, Clone, PartialEq)]

@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 
-use super::DIDPeerMethod;
+use super::method::DIDPeerMethod;
 use crate::{
     ldmodel::Context,
     methods::{

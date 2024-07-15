@@ -4,9 +4,7 @@
 //!
 //! See https://identity.foundation/peer-did-method-spec/
 
-pub mod error;
-pub mod method;
-pub mod resolver;
-pub mod util;
-
-pub use method::DIDPeerMethod;
+mod errors;
+pub(super) mod method;
+mod resolver;
+mod util;

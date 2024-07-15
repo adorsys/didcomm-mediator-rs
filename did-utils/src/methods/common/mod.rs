@@ -14,7 +14,8 @@ pub enum PublicKeyFormat {
     Jwk,
 }
 
-pub trait ToMultikey {
+#[allow(unused)]
+pub(super) trait ToMultikey {
     /// Converts keypair into its multikey string
     fn to_multikey(&self) -> String;
 }
@@ -36,7 +37,7 @@ impl ToMultikey for X25519KeyPair {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Error)]
-pub enum DecodeMultikeyError {
+pub(super) enum DecodeMultikeyError {
     #[error("error to multibase decode")]
     MultibaseDecodeError,
     #[error("not multibase-encoded in Base58")]
@@ -48,7 +49,7 @@ pub enum DecodeMultikeyError {
 }
 
 /// Decodes algorithm and key bytes from multibase-encode value
-pub fn decode_multikey(multikey: &str) -> Result<(Algorithm, Vec<u8>), DecodeMultikeyError> {
+pub(super) fn decode_multikey(multikey: &str) -> Result<(Algorithm, Vec<u8>), DecodeMultikeyError> {
     let (base, multicodec) = multibase::decode(multikey).map_err(|_| DecodeMultikeyError::MultibaseDecodeError)?;
 
     // Validate decoded multibase value: base
