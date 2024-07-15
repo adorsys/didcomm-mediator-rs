@@ -1,4 +1,3 @@
-pub mod common;
 //! A collection of modules for DID resolution and related utilities.
 //!
 //! This crate provides functionality for resolving Decentralized Identifiers (DIDs)
@@ -52,14 +51,15 @@ pub mod common;
 //! }
 //! ```
 
+pub mod common;
 pub mod did_key;
 pub mod did_peer;
 pub mod did_web;
 pub mod errors;
 pub mod traits;
 
-pub(crate) mod utils;
-pub(crate) mod resolution;
+mod utils;
+mod resolution;
 
 // Re-exported items
 pub use errors::{DIDResolutionError, DidWebError, ParsingErrorSource};
