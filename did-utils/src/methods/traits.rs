@@ -39,7 +39,7 @@ pub trait DIDResolver {
 
     /// Dereferences a DID URL into its corresponding resource.
     async fn dereference(&self, did_url: &str, _options: &DereferencingOptions) -> DereferencingOutput {
-        let context = Context::SingleString(String::from("https://www.w3.org/ns/did/v1"));
+        let context = Context::SingleString(String::from("https://w3id.org/did-resolution/v1"));
 
         let res = super::utils::parse_did_url(did_url);
         if res.is_err() {

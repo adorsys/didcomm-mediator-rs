@@ -9,6 +9,7 @@
 //! - [`crypto`]: Contains cryptographic utilities for key generation, encryption, 
 //!   decryption, signing, and verification.
 //! - [`didcore`]: Provides core functionality for DIDs, including parsing and manipulation.
+//! - [`didkit`]: Provides high-level functionality for creating and managing DIDs.
 //! - [`key_jwk`]: Provides support for JSON Web Key (JWK) representations of keys.
 //! - [`proof`]: Handles proof creation and verification.
 //! - [`vc`]: Manages Verifiable Credentials, including their creation, signing, and verification.
@@ -20,11 +21,11 @@
 //! Below is a simple example of how to create a DID Document:
 //!
 //! ```rust
-//! use did_utils::didkit::Document;
+//! use did_utils::didcore::Document;
 //! use did_utils::ldmodel::Context;
 //!
 //! fn main() {
-//!     let context = Context::new(vec!["https://www.w3.org/ns/did/v1".to_string()]);
+//!     let context = Context::SetOfString(vec!["https://www.w3.org/ns/did/v1".to_string()]);
 //!     let did_document = Document::new(context, "did:example:123456".to_string());
 //!     println!("{:?}", did_document);
 //! }
@@ -36,5 +37,4 @@ pub mod proof;
 pub mod vc;
 pub mod ldmodel;
 pub mod methods;
-
-pub(crate) mod didkit;
+pub mod didkit;

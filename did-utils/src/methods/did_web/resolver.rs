@@ -181,7 +181,7 @@ impl<C> DIDResolver for DidWebResolver<C> where C: Connect + Send + Sync + Clone
     ///
     /// A `ResolutionOutput` containing the resolved DID document and metadata.
     async fn resolve(&self, did: &str, _options: &DIDResolutionOptions) -> ResolutionOutput {
-        let context = Context::SingleString(String::from("https://www.w3.org/ns/did/v1"));
+        let context = Context::SingleString(String::from("https://w3id.org/did-resolution/v1"));
 
         match self.resolver_fetcher(did).await {
             Ok(diddoc) =>

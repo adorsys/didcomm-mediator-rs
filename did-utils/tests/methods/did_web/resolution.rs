@@ -72,7 +72,7 @@ async fn resolves_document() {
     let expected: Value = serde_json
         ::from_str(
             r#"{
-          "@context": "https://www.w3.org/ns/did/v1",
+          "@context": "https://w3id.org/did-resolution/v1",
           "didDocument": {
             "@context": "https://www.w3.org/ns/did/v1",
             "assertionMethod": ["did:web:localhost#key1"],
