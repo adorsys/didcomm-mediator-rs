@@ -1,9 +1,10 @@
 name: Rust CI
 
-on:
-  pull_request:
-    branches:
-      - main
+on: [push, pull_request]
+
+env:
+  CARGO_TERM_COLOR: always
+
 jobs:
   build:
     name: Build and Test
@@ -11,40 +12,32 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
+
+    - name: Cache dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/bin
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          target/
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          ${{ runner.os }}-cargo
 
     - name: Set up Rust
-      uses: actions-rs/toolchain@v1
+      uses: actions-rust-lang/setup-rust-toolchain@v1
       with:
         toolchain: stable
-        override: true
+        rustflags:
 
-    - name: Build and Test Did Utils
-      run: |
-        cd did-utils
-        cargo build
-        cargo test
+    - name: Install Nextest test runner
+      uses: taiki-e/install-action@nextest
 
-    - name: Build and Test Did Endpoint
+    - name: Build and Run Test
       run: |
-        cd did-endpoint
-        cargo build
-        cargo test
-
-    - name: Build and Test Generic Server
-      run: |
-        cd generic-server
-        cargo build
-        cargo test
-
-    - name: Build and Mediator Server
-      run: |
-        cd mediator-server
-        cargo build
-        cargo test
-
-    - name: Build and Test Plugin for Mediator Coordination
-      run: |
-        cd mediator-coordination
-        cargo build
-        cargo test
+        cargo build --workspace --all-features
+        cargo nextest run --workspace --all-features

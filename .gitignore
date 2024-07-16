@@ -27,3 +27,6 @@ Cargo.lock
 
 # Ignore .env files in all subdirectories
 **/*.env
+
+# Jetbrains RustRover config folder
+.idea

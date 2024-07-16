@@ -1,0 +1,23 @@
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0 OR MIT"
+
+[workspace]
+members = [
+    "did-utils",
+    "did-endpoint",
+    "generic-server",
+    "mediator-coordination",
+    "oob-messages",
+    "server-plugin"
+]
+resolver = "2"
+
+[workspace.dependencies]
+did-utils = { path = "./did-utils" }
+did-endpoint = { path = "./did-endpoint" }
+generic-server = { path = "./generic-server" }
+mediator-coordination = { path = "./mediator-coordination" }
+oob-messages = { path = "./oob-messages" }
+server-plugin = { path = "./server-plugin" }

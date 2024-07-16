@@ -23,17 +23,67 @@ A standardization of these cloud agents, in the same way email protocols were st
 * SSI has the potential to revolutionize the way that we interact with the internet, making it more secure, private, and user-centric.
 
 ## DIDComm Messaging
+
 The DIDComm messaging specification can be found [here](https://identity.foundation/didcomm-messaging/spec/)
 
 ### Functionaly
+
 * DIDComm is a messaging methodology that works with the decentralized identifier (DID) core spec to provide private, secure interaction between parties.
 * DIDComm messaging is designed to be flexible and extensible, allowing for new protocols and applications to be built on top of it.
 * The DIDComm specification is currently under development, but it has already been adopted by a number of projects, including the W3C Verifiable Credentials Working Group.
 * DIDComm is a promising technology with the potential to revolutionize the way that we interact with the internet.
 
 ### Technicaly
+
 * DIDComm messages are structured as JSON objects, and they can be exchanged over a variety of channels, including HTTP, WebSockets, and SMS.
 * DIDComm messages can be used to send a variety of data, including requests, responses, notifications, and events.
 * DIDComm messages are signed using the DID method, which ensures that they are tamper-proof and can be verified by the recipient.
 * DIDComm is a secure and privacy-preserving messaging methodology that has the potential to be used in a wide variety of applications.
 
+## Building and testing
+
+To build and test the entire project, certain system packages are required especially for the **did-utils** and **oob-messages** crates. Both of these crates require **libssl-dev** and **pkg-config** to be installed on the system to build correctly. Without them, the build process will fail.
+
+### Ubuntu
+
+* **libssl-dev**: This package provides the development files for OpenSSL.
+* **pkg-config**: This package provides a tool to help with the configuration of compiler and linker flags for libraries.  
+
+You can install them using the following command:
+
+```sh
+sudo apt update
+sudo apt install -y libssl-dev pkg-config
+```
+
+## Step-by-Step Guides
+
+### Prerequisites
+Ensure you have the following installed:
+ * [Rust & Cargo](https://www.rust-lang.org/tools/install)
+
+## Setup
+1. Create a working directory eg(cd didcomm-mediator-rs) and cd into your directory.
+
+ 2. Clone the repository using the following command:
+
+git clone https://github.com/adorsys/didcomm-mediator-rs.git
+
+## Troubleshooting Tips
+If you encounter any issues while running the application, here are some troubleshooting tips to help you resolve them
+ 
+ ### Common Issues
+
+  1. Build Errors:
+  * Ensure that you have the required system packages installed. `libssl-dev` and `pkg-config` 
+  * Ensure that you have the latest version of Rust and Cargo installed.
+  * CHeck for any missing dependencies using `cargo check`.
+
+## Example
+ 1. Start the mediator service:
+
+cd didcomm-mediator-rs/mediator
+cargo run
+
+## License
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

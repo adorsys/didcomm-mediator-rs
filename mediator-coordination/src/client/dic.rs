@@ -167,7 +167,7 @@ mod tests {
 
         let jwt = make_compact_jwt_presentation(dic, &holder_jwk, None, _metadata()).unwrap();
         let expected_jwt = concat!(
-            "eyJhbGciOiJFZERTQSIsInR5cCI6ImRpYytqd3QifQ.eyJkaWMiOiJleUowZVhBaU9pSmthV",
+            "eyJ0eXAiOiJkaWMrand0IiwiYWxnIjoiRWREU0EifQ.eyJkaWMiOiJleUowZVhBaU9pSmthV",
             "012ZGpBd01TSXNJbUZzWnlJNklrVmtSRk5CSW4wLmV5SnBjM01pT2lKa2FXUTZkMlZpT21Gc",
             "2FXTmxMVzFsWkdsaGRHOXlMbU52YlRwaGJHbGpaVjl0WldScFlYUnZjbDl3ZFdJaUxDSnViM",
             "jVqWlNJNklqUXpaamcwT0RZNExUQTJNekl0TkRRM01TMWlObVJrTFdRMk0yWmhNVEpqTWpGb",
@@ -176,8 +176,8 @@ mod tests {
             "UtJeHBfakNBWEdObWp1aXNTMlNtbUdsWGYyTHVSM2lVZUFQWFdtOWYwWEExX2p2Vlh3N2dKT",
             "GxiSkZlcjZ6U0NEQSIsImlzcyI6ImRpZDprZXk6YWxpY2VfaWRlbnRpdHlfcHViQGFsaWNlX",
             "21lZGlhdG9yIiwic3ViIjoiZGlkOndlYjphbGljZS1tZWRpYXRvci5jb206YWxpY2VfbWVka",
-            "WF0b3JfcHViIn0.EeQegxkjwY3X8ikxvUYmfMkBPKK89Vz8oUmrkuZgeQU0l8QUAYODuFStY",
-            "fArV97vUcaLbgmdD8fuvjOSDyhzBA",
+            "WF0b3JfcHViIn0.N7hSCUTGsau0SiGnVvhcjX5lr0mavCaEwyr-eelWwiROGigPrDsi4NZFc",
+            "LhcNZzann3nhPAKg8q8qSdaavE9Aw",
         );
         assert_eq!(jwt, expected_jwt);
 
@@ -271,7 +271,7 @@ mod tests {
 
         let jwt = make_compact_jwt_presentation(ddic, &holder_jwk, None, _metadata()).unwrap();
         let expected_jwt = concat!(
-            "eyJhbGciOiJFZERTQSIsInR5cCI6ImRkaWMrand0In0.eyJkZGljIjoiZXlKMGVYQWlPaUpr",
+            "eyJ0eXAiOiJkZGljK2p3dCIsImFsZyI6IkVkRFNBIn0.eyJkZGljIjoiZXlKMGVYQWlPaUpr",
             "WkdsakwzWXdNREVpTENKaGJHY2lPaUpGWkVSVFFTSjkuZXlKa2FXTXRjM1ZpSWpvaVpHbGtP",
             "bXRsZVRwaGJHbGpaVjlwWkdWdWRHbDBlVjl3ZFdKQVlXeHBZMlZmYldWa2FXRjBiM0lpTENK",
             "cGMzTWlPaUprYVdRNmQyVmlPbUZzYVdObExXMWxaR2xoZEc5eUxtTnZiVHBoYkdsalpWOXRa",
@@ -281,8 +281,8 @@ mod tests {
             "ckt2OXd2b2gxTm5ZR2dyMkl6SXZNUDhnTmpRbWl6cGdqZHlWWHo4S2xYcjhGX0FSbF9pUS1N",
             "REEiLCJpc3MiOiJkaWQ6a2V5OmFsaWNlX2lkZW50aXR5X3B1YkBhbGljZV9tZWRpYXRvciIs",
             "InN1YiI6ImRpZDp3ZWI6YWxpY2UtbWVkaWF0b3IuY29tOmFsaWNlX21lZGlhdG9yX3B1YiJ9",
-            ".aCPF9uRrEHMQpkaf774SVuKbNaJ_YZ9bWAy8LGDtDKeRAujKIg51JfMglotbDYLP2NbiWxx",
-            "n4A9YZECbF1YoDg",
+            ".ENR3OqlW7nbIf47FR0bPG5Pmg3MDOd37OiyKAAlnAHz0uO2GwpaK86yWCEhYhKBnKXbYLff",
+            "g9j0VJ9bP_f5NBA"
         );
         assert_eq!(jwt, expected_jwt);
 
