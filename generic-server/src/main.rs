@@ -13,7 +13,7 @@ async fn main() {
 
 async fn generic_server_with_graceful_shutdown(addr: SocketAddr) {
     // Load dotenv-flow variables
-    dotenv_flow::dotenv_flow().ok();
+    dotenv_flow::from_filename(".env.example").ok();
 
     // Enable logging
     config_tracing();
