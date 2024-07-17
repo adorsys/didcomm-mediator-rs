@@ -27,11 +27,7 @@ pub async fn process_didcomm_message(
             .await
         }
         MEDIATE_REQUEST_2_0 => {
-            web::coord::handler::stateful::process_mediate_request(
-                &state, 
-                &message
-            )
-            .await
+            web::coord::handler::stateful::process_mediate_request(&state, &message).await
         }
         _ => {
             let response = (
