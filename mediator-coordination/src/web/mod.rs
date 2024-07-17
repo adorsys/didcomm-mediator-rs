@@ -24,11 +24,6 @@ pub fn routes(state: Arc<AppState>) -> Router {
             state.clone(),
             midlw::unpack_didcomm_message,
         ))
-        // Transitive routes
-        .route(
-            "/mediate",
-            post(coord::handler::process_didcomm_mediation_request_message),
-        )
         .with_state(state)
 }
 

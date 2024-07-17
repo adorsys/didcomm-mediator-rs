@@ -26,6 +26,7 @@ use crate::{
         entity::{Connection, Secrets, VerificationMaterial},
         KeylistUpdateAction, KeylistUpdateBody, KeylistUpdateConfirmation,
         KeylistUpdateResponseBody, KeylistUpdateResult, MediationDeny, MediationGrant,
+        MediationGrantBody,
     },
     web::{error::MediationError, AppState, AppStateRepository},
 };
@@ -156,7 +157,9 @@ fn create_mediation_grant(routing_did: &str) -> MediationGrant {
     MediationGrant {
         id: format!("urn:uuid:{}", Uuid::new_v4()),
         message_type: MEDIATE_GRANT_2_0.to_string(),
-        routing_did: routing_did.to_string(),
+        body: MediationGrantBody {
+            routing_did: routing_did.to_string(),
+        },
         ..Default::default()
     }
 }

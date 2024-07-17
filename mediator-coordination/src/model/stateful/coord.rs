@@ -1,7 +1,7 @@
 //! Types for Coordinate Mediation v2.0
 //! See https://didcomm.org/coordinate-mediation/2.0
 
-use std::collections::HashMap;
+use std::{collections::HashMap, default};
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -24,7 +24,7 @@ use serde_json::Value;
 #[serde(rename_all = "camelCase")]
 pub struct MediationRequest {
     // Return route header, specifies how communication is done.
-    return_route: ReturnRouteHeader,
+    pub return_route: ReturnRouteHeader,
 
     /// Uniquely identifies a mediation request message.
     #[serde(rename = "@id")]
@@ -84,11 +84,13 @@ pub struct MediationGrant {
 /// Header for Transports Return Route Extension
 ///
 /// See https://github.com/hyperledger/aries-rfcs/tree/main/features/0092-transport-return-route
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum ReturnRouteHeader {
     None,
     Thread,
+    #[default]
+    // https://didcomm.org/coordinate-mediation/2.0/
     All,
 }
 
@@ -749,6 +751,8 @@ mod tests {
     #[test]
     fn can_deserialize_mediation_request_message() {
         let msg = r#"{
+            
+            "@return_route": ""
             "@id": "id_alice_mediation_request",
             "@type": "https://didcomm.org/coordinate-mediation/2.0/mediate-request"
         }"#;
@@ -791,15 +795,23 @@ mod tests {
         let msg = r#"{
             "@id": "id_alice_mediation_grant",
             "@type": "https://didcomm.org/coordinate-mediation/2.0/mediate-grant",
-            "routing_did": "routing_did"
+            "body":  {
+                    "routing_did": [
+                    {
+                    "}
+                    ]
+        
         }"#;
 
         let mediation_grant: MediationGrant = serde_json::from_str(msg).unwrap();
+        let routing_did = MediationGrantBody {
+            routing_did: "routing_did".to_string(),
+        };
 
         // Assert deserialization
         assert_eq!(&mediation_grant.id, "id_alice_mediation_grant");
         assert_eq!(&mediation_grant.message_type, MEDIATE_GRANT_2_0);
-        assert_eq!(&mediation_grant.routing_did, "routing_did");
+        assert_eq!(&mediation_grant.body.routing_did, "routing_did");
 
         // Assert re-serialization
         assert_eq!(
