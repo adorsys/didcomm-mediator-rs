@@ -4,6 +4,13 @@ use std::net::SocketAddr;
 
 #[tokio::main]
 async fn main() {
+
+    // Load dotenv-flow variables
+    dotenv_flow::from_filename(".env.example").ok();
+
+    // Enable logging
+    config_tracing();
+
     // Start server
     let port = std::env::var("SERVER_LOCAL_PORT").unwrap_or("3000".to_owned());
     let addr: SocketAddr = format!("127.0.0.1:{port}").parse().unwrap();
@@ -12,11 +19,7 @@ async fn main() {
 }
 
 async fn generic_server_with_graceful_shutdown(addr: SocketAddr) {
-    // Load dotenv-flow variables
-    dotenv_flow::from_filename(".env.example").ok();
 
-    // Enable logging
-    config_tracing();
 
     // Load plugins
     let (mut plugin_container, router) = app();
