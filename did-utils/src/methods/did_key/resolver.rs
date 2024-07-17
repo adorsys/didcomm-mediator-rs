@@ -15,10 +15,10 @@ use crate::methods::resolution::{
     ResolutionOutput,
 };
 
-use super::DIDKeyMethod;
+use super::DidKey;
 
 #[async_trait]
-impl DIDResolver for DIDKeyMethod {
+impl DIDResolver for DidKey {
     
     /// Resolves a DID using the did:key method.
     /// 
@@ -71,7 +71,7 @@ mod tests {
 
     #[async_std::test]
     async fn test_did_key_resolution_with_encryption_derivation() {
-        let did_method = DIDKeyMethod {
+        let did_method = DidKey {
             enable_encryption_key_derivation: true,
             ..Default::default()
         };
@@ -125,7 +125,7 @@ mod tests {
 
     #[async_std::test]
     async fn test_did_key_resolution_fails_as_expected() {
-        let did_method = DIDKeyMethod::default();
+        let did_method = DidKey::default();
 
         let did = "did:key:Z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK";
         let expected: Value = serde_json::from_str(
@@ -150,7 +150,7 @@ mod tests {
 
     #[async_std::test]
     async fn test_dereferencing_did_key_url() {
-        let did_method = DIDKeyMethod {
+        let did_method = DidKey {
             enable_encryption_key_derivation: true,
             ..Default::default()
         };

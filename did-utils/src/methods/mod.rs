@@ -17,11 +17,11 @@
 //! ### did:key usage
 //! 
 //! ```rust
-//! use did_utils::methods::{traits::DIDResolver, DIDKeyMethod};
+//! use did_utils::methods::{traits::DIDResolver, DidKey};
 //! use did_utils::methods::DIDResolutionOptions;
 //! 
 //! async fn test_did_key() {
-//!     let did_method = DIDKeyMethod {
+//!     let did_method = DidKey {
 //!         enable_encryption_key_derivation: true,
 //!         ..Default::default()
 //!     };
@@ -34,7 +34,7 @@
 //! ### did:web usage
 //! 
 //! ```rust
-//! use did_utils::methods::{traits::DIDResolver, DidWebResolver};
+//! use did_utils::methods::{traits::DIDResolver, DidWeb};
 //! use did_utils::methods::DIDResolutionOptions;
 //! 
 //! async fn resolves_did_web_document() {
@@ -45,7 +45,7 @@
 //! 
 //!     let did: &str = &formatted_string;
 //! 
-//!     let did_web_resolver = DidWebResolver::http();
+//!     let did_web_resolver = DidWeb::http();
 //!     let output = did_web_resolver.resolve(
 //!         did,
 //!         &DIDResolutionOptions::default()
@@ -66,9 +66,9 @@ mod resolution;
 // Re-exported items
 pub use errors::{DIDResolutionError, DidWebError, ParsingErrorSource};
 pub use traits::{DIDMethod, DIDResolver};
-pub use did_web::resolver::DidWebResolver;
-pub use did_key::method::DIDKeyMethod;
-pub use did_peer::method::DIDPeerMethod;
+pub use did_web::resolver::DidWeb;
+pub use did_key::method::DidKey;
+pub use did_peer::method::DidPeer;
 pub use resolution::{DereferencingOptions, DereferencingMetadata, ContentMetadata, DereferencingOutput,
                      DIDResolutionOptions, ResolutionOutput, DIDResolutionMetadata, DIDDocumentMetadata
 };

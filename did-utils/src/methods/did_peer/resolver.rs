@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 
-use super::method::DIDPeerMethod;
+use super::method::DidPeer;
 use crate::{
     ldmodel::Context,
     methods::{
@@ -11,7 +11,7 @@ use crate::{
 };
 
 #[async_trait]
-impl DIDResolver for DIDPeerMethod {
+impl DIDResolver for DidPeer {
     /// Resolves a DID address into its corresponding DID document.
     async fn resolve(&self, did: &str, _options: &DIDResolutionOptions) -> ResolutionOutput {
         let context = Context::SingleString(String::from("https://w3id.org/did-resolution/v1"));
@@ -54,7 +54,7 @@ mod tests {
 
     #[async_std::test]
     async fn test_did_peer_resolution() {
-        let did_method = DIDPeerMethod::default();
+        let did_method = DidPeer::default();
 
         let did = "did:peer:0z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK";
         let expected: Value = serde_json::from_str(
@@ -103,7 +103,7 @@ mod tests {
 
     #[async_std::test]
     async fn test_did_peer_resolution_fails_on_invalid_did() {
-        let did_method = DIDPeerMethod::default();
+        let did_method = DidPeer::default();
         let did = concat!(
             "did:peer:2",
             ".Vz6Mkj3PUd1WjvaDhNZhhhXQdz5UnZXmS7ehtx8bsPpD47kKc",
@@ -132,7 +132,7 @@ mod tests {
 
     #[async_std::test]
     async fn test_did_peer_resolution_fails_on_unsupported_peer_did_submethod() {
-        let did_method = DIDPeerMethod::default();
+        let did_method = DidPeer::default();
         let did = "did:peer:1zQmbEB1EqP7PnNVaHiSpXhkatAA6kNyQK9mWkvrMx2eckgq";
 
         let expected: Value = serde_json::from_str(

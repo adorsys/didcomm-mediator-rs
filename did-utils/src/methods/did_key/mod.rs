@@ -10,4 +10,4 @@
 pub mod method;
 pub mod resolver;
 
-pub use method::DIDKeyMethod;
+pub use method::DidKey;

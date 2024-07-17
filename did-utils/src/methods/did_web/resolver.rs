@@ -30,34 +30,34 @@ use crate::ldmodel::Context;
 use crate::didcore::Document as DIDDocument;
 
 /// A struct for resolving DID Web documents.
-pub struct DidWebResolver<C> where C: Connect + Send + Sync + Clone + 'static {
+pub struct DidWeb<C> where C: Connect + Send + Sync + Clone + 'static {
     client: Client<C>,
     scheme: Scheme,
 }
 
-impl DidWebResolver<HttpConnector> {
+impl DidWeb<HttpConnector> {
     
-    /// Creates a new `DidWebResolver` with the default HTTP scheme.
-    pub fn http() -> DidWebResolver<HttpConnector> {
-        DidWebResolver {
+    /// Creates a new `DidWeb` with the default HTTP scheme.
+    pub fn http() -> DidWeb<HttpConnector> {
+        DidWeb {
             client: Client::builder().build::<_, Body>(HttpConnector::new()),
             scheme: Scheme::HTTP,
         }
     }
 }
 
-impl DidWebResolver<HttpsConnector<HttpConnector>> {
+impl DidWeb<HttpsConnector<HttpConnector>> {
 
-    /// Creates a new `DidWebResolver` with the HTTPS scheme.
-    pub fn https() -> DidWebResolver<HttpsConnector<HttpConnector>> {
-        DidWebResolver {
+    /// Creates a new `DidWeb` with the HTTPS scheme.
+    pub fn https() -> DidWeb<HttpsConnector<HttpConnector>> {
+        DidWeb {
             client: Client::builder().build::<_, Body>(HttpsConnector::new()),
             scheme: Scheme::HTTPS,
         }
     }
 }
 
-impl<C> DidWebResolver<C> where C: Connect + Send + Sync + Clone + 'static {
+impl<C> DidWeb<C> where C: Connect + Send + Sync + Clone + 'static {
 
     /// Fetches a DID document from the given URL.
     ///
@@ -84,7 +84,7 @@ impl<C> DidWebResolver<C> where C: Connect + Send + Sync + Clone + 'static {
     }
 }
 
-impl<C> DidWebResolver<C> where C: Connect + Send + Sync + Clone + 'static {
+impl<C> DidWeb<C> where C: Connect + Send + Sync + Clone + 'static {
 
     /// Fetches and parses a DID document for the given DID.
     ///
@@ -168,7 +168,7 @@ pub fn parse_did_web_url(did: &str) -> Result<(String, String), DidWebError> {
 }
 
 #[async_trait]
-impl<C> DIDResolver for DidWebResolver<C> where C: Connect + Send + Sync + Clone + 'static {
+impl<C> DIDResolver for DidWeb<C> where C: Connect + Send + Sync + Clone + 'static {
 
     /// Resolves a DID to a DID document.
     ///

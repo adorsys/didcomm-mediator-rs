@@ -1,6 +1,6 @@
 #![allow(unused_imports)]
 use did_utils::methods::{
-    did_web::resolver::DidWebResolver,
+    did_web::resolver::DidWeb,
     { DIDResolutionOptions, DIDResolver, ResolutionOutput },
 };
 
@@ -63,7 +63,7 @@ async fn resolves_document() {
 
     let did: &str = &formatted_string;
 
-    let did_web_resolver = DidWebResolver::http();
+    let did_web_resolver = DidWeb::http();
     let output: ResolutionOutput = did_web_resolver.resolve(
         did,
         &DIDResolutionOptions::default()
