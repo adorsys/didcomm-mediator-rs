@@ -6,7 +6,7 @@ use std::net::SocketAddr;
 async fn main() {
 
     // Load dotenv-flow variables
-    dotenv_flow::from_filename(".env.example").ok();
+    dotenv_flow::dotenv_flow().ok();
 
     // Enable logging
     config_tracing();
