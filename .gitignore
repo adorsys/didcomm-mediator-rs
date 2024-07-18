@@ -24,3 +24,6 @@ Cargo.lock
 
 # Jetbrains RustRover config folder
 .idea
+
+# Environment variables file 
+.env
