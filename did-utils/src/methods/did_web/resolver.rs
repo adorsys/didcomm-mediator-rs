@@ -1,9 +1,10 @@
-//! A module for resolving DID Web documents using HTTP and HTTPS schemes.
+//! A module for resolving [DID Web] documents.
 //!
 //! This module provides functionnalities for resolving DID Web documents by fetching
-//! them over HTTP or HTTPS. The resolver follows the [W3C DID Resolution specification].
+//! them over HTTPS. The resolver follows the [W3C DID Resolution specification].
 //! 
 //! [W3C DID Resolution specification]: https://w3c.github.io/did-resolution/
+//! [DID Web]: https://w3c-ccg.github.io/did-method-web/
 
 use async_trait::async_trait;
 use hyper::{
@@ -32,27 +33,24 @@ use crate::didcore::Document as DIDDocument;
 /// A struct for resolving DID Web documents.
 pub struct DidWeb<C> where C: Connect + Send + Sync + Clone + 'static {
     client: Client<C>,
-    scheme: Scheme,
 }
 
-impl DidWeb<HttpConnector> {
-    
-    /// Creates a new `DidWeb` with the default HTTP scheme.
+
+impl DidWeb <HttpConnector> {
+    /// Creates a new `DidWeb` resolver with HTTP scheme, for testing only.
+    #[cfg(test)]
     pub fn http() -> DidWeb<HttpConnector> {
         DidWeb {
-            client: Client::builder().build::<_, Body>(HttpConnector::new()),
-            scheme: Scheme::HTTP,
+            client: Client::builder().build::<_, Body>(HttpConnector::new())
         }
     }
 }
 
-impl DidWeb<HttpsConnector<HttpConnector>> {
-
-    /// Creates a new `DidWeb` with the HTTPS scheme.
-    pub fn https() -> DidWeb<HttpsConnector<HttpConnector>> {
+impl DidWeb <HttpsConnector<HttpConnector>> {
+    /// Creates a new `DidWeb` resolver.
+    pub fn new() -> DidWeb<HttpsConnector<HttpConnector>> {
         DidWeb {
-            client: Client::builder().build::<_, Body>(HttpsConnector::new()),
-            scheme: Scheme::HTTPS,
+            client: Client::builder().build::<_, Body>(HttpsConnector::new())
         }
     }
 }
@@ -82,9 +80,6 @@ impl<C> DidWeb<C> where C: Connect + Send + Sync + Clone + 'static {
 
         String::from_utf8(body.to_vec()).map_err(|err| err.into())
     }
-}
-
-impl<C> DidWeb<C> where C: Connect + Send + Sync + Clone + 'static {
 
     /// Fetches and parses a DID document for the given DID.
     ///
@@ -100,41 +95,24 @@ impl<C> DidWeb<C> where C: Connect + Send + Sync + Clone + 'static {
     ///
     /// A `Result` containing the resolved `DIDDocument` or a `DidWebError`.
     async fn resolver_fetcher(&self, did: &str) -> Result<DIDDocument, DidWebError> {
-        let (path, domain_name) = match parse_did_web_url(did) {
-            Ok((path, domain_name)) => (path, domain_name),
-            Err(err) => {
-                return Err(DidWebError::RepresentationNotSupported(err.to_string()));
-            }
-        };
+        let (path, domain_name) = parse_did_web_url(did)
+            .map_err(|err| DidWebError::RepresentationNotSupported(err.to_string()))?;
+    
+        // Use HTTP for localhost only during testing
+        let scheme = if domain_name.starts_with("localhost") { Scheme::HTTP } else { Scheme::HTTPS };
+    
+        let url = uri::Builder::new()
+            .scheme(scheme)
+            .authority(domain_name)
+            .path_and_query(path)
+            .build()
+            .map_err(|err| DidWebError::RepresentationNotSupported(err.to_string()))?;
+    
+        let json_string = self.fetch_did_document(url).await?;
 
-        let url: Uri = match
-            uri::Builder
-                ::new()
-                .scheme(self.scheme.clone())
-                .authority(domain_name)
-                .path_and_query(path)
-                .build()
-        {
-            Ok(url) => url,
-            Err(err) => {
-                return Err(DidWebError::RepresentationNotSupported(err.to_string()));
-            }
-        };
-
-        let json_string = match self.fetch_did_document(url).await {
-            Ok(json) => json,
-            Err(err) => {
-                return Err(err);
-            }
-        };
-
-        let did_document: DIDDocument = match serde_json::from_str(&json_string) {
-            Ok(document) => document,
-            Err(err) => {
-                return Err(DidWebError::RepresentationNotSupported(err.to_string()));
-            }
-        };
-
+        let did_document = serde_json::from_str(&json_string)
+            .map_err(|err| DidWebError::RepresentationNotSupported(err.to_string()))?;
+    
         Ok(did_document)
     }
 }
@@ -205,5 +183,130 @@ impl<C> DIDResolver for DidWeb<C> where C: Connect + Send + Sync + Clone + 'stat
                     additional_properties: None,
                 },
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use hyper::{ service::{ make_service_fn, service_fn }, Body, Request, Response, Server };
+
+    use serde_json::Value;
+    use std::convert::Infallible;
+    use std::net::SocketAddr;
+
+    async fn mock_server_handler(req: Request<Body>) -> Result<Response<Body>, Infallible> {
+        const DID_JSON: &str =
+            r#"
+            {"@context": "https://www.w3.org/ns/did/v1",
+            "id": "did:web:localhost",
+                  "verificationMethod": [{
+                  "id": "did:web:localhost#key1",
+                  "type": "Ed25519VerificationKey2018",
+                  "controller": "did:web:localhost",
+                  "publicKeyJwk": {
+                      "key_id": "ed25519-2020-10-18",
+                      "kty": "OKP",
+                      "crv": "Ed25519",
+                      "x": "G80iskrv_nE69qbGLSpeOHJgmV4MKIzsy5l5iT6pCww"
+                  }
+                  }],
+                  "assertionMethod": ["did:web:localhost#key1"]
+            }"#;
+
+        let response = match req.uri().path() {
+            "/.well-known/did.json" | "/user/alice/did.json" => Response::new(Body::from(DID_JSON)),
+            _ => Response::builder().status(404).body(Body::from("Not Found")).unwrap(),
+        };
+
+        Ok(response)
+    }
+
+    async fn create_mock_server(port: u16) -> String {
+        let make_svc = make_service_fn(|_conn| async {
+            Ok::<_, Infallible>(service_fn(mock_server_handler))
+        });
+
+        let addr = SocketAddr::from(([127, 0, 0, 1], port));
+        let server = Server::bind(&addr).serve(make_svc);
+
+        tokio::spawn(async move {
+            server.await.unwrap();
+        });
+
+        "localhost".to_string()
+    }
+
+    #[tokio::test]
+    async fn resolves_document() {
+        let port = 3000;
+        let host = create_mock_server(port).await;
+
+        let formatted_string = format!("did:web:{}%3A{}", host, port);
+
+        let did: &str = &formatted_string;
+
+        let did_web_resolver = DidWeb::http();
+        let output: ResolutionOutput = did_web_resolver.resolve(
+            did,
+            &DIDResolutionOptions::default()
+        ).await;
+
+        let expected: Value = serde_json::from_str(
+            r#"{
+                "@context": "https://w3id.org/did-resolution/v1",
+                "didDocument": {
+                    "@context": "https://www.w3.org/ns/did/v1",
+                    "assertionMethod": ["did:web:localhost#key1"],
+                    "id": "did:web:localhost",
+                    "verificationMethod": [
+                        {
+                            "controller": "did:web:localhost",
+                            "id": "did:web:localhost#key1",
+                            "publicKeyJwk": {
+                            "crv": "Ed25519",
+                            "kty": "OKP",
+                            "x": "G80iskrv_nE69qbGLSpeOHJgmV4MKIzsy5l5iT6pCww"
+                            },
+                            "type": "Ed25519VerificationKey2018"
+                        }
+                    ]
+                },
+                "didDocumentMetadata": null,
+                "didResolutionMetadata": {
+                    "contentType": "application/did+ld+json"
+                }
+            }"#
+            )
+            .unwrap();
+
+        assert_eq!(json_canon::to_string(&output).unwrap(), json_canon::to_string(&expected).unwrap());
+    }
+
+    use crate::methods::did_web::resolver;
+
+    #[test]
+    fn test_parse_did_web_url() {
+        let input_1 = "did:web:w3c-ccg.github.io";
+        let result_1 = resolver::parse_did_web_url(input_1);
+        assert!(result_1.is_ok(), "Expected Ok, got {:?}", result_1);
+        let (path_1, domain_name_1) = result_1.unwrap();
+        assert_eq!(domain_name_1, "w3c-ccg.github.io");
+        assert_eq!(path_1, "/.well-known/did.json");
+
+        let input_2 = "did:web:w3c-ccg.github.io:user:alice";
+        let result_2 = resolver::parse_did_web_url(input_2);
+        assert!(result_2.is_ok(), "Expected Ok, got {:?}", result_2);
+        let (path_2, domain_name_2) = result_2.unwrap();
+        assert_eq!(domain_name_2, "w3c-ccg.github.io");
+        assert_eq!(path_2, "/user/alice/did.json");
+
+        let input_3 = "did:web:example.com%3A3000:user:alice";
+        let result_3 = resolver::parse_did_web_url(input_3);
+        assert!(result_3.is_ok(), "Expected Ok, got {:?}", result_3);
+        let (path_3, domain_name_3) = result_3.unwrap();
+        assert_eq!(domain_name_3, "example.com:3000");
+        assert_eq!(path_3, "/user/alice/did.json");
     }
 }
