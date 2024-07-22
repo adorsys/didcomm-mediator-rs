@@ -30,6 +30,8 @@ impl MediationRequest {
     where
         D: Deserializer<'de>,
     {
+        use crate::constant::MEDIATE_REQUEST_DIC_1_0;
+
         match StatelessMediationRequest::deserialize(deserializer)? {
             mr if mr.message_type == MEDIATE_REQUEST_DIC_1_0 => Ok(mr),
             _ => Err(Error::custom("invalid type")),
