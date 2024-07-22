@@ -462,6 +462,13 @@ mod tests {
         assert_eq!(response.type_, KEYLIST_2_0);
         assert_eq!(response.from.unwrap(), global::_mediator_did(&state));
         assert_eq!(response.to.unwrap(), vec![global::_edge_did()]);
+
+        // Deserialize the response body to check keys
+        let keylist_body: KeylistBody = serde_json::from_value(response.body).unwrap();
+
+        // Check that the keys match the initial keys
+        let response_keys: Vec<String> = keylist_body.keys.into_iter().map(|entry| entry.recipient_did).collect();
+        assert_eq!(response_keys, initial_keys);
     }
 
     #[tokio::test]
