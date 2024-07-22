@@ -1,5 +1,7 @@
-//! This module provides utilities for working with Verifiable Credentials (VCs).
+//! This module provides utilities for working with [Verifiable Credentials (VCs)][vc].
+//! 
+//! See [vc]: (https://www.w3.org/TR/vc-data-model-2.0/) for details.
 
-pub mod model;
+mod model;
 
-pub use model::VerifiableCredential;
+pub use model::{VerifiableCredential, VerifiablePresentation};
