@@ -1,11 +1,3 @@
-//! A module for resolving [DID Web] documents.
-//!
-//! This module provides functionnalities for resolving DID Web documents by fetching
-//! them over HTTPS. The resolver follows the [W3C DID Resolution specification].
-//! 
-//! [W3C DID Resolution specification]: https://w3c.github.io/did-resolution/
-//! [DID Web]: https://w3c-ccg.github.io/did-method-web/
-
 use async_trait::async_trait;
 use hyper::{
     client::{ connect::Connect, HttpConnector },
@@ -35,9 +27,8 @@ pub struct DidWeb<C> where C: Connect + Send + Sync + Clone + 'static {
     client: Client<C>,
 }
 
-
 impl DidWeb <HttpConnector> {
-    /// Creates a new `DidWeb` resolver with HTTP scheme, for testing only.
+    // Creates a new `DidWeb` resolver with HTTP scheme, for testing only.
     #[cfg(test)]
     pub fn http() -> DidWeb<HttpConnector> {
         DidWeb {
@@ -126,7 +117,7 @@ impl<C> DidWeb<C> where C: Connect + Send + Sync + Clone + 'static {
 /// # Returns
 ///
 /// A `Result` containing the path and domain name or a `DidWebError`.
-pub fn parse_did_web_url(did: &str) -> Result<(String, String), DidWebError> {
+fn parse_did_web_url(did: &str) -> Result<(String, String), DidWebError> {
     let mut parts = did.split(':').peekable();
     let domain_name = match (parts.next(), parts.next(), parts.next()) {
         (Some("did"), Some("web"), Some(domain_name)) => domain_name.replacen("%3A", ":", 1),
