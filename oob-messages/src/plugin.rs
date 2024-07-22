@@ -13,7 +13,7 @@ impl Plugin for OOBMessagesPlugin {
         "oob_messages"
     }
 
-    fn mount(&self) -> Result<(), PluginError> {
+    fn mount(&mut self) -> Result<(), PluginError> {
         let mut fs = StdFileSystem;
 
         let server_public_domain = std::env::var("SERVER_PUBLIC_DOMAIN").map_err(|_| {

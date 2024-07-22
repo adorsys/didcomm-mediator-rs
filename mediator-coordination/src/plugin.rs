@@ -55,9 +55,14 @@ impl Plugin for MediatorCoordinationPlugin {
         "mediator_coordination"
     }
 
-    fn mount(&self) -> Result<(), PluginError> {
-        // Load environment variables required for this plugin
+    // Load environment variables required for this plugin
 
+    fn mount(&mut self) -> Result<(), PluginError> {
+        let storage_dirpath = std::env::var("STORAGE_DIRPATH").map_err(|_| {
+            tracing::error!("STORAGE_DIRPATH env variable required");
+            PluginError::InitError
+        })?;
+        
         let MediatorCoordinationPluginEnv {
             storage_dirpath,
             mongo_uri,

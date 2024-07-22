@@ -1,7 +1,7 @@
 [package]
+edition = "2021"
 name = "generic-server"
 version = "0.1.0"
-edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 default-run = "generic-server"
@@ -24,10 +24,10 @@ server-plugin = { path = "../server-plugin" }
 # optional
 chrono = { version = "0.4.26", optional = true }
 did-endpoint = { path = "../did-endpoint", optional = true }
-mediator-coordination = { path = "../mediator-coordination", optional = true }
 oob-messages = { path = "../oob-messages", optional = true }
 
 [dev-dependencies]
+nix = { version = "0.29.0", features = ["feature"] }
 tower = { version = "0.4.13", features = ["util"] }
 
 [features]
@@ -39,10 +39,6 @@ default = [
 ]
 
 # plugins
-plugin-index = ["dep:chrono"]
 plugin-did_endpoint = ["dep:did-endpoint"]
-plugin-mediator_coordination = [
-    "dep:mediator-coordination",
-    "plugin-did_endpoint",
-]
+plugin-index = ["dep:chrono"]
 plugin-oob_messages = ["dep:oob-messages"]

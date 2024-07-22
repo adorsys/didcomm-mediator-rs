@@ -1,5 +1,7 @@
 pub mod container;
 
+use std::sync::{Arc, Mutex};
+
 use lazy_static::lazy_static;
 use server_plugin::Plugin;
 
@@ -7,14 +9,18 @@ use server_plugin::Plugin;
 mod index;
 
 lazy_static! {
-    pub static ref PLUGINS: Vec<Box<dyn Plugin>> = vec![
+    pub static ref PLUGINS: Arc<Vec<Arc<Mutex<dyn Plugin + 'static>>>> = Arc::new(vec![
         #[cfg(feature = "plugin-index")]
-        Box::<index::IndexPlugin>::default(),
+        Arc::<Mutex::<index::IndexPlugin>>::default(),
         #[cfg(feature = "plugin-did_endpoint")]
+<<<<<<< HEAD
         Box::<did_endpoint::plugin::DidEndpointPlugin>::default(),
         #[cfg(feature = "plugin-mediator_coordination")]
         Box::<mediator_coordination::plugin::MediatorCoordinationPlugin>::default(),
+=======
+        Arc::<Mutex::<did_endpoint::plugin::DidEndpointPlugin>>::default(),
+>>>>>>> main
         #[cfg(feature = "plugin-oob_messages")]
-        Box::<oob_messages::plugin::OOBMessagesPlugin>::default(),
-    ];
+        Arc::<Mutex::<oob_messages::plugin::OOBMessagesPlugin>>::default(),
+    ]);
 }
