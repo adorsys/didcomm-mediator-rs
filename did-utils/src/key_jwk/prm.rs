@@ -1,5 +1,3 @@
-//! JSON Web Key (JWK) parameters.
-
 use serde::{Deserialize, Serialize};
 
 extern crate alloc;

@@ -1,5 +1,3 @@
-//! This module provides error types for cryptographic operations.
-
 /// The set of errors that can occur during key operations.
 #[derive(Debug)]
 pub enum Error {

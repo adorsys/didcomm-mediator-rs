@@ -1,26 +1,3 @@
-//! This module provides utilities for working with base64-encoded bytes,
-//! including encoding, decoding, serialization, and deserialization.
-//!
-//! The main struct in this module is [`Bytes`], which is a serde-compatible
-//! wrapper for base64-encoded bytes. It supports various backends for byte storage,
-//! such as `Vec<u8>` and `Box<[u8]>`, and allows zeroization for enhanced security.
-//!
-//! # Examples
-//!
-//! ```
-//! use did_utils::key_jwk::Bytes;
-//! use base64ct::Base64UrlUnpadded;
-//!
-//! // Creating a Bytes instance from a vector
-//! let data = vec![1, 2, 3, 4];
-//! let bytes: Bytes<Vec<u8>, Base64UrlUnpadded> = Bytes::from(data);
-//!
-//! // Serializing to a base64 string
-//! let serialized = serde_json::to_string(&bytes).unwrap();
-//!
-//! // Deserializing from a base64 string
-//! let deserialized: Bytes<Vec<u8>, Base64UrlUnpadded> = serde_json::from_str(&serialized).unwrap();
-//! ```
 extern crate alloc;
 
 use zeroize::Zeroize;

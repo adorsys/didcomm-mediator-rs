@@ -1,5 +1,3 @@
-//! Defines type for working with octet sequence keys.
-
 use serde::{Deserialize, Serialize};
 
 use super::secret::Secret;

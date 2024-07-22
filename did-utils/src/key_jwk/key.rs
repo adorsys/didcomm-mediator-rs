@@ -1,5 +1,3 @@
-//! Provides generic key types and associated utilities used in JSON Web Keys (JWKs).
-
 use serde::{Deserialize, Serialize};
 
 use crate::key_jwk::{ec::Ec, oct::Oct, okp::Okp, rsa::Rsa};

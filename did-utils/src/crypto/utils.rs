@@ -1,5 +1,3 @@
-//! Utility functions for cryptographic operations.
-
 use super::traits::BYTES_LENGTH_32;
 
 /// Generates a seed for the `ed25519` key pair.

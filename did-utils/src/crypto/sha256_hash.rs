@@ -1,5 +1,3 @@
-//! This module provides utilitiy for computing the SHA256 hash of a given input.
-
 use multibase::Base::Base58Btc;
 use sha2::{Digest, Sha256};
 

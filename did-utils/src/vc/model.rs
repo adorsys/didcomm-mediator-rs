@@ -290,7 +290,7 @@ mod tests {
     use multibase::Base;
     use serde_json::{json, from_str};
 
-    use crate::{crypto::{ed25519::Ed25519KeyPair, traits::Generate}, proof::{model::{Proof, UnsecuredDocument}, eddsa_jcs_2022::EdDsaJcs2022, traits::CryptoProof}};
+    use crate::{crypto::{Ed25519KeyPair, Generate}, proof::{Proof, UnsecuredDocument, EdDsaJcs2022, CryptoProof}};
 
     use super::*;
 
@@ -327,7 +327,7 @@ mod tests {
         let secured_proof = ed_dsa_jcs_2022_prover.proof(vc_json_value.clone()).unwrap();
         let secured_doc = UnsecuredDocument {
             content: vc_json_value,
-            proof: crate::proof::model::Proofs::SingleProof(Box::new(secured_proof)),
+            proof: crate::proof::Proofs::SingleProof(Box::new(secured_proof)),
         };
         let vc_canon = json_canon::to_string(&secured_doc).unwrap();
         assert_eq!(SECURED_VC, vc_canon);
@@ -465,7 +465,7 @@ mod tests {
             verification_method: issuer_vm.to_string(),
             created: Some(chrono::Utc.with_ymd_and_hms(2023, 3, 5, 19, 23, 24).unwrap()),
             expires: None,
-            domain: Some(crate::proof::model::Domain::SingleString("vc-demo.adorsys.com".to_string())),
+            domain: Some(crate::proof::Domain::SingleString("vc-demo.adorsys.com".to_string())),
             challenge: Some("523452345234asfdasdfasdfa".to_string()),
             proof_value: None,
             previous_proof: None,

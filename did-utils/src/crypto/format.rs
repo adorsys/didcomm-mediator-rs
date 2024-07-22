@@ -1,28 +1,3 @@
-//! Converts a key pair to a JWK.
-//! 
-//! This module provides functions to convert a key pair to a JWK and back.
-//! 
-//! # Examples
-//! 
-//! ```rust
-//! use did_utils::crypto::ed25519::Ed25519KeyPair;
-//! use crate::did_utils::crypto::traits::*;
-//! use did_utils::key_jwk::jwk::Jwk;
-//! use std::convert::TryFrom;
-//! 
-//! // conversion from Ed25519KeyPair to Jwk
-//! 
-//! let seed = b"TMwLj2p2qhcuVhaFAj3QkkJGhK6pdyKx";
-//! let payload = b"hello, world!";
-//! 
-//! let keypair = Ed25519KeyPair::new_with_seed(seed).unwrap();
-//! let signature = keypair.sign(payload).unwrap();
-//! 
-//! let jwk: Jwk = keypair.try_into().unwrap();
-//! let keypair: Ed25519KeyPair = jwk.try_into().unwrap();
-//! assert!(keypair.verify(payload, &signature).is_ok());
-//! ```
-
 use crate::{
     crypto::{
         ed25519::Ed25519KeyPair,
@@ -31,11 +6,11 @@ use crate::{
         errors::Error as CryptoError,
     },
     key_jwk::{
-        jwk::Jwk,
-        key::Key,
-        okp::{Okp, OkpCurves},
-        prm::Parameters,
-        secret::Secret,
+        Jwk,
+        Key,
+        {Okp, OkpCurves},
+        Parameters,
+        Secret,
         Bytes,
     },
 };
@@ -199,7 +174,7 @@ fn base64url_to_bytes(key: &str) -> Result<[u8; BYTES_LENGTH_32], ()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::crypto::traits::{CoreSign, Generate, ECDH};
+    use crate::crypto::{CoreSign, Generate, ECDH};
 
     // Tests conversion between Ed25519KeyPair and Jwk
     #[test]

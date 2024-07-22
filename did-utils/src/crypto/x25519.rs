@@ -1,5 +1,3 @@
-//! This module contains the implementation of the X25519 key pair.
-
 use x25519_dalek::{PublicKey, StaticSecret};
 
 use super::traits::BYTES_LENGTH_32;

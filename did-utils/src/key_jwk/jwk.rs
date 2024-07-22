@@ -1,5 +1,3 @@
-//! This module provides types and utilities for handling JSON Web Keys (JWKs).
-
 use crate::{key_jwk::key::Key, key_jwk::prm::Parameters};
 extern crate alloc;
 use serde::{Deserialize, Serialize};

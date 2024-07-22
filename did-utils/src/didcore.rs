@@ -11,7 +11,7 @@ use chrono::{DateTime, Utc};
 use serde::{ser::SerializeMap, Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 
-use crate::{key_jwk::jwk::Jwk, ldmodel::Context, proof::model::Proof};
+use crate::{key_jwk::Jwk, ldmodel::Context, proof::Proof};
 
 // === Structure of a did document ===
 
@@ -314,7 +314,7 @@ pub enum Proofs {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::key_jwk::key::Key;
+    use crate::key_jwk::Key;
     use multibase::Base::Base64Url;
 
     // A test that reads the file at ../test_resources/did_example_1.json, uses serde_json to convert

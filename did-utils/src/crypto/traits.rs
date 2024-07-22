@@ -1,5 +1,3 @@
-//! Traits for cryptographic operations.
-
 // Inspired from https://github.com/decentralized-identity/did-key.rs
 // We are desiging the application to support many curve algorithms.
 // This module will design an interface common to all curves, so that we can change the curve

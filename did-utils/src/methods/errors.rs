@@ -1,5 +1,3 @@
-//! Errors returned by the DID resolution process.
-
 use hyper::StatusCode;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;

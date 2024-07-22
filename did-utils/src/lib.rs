@@ -21,14 +21,14 @@
 //! Below is a simple example of how to create a DID Document:
 //!
 //! ```rust
-//! use did_utils::didcore::Document;
-//! use did_utils::ldmodel::Context;
+//! # use did_utils::didcore::Document;
+//! # use did_utils::ldmodel::Context;
 //!
-//! fn main() {
+//! # fn main() {
 //!     let context = Context::SetOfString(vec!["https://www.w3.org/ns/did/v1".to_string()]);
 //!     let did_document = Document::new(context, "did:example:123456".to_string());
 //!     println!("{:?}", did_document);
-//! }
+//! # }
 //! ```
 pub mod crypto;
 pub mod didcore;

@@ -1,5 +1,3 @@
-//! Defines type for working with RSA keys.
-
 extern crate alloc;
 use alloc::vec::Vec;
 

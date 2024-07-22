@@ -13,16 +13,33 @@
 //! - [`prm`]:    Defines parameter-related types for keys and cryptographic operations.
 //! - [`rsa`]:    Provides support for working with RSA keys.
 //! - [`secret`]: Provides utilities for working with secrets securely.
+//! 
+//! //! # Examples
+//!
+//! ```no run
+//! # use did_utils::key_jwk::Bytes;
+//! # use base64ct::Base64UrlUnpadded;
+//!
+//! // Creating a Bytes instance from a vector
+//! let data = vec![1, 2, 3, 4];
+//! let bytes: Bytes<Vec<u8>, Base64UrlUnpadded> = Bytes::from(data);
+//!
+//! // Serializing to a base64 string
+//! let serialized = serde_json::to_string(&bytes)?;
+//!
+//! // Deserializing from a base64 string
+//! let deserialized: Bytes<Vec<u8>, Base64UrlUnpadded> = serde_json::from_str(&serialized)?;
+//! ```
 
-pub mod bytes;
-pub mod ec;
-pub mod jwk;
-pub mod key;
-pub mod oct;
-pub mod okp;
-pub mod prm;
-pub mod rsa;
-pub mod secret;
+mod bytes;
+mod ec;
+mod jwk;
+mod key;
+mod oct;
+mod okp;
+mod prm;
+mod rsa;
+mod secret;
 
 // Re-exports
 pub use bytes::Bytes;

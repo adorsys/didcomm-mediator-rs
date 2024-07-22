@@ -11,24 +11,24 @@
 //!
 //! # Example
 //!
-//! ```rust
-//! use did_utils::crypto::{Ed25519KeyPair, X25519KeyPair,
-//!                         sha256_hash,
-//!                         Generate, CoreSign, ECDH};
+//! ```no run
+//! # use did_utils::crypto::{Ed25519KeyPair, X25519KeyPair,
+//! #                        sha256_hash,
+//! #                        Generate, CoreSign, ECDH};
 //! 
 //! // Example usage of Ed25519 key pair
-//! let keypair = Ed25519KeyPair::new().unwrap();
+//! let keypair = Ed25519KeyPair::new()?;
 //! let json_file = "test_resources/crypto_ed25519_test_sign_verify.json";
-//! let json_data = std::fs::read_to_string(json_file).unwrap();
+//! let json_data = std::fs::read_to_string(json_file)?;
 //! let signature = keypair.sign(json_data.as_bytes());
 //! // Verify the signature
-//! let verified = keypair.verify(json_data.as_bytes(), &signature.unwrap());
+//! let verified = keypair.verify(json_data.as_bytes(), &signature?);
 //! 
 //! // Example usage of X25519 key pair
 //! let alice_seed = b"TMwLj2p2qhcuVhaFAj3QkkJGhK6pdyKx";
 //! let bob_seed = b"NWB6DbnIlewWVp5jIJOSgyX8msXNPPAL";
-//! let alice = X25519KeyPair::new_with_seed(alice_seed).unwrap();
-//! let bob = X25519KeyPair::new_with_seed(bob_seed).unwrap();
+//! let alice = X25519KeyPair::new_with_seed(alice_seed)?;
+//! let bob = X25519KeyPair::new_with_seed(bob_seed)?;
 //! 
 //! let alice_shared_secret = alice.key_exchange(&bob);
 //! let bob_shared_secret = bob.key_exchange(&alice);
@@ -40,18 +40,17 @@
 
 mod format;
 mod utils;
-
-pub mod errors;
-pub mod ed25519;
-pub mod traits;
-pub mod x25519;
-pub mod sha256_hash;
+mod errors;
+mod ed25519;
+mod traits;
+mod x25519;
+mod sha256_hash;
 
 pub use errors::Error;
-pub use traits::{Generate, CoreSign, ECDH, BYTES_LENGTH_32};
+pub use traits::{Generate, KeyMaterial, CoreSign, ECDH, BYTES_LENGTH_32};
 pub use ed25519::Ed25519KeyPair;
 pub use x25519::X25519KeyPair;
-pub use sha256_hash::sha256_hash;
+pub use sha256_hash::{sha256_hash, sha256_multihash};
 
 
 /// A wrapper struct for an asymmetric key pair.

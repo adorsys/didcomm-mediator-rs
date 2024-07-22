@@ -5,7 +5,7 @@ use multibase::Base::Base58Btc;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::crypto::{ed25519::Ed25519KeyPair, x25519::X25519KeyPair};
+use crate::crypto::{Ed25519KeyPair, X25519KeyPair};
 
 #[derive(Default)]
 pub enum PublicKeyFormat {
@@ -76,7 +76,7 @@ pub(super) fn decode_multikey(multikey: &str) -> Result<(Algorithm, Vec<u8>), De
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::key_jwk::jwk::Jwk;
+    use crate::key_jwk::Jwk;
 
     use multibase::Base::Base64Url;
 

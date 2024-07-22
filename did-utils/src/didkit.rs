@@ -123,7 +123,7 @@ impl Document {
 
 #[cfg(test)]
 pub mod tests {
-    use crate::crypto::{ed25519::Ed25519KeyPair, traits::{Generate, KeyMaterial}};
+    use crate::crypto::{Ed25519KeyPair, {Generate, KeyMaterial}};
     use crate::didcore::KeyFormat::Multibase;
     use super::*;
     use multibase::Base::Base58Btc;

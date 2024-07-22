@@ -1,13 +1,11 @@
-//! Support for various cryptographic algorithms used in the `did:key` method.
-
 use num_bigint::{BigInt, Sign};
 
 use crate::{
-    crypto::errors::Error as CryptoError, key_jwk::ec::{Ec, EcCurves},
-    key_jwk::jwk::Jwk,
-    key_jwk::key::Key,
-    key_jwk::okp::{Okp, OkpCurves},
-    key_jwk::prm::Parameters,
+    crypto::Error as CryptoError, key_jwk::{Ec, EcCurves},
+    key_jwk::Jwk,
+    key_jwk::Key,
+    key_jwk::{Okp, OkpCurves},
+    key_jwk::Parameters,
     key_jwk::Bytes,
 };
 

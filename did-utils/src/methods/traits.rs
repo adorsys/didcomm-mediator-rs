@@ -1,5 +1,3 @@
-//! Trait definitions for DID methods.
-
 use crate::methods::resolution::*;
 use async_trait::async_trait;
 

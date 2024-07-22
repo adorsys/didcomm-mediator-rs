@@ -1,7 +1,3 @@
-//! Implements the Ed25519 key pair.
-//! 
-//! See [RFC 8032](https://tools.ietf.org/html/rfc8032) for details.
-
 use super::errors::Error;
 use super::traits::{CoreSign, Generate, KeyMaterial, BYTES_LENGTH_32};
 use super::utils::{generate_seed, clone_slice_to_array};

@@ -1,5 +1,3 @@
-//! This module provides types for working with elliptic-curve keys.
-
 use serde::{Deserialize, Serialize};
 
 use crate::key_jwk::bytes::Bytes;

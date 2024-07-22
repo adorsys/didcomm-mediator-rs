@@ -7,7 +7,7 @@ use super::errors::DIDResolutionError;
 pub type ParsedDIDUrl = (String, HashMap<String, String>, Option<String>);
 
 /// Parses DID URL into (did, query, fragment)
-pub(crate) fn parse_did_url(did_url: &str) -> Result<ParsedDIDUrl, DIDResolutionError> {
+pub(super) fn parse_did_url(did_url: &str) -> Result<ParsedDIDUrl, DIDResolutionError> {
     if !did_url.starts_with("did:") {
         return Err(DIDResolutionError::InvalidDidUrlPrefix);
     }

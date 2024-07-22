@@ -1,5 +1,3 @@
-//! Defines types for working with Octet Key Pairs (OKP).
-
 use serde::{Deserialize, Serialize};
 
 use crate::key_jwk::secret::Secret;
