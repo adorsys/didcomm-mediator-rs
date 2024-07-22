@@ -100,9 +100,7 @@ Which will start the generic-server.
 
 You should expect something like this 
 
-<p align="center">
-  <img src="readme.png" alt="alt text" />
-</p>
+![image](readme.png)
 
 To run a test, you simply do a 
 ```sh
