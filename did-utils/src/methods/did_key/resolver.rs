@@ -15,7 +15,7 @@ use crate::methods::resolution::{
     ResolutionOutput,
 };
 
-use super::DidKey;
+use crate::methods::DidKey;
 
 #[async_trait]
 impl DIDResolver for DidKey {
@@ -66,15 +66,12 @@ impl DIDResolver for DidKey {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::methods::resolution::DereferencingOptions;
+    use crate::methods::{common::PublicKeyFormat, resolution::DereferencingOptions};
     use serde_json::Value;
 
     #[async_std::test]
     async fn test_did_key_resolution_with_encryption_derivation() {
-        let did_method = DidKey {
-            enable_encryption_key_derivation: true,
-            ..Default::default()
-        };
+        let did_method = DidKey::new_full(true, PublicKeyFormat::default());
 
         let did = "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK";
         let expected: Value = serde_json::from_str(
@@ -150,10 +147,7 @@ mod tests {
 
     #[async_std::test]
     async fn test_dereferencing_did_key_url() {
-        let did_method = DidKey {
-            enable_encryption_key_derivation: true,
-            ..Default::default()
-        };
+        let did_method = DidKey::new_full(true, PublicKeyFormat::default());
 
         let did_url = "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK#z6LSj72tK8brWgZja8NLRwPigth2T9QRiG1uH9oKZuKjdh9p";
         let expected: Value = serde_json::from_str(

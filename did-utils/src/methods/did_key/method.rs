@@ -1,12 +1,10 @@
-//! Implementation of the DID Key method.
-
 use multibase::Base::Base58Btc;
 
 use crate::{
     crypto::{
-        ed25519::Ed25519KeyPair,
-        traits::{Generate, KeyMaterial},
-        errors::Error as CryptoError,
+        Ed25519KeyPair,
+        {Generate, KeyMaterial},
+        Error as CryptoError,
     },
     didcore::{self, Document as DIDDocument, KeyFormat, VerificationMethod},
     ldmodel::Context,
@@ -20,10 +18,10 @@ use crate::{
 #[derive(Default)]
 pub struct DidKey {
     /// Key format to consider during DID expansion into a DID document
-    pub key_format: PublicKeyFormat,
+    key_format: PublicKeyFormat,
 
     /// Derive key agreement on expanding did:key address
-    pub enable_encryption_key_derivation: bool,
+    enable_encryption_key_derivation: bool,
 }
 
 impl DIDMethod for DidKey {
@@ -33,6 +31,20 @@ impl DIDMethod for DidKey {
 }
 
 impl DidKey {
+
+    /// Creates a new DidKey resolver instance.
+    pub fn new() -> Self {
+        Self::new_full(false, PublicKeyFormat::default())
+    }
+
+    /// Creates a new DidKey resolver with optional encryption key derivation and a specific key format.
+    pub fn new_full(enable_encryption_key_derivation: bool, key_format: PublicKeyFormat) -> Self {
+        Self {
+            enable_encryption_key_derivation,
+            key_format,
+        }
+    }
+
     /// Generates did:key address ex nihilo, off self-generated Ed25519 key pair
     pub fn generate() -> Result<String, CryptoError> {
         let keypair = Ed25519KeyPair::new()?;
@@ -214,7 +226,7 @@ impl DidKey {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::key_jwk::jwk::Jwk;
+    use crate::key_jwk::Jwk;
     use serde_json::Value;
 
     #[test]
@@ -273,7 +285,7 @@ mod tests {
 
     #[test]
     fn test_did_key_expansion_multikey() {
-        let did_method = DidKey::default();
+        let did_method = DidKey::new();
 
         let did = "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK";
         let expected: Value = serde_json::from_str(
@@ -307,10 +319,7 @@ mod tests {
 
     #[test]
     fn test_did_key_expansion_jsonwebkey() {
-        let did_method = DidKey {
-            key_format: PublicKeyFormat::Jwk,
-            ..Default::default()
-        };
+        let did_method = DidKey::new_full(false, PublicKeyFormat::Jwk);
 
         let did = "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK";
         let expected: Value = serde_json::from_str(
@@ -348,10 +357,7 @@ mod tests {
 
     #[test]
     fn test_did_key_expansion_multikey_with_encryption_derivation() {
-        let did_method = DidKey {
-            enable_encryption_key_derivation: true,
-            ..Default::default()
-        };
+        let did_method = DidKey::new_full(true, PublicKeyFormat::default());
 
         let did = "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK";
         let expected: Value = serde_json::from_str(
@@ -395,7 +401,7 @@ mod tests {
 
     #[test]
     fn test_did_key_expansion_fails_as_expected() {
-        let did_method = DidKey::default();
+        let did_method = DidKey::new();
 
         let did = "did:key:Z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK";
         assert_eq!(did_method.expand(did).unwrap_err(), DIDResolutionError::InvalidDid);
