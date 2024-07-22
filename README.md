@@ -83,14 +83,28 @@ If you encounter any issues while running the application, here are some trouble
 cargo check
 ```
 
-## Example
+## Running the Project
  Starting the mediator service:
  
-Since the didcomm-mediator-rs is made up of so many `crates` both `libraries` and `binaries`, to run anything you have to explicitly specify the `crate` and the `binary` you want to run like for example
+To begin with, you can do a 
 ```sh
-cargo run -p <package> --bin <binary>
+cargo build
 ```
-Otherwise you just do a general test
+which will compile our codes into an executable binary and also ensure the dependencies found in `cargo.toml` are also compiled if not yet. 
+
+Then a 
+```sh
+cargo run
+```
+Which will start the generic-server.
+
+You should expect something like this 
+
+<p align="center">
+  <img src="readme.png" alt="alt text" />
+</p>
+
+To run a test, you simply do a 
 ```sh
 cargo test
 ```
