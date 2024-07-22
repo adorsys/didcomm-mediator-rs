@@ -4,16 +4,13 @@ use serde::{Deserialize, Serialize};
 
 use super::{errors::DIDPeerMethodError, util::abbreviate_service_for_did_peer_2};
 use crate::{
-    crypto::{
-        ed25519::Ed25519KeyPair,
-        sha256_hash::sha256_multihash,
-        traits::{Generate, KeyMaterial},
+    crypto::{Ed25519KeyPair, sha256_multihash, {Generate, KeyMaterial},
     },
     didcore::{self, Document as DIDDocument, KeyFormat, Service, VerificationMethod},
     ldmodel::Context,
     methods::{
         common::{self, Algorithm, PublicKeyFormat},
-        did_key::DidKey,
+        DidKey,
         did_peer::util,
         errors::DIDResolutionError,
         traits::DIDMethod,
@@ -85,6 +82,17 @@ impl Purpose {
 }
 
 impl DidPeer {
+
+    /// Creates new instance of DidPeer.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Creates new instance of DidPeer with given key format.
+    pub fn new_with_format(key_format: PublicKeyFormat) -> Self {
+        Self { key_format }
+    }
+
     // ---------------------------------------------------------------------------
     // Generating did:peer addresses
     // ---------------------------------------------------------------------------
@@ -510,7 +518,7 @@ mod tests {
     use serde_json::Value;
 
     use super::*;
-    use crate::key_jwk::jwk::Jwk;
+    use crate::key_jwk::Jwk;
 
     #[test]
     fn test_did_peer_0_generation_from_given_jwk() {
