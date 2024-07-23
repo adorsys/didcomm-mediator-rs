@@ -24,6 +24,7 @@ use serde_json::Value;
 #[serde(rename_all = "camelCase")]
 pub struct MediationRequest {
     // Return route header, specifies how communication is done.
+    #[serde(rename = "return_route")]
     pub return_route: ReturnRouteHeader,
 
     /// Uniquely identifies a mediation request message.
@@ -690,12 +691,14 @@ mod tests {
     #[test]
     fn can_serialize_mediation_request_message() {
         let mediation_request = MediationRequest {
+            return_route: ReturnRouteHeader::All,
             id: "id_alice_mediation_request".to_string(),
             message_type: MEDIATE_REQUEST_2_0.to_string(),
             ..Default::default()
         };
 
         let expected = json!({
+            "return_route": "all",
             "@id": "id_alice_mediation_request",
             "@type": "https://didcomm.org/coordinate-mediation/2.0/mediate-request"
         });
@@ -708,9 +711,8 @@ mod tests {
 
     #[test]
     fn can_deserialize_mediation_request_message() {
-        let msg = r#"{
-            
-            "@return_route": ""
+        let msg = r#"{ 
+            "return_route": "all",
             "@id": "id_alice_mediation_request",
             "@type": "https://didcomm.org/coordinate-mediation/2.0/mediate-request"
         }"#;
@@ -739,7 +741,7 @@ mod tests {
         let expected = json!({
             "@id": "id_alice_mediation_grant",
             "@type": "https://didcomm.org/coordinate-mediation/2.0/mediate-grant",
-            "routing_did": "routing_did",
+            "body": {"routing_did": "routing_did"},
         });
 
         assert_eq!(
@@ -753,18 +755,11 @@ mod tests {
         let msg = r#"{
             "@id": "id_alice_mediation_grant",
             "@type": "https://didcomm.org/coordinate-mediation/2.0/mediate-grant",
-            "body":  {
-                    "routing_did": [
-                    {
-                    "}
-                    ]
-        
+            "body": { "routing_did": "routing_did"
+    }
         }"#;
 
         let mediation_grant: MediationGrant = serde_json::from_str(msg).unwrap();
-        let routing_did = MediationGrantBody {
-            routing_did: "routing_did".to_string(),
-        };
 
         // Assert deserialization
         assert_eq!(&mediation_grant.id, "id_alice_mediation_grant");

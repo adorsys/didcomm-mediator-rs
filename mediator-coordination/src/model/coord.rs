@@ -83,6 +83,7 @@ mod tests {
     #[test]
     fn test_deserialize_stateful_mediation_requests() {
         let msg = r#"{
+            "return_route": "all",
             "@id": "id_alice_mediation_request",
             "@type": "https://didcomm.org/coordinate-mediation/2.0/mediate-request"
         }"#;

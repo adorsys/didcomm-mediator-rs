@@ -2,10 +2,7 @@ use async_trait::async_trait;
 use did_utils::{
     didcore::Document,
     key_jwk::jwk::Jwk,
-    methods::{
-        did_key::DIDKeyMethod,
-        errors::DIDResolutionError, common::PublicKeyFormat,
-    },
+    methods::{common::PublicKeyFormat, did_key::DIDKeyMethod, errors::DIDResolutionError},
 };
 use didcomm::{
     did::{DIDDoc, DIDResolver},

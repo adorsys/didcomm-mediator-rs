@@ -62,7 +62,7 @@ impl Plugin for MediatorCoordinationPlugin {
             tracing::error!("STORAGE_DIRPATH env variable required");
             PluginError::InitError
         })?;
-        
+
         let MediatorCoordinationPluginEnv {
             storage_dirpath,
             mongo_uri,
