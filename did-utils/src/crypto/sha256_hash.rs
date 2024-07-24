@@ -72,9 +72,9 @@ mod tests {
     #[test]
     fn test_sha256_multihash() {
         // https://richardschneider.github.io/net-ipfs-core/articles/multihash.html
-        assert_eq!(&sha256_multihash(b"Hello world"), "QmV8cfu6n4NT5xRr2AHdKxFMTZEJrA44qgrBCr739BN9Wb");
+        assert_eq!(&sha256_multihash(b"Hello world"), "zQmV8cfu6n4NT5xRr2AHdKxFMTZEJrA44qgrBCr739BN9Wb");
 
         // https://stackoverflow.com/a/51304779
-        assert_eq!(&sha256_multihash(b"hello world"), "QmaozNR7DZHQK1ZcU9p7QdrshMvXqWK6gpu5rmrkPdT3L4");
+        assert_eq!(&sha256_multihash(b"hello world"), "zQmaozNR7DZHQK1ZcU9p7QdrshMvXqWK6gpu5rmrkPdT3L4");
     }
 }
