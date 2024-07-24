@@ -41,7 +41,7 @@ pub fn sha256_multihash(bytes: &[u8]) -> String {
     ]
     .concat();
 
-    Base58Btc.encode(pack)
+    multibase::encode(Base58Btc, pack)
 }
 
 #[cfg(test)]
