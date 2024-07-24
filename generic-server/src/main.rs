@@ -4,24 +4,26 @@ use std::net::SocketAddr;
 
 #[tokio::main]
 async fn main() {
-    // Start server
-    let port = std::env::var("SERVER_LOCAL_PORT").unwrap_or("3000".to_owned());
-    let addr: SocketAddr = format!("127.0.0.1:{port}").parse().unwrap();
-    tracing::info!("listening on {addr}");
-    generic_server_with_graceful_shutdown(addr).await;
-}
 
-async fn generic_server_with_graceful_shutdown(addr: SocketAddr) {
     // Load dotenv-flow variables
     dotenv_flow::dotenv_flow().ok();
 
     // Enable logging
     config_tracing();
 
+    // Start server
+    let port = std::env::var("SERVER_LOCAL_PORT").unwrap_or("3000".to_owned());
+    let addr: SocketAddr = format!("127.0.0.1:{port}").parse().unwrap();
+    
+    tracing::info!("listening on {addr}");
+    generic_server_with_graceful_shutdown(addr).await;
+}
+
+async fn generic_server_with_graceful_shutdown(addr: SocketAddr) {
     // Load plugins
     let (mut plugin_container, router) = app();
 
-    // spawn task for server
+    // Spawn task for server
     tokio::spawn(async move {
         Server::bind(&addr)
             .serve(router.into_make_service())
@@ -31,7 +33,7 @@ async fn generic_server_with_graceful_shutdown(addr: SocketAddr) {
 
     tokio::select! {
         _ = tokio::signal::ctrl_c() => {
-           tracing::info!("shutting down gracefully");
+            tracing::info!("shutting down gracefully");
             let _ = plugin_container.unload();
         }
     };
