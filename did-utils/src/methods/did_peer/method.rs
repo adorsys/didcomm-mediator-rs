@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{errors::DIDPeerMethodError, util::abbreviate_service_for_did_peer_2};
 use crate::{
-    crypto::{Ed25519KeyPair, sha256_multihash, {Generate, KeyMaterial},
+    crypto::{Ed25519KeyPair, sha256_hash, sha256_multihash, {Generate, KeyMaterial},
     },
     didcore::{self, Document as DIDDocument, KeyFormat, Service, VerificationMethod},
     ldmodel::Context,
@@ -126,7 +126,7 @@ impl DidPeer {
         let json = json_canon::to_string(diddoc)?;
         let multihash = sha256_multihash(json.as_bytes());
 
-        Ok(format!("did:peer:1z{multihash}"))
+        Ok(format!("did:peer:1{multihash}"))
     }
 
     /// Method 2: Generates did:peer address from multiple inception key
@@ -172,7 +172,7 @@ impl DidPeer {
         // Multihash with SHA256
         let multihash = sha256_multihash(stripped.as_bytes());
 
-        Ok(format!("did:peer:3z{multihash}"))
+        Ok(format!("did:peer:3{multihash}"))
     }
 
     /// Method 4: Generates did:peer address from DID document (embedding long form)
@@ -189,7 +189,7 @@ impl DidPeer {
         let encoded = multibase::encode(Base58Btc, [&MULTICODEC_JSON, json.as_bytes()].concat());
 
         // Hashing
-        let hash = format!("z{}", sha256_multihash(encoded.as_bytes()));
+        let hash = sha256_multihash(encoded.as_bytes());
 
         Ok(format!("did:peer:4{hash}:{encoded}"))
     }
@@ -204,7 +204,6 @@ impl DidPeer {
         };
 
         // Split hash and encoded segments
-
         let segments: Vec<_> = stripped.split(':').collect();
         if segments.len() != 2 || segments[1].is_empty() {
             return Err(DIDPeerMethodError::MalformedLongPeerDID);
@@ -213,7 +212,7 @@ impl DidPeer {
         let (hash, encoded) = (segments[0], segments[1]);
 
         // Verify hash
-        if hash != format!("z{}", sha256_multihash(encoded.as_bytes())) {
+        if hash != sha256_multihash(encoded.as_bytes()) {
             return Err(DIDPeerMethodError::InvalidHash);
         }
 
@@ -473,31 +472,46 @@ impl DidPeer {
     ///
     /// See https://identity.foundation/peer-did-method-spec/#resolving-a-did
     pub fn expand_did_peer_4(&self, did: &str) -> Result<DIDDocument, DIDPeerMethodError> {
-        // Ensure long format by computing did:peer:4 short form alias
-
+        // shorten the did
         let alias = Self::shorten_did_peer_4(did)?;
 
         // Extract encoded document
+        let encoded_document = did.split(':').nth(3).ok_or(DIDPeerMethodError::DIDParseError)?;
 
-        let encoded_document = did.split(':').nth(3).unwrap();
+        // Extract hash
+        let extracted_hash = did.split(':').nth(2).unwrap().to_string().replacen(char::is_numeric, "", 1);
 
-        // Decode document
+        // Decode hash
+        let (base, decoded_hash) = multibase::decode(extracted_hash)
+            .map_err(|_| DIDPeerMethodError::DIDParseError)?;
 
-        let (base, decoded_bytes) = multibase::decode(encoded_document).map_err(|_| DIDPeerMethodError::DIDParseError)?;
-        if base != Base58Btc || decoded_bytes.len() < 2 || decoded_bytes[..2] != MULTICODEC_JSON {
+        // Verify hash
+        let computed_hash = sha256_hash(encoded_document.as_bytes());
+        if Base58Btc != base ||
+           decoded_hash.len() < 34 ||
+           &decoded_hash[2..] != computed_hash {
             return Err(DIDPeerMethodError::MalformedLongPeerDID);
         }
+        // Decode document
+        let (base, decoded_bytes) = multibase::decode(encoded_document)
+            .map_err(|_| DIDPeerMethodError::DIDParseError)?;
 
-        let mut diddoc: DIDDocument = serde_json::from_slice(&decoded_bytes[2..])?;
+        if Base58Btc != base ||
+           decoded_bytes.len() < 2 ||
+           &decoded_bytes[..2] != MULTICODEC_JSON {
+            return Err(DIDPeerMethodError::MalformedLongPeerDID);
+        }
+        // Deserialize the document
+        let mut diddoc: DIDDocument = serde_json::from_slice(&decoded_bytes[2..])
+            .map_err(|err| DIDPeerMethodError::SerdeError(err))?;
 
         // Contextualize decoded document
-
         diddoc.id = did.to_string();
 
         if diddoc.also_known_as.is_none() {
             diddoc.also_known_as = Some(vec![alias]);
         }
-
+        
         diddoc.verification_method = diddoc.verification_method.map(|arr| {
             arr.into_iter()
                 .map(|vm| VerificationMethod {
@@ -507,8 +521,7 @@ impl DidPeer {
                 .collect()
         });
 
-        // Output
-
+        // Output DIDDocument
         Ok(diddoc)
     }
 }
@@ -1142,7 +1155,7 @@ mod tests {
 
     #[test]
     fn test_expand_did_peer_4() {
-        let did_method = DidPeer::default();
+        let did_method = DidPeer::new();
 
         let did = concat!(
             "did:peer:4zQmePYVawceZsPSxpLRp54z4Q5DCZXeyyGKwoDMc2NqgZXZ:z2yS424R5nAoSu",
