@@ -11,7 +11,7 @@ impl Plugin for IndexPlugin {
         "index"
     }
 
-    fn mount(&self) -> Result<(), PluginError> {
+    fn mount(&mut self) -> Result<(), PluginError> {
         Ok(())
     }
 

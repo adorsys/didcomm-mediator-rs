@@ -21,3 +21,9 @@ Cargo.lock
 
 # Mac OS X Finder metadata
 .DS_Store
+
+# Jetbrains RustRover config folder
+.idea
+
+# Environment variables file 
+.env

@@ -1,12 +1,9 @@
 name: Rust CI
 
-on:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
+on: [push, pull_request]
+
+env:
+  CARGO_TERM_COLOR: always
 
 jobs:
   build:
@@ -15,17 +12,32 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
+
+    - name: Cache dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/bin
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          target/
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          ${{ runner.os }}-cargo
 
     - name: Set up Rust
-      uses: actions-rs/toolchain@v1
+      uses: actions-rust-lang/setup-rust-toolchain@v1
       with:
         toolchain: stable
+        rustflags:
 
-    - name: Install system dependencies
-      run: sudo apt-get update && sudo apt-get install -y libssl-dev pkg-config
+    - name: Install Nextest test runner
+      uses: taiki-e/install-action@nextest
 
     - name: Build and Run Test
       run: |
         cargo build --workspace --all-features
-        cargo test --workspace --all-features
+        cargo nextest run --workspace --all-features

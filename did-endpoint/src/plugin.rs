@@ -10,7 +10,7 @@ impl Plugin for DidEndpointPlugin {
         "did_endpoint"
     }
 
-    fn mount(&self) -> Result<(), PluginError> {
+    fn mount(&mut self) -> Result<(), PluginError> {
         let storage_dirpath = std::env::var("STORAGE_DIRPATH").map_err(|_| {
             tracing::error!("STORAGE_DIRPATH env variable required");
             PluginError::InitError
