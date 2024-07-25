@@ -44,7 +44,7 @@ pub trait Generate: KeyMaterial {
     fn from_secret_key(private_key: &[u8; BYTES_LENGTH_32]) -> Result<Self, Error> where Self: Sized;
 }
 
-/// A trait for types that support ECDSA operations.
+/// A trait for types that support creating and verifying digital signatures.
 pub trait CoreSign {
     /// Performs a sign operation.
     ///

@@ -62,9 +62,6 @@ mod tests {
         // Compute the hash of the input bytes
         let hash = sha256_hash(bytes);
 
-        // Print the computed hash
-        println!("{:?}", hash);
-
         // Assert that the computed hash matches the expected hash
         assert_eq!(expected, hash);
     }
