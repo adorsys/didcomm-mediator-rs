@@ -46,7 +46,7 @@ impl KeyMaterial for Ed25519KeyPair {
 impl Generate for Ed25519KeyPair {
     /// Generates a new Ed25519 key pair.
     ///
-    /// If the initial seed is empty or invalid, generates a new seed.
+    /// If the initial seed is empty or invalid, a random seed will be generated.
     ///
     /// # Returns
     ///
@@ -105,6 +105,8 @@ impl Generate for Ed25519KeyPair {
 
     /// Creates a new `Ed25519KeyPair` from a secret key.
     ///
+    /// A public key will be derived from the secret key.
+    /// 
     /// # Arguments
     ///
     /// * `secret_key` - The bytes of the secret key.
