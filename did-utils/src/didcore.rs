@@ -78,6 +78,26 @@ pub struct Document {
     pub proof: Option<Proofs>,
 }
 
+impl Default for Document {
+    fn default() -> Self {
+        Self {
+            context: Context::SingleString(String::from("https://www.w3.org/ns/did/v1")),
+            id: String::new(),
+            controller: None,
+            also_known_as: None,
+            verification_method: None,
+            authentication: None,
+            assertion_method: None,
+            capability_delegation: None,
+            capability_invocation: None,
+            key_agreement: None,
+            service: None,
+            additional_properties: None,
+            proof: None,
+        }
+    }
+}
+
 /// Represents a DID Document controller(s).
 #[derive(Serialize, Debug, Clone, PartialEq, Deserialize)]
 #[serde(untagged)]
@@ -91,7 +111,7 @@ pub enum Controller {
 /// A service defines how to interact with the DID subject.
 /// 
 /// [service]: https://www.w3.org/TR/did-core/#services
-#[derive(Serialize, Debug, Clone, PartialEq, Deserialize)]
+#[derive(Serialize, Debug, Clone, PartialEq, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct Service {
     #[serde(default = "String::new")]

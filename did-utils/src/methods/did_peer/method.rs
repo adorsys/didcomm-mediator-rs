@@ -2,18 +2,23 @@ use multibase::Base::{Base58Btc, Base64Url};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
-use super::{errors::DIDPeerMethodError, util::abbreviate_service_for_did_peer_2};
+use super::{
+    errors::DIDPeerMethodError,
+    util::{abbreviate_service_for_did_peer_2, validate_input_document},
+};
+
 use crate::{
-    crypto::{Ed25519KeyPair, sha256_hash, sha256_multihash, {Generate, KeyMaterial},
+    crypto::{
+        sha256_hash, sha256_multihash, Ed25519KeyPair, {Generate, KeyMaterial},
     },
     didcore::{self, Document as DIDDocument, KeyFormat, Service, VerificationMethod},
     ldmodel::Context,
     methods::{
         common::{self, Algorithm, PublicKeyFormat},
-        DidKey,
         did_peer::util,
         errors::DIDResolutionError,
         traits::DIDMethod,
+        DidKey,
     },
 };
 
@@ -82,7 +87,6 @@ impl Purpose {
 }
 
 impl DidPeer {
-
     /// Creates new instance of DidPeer.
     pub fn new() -> Self {
         Self::default()
@@ -179,10 +183,8 @@ impl DidPeer {
     ///
     /// See https://identity.foundation/peer-did-method-spec/#method-4-short-form-and-long-form
     pub fn create_did_peer_4_from_stored_variant(diddoc: &DIDDocument) -> Result<String, DIDPeerMethodError> {
-        // Validate argument
-        if !diddoc.id.is_empty() {
-            return Err(DIDPeerMethodError::InvalidStoredVariant);
-        }
+        // Validate input documment
+        validate_input_document(diddoc)?;
 
         // Encode document
         let json = json_canon::to_string(diddoc)?;
@@ -487,18 +489,14 @@ impl DidPeer {
 
         // Verify hash
         let computed_hash = sha256_hash(encoded_document.as_bytes());
-        if Base58Btc != base ||
-           decoded_hash.len() < 34 ||
-           &decoded_hash[2..] != computed_hash {
+        if Base58Btc != base || decoded_hash.len() < 34 || &decoded_hash[2..] != computed_hash {
             return Err(DIDPeerMethodError::MalformedLongPeerDID);
         }
         // Decode document
         let (base, decoded_bytes) = multibase::decode(encoded_document)
             .map_err(|_| DIDPeerMethodError::DIDParseError)?;
 
-        if Base58Btc != base ||
-           decoded_bytes.len() < 2 ||
-           &decoded_bytes[..2] != MULTICODEC_JSON {
+        if Base58Btc != base || decoded_bytes.len() < 2 || &decoded_bytes[..2] != MULTICODEC_JSON {
             return Err(DIDPeerMethodError::MalformedLongPeerDID);
         }
         // Deserialize the document
@@ -511,7 +509,7 @@ impl DidPeer {
         if diddoc.also_known_as.is_none() {
             diddoc.also_known_as = Some(vec![alias]);
         }
-        
+
         diddoc.verification_method = diddoc.verification_method.map(|arr| {
             arr.into_iter()
                 .map(|vm| VerificationMethod {
@@ -812,18 +810,12 @@ mod tests {
         let mut did = valid_did.to_string();
         did.insert_str(20, "blurg");
 
-        assert!(matches!(
-            DidPeer::shorten_did_peer_4(&did).unwrap_err(),
-            DIDPeerMethodError::InvalidHash
-        ));
+        assert!(matches!(DidPeer::shorten_did_peer_4(&did).unwrap_err(), DIDPeerMethodError::InvalidHash));
 
         // Invalidate hash by tampering with encoded document
         let did = format!("{valid_did}blurg");
 
-        assert!(matches!(
-            DidPeer::shorten_did_peer_4(&did).unwrap_err(),
-            DIDPeerMethodError::InvalidHash
-        ));
+        assert!(matches!(DidPeer::shorten_did_peer_4(&did).unwrap_err(), DIDPeerMethodError::InvalidHash));
     }
 
     #[test]
