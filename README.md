@@ -63,27 +63,48 @@ Ensure you have the following installed:
  * [Rust & Cargo](https://www.rust-lang.org/tools/install)
 
 ## Setup
-1. Create a working directory eg(cd didcomm-mediator-rs) and cd into your directory.
+1. (Optional) Create a working directory eg(cd didcomm-mediator-rs) and cd into your directory.
 
  2. Clone the repository using the following command:
-
-git clone https://github.com/adorsys/didcomm-mediator-rs.git
+```sh
+git clone git@github.com:adorsys/didcomm-mediator-rs.git
+```
 
 ## Troubleshooting Tips
 If you encounter any issues while running the application, here are some troubleshooting tips to help you resolve them
  
  ### Common Issues
 
-  1. Build Errors:
+   Build Errors:
   * Ensure that you have the required system packages installed. `libssl-dev` and `pkg-config` 
   * Ensure that you have the latest version of Rust and Cargo installed.
-  * CHeck for any missing dependencies using `cargo check`.
+  * Check for any missing dependencies using 
+```sh
+cargo check
+```
 
-## Example
- 1. Start the mediator service:
+## Running the Project
+ Starting the mediator service:
+ 
+To begin with, you can do a 
+```sh
+cargo build
+```
+which will compile our codes into an executable binary and also ensure the dependencies found in `cargo.toml` are also compiled if not yet. 
 
-cd didcomm-mediator-rs/mediator
+Then a 
+```sh
 cargo run
+```
+Which will start the generic-server.
 
+You should expect something like this 
+
+![image](readme.png)
+
+To run a test, you simply do a 
+```sh
+cargo test
+```
 ## License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
