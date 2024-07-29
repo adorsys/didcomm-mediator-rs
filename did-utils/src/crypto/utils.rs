@@ -1,20 +1,7 @@
 use super::traits::BYTES_LENGTH_32;
 
-/// Generates a seed for the `ed25519` key pair.
-///
-/// If the initial seed is empty or invalid, generates a new seed.
-///
-/// # Arguments
-///
-/// * `initial_seed` - The initial seed to use, or empty if none.
-///
-/// # Returns
-///
-/// A `Vec` of bytes of length `BYTES_LENGTH_32`, containing the generated seed.
-///
-/// # Errors
-///
-/// Returns an error if the initial seed is invalid.
+// Generate a seed from an optional initial seed.
+// If the initial seed is empty or invalid, generate a random seed.
 pub(super) fn generate_seed(initial_seed: &[u8]) -> Result<[u8; BYTES_LENGTH_32], &str> {
     let mut seed = [0u8; BYTES_LENGTH_32];
     if initial_seed.is_empty() || initial_seed.len() != BYTES_LENGTH_32 {
@@ -28,25 +15,37 @@ pub(super) fn generate_seed(initial_seed: &[u8]) -> Result<[u8; BYTES_LENGTH_32]
     Ok(seed)
 }
 
-/// Clones the content of the slice into a new array.
-///
-/// It is important to clone the data, as we don't want key material to be hazardously modified.
-///
-/// # Arguments
-///
-/// * `slice` - The slice to clone.
-///
-/// # Returns
-///
-/// A new array containing the cloned data.
-///
-/// # Panics
-///
-/// Panics if the length of the slice is not equal to `BYTES_LENGTH_32`.
+// Clone a slice into an array.
 pub(super) fn clone_slice_to_array(slice: &[u8; BYTES_LENGTH_32]) -> [u8; BYTES_LENGTH_32] {
     
     let mut array = [0u8; BYTES_LENGTH_32];
 
     array.clone_from_slice(slice);
     array
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_generate_seed_with_valid_initial_seed() {
+        let seed = [0u8; BYTES_LENGTH_32];
+        let generated_seed = generate_seed(&seed).unwrap();
+        assert_eq!(seed, generated_seed);
+    }
+
+    #[test]
+    fn test_generate_seed_with_invalid_initial_seed() {
+        let seed = vec![1, 2, 3];
+        let generated_seed = generate_seed(&seed).unwrap();
+        assert_ne!(seed, generated_seed);
+    }
+
+    #[test]
+    fn test_clone_slice_to_array() {
+        let slice = [1u8; BYTES_LENGTH_32];
+        let array = clone_slice_to_array(&slice);
+        assert_eq!(slice, array);
+    }
 }

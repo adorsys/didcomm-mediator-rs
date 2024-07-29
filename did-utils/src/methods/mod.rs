@@ -1,6 +1,6 @@
 //! A collection of methods for DID resolution and related utilities.
 //!
-//! This module provides functionality for resolving Decentralized Identifiers (DIDs)
+//! This module provides functionality for creating and resolving Decentralized Identifiers (DIDs)
 //! using different DID methods including [`did:key`], [`did:web`], and [`did:peer`].
 //! 
 //! [`did:key`]: https://w3c-ccg.github.io/did-method-key/

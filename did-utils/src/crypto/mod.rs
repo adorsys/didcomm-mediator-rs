@@ -64,6 +64,7 @@ pub use sha256_hash::{sha256_hash, sha256_multihash};
 ///
 /// - `P`: The type of the public key.
 /// - `S`: The type of the secret key.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AsymmetricKey<P, S> {
     pub public_key: P,
     pub secret_key: Option<S>,

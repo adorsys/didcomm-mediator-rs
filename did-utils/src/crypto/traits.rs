@@ -10,57 +10,47 @@ pub const BYTES_LENGTH_32: usize = 32;
 
 /// A trait for types that hold key material bytes.
 pub trait KeyMaterial {
-    /// Returns the public key bytes as a slice.
-    ///
-    /// Returns a `Result` containing the public key bytes, or an `Error` if the operation fails.
-    
+    /// Returns the bytes of the public key.
     fn public_key_bytes(&self) -> Result<[u8; BYTES_LENGTH_32], Error>;
-    /// Returns the secret key bytes as a slice.
-    ///
-    /// Returns a `Result` containing the secret key bytes, or an `Error` if the operation fails.
+
+    /// Returns the bytes of the private key.
     fn private_key_bytes(&self) -> Result<[u8; BYTES_LENGTH_32], Error>;
 }
 
 /// A trait for types that support deterministic key generation.
 pub trait Generate: KeyMaterial {
-    /// Generates a new random key.
-    ///
-    /// Returns a `Result` containing the new key, or an `Error` if the operation fails.
-    fn new() -> Result<Self, Error> where Self: Sized;
+    /// Generates a new random key pair.
+    fn new() -> Result<Self, Error>
+    where
+        Self: Sized;
 
-    /// Generates a new key deterministically using the given seed.
+    /// Generates a new key pair with a given seed.
     ///
-    /// Returns a `Result` containing the new key, or an `Error` if the operation fails.
-    fn new_with_seed(seed: &[u8]) -> Result<Self, Error> where Self: Sized;
+    /// If the seed is empty or invalid, a random seed will be generated.
+    fn new_with_seed(seed: &[u8]) -> Result<Self, Error>
+    where
+        Self: Sized;
 
-    /// Generates a new instance from an existing public key.
-    ///
-    /// Returns a `Result` containing the new instance, or an `Error` if the operation fails.
-    fn from_public_key(public_key: &[u8; BYTES_LENGTH_32]) -> Result<Self, Error> where Self: Sized;
+    /// Generates a new key pair from a public key.
+    fn from_public_key(public_key: &[u8; BYTES_LENGTH_32]) -> Result<Self, Error>
+    where
+        Self: Sized;
 
-    /// Generates a new instance from an existing secret key.
+    /// Generates a new key pair from a secret key.
     ///
-    /// Returns a `Result` containing the new instance, or an `Error` if the operation fails.
-    fn from_secret_key(private_key: &[u8; BYTES_LENGTH_32]) -> Result<Self, Error> where Self: Sized;
+    /// A public key will be generated from the secret key.
+    fn from_secret_key(private_key: &[u8; BYTES_LENGTH_32]) -> Result<Self, Error>
+    where
+        Self: Sized;
 }
 
-/// A trait for types that support ECDSA operations.
+/// A trait for types that support signing and verification operations.
 pub trait CoreSign {
-    /// Performs a sign operation.
-    ///
-    /// Returns a `Result` containing the signature, or an `Error` if the operation fails.
     fn sign(&self, payload: &[u8]) -> Result<Vec<u8>, Error>;
-
-    /// Performs a verify operation.
-    ///
-    /// Returns a `Result` containing `()`, or an `Error` if the operation fails.
     fn verify(&self, payload: &[u8], signature: &[u8]) -> Result<(), Error>;
 }
 
 /// A trait for types that support ECDH key exchange operations.
 pub trait ECDH {
-    /// Performs a key exchange operation.
-    ///
-    /// Returns an `Option` containing the shared secret, or `None` if the operation fails.
     fn key_exchange(&self, their_public: &Self) -> Option<Vec<u8>>;
 }
