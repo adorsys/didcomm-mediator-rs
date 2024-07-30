@@ -1,12 +1,8 @@
 use num_bigint::{BigInt, Sign};
 
 use crate::{
-    crypto::Error as CryptoError, key_jwk::{Ec, EcCurves},
-    key_jwk::Jwk,
-    key_jwk::Key,
-    key_jwk::{Okp, OkpCurves},
-    key_jwk::Parameters,
-    key_jwk::Bytes,
+    crypto::Error as CryptoError,
+    key_jwk::{Bytes, Ec, EcCurves, Jwk, Key, Okp, OkpCurves, Parameters},
 };
 
 /// Supported cryptographic algorithms.
@@ -29,7 +25,6 @@ use Algorithm::*;
 // - https://w3c-ccg.github.io/did-method-key/#signature-method-creation-algorithm
 // - https://w3c-ccg.github.io/did-method-key/#encryption-method-creation-algorithm
 impl Algorithm {
-
     /// Returns the multicodec prefix associated with the algorithm.
     ///
     /// # Returns

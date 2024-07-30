@@ -10,7 +10,7 @@ pub enum Key {
     /// An elliptic-curve key.
     Ec(Ec),
 
-    /// A RSA key.
+    /// An RSA key.
     Rsa(Rsa),
 
     /// A symmetric key.

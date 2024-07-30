@@ -1,58 +1,53 @@
+use crate::methods::resolution::{DIDResolutionMetadata, DIDResolutionOptions, MediaType, ResolutionOutput};
 use async_trait::async_trait;
 use hyper::{
-    client::{ connect::Connect, HttpConnector },
-    http::uri::{ self, Scheme },
-    Body,
-    Client,
-    Uri,
+    client::{connect::Connect, HttpConnector},
+    http::uri::{self, Scheme},
+    Body, Client, Uri,
 };
 use hyper_tls::HttpsConnector;
-use crate::methods::resolution::{
-    DIDResolutionMetadata,
-    DIDResolutionOptions,
-    MediaType,
-    ResolutionOutput,
-};
 
-use crate::methods::{
-    errors::DidWebError,
-    traits::DIDResolver,
-};
 use crate::ldmodel::Context;
+use crate::methods::{errors::DidWebError, traits::DIDResolver};
 
 use crate::didcore::Document as DIDDocument;
 
 /// A struct for resolving DID Web documents.
-pub struct DidWeb<C> where C: Connect + Send + Sync + Clone + 'static {
+pub struct DidWeb<C>
+where
+    C: Connect + Send + Sync + Clone + 'static,
+{
     client: Client<C>,
 }
 
-impl DidWeb <HttpConnector> {
+impl DidWeb<HttpConnector> {
     // Creates a new `DidWeb` resolver with HTTP scheme, for testing only.
     #[cfg(test)]
     pub fn http() -> DidWeb<HttpConnector> {
         DidWeb {
-            client: Client::builder().build::<_, Body>(HttpConnector::new())
+            client: Client::builder().build::<_, Body>(HttpConnector::new()),
         }
     }
 }
 
-impl DidWeb <HttpsConnector<HttpConnector>> {
+impl DidWeb<HttpsConnector<HttpConnector>> {
     /// Creates a new `DidWeb` resolver.
     pub fn new() -> DidWeb<HttpsConnector<HttpConnector>> {
         DidWeb {
-            client: Client::builder().build::<_, Body>(HttpsConnector::new())
+            client: Client::builder().build::<_, Body>(HttpsConnector::new()),
         }
     }
 }
 
-impl<C> DidWeb<C> where C: Connect + Send + Sync + Clone + 'static {
-
+impl<C> DidWeb<C>
+where
+    C: Connect + Send + Sync + Clone + 'static,
+{
     /// Fetches a DID document from the given URL.
     ///
     /// This method performs an HTTP GET request to the provided URL
     /// and attempts to returns the response body as a string.
-    /// 
+    ///
     /// # Arguments
     ///
     /// * `url` - The URL to fetch the DID document from.
@@ -77,7 +72,7 @@ impl<C> DidWeb<C> where C: Connect + Send + Sync + Clone + 'static {
     /// This method first parses the DID Web URL format from the given DID and then constructs
     /// an URI based on the scheme, domain name, and path. It then fetches the DID document and
     /// parses the response body.
-    /// 
+    ///
     /// # Arguments
     ///
     /// * `did` - The DID to resolve.
@@ -86,24 +81,26 @@ impl<C> DidWeb<C> where C: Connect + Send + Sync + Clone + 'static {
     ///
     /// A `Result` containing the resolved `DIDDocument` or a `DidWebError`.
     async fn resolver_fetcher(&self, did: &str) -> Result<DIDDocument, DidWebError> {
-        let (path, domain_name) = parse_did_web_url(did)
-            .map_err(|err| DidWebError::RepresentationNotSupported(err.to_string()))?;
-    
+        let (path, domain_name) = parse_did_web_url(did).map_err(|err| DidWebError::RepresentationNotSupported(err.to_string()))?;
+
         // Use HTTP for localhost only during testing
-        let scheme = if domain_name.starts_with("localhost") { Scheme::HTTP } else { Scheme::HTTPS };
-    
+        let scheme = if domain_name.starts_with("localhost") {
+            Scheme::HTTP
+        } else {
+            Scheme::HTTPS
+        };
+
         let url = uri::Builder::new()
             .scheme(scheme)
             .authority(domain_name)
             .path_and_query(path)
             .build()
             .map_err(|err| DidWebError::RepresentationNotSupported(err.to_string()))?;
-    
+
         let json_string = self.fetch_did_document(url).await?;
 
-        let did_document = serde_json::from_str(&json_string)
-            .map_err(|err| DidWebError::RepresentationNotSupported(err.to_string()))?;
-    
+        let did_document = serde_json::from_str(&json_string).map_err(|err| DidWebError::RepresentationNotSupported(err.to_string()))?;
+
         Ok(did_document)
     }
 }
@@ -137,8 +134,10 @@ fn parse_did_web_url(did: &str) -> Result<(String, String), DidWebError> {
 }
 
 #[async_trait]
-impl<C> DIDResolver for DidWeb<C> where C: Connect + Send + Sync + Clone + 'static {
-
+impl<C> DIDResolver for DidWeb<C>
+where
+    C: Connect + Send + Sync + Clone + 'static,
+{
     /// Resolves a DID to a DID document.
     ///
     /// # Arguments
@@ -153,26 +152,24 @@ impl<C> DIDResolver for DidWeb<C> where C: Connect + Send + Sync + Clone + 'stat
         let context = Context::SingleString(String::from("https://w3id.org/did-resolution/v1"));
 
         match self.resolver_fetcher(did).await {
-            Ok(diddoc) =>
-                ResolutionOutput {
-                    context,
-                    did_document: Some(diddoc),
-                    did_resolution_metadata: Some(DIDResolutionMetadata {
-                        error: None,
-                        content_type: Some(MediaType::DidLdJson.to_string()),
-                        additional_properties: None,
-                    }),
-                    did_document_metadata: None,
+            Ok(diddoc) => ResolutionOutput {
+                context,
+                did_document: Some(diddoc),
+                did_resolution_metadata: Some(DIDResolutionMetadata {
+                    error: None,
+                    content_type: Some(MediaType::DidLdJson.to_string()),
                     additional_properties: None,
-                },
-            Err(_err) =>
-                ResolutionOutput {
-                    context,
-                    did_document: None,
-                    did_resolution_metadata: None,
-                    did_document_metadata: None,
-                    additional_properties: None,
-                },
+                }),
+                did_document_metadata: None,
+                additional_properties: None,
+            },
+            Err(_err) => ResolutionOutput {
+                context,
+                did_document: None,
+                did_resolution_metadata: None,
+                did_document_metadata: None,
+                additional_properties: None,
+            },
         }
     }
 }
@@ -181,15 +178,17 @@ impl<C> DIDResolver for DidWeb<C> where C: Connect + Send + Sync + Clone + 'stat
 mod tests {
     use super::*;
 
-    use hyper::{ service::{ make_service_fn, service_fn }, Body, Request, Response, Server };
+    use hyper::{
+        service::{make_service_fn, service_fn},
+        Body, Request, Response, Server,
+    };
 
     use serde_json::Value;
     use std::convert::Infallible;
     use std::net::SocketAddr;
 
     async fn mock_server_handler(req: Request<Body>) -> Result<Response<Body>, Infallible> {
-        const DID_JSON: &str =
-            r#"
+        const DID_JSON: &str = r#"
             {"@context": "https://www.w3.org/ns/did/v1",
             "id": "did:web:localhost",
                   "verificationMethod": [{
@@ -215,9 +214,7 @@ mod tests {
     }
 
     async fn create_mock_server(port: u16) -> String {
-        let make_svc = make_service_fn(|_conn| async {
-            Ok::<_, Infallible>(service_fn(mock_server_handler))
-        });
+        let make_svc = make_service_fn(|_conn| async { Ok::<_, Infallible>(service_fn(mock_server_handler)) });
 
         let addr = SocketAddr::from(([127, 0, 0, 1], port));
         let server = Server::bind(&addr).serve(make_svc);
@@ -239,10 +236,7 @@ mod tests {
         let did: &str = &formatted_string;
 
         let did_web_resolver = DidWeb::http();
-        let output: ResolutionOutput = did_web_resolver.resolve(
-            did,
-            &DIDResolutionOptions::default()
-        ).await;
+        let output: ResolutionOutput = did_web_resolver.resolve(did, &DIDResolutionOptions::default()).await;
 
         let expected: Value = serde_json::from_str(
             r#"{
@@ -268,9 +262,9 @@ mod tests {
                 "didResolutionMetadata": {
                     "contentType": "application/did+ld+json"
                 }
-            }"#
-            )
-            .unwrap();
+            }"#,
+        )
+        .unwrap();
 
         assert_eq!(json_canon::to_string(&output).unwrap(), json_canon::to_string(&expected).unwrap());
     }

@@ -47,7 +47,7 @@ impl KeyMaterial for X25519KeyPair {
 impl Generate for X25519KeyPair {
     /// Generates a new X25519 key pair.
     ///
-    /// If the initial seed is empty or invalid, generates a new seed.
+    /// If the initial seed is empty or invalid, a random seed will be generated.
     ///
     /// # Arguments
     ///

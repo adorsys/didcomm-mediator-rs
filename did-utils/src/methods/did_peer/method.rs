@@ -32,7 +32,7 @@ const MULTICODEC_JSON: [u8; 2] = [0x80, 0x04];
 #[derive(Default)]
 pub struct DidPeer {
     /// Key format to consider during DID expansion into a DID document
-    pub key_format: PublicKeyFormat,
+    key_format: PublicKeyFormat,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
