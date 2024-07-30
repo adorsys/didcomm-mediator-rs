@@ -6,7 +6,7 @@ use did_endpoint::util::{
 };
 use did_utils::{
     didcore::{AssertionMethod, Document, KeyAgreement, KeyFormat, VerificationMethod},
-    key_jwk::jwk::Jwk,
+    key_jwk::Jwk,
 };
 use serde_json::Error as SerdeError;
 use std::io;

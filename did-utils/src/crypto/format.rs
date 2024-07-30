@@ -1,17 +1,30 @@
 use crate::{
     crypto::{
         ed25519::Ed25519KeyPair,
-        traits::{Error as CryptoError, Generate, KeyMaterial, BYTES_LENGTH_32},
+        errors::Error as CryptoError,
+        traits::{Generate, KeyMaterial, BYTES_LENGTH_32},
         x25519::X25519KeyPair,
     },
-    key_jwk::{jwk::Jwk, key::Key, okp::Okp, okp::OkpCurves, prm::Parameters, secret::Secret, Bytes},
+    key_jwk::{
+        Bytes, Jwk, Key, Parameters, Secret, {Okp, OkpCurves},
+    },
 };
 
 use multibase::Base::Base64Url;
 
+/// Converts an `Ed25519KeyPair` to a `Jwk`.
 impl TryFrom<Ed25519KeyPair> for Jwk {
     type Error = CryptoError;
 
+    /// Converts an `Ed25519KeyPair` to a `Jwk`.
+    ///
+    /// # Arguments
+    ///
+    /// * `keypair` - The `Ed25519KeyPair` to convert.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing the converted `Jwk` or an `Error`.
     fn try_from(keypair: Ed25519KeyPair) -> Result<Self, Self::Error> {
         Ok(Jwk {
             key: Key::Okp(Okp {
@@ -24,16 +37,25 @@ impl TryFrom<Ed25519KeyPair> for Jwk {
     }
 }
 
+/// Converts a `Jwk` to an `Ed25519KeyPair`.
 impl TryFrom<Jwk> for Ed25519KeyPair {
     type Error = CryptoError;
 
+    /// Converts a `Jwk` to an `Ed25519KeyPair`.
+    ///
+    /// # Arguments
+    ///
+    /// * `jwk` - The `Jwk` to convert.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing the converted `Ed25519KeyPair` or an `Error`.
     fn try_from(jwk: Jwk) -> Result<Self, Self::Error> {
         match jwk.key {
             Key::Okp(okp) => {
                 if okp.crv != OkpCurves::Ed25519 {
                     return Err(CryptoError::InvalidCurve);
                 }
-
                 match okp.d {
                     Some(secret_key) => {
                         let secret = secret_key;
@@ -55,9 +77,19 @@ impl TryFrom<Jwk> for Ed25519KeyPair {
     }
 }
 
+/// Converts an `X25519KeyPair` to a `Jwk`.
 impl TryFrom<X25519KeyPair> for Jwk {
     type Error = CryptoError;
 
+    /// Converts an `X25519KeyPair` to a `Jwk`.
+    ///
+    /// # Arguments
+    ///
+    /// * `keypair` - The `X25519KeyPair` to convert.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing the converted `Jwk` or an `Error`.
     fn try_from(keypair: X25519KeyPair) -> Result<Self, Self::Error> {
         Ok(Jwk {
             key: Key::Okp(Okp {
@@ -70,9 +102,19 @@ impl TryFrom<X25519KeyPair> for Jwk {
     }
 }
 
+/// Converts a `Jwk` to an `X25519KeyPair`.
 impl TryFrom<Jwk> for X25519KeyPair {
     type Error = CryptoError;
 
+    /// Converts a `Jwk` to an `X25519KeyPair`.
+    ///
+    /// # Arguments
+    ///
+    /// * `jwk` - The `Jwk` to convert.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing the converted `X25519KeyPair` or an `Error`.
     fn try_from(jwk: Jwk) -> Result<Self, Self::Error> {
         match jwk.key {
             Key::Okp(okp) => {
@@ -100,6 +142,15 @@ impl TryFrom<Jwk> for X25519KeyPair {
     }
 }
 
+/// Decodes a base64url encoded key string to bytes.
+///
+/// # Arguments
+///
+/// * `key` - The base64url encoded key string.
+///
+/// # Returns
+///
+/// A `Result` containing the decoded key bytes.
 #[allow(dead_code)]
 fn base64url_to_bytes(key: &str) -> Result<[u8; BYTES_LENGTH_32], ()> {
     let key: Vec<u8> = Base64Url.decode(key).map_err(|_| ())?;
@@ -110,7 +161,7 @@ fn base64url_to_bytes(key: &str) -> Result<[u8; BYTES_LENGTH_32], ()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::crypto::traits::{CoreSign, Generate, ECDH};
+    use crate::crypto::{CoreSign, Generate, ECDH};
 
     // Tests conversion between Ed25519KeyPair and Jwk
     #[test]

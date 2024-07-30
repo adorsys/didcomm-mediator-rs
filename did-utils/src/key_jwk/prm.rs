@@ -1,18 +1,10 @@
 use serde::{Deserialize, Serialize};
 
-use super::secret::Secret;
 extern crate alloc;
 use super::Bytes;
 use alloc::{boxed::Box, collections::BTreeSet, string::String, vec::Vec};
 use base64ct::Base64;
 use core::fmt;
-
-/// A symmetric octet key.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Oct {
-    /// The symmetric key.
-    pub k: Secret,
-}
 
 /// JWK parameters unrelated to the key implementation
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]

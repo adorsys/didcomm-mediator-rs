@@ -2,7 +2,7 @@ use serde_json::{json, Map, Value};
 
 use crate::didcore::Service;
 
-use super::error::DIDPeerMethodError;
+use super::errors::DIDPeerMethodError;
 
 pub fn abbreviate_service_for_did_peer_2(service: &Service) -> Result<String, DIDPeerMethodError> {
     let abbrv_key = |key: &str| -> String {

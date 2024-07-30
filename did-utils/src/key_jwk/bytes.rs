@@ -17,6 +17,11 @@ use base64ct::{Base64UrlUnpadded, Encoding};
 use serde::{de::Error as _, Deserialize, Deserializer, Serialize, Serializer};
 
 /// A serde wrapper for base64-encoded bytes.
+/// 
+/// # Type Parameters
+///
+/// - `T`: The type used to store the byte data (e.g., `Vec<u8>`, `Box<[u8]>`).
+/// - `E`: The base64 encoding type (e.g., `Base64UrlUnpadded`).
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Bytes<T = Box<[u8]>, E = Base64UrlUnpadded> {
     buf: T,

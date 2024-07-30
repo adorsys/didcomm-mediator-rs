@@ -1,25 +1,39 @@
 use x25519_dalek::{PublicKey, StaticSecret};
 
-use super::traits::{BYTES_LENGTH_32, Error};
+use super::traits::BYTES_LENGTH_32;
 use super::utils::{generate_seed, clone_slice_to_array};
 use super::{
     traits::{Generate, KeyMaterial, ECDH},
     AsymmetricKey,
 };
+use super::errors::Error;
 
 pub type X25519KeyPair = AsymmetricKey<PublicKey, StaticSecret>;
 
 impl std::fmt::Debug for X25519KeyPair {
+    /// Returns a string representation of the public key.
+    ///
+    /// This function is used to implement the `fmt::Debug` trait.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!("{:?}", self.public_key))
     }
 }
 
 impl KeyMaterial for X25519KeyPair {
+    /// Returns the bytes of the public key.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing the bytes of the public key or an `Error`.
     fn public_key_bytes(&self) -> Result<[u8; BYTES_LENGTH_32], Error> {
         Ok(clone_slice_to_array(self.public_key.as_bytes()))
     }
 
+    /// Returns the bytes of the private key.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing the bytes of the private key or an `Error`.
     fn private_key_bytes(&self) -> Result<[u8; BYTES_LENGTH_32], Error> {
         match &self.secret_key {
             Some(sk) => {
@@ -30,12 +44,33 @@ impl KeyMaterial for X25519KeyPair {
     }
 }
 
-
 impl Generate for X25519KeyPair {
+    /// Generates a new X25519 key pair.
+    ///
+    /// If the initial seed is empty or invalid, a random seed will be generated.
+    ///
+    /// # Arguments
+    ///
+    /// * `seed` - The initial seed to use, or empty if none.
+    ///
+    /// # Returns
+    ///
+    /// A new `X25519KeyPair` instance.
     fn new() -> Result<X25519KeyPair, Error> {
         Self::new_with_seed(vec![].as_slice())
     }
 
+    /// Generates a new X25519 key pair with a seed.
+    ///
+    /// If the seed is empty or invalid, generates a new seed.
+    ///
+    /// # Arguments
+    ///
+    /// * `seed` - The initial seed to use.
+    ///
+    /// # Returns
+    ///
+    /// A new `X25519KeyPair` instance.
     fn new_with_seed(seed: &[u8]) -> Result<X25519KeyPair, Error> {
         match generate_seed(seed) {
             Ok(secret_seed) => {
@@ -49,6 +84,15 @@ impl Generate for X25519KeyPair {
         }
     }
 
+    /// Creates a new `X25519KeyPair` from a public key.
+    ///
+    /// # Arguments
+    ///
+    /// * `public_key` - The bytes of the public key.
+    ///
+    /// # Returns
+    ///
+    /// A new `X25519KeyPair` instance.
     fn from_public_key(public_key: &[u8; BYTES_LENGTH_32]) -> Result<X25519KeyPair, Error> {
         match public_key.len() {
             BYTES_LENGTH_32 => {
@@ -62,6 +106,15 @@ impl Generate for X25519KeyPair {
         }
     }
 
+    /// Creates a new `X25519KeyPair` from a secret key.
+    ///
+    /// # Arguments
+    ///
+    /// * `secret_key` - The bytes of the secret key.
+    ///
+    /// # Returns
+    ///
+    /// A new `X25519KeyPair` instance.
     fn from_secret_key(secret_key: &[u8; BYTES_LENGTH_32]) -> Result<X25519KeyPair, Error> {
         match secret_key.len() {
             BYTES_LENGTH_32 => {
@@ -78,6 +131,16 @@ impl Generate for X25519KeyPair {
 }
 
 impl ECDH for X25519KeyPair {
+    /// Performs a key exchange using the Diffie-Hellman algorithm.
+    ///
+    /// # Arguments
+    ///
+    /// * `key` - The public key of the other party.
+    ///
+    /// # Returns
+    ///
+    /// An optional vector of bytes representing the shared secret.
+    /// If the secret key is not available, returns `None`.
     fn key_exchange(&self, key: &Self) -> Option<Vec<u8>> {
         (self.secret_key).as_ref().map(|x| x.diffie_hellman(&key.public_key).as_bytes().to_vec())
     }
