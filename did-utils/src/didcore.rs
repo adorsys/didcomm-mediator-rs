@@ -78,24 +78,13 @@ pub struct Document {
     pub proof: Option<Proofs>,
 }
 
-impl Default for Document {
-    fn default() -> Self {
-        Self {
-            context: Context::SingleString(String::from("https://www.w3.org/ns/did/v1")),
-            id: String::new(),
-            controller: None,
-            also_known_as: None,
-            verification_method: None,
-            authentication: None,
-            assertion_method: None,
-            capability_delegation: None,
-            capability_invocation: None,
-            key_agreement: None,
-            service: None,
-            additional_properties: None,
-            proof: None,
-        }
-    }
+impl Default for Document {  
+    fn default() -> Self {  
+        let id = String::new();  
+        let context = Context::SingleString(String::from("https://www.w3.org/ns/did/v1"));  
+        
+        Self::new(context, id)  
+    }  
 }
 
 /// Represents a DID Document controller(s).
