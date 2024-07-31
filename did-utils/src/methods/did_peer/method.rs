@@ -9,7 +9,7 @@ use super::{
 
 use crate::{
     crypto::{
-        sha256_hash, sha256_multihash, Ed25519KeyPair, {Generate, KeyMaterial},
+        sha256_multihash, Ed25519KeyPair, {Generate, KeyMaterial},
     },
     didcore::{self, Document as DIDDocument, KeyFormat, Service, VerificationMethod},
     ldmodel::Context,
@@ -474,34 +474,20 @@ impl DidPeer {
     ///
     /// See https://identity.foundation/peer-did-method-spec/#resolving-a-did
     pub fn expand_did_peer_4(&self, did: &str) -> Result<DIDDocument, DIDPeerMethodError> {
-        // shorten the did
+        // Ensure long format by computing did:peer:4 short form alias
         let alias = Self::shorten_did_peer_4(did)?;
 
         // Extract encoded document
         let encoded_document = did.split(':').nth(3).ok_or(DIDPeerMethodError::DIDParseError)?;
 
-        // Extract hash
-        let extracted_hash = did.split(':').nth(2).unwrap().to_string().replacen(char::is_numeric, "", 1);
-
-        // Decode hash
-        let (base, decoded_hash) = multibase::decode(extracted_hash)
-            .map_err(|_| DIDPeerMethodError::DIDParseError)?;
-
-        // Verify hash
-        let computed_hash = sha256_hash(encoded_document.as_bytes());
-        if Base58Btc != base || decoded_hash.len() < 34 || &decoded_hash[2..] != computed_hash {
-            return Err(DIDPeerMethodError::MalformedLongPeerDID);
-        }
         // Decode document
-        let (base, decoded_bytes) = multibase::decode(encoded_document)
-            .map_err(|_| DIDPeerMethodError::DIDParseError)?;
+        let (base, decoded_bytes) = multibase::decode(encoded_document).map_err(|_| DIDPeerMethodError::DIDParseError)?;
 
         if Base58Btc != base || decoded_bytes.len() < 2 || &decoded_bytes[..2] != MULTICODEC_JSON {
             return Err(DIDPeerMethodError::MalformedLongPeerDID);
         }
         // Deserialize the document
-        let mut diddoc: DIDDocument = serde_json::from_slice(&decoded_bytes[2..])
-            .map_err(|err| DIDPeerMethodError::SerdeError(err))?;
+        let mut diddoc: DIDDocument = serde_json::from_slice(&decoded_bytes[2..]).map_err(|err| DIDPeerMethodError::SerdeError(err))?;
 
         // Contextualize decoded document
         diddoc.id = did.to_string();
