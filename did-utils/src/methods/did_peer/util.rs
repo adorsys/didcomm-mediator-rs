@@ -96,11 +96,10 @@ pub(super) fn validate_input_document(diddoc: &DIDDocument) -> Result<(), DIDPee
         return Err(DIDPeerMethodError::InvalidStoredVariant);
     }
 
-    // They must not be an id field at the root
-    // All id field within the document must be relative
-    // All references to ressources must be relative
-    if !diddoc.id.is_empty()
-        || !are_all_ids_and_references_relative(diddoc) {
+    // There must not be an id field at the root
+    // All id fields within the document must be relative
+    // All references to resources must be relative
+    if !diddoc.id.is_empty() || !are_all_ids_and_references_relative(diddoc) {
         return Err(DIDPeerMethodError::InvalidStoredVariant);
     }
     Ok(())
@@ -146,8 +145,8 @@ mod tests {
     // TODO! Update these tests upon revising the Service struct for compliance
 
     use super::*;
+    use crate::didcore::{Service, VerificationMethod};
     use serde_json::json;
-    use crate::didcore::{VerificationMethod, Service};
 
     #[test]
     fn test_abbreviate_service_for_did_peer_2() {
@@ -236,7 +235,10 @@ mod tests {
     #[test]
     fn test_validate_input_document_non_empty() {
         let diddoc = DIDDocument {
-            service: Some(vec![Service { id: "#service-0".to_string(), ..Default::default() }]),
+            service: Some(vec![Service {
+                id: "#service-0".to_string(),
+                ..Default::default()
+            }]),
             ..DIDDocument::default()
         };
         assert!(validate_input_document(&diddoc).is_ok());
@@ -256,27 +258,29 @@ mod tests {
         let diddoc = DIDDocument {
             id: String::new(),
             verification_method: Some(vec![
-                VerificationMethod { id: "#key-0".to_string(), ..Default::default() },
-                VerificationMethod { id: "#key-1".to_string(), ..Default::default() },
+                VerificationMethod {
+                    id: "#key-0".to_string(),
+                    ..Default::default()
+                },
+                VerificationMethod {
+                    id: "#key-1".to_string(),
+                    ..Default::default()
+                },
             ]),
-            authentication: Some(vec![
-                Authentication::Reference("#key-0".to_string()),
-            ]),
-            assertion_method: Some(vec![
-                AssertionMethod::Reference("#key-0".to_string()),
-            ]),
-            key_agreement: Some(vec![
-                KeyAgreement::Reference("#key-1".to_string()),
-            ]),
-            capability_delegation: Some(vec![
-                CapabilityDelegation::Reference("#key-0".to_string()),
-            ]),
-            capability_invocation: Some(vec![
-                CapabilityInvocation::Reference("#key-0".to_string()),
-            ]),
+            authentication: Some(vec![Authentication::Reference("#key-0".to_string())]),
+            assertion_method: Some(vec![AssertionMethod::Reference("#key-0".to_string())]),
+            key_agreement: Some(vec![KeyAgreement::Reference("#key-1".to_string())]),
+            capability_delegation: Some(vec![CapabilityDelegation::Reference("#key-0".to_string())]),
+            capability_invocation: Some(vec![CapabilityInvocation::Reference("#key-0".to_string())]),
             service: Some(vec![
-                Service { id: "#service-0".to_string(), ..Default::default() },
-                Service { id: "#service-1".to_string(), ..Default::default() },
+                Service {
+                    id: "#service-0".to_string(),
+                    ..Default::default()
+                },
+                Service {
+                    id: "#service-1".to_string(),
+                    ..Default::default()
+                },
             ]),
             ..Default::default()
         };
@@ -287,12 +291,11 @@ mod tests {
     #[test]
     fn test_non_relative_ids() {
         let diddoc = DIDDocument {
-            verification_method: Some(vec![
-                VerificationMethod { id: "did:peer:123#key-0".to_string(), ..Default::default() },
-            ]),
-            authentication: Some(vec![
-                Authentication::Reference("#key-0".to_string()),
-            ]),
+            verification_method: Some(vec![VerificationMethod {
+                id: "did:peer:123#key-0".to_string(),
+                ..Default::default()
+            }]),
+            authentication: Some(vec![Authentication::Reference("#key-0".to_string())]),
             ..Default::default()
         };
 
@@ -302,9 +305,7 @@ mod tests {
     #[test]
     fn test_non_relative_references() {
         let diddoc = DIDDocument {
-            authentication: Some(vec![
-                Authentication::Reference("did:example:123#key-0".to_string()),
-            ]),
+            authentication: Some(vec![Authentication::Reference("did:example:123#key-0".to_string())]),
             ..Default::default()
         };
 
@@ -315,12 +316,16 @@ mod tests {
     fn test_mixed_relative_and_non_relative() {
         let diddoc = DIDDocument {
             verification_method: Some(vec![
-                VerificationMethod { id: "#key-0".to_string(), ..Default::default() },
-                VerificationMethod { id: "did:example:123#key-1".to_string(), ..Default::default() },
+                VerificationMethod {
+                    id: "#key-0".to_string(),
+                    ..Default::default()
+                },
+                VerificationMethod {
+                    id: "did:example:123#key-1".to_string(),
+                    ..Default::default()
+                },
             ]),
-            authentication: Some(vec![
-                Authentication::Reference("#key-0".to_string()),
-            ]),
+            authentication: Some(vec![Authentication::Reference("#key-0".to_string())]),
             ..Default::default()
         };
 
