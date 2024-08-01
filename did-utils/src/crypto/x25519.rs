@@ -8,6 +8,7 @@ use super::{
     AsymmetricKey,
 };
 
+/// A wrapper struct for an X25519 asymmetric key pair.
 pub type X25519KeyPair = AsymmetricKey<PublicKey, StaticSecret>;
 
 impl KeyMaterial for X25519KeyPair {
@@ -83,8 +84,10 @@ impl ECDH for X25519KeyPair {
     /// 
     /// let keypair = X25519KeyPair::new()?;
     /// let other_keypair = X25519KeyPair::new()?;
+    /// 
     /// let shared_secret = keypair.key_exchange(&other_keypair)?;
     /// let other_shared_secret = other_keypair.key_exchange(&keypair)?;
+    /// 
     /// assert_eq!(shared_secret, other_shared_secret);
     /// ```
     fn key_exchange(&self, key: &Self) -> Option<Vec<u8>> {

@@ -32,7 +32,7 @@ pub trait DIDMethod: DIDResolver {
 /// [See DID Resolution Specification](https://w3c.github.io/did-resolution)
 #[async_trait]
 pub trait DIDResolver {
-    /// Resolves a DID address into its corresponding DID document.
+    /// Resolves a DID to a DID Document.
     async fn resolve(&self, did: &str, _options: &DIDResolutionOptions) -> ResolutionOutput;
 
     /// Dereferences a DID URL into its corresponding resource.

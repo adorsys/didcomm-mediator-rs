@@ -20,6 +20,7 @@ pub struct JwkSet {
 /// [RFC7517 Section 4]: https://datatracker.ietf.org/doc/html/rfc7517#section-4
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Eq)]
 pub struct Jwk {
+    /// The key type.
     #[serde(flatten)]
     pub key: Key,
     /// The key parameters.

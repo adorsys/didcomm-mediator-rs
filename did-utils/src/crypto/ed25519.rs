@@ -7,6 +7,7 @@ use curve25519_dalek::edwards::CompressedEdwardsY;
 use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
 use sha2::{Digest, Sha512};
 
+/// A wrapper struct for an Ed25519 asymmetric key pair.
 pub type Ed25519KeyPair = AsymmetricKey<VerifyingKey, SigningKey>;
 
 impl KeyMaterial for Ed25519KeyPair {
@@ -72,7 +73,7 @@ impl CoreSign for Ed25519KeyPair {
     /// 
     /// The signature is generated using the private key of the `Ed25519KeyPair`.
     /// 
-    /// # Examples
+    /// # Example
     /// 
     /// ```
     /// use did_utils::crypto::{Ed25519KeyPair, CoreSign};

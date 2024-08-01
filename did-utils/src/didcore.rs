@@ -1,5 +1,5 @@
 //! Implements the DID Core specification
-//! 
+//!
 //! As specified by [Decentralized Identifiers (DIDs) v1.0 - Core architecture,
 //! data model, and representations][did-core].
 //!
@@ -11,69 +11,80 @@ use chrono::{DateTime, Utc};
 use serde::{ser::SerializeMap, Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 
-use crate::{key_jwk::Jwk, ldmodel::Context, proof::Proof};
+use crate::{key_jwk::Jwk, ldmodel::Context, proof::Proofs};
 
 // === Structure of a did document ===
 
 /// Represents a DID Document according to the [DID Core specification][did-core].
-/// 
+///
 /// [did-core]: https://www.w3.org/TR/did-core/
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Document {
-    // The @context property defines the vocabulary used in the JSON-LD document.
-    // It provides a way to map the keys in the JSON structure to specific terms,
-    // properties, and classes from external vocabularies. In the context of a
-    // DID Document, the @context property is used to define the vocabulary for
-    // the various properties within the document, such as id, publicKey, service, and others.
+    /// The @context property defines the vocabulary used in the JSON-LD document.
+    /// It provides a way to map the keys in the JSON structure to specific terms,
+    /// properties, and classes from external vocabularies. In the context of a
+    /// DID Document, the @context property is used to define the vocabulary for
+    /// the various properties within the document, such as id, publicKey, service, and others.
     #[serde(rename = "@context")]
     pub context: Context,
 
     // === Identifier ===
-
-    // Identifier property is mandatory in a did document.
+    /// Identifier property is mandatory in a did document.
     // see https://www.w3.org/TR/did-core/#dfn-id
     #[serde(default = "String::new")]
     pub id: String,
 
-    // See https://www.w3.org/TR/did-core/#dfn-controller
+    /// The controller of the DID Document.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub controller: Option<Controller>,
 
-    // See https://www.w3.org/TR/did-core/#dfn-alsoknownas
+    /// Other identifiers of the DID Document.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub also_known_as: Option<Vec<String>>,
 
     // === Verification Methods ===
     #[serde(skip_serializing_if = "Option::is_none")]
+    /// Express verification methods than can be used to authenticate
+    /// or authorize interactions with the DID subject.
     pub verification_method: Option<Vec<VerificationMethod>>,
 
     // === Verification Relationships ===
     #[serde(skip_serializing_if = "Option::is_none")]
+    /// Used to specify how DID subject is expected to be authenticated.
     pub authentication: Option<Vec<Authentication>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    /// Used to specify how the DID subject is expected to express claims.
     pub assertion_method: Option<Vec<AssertionMethod>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    /// used to specify a mechanism that might be used by the DID subject
+    /// to delegate a cryptographic capability to another party.
     pub capability_delegation: Option<Vec<CapabilityDelegation>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    /// Used to specify a verification method that might be used by
+    /// the DID subject to invoke a cryptographic capability.
     pub capability_invocation: Option<Vec<CapabilityInvocation>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    /// Used to specify how an entity can generate encryption material in order
+    /// to transmit confidential information intended for the DID subject.
     pub key_agreement: Option<Vec<KeyAgreement>>,
 
     // === Services ===
     #[serde(skip_serializing_if = "Option::is_none")]
+    /// Express ways of communicating with the DID subject.
     pub service: Option<Vec<Service>>,
 
     // === Dynamic Properties ===
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(flatten)]
+    /// Dynamic properties
     pub additional_properties: Option<HashMap<String, Value>>,
 
-    // === Proof ===
+    /// The proof of the DID Document.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub proof: Option<Proofs>,
 }
@@ -101,18 +112,20 @@ impl Default for Document {
 /// Represents a DID Document controller(s).
 #[derive(Serialize, Debug, Clone, PartialEq, Deserialize)]
 #[serde(untagged)]
+#[allow(missing_docs)]
 pub enum Controller {
     SingleString(String),
     SetOfString(Vec<String>),
 }
 
 /// Represents a [service] in a DID Document.
-/// 
+///
 /// A service defines how to interact with the DID subject.
-/// 
+///
 /// [service]: https://www.w3.org/TR/did-core/#services
 #[derive(Serialize, Debug, Clone, PartialEq, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
+#[allow(missing_docs)]
 pub struct Service {
     #[serde(default = "String::new")]
     pub id: String,
@@ -128,8 +141,9 @@ pub struct Service {
     pub additional_properties: Option<HashMap<String, Value>>,
 }
 
+#[allow(missing_docs)]
 /// Represents a [verification method] in a DID Document.
-/// 
+///
 /// [verification method]: https://www.w3.org/TR/did-core/#verification-methods
 #[derive(Serialize, Debug, Clone, PartialEq, Default, Deserialize)]
 pub struct VerificationMethod {
@@ -164,12 +178,14 @@ pub struct VerificationMethod {
 /// Represents different formats of keys used in verification methods.
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[serde(untagged)]
+#[allow(missing_docs)]
 pub enum KeyFormat {
     Base58(String),
     Multibase(String),
     Jwk(Jwk),
 }
 
+#[allow(missing_docs)]
 /// Represents the authentication methods in a DID Document.
 #[derive(Serialize, Debug, Clone, PartialEq, Deserialize)]
 #[serde(untagged)]
@@ -178,6 +194,7 @@ pub enum Authentication {
     Embedded(Box<VerificationMethod>),
 }
 
+#[allow(missing_docs)]
 /// Represents the assertion methods in a DID Document.
 #[derive(Serialize, Debug, Clone, PartialEq, Deserialize)]
 #[serde(untagged)]
@@ -186,6 +203,7 @@ pub enum AssertionMethod {
     Embedded(Box<VerificationMethod>),
 }
 
+#[allow(missing_docs)]
 /// Represents the capability delegation methods in a DID Document.
 #[derive(Serialize, Debug, Clone, PartialEq, Deserialize)]
 #[serde(untagged)]
@@ -194,6 +212,7 @@ pub enum CapabilityDelegation {
     Embedded(Box<VerificationMethod>),
 }
 
+#[allow(missing_docs)]
 /// Represents the capability invocation methods in a DID Document.
 #[derive(Serialize, Debug, Clone, PartialEq, Deserialize)]
 #[serde(untagged)]
@@ -202,6 +221,7 @@ pub enum CapabilityInvocation {
     Embedded(Box<VerificationMethod>),
 }
 
+#[allow(missing_docs)]
 /// Represents the key agreement methods in a DID Document.
 #[derive(Serialize, Debug, Clone, PartialEq, Deserialize)]
 #[serde(untagged)]
@@ -211,8 +231,7 @@ pub enum KeyAgreement {
 }
 
 impl VerificationMethod {
-
-    /// Serializes the private key format into a JSON map with the appropriate key format field.
+    // Serializes the private key format into a JSON map with the appropriate key format field.
     fn serialize_private_key_format<S>(value: &Option<KeyFormat>, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -237,7 +256,7 @@ impl VerificationMethod {
         }
     }
 
-    /// Serializes the public key format into a JSON map with the appropriate key format field.
+    // Serializes the public key format into a JSON map with the appropriate key format field.
     fn serialize_public_key_format<S>(value: &Option<KeyFormat>, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -321,14 +340,6 @@ impl VerificationMethod {
 
         Ok(None)
     }
-}
-
-/// Represents the proofs in a DID Document.
-#[derive(Serialize, Debug, Clone, PartialEq, Deserialize)]
-#[serde(untagged)]
-pub enum Proofs {
-    SingleProof(Box<Proof>),
-    SetOfProofs(Vec<Proof>),
 }
 
 #[cfg(test)]

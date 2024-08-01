@@ -8,6 +8,7 @@ use thiserror::Error;
 /// [error]: https://www.w3.org/TR/did-spec-registries/#error
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Error)]
 #[serde(rename_all = "camelCase")]
+#[allow(missing_docs)]
 pub enum DIDResolutionError {
     #[error("invalidDid")]
     InvalidDid,
@@ -53,30 +54,41 @@ pub enum DIDResolutionError {
     NonSuccessResponse,
 }
 
+/// Error type for DID Web
 #[derive(Error, Debug)]
 #[non_exhaustive]
 pub enum DidWebError {
     #[error("DID method not supported: {0}")]
+    /// DID method not supported
     MethodNotSupported(String),
     #[error("Representation not supported: {0}")]
+    /// Representation not supported
     RepresentationNotSupported(String),
     #[error("Invalid DID: {0}")]
+    /// Invalid DID
     InvalidDid(String),
     #[error("Parsing error: {0}")]
+    /// Parsing error
     ParsingError(#[from] ParsingErrorSource),
     #[error("URL parsing error: {0}")]
+    /// URL parsing error
     HttpError(#[from] hyper::Error),
     #[error("Non-success server response: {0}")]
+    /// Non-success server response
     NonSuccessResponse(StatusCode),
     #[error(transparent)]
+    /// Other error
     Other(#[from] Box<dyn std::error::Error + Send + Sync>),
 }
 
+/// Source of parsing error
 #[derive(Error, Debug)]
 pub enum ParsingErrorSource {
     #[error("JSON parsing error: {0}")]
+    /// JSON parsing error
     JsonError(#[from] serde_json::Error),
     #[error("Invalid encoding: {0}")]
+    /// Invalid encoding
     Utf8Error(#[from] std::string::FromUtf8Error),
 }
 

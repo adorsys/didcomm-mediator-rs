@@ -29,14 +29,16 @@ lazy_static::lazy_static!(
 
 const MULTICODEC_JSON: [u8; 2] = [0x80, 0x04];
 
-#[derive(Default)]
+/// A struct representing the `did:peer` method
+#[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct DidPeer {
-    /// Key format to consider during DID expansion into a DID document
-    pub key_format: PublicKeyFormat,
+    key_format: PublicKeyFormat,
 }
 
+/// The purpose of a key in the deed:peer:4 creation
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
+#[allow(missing_docs)]
 pub enum Purpose {
     Assertion,
     Encryption,   // Key Agreement
@@ -46,10 +48,13 @@ pub enum Purpose {
     Service,
 }
 
+/// A public key with associated purpose in the deed:peer:4 creation
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct PurposedKey {
+    /// The purpose of the key
     pub purpose: Purpose,
+    /// The multibase encoded public key
     pub public_key_multibase: String,
 }
 
@@ -87,7 +92,7 @@ impl Purpose {
 }
 
 impl DidPeer {
-    /// Creates new instance of DidPeer.
+    /// Creates new instance of DidPeer with default settings.
     pub fn new() -> Self {
         Self::default()
     }
@@ -101,31 +106,85 @@ impl DidPeer {
     // Generating did:peer addresses
     // ---------------------------------------------------------------------------
 
-    /// Method 0: Generates did:peer address from ed25519 inception key without doc
+    /// Generates `did:peer:0` address from ed25519 [inception key without doc][ikwd].
     ///
-    /// See https://identity.foundation/peer-did-method-spec/#method-0-inception-key-without-doc
+    /// [ikwd]: https://identity.foundation/peer-did-method-spec/#method-0-inception-key-without-doc
+    /// 
+    /// # Example
+    /// 
+    /// ```
+    /// use did_utils::methods::DidPeer;
+    /// use did_utils::crypto::{Ed25519KeyPair, Generate};
+    /// # use did_utils::methods::DIDResolutionError;
+    /// 
+    /// # async fn test_did_peer() -> Result<String, DIDResolutionError> {
+    /// let keypair = Ed25519KeyPair::new().unwrap();
+    /// let did = DidPeer::create_did_peer_0_from_ed25519_keypair(&keypair)?;
+    /// # Ok(did)
+    /// # }
+    /// ```
     pub fn create_did_peer_0_from_ed25519_keypair(keypair: &Ed25519KeyPair) -> Result<String, DIDPeerMethodError> {
         let did_key = DidKey::from_ed25519_keypair(keypair)?;
 
         Ok(did_key.replace("did:key:", "did:peer:0"))
     }
 
-    /// Method 0: Generates did:peer address from inception key without doc
+    /// Generates `did:peer:0` address from [inception key without doc][ik].
     ///
-    /// See https://identity.foundation/peer-did-method-spec/#method-0-inception-key-without-doc
+    /// [ik]: https://identity.foundation/peer-did-method-spec/#method-0-inception-key-without-doc
+    /// 
+    /// # Example
+    /// 
+    /// ```
+    /// use did_utils::methods::DidPeer;
+    /// use did_utils::methods::Algorithm;
+    /// # use did_utils::methods::DIDResolutionError;
+    /// 
+    /// # fn example() -> Result<String, DIDResolutionError> {
+    /// // used just to show the example
+    /// let public_key = [0u8; 32];
+    /// // create did:peer:0 address
+    /// let did = DidPeer::create_did_peer_0_from_raw_public_key(Algorithm::Ed25519, &public_key)?;
+    /// # Ok(did)
+    /// # }
     pub fn create_did_peer_0_from_raw_public_key(alg: Algorithm, bytes: &[u8]) -> Result<String, DIDPeerMethodError> {
         let did_key = DidKey::from_raw_public_key(alg, bytes)?;
 
         Ok(did_key.replace("did:key:", "did:peer:0"))
     }
 
-    /// Method 1: Generates did:peer address from DID document
+    /// Generates `did:peer:1` address from a [genesis DID document][gd].
     ///
-    /// See https://identity.foundation/peer-did-method-spec/#method-1-genesis-doc
+    /// [gd]: https://identity.foundation/peer-did-method-spec/#method-1-genesis-doc
+    /// 
+    /// # Example
+    /// 
+    /// ```
+    /// use did_utils::methods::DidPeer;
+    /// # use did_utils::methods::DIDResolutionError;
+    /// # use did_utils::didcore::Document as DIDDocument;
+    /// # use did_utils::didcore::VerificationMethod;
+    /// # use did_utils::didcore::Authentication;
+    /// 
+    /// # fn example() -> Result<String, DIDResolutionError> {
+    /// // example DID document
+    /// let store_variant = DIDDocument {
+    ///    verification_method: Some(vec![
+    ///        VerificationMethod { id: "#key-0".to_string(), ..Default::default() },
+    ///    ]),
+    ///    authentication: Some(vec![
+    ///        Authentication::Reference("#key-0".to_string()),
+    ///    ]),
+    ///    ..Default::default()
+    /// };
+    /// // create did:peer:1 address
+    /// let did = DidPeer::create_did_peer_1_from_stored_variant(&store_variant)?;
+    /// # Ok(did)
+    /// # }
+    /// ```
     pub fn create_did_peer_1_from_stored_variant(diddoc: &DIDDocument) -> Result<String, DIDPeerMethodError> {
-        if !diddoc.id.is_empty() {
-            return Err(DIDPeerMethodError::InvalidStoredVariant);
-        }
+        // Validate input documment
+        validate_input_document(diddoc)?;
 
         let json = json_canon::to_string(diddoc)?;
         let multihash = sha256_multihash(json.as_bytes());
@@ -133,9 +192,31 @@ impl DidPeer {
         Ok(format!("did:peer:1{multihash}"))
     }
 
-    /// Method 2: Generates did:peer address from multiple inception key
+    /// Generates `did:peer:2` address from [multiple inception key][mik]
     ///
-    /// See https://identity.foundation/peer-did-method-spec/#method-2-multiple-inception-key-without-doc
+    /// [mik]: https://identity.foundation/peer-did-method-spec/#method-2-multiple-inception-key-without-doc
+    /// 
+    /// # Example
+    /// 
+    /// ```
+    /// use did_utils::methods::{DidPeer, Purpose, PurposedKey};
+    /// # use did_utils::methods::DIDResolutionError;
+    /// 
+    /// # fn example() -> Result<String, DIDResolutionError> {
+    /// let keys = vec![
+    ///     PurposedKey {
+    ///         purpose: Purpose::Verification,
+    ///         public_key_multibase: String::from("z6Mkj3PUd1WjvaDhNZhhhXQdz5UnZXmS7ehtx8bsPpD47kKc"),
+    ///     },
+    ///     PurposedKey {
+    ///         purpose: Purpose::Encryption,
+    ///         public_key_multibase: String::from("z6LSg8zQom395jKLrGiBNruB9MM6V8PWuf2FpEy4uRFiqQBR"),
+    ///     },
+    /// ];
+    /// // Create the did:peer:2 address
+    /// let did = DidPeer::create_did_peer_2(&keys, &[])?;
+    /// # Ok(did)
+    /// # }
     pub fn create_did_peer_2(keys: &[PurposedKey], services: &[Service]) -> Result<String, DIDPeerMethodError> {
         if keys.is_empty() && services.is_empty() {
             return Err(DIDPeerMethodError::EmptyArguments);
@@ -164,24 +245,60 @@ impl DidPeer {
         Ok(format!("did:peer:2{}", chain.join("")))
     }
 
-    /// Method 3: DID Shortening with SHA-256 Hash
+    /// Generates `did:peer:3` address by [shortening did:peer:2][dsh] with SHA-256 Hash
     ///
-    /// See https://identity.foundation/peer-did-method-spec/#method-3-did-shortening-with-sha-256-hash
+    /// [dsh]: https://identity.foundation/peer-did-method-spec/#method-3-did-shortening-with-sha-256-hash
+    /// 
+    /// # Example
+    /// 
+    /// ```
+    /// use did_utils::methods::DidPeer;
+    /// # use did_utils::methods::DIDResolutionError;
+    /// 
+    /// # fn example() -> Result<String, DIDResolutionError> {
+    /// let did_peer_2 = "did:peer:2.Vz6Mkj3PUd1WjvaDhNZhhhXQdz5UnZXmS7ehtx8bsPpD47kKc";
+    /// // Create the did:peer:3 address
+    /// let did = DidPeer::create_did_peer_3(did_peer_2)?;
+    /// # Ok(did)
+    /// # }
+    /// ```
     pub fn create_did_peer_3(did: &str) -> Result<String, DIDPeerMethodError> {
-        let stripped = match did.strip_prefix("did:peer:2") {
-            Some(stripped) => stripped,
-            None => return Err(DIDPeerMethodError::IllegalArgument),
-        };
+        let stripped_did = did.strip_prefix("did:peer:2").ok_or(DIDPeerMethodError::IllegalArgument)?;
 
-        // Multihash with SHA256
-        let multihash = sha256_multihash(stripped.as_bytes());
+        let multihash = sha256_multihash(stripped_did.as_bytes());
 
         Ok(format!("did:peer:3{multihash}"))
     }
 
-    /// Method 4: Generates did:peer address from DID document (embedding long form)
+    /// Generates `did:peer:4` address from DID document ([embedding long form][elf])
     ///
-    /// See https://identity.foundation/peer-did-method-spec/#method-4-short-form-and-long-form
+    /// [elf]: https://identity.foundation/peer-did-method-spec/#method-4-short-form-and-long-form
+    /// 
+    /// # Example
+    /// 
+    /// ```
+    /// use did_utils::methods::DidPeer;
+    /// # use did_utils::methods::DIDResolutionError;
+    /// # use did_utils::didcore::Document as DIDDocument;
+    /// # use did_utils::didcore::VerificationMethod;
+    /// # use did_utils::didcore::Authentication;
+    /// 
+    /// # fn example() -> Result<String, DIDResolutionError> {
+    /// // example DID document
+    /// let store_variant = DIDDocument {
+    ///    verification_method: Some(vec![
+    ///        VerificationMethod { id: "#key-0".to_string(), ..Default::default() },
+    ///    ]),
+    ///    authentication: Some(vec![
+    ///        Authentication::Reference("#key-0".to_string()),
+    ///    ]),
+    ///    ..Default::default()
+    /// };
+    /// // create did:peer:4 address
+    /// let did = DidPeer::create_did_peer_4_from_stored_variant(&store_variant)?;
+    /// # Ok(did)
+    /// # }
+    /// ```
     pub fn create_did_peer_4_from_stored_variant(diddoc: &DIDDocument) -> Result<String, DIDPeerMethodError> {
         // Validate input documment
         validate_input_document(diddoc)?;
@@ -196,9 +313,32 @@ impl DidPeer {
         Ok(format!("did:peer:4{hash}:{encoded}"))
     }
 
-    /// Method 4: DID shortening for did:peer:4 addresses
+    /// [DID shortening][dsh] for `did:peer:4` addresses
     ///
-    /// See https://identity.foundation/peer-did-method-spec/#method-4-short-form-and-long-form
+    /// [dsh]: https://identity.foundation/peer-did-method-spec/#method-4-short-form-and-long-form
+    /// 
+    /// # Example
+    /// 
+    /// ```
+    /// use did_utils::methods::DidPeer;
+    /// # use did_utils::methods::DIDResolutionError;
+    /// 
+    /// # fn example() -> Result<String, DIDResolutionError> {
+    /// let did_peer_4_long_form = concat!(
+    ///     "did:peer:4zQmePYVawceZsPSxpLRp54z4Q5DCZXeyyGKwoDMc2NqgZXZ:z2yS424R5nAoSu",
+    ///     "CezPTvBHybrvByZRD9g8L4oMe4ctq9UwPksVskxJFiars33RRyKz3z7RbwwQRAo9ByoXmBhg",
+    ///     "7UCMkvmSHBeXWF44tQJfLjiXieCtXgxASzPJ5UsgPLAWX2vdjNFfmiLVh1WLe3RdBPvQoMuM",
+    ///     "EiPLFGiKhbzX66dT21qDwZusRC4uDzQa7XpsLBS7rBjZZ9sLMRzjpG4rYpjgLUmUF2D1ixeW",
+    ///     "ZFMqy7fVfPUUGyt4N6R4aLAjMLgcJzAQKb1uFiBYe2ZCTmsjtazWkHypgJetLysv7AwasYDV",
+    ///     "4MMNPY5AbM4p3TGtdpJZaxaXzSKRZexuQ4tWsfGuHXEDiaABj5YtjbNjWh4f5M4sn7D9AAAS",
+    ///     "StG593VkLFaPxG4VnFR4tKPiWeN9AJXRWPQ2XRnsD7U3mCHpRSb2f1HT5KeSHTU8zNAn6vFc",
+    ///     "4fstgf2j71Uo8tngcUBkxdqkHKmpvZ1Fs27sWh7JvWAeiehsW3aBe4CbU4WGjzmusaKVb2HS",
+    ///     "7iY5hbYngYrpwcZ5Sse");
+    /// // create short-form did:peer:4 address
+    /// let did = DidPeer::shorten_did_peer_4(did_peer_4_long_form)?;
+    /// # Ok(did)
+    /// # }
+    /// ```
     pub fn shorten_did_peer_4(did: &str) -> Result<String, DIDPeerMethodError> {
         let stripped = match did.strip_prefix("did:peer:4") {
             Some(stripped) => stripped,
@@ -226,7 +366,7 @@ impl DidPeer {
     // ---------------------------------------------------------------------------
 
     /// Expands `did:peer` address into DID document
-    pub fn expand(&self, did: &str) -> Result<DIDDocument, DIDPeerMethodError> {
+    pub(super) fn expand(&self, did: &str) -> Result<DIDDocument, DIDPeerMethodError> {
         if !did.starts_with("did:peer:") {
             return Err(DIDPeerMethodError::InvalidPeerDID);
         }
@@ -239,10 +379,10 @@ impl DidPeer {
         }
     }
 
-    /// Expands did:peer:0 address
-    ///
-    /// See https://identity.foundation/peer-did-method-spec/#method-0-inception-key-without-doc
-    pub fn expand_did_peer_0(&self, did: &str) -> Result<DIDDocument, DIDPeerMethodError> {
+    // Expands did:peer:0 address
+    //
+    // See https://identity.foundation/peer-did-method-spec/#method-0-inception-key-without-doc
+    fn expand_did_peer_0(&self, did: &str) -> Result<DIDDocument, DIDPeerMethodError> {
         if !DID_PEER_0_REGEX.is_match(did) {
             return Err(DIDPeerMethodError::RegexMismatch);
         }
@@ -302,7 +442,7 @@ impl DidPeer {
         Ok(diddoc)
     }
 
-    /// Derives verification method from multikey constituents
+    // Derives verification method from multikey constituents
     fn derive_verification_method(&self, did: &str, multikey: &str, alg: Algorithm, key: &[u8]) -> Result<VerificationMethod, DIDPeerMethodError> {
         if let Some(required_length) = alg.public_key_length() {
             if required_length != key.len() {
@@ -325,7 +465,7 @@ impl DidPeer {
         })
     }
 
-    /// Derives X25519 key agreement verification method indirectly from Ed25519 key
+    // Derives X25519 key agreement verification method indirectly from Ed25519 key
     fn derive_encryption_verification_method(&self, did: &str, key: &[u8]) -> Result<VerificationMethod, DIDPeerMethodError> {
         let key: [u8; 32] = key.try_into().map_err(|_| DIDResolutionError::InvalidPublicKeyLength)?;
         let ed25519_keypair = Ed25519KeyPair::from_public_key(&key).map_err(|_| DIDResolutionError::InternalError)?;
@@ -338,20 +478,18 @@ impl DidPeer {
         self.derive_verification_method(did, &enc_multikey, alg, enc_key)
     }
 
-    /// Expands did:peer:2 address
-    ///
-    /// See https://identity.foundation/peer-did-method-spec/#resolving-a-didpeer2
-    pub fn expand_did_peer_2(&self, did: &str) -> Result<DIDDocument, DIDPeerMethodError> {
+    // Expands did:peer:2 address
+    //
+    // See https://identity.foundation/peer-did-method-spec/#resolving-a-didpeer2
+    fn expand_did_peer_2(&self, did: &str) -> Result<DIDDocument, DIDPeerMethodError> {
         if !DID_PEER_2_REGEX.is_match(did) {
             return Err(DIDPeerMethodError::RegexMismatch);
         }
 
         // Compute did:peer:3 alias
-
         let alias = Self::create_did_peer_3(did)?;
 
         // Dissecting did address
-
         let chain = did.strip_prefix("did:peer:2.").unwrap();
         let chain: Vec<(Purpose, &str)> = chain
             .split('.')
@@ -364,7 +502,6 @@ impl DidPeer {
             .collect();
 
         // Define LD-JSON Context
-
         let context = Context::SetOfString(vec![
             String::from("https://www.w3.org/ns/did/v1"),
             match self.key_format {
@@ -374,7 +511,6 @@ impl DidPeer {
         ]);
 
         // Initialize relationships
-
         let mut authentication = vec![];
         let mut assertion_method = vec![];
         let mut key_agreement = vec![];
@@ -382,7 +518,6 @@ impl DidPeer {
         let mut capability_invocation = vec![];
 
         // Resolve verification methods
-
         let key_chain = chain.iter().filter(|(purpose, _)| purpose != &Purpose::Service);
 
         let mut methods: Vec<VerificationMethod> = vec![];
@@ -420,7 +555,6 @@ impl DidPeer {
         }
 
         // Resolve services
-
         let service_chain = chain
             .iter()
             .filter_map(|(purpose, multikey)| (purpose == &Purpose::Service).then_some(multikey));
@@ -448,7 +582,6 @@ impl DidPeer {
         }
 
         // Build DIDDocument
-
         let diddoc = DIDDocument {
             context,
             id: did.to_string(),
@@ -465,15 +598,14 @@ impl DidPeer {
             proof: None,
         };
 
-        // Output
-
+        // Output DIDDocument
         Ok(diddoc)
     }
 
-    /// Expands did:peer:4 address
-    ///
-    /// See https://identity.foundation/peer-did-method-spec/#resolving-a-did
-    pub fn expand_did_peer_4(&self, did: &str) -> Result<DIDDocument, DIDPeerMethodError> {
+    // Expands did:peer:4 address
+    //
+    // See https://identity.foundation/peer-did-method-spec/#resolving-a-did
+    fn expand_did_peer_4(&self, did: &str) -> Result<DIDDocument, DIDPeerMethodError> {
         // shorten the did
         let alias = Self::shorten_did_peer_4(did)?;
 

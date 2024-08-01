@@ -7,7 +7,8 @@ use thiserror::Error;
 
 use crate::crypto::{Ed25519KeyPair, X25519KeyPair};
 
-#[derive(Default)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+#[allow(missing_docs)]
 pub enum PublicKeyFormat {
     #[default]
     Multikey,
@@ -15,12 +16,27 @@ pub enum PublicKeyFormat {
 }
 
 #[allow(unused)]
-pub(super) trait ToMultikey {
-    /// Converts keypair into its multikey string
+#[allow(missing_docs)]
+/// A trait for converting to a multikey representation.
+pub trait ToMultikey {
     fn to_multikey(&self) -> String;
 }
 
 impl ToMultikey for Ed25519KeyPair {
+    /// Returns the multikey representation of the Ed25519 public key.
+    /// 
+    /// # Example
+    /// 
+    /// ```rust
+    /// # use did_utils::crypto::{Ed25519KeyPair, Generate};
+    /// use did_utils::methods::ToMultikey;
+    /// 
+    /// # fn example() -> Result<(), did_utils::crypto::Error> {
+    /// let keypair = Ed25519KeyPair::new()?;
+    /// let multikey = keypair.to_multikey();
+    /// # Ok(())
+    /// # }
+    /// ```
     fn to_multikey(&self) -> String {
         let prefix = &Algorithm::Ed25519.muticodec_prefix();
         let bytes = &self.public_key.as_bytes()[..];
@@ -29,6 +45,20 @@ impl ToMultikey for Ed25519KeyPair {
 }
 
 impl ToMultikey for X25519KeyPair {
+    /// Returns the multikey representation of the X25519 public key.
+    /// 
+    /// # Example
+    /// 
+    /// ```rust
+    /// # use did_utils::crypto::{X25519KeyPair, Generate};
+    /// use did_utils::methods::ToMultikey;
+    /// 
+    /// # fn example() -> Result<(), did_utils::crypto::Error> {
+    /// let keypair = X25519KeyPair::new()?;
+    /// let multikey = keypair.to_multikey();
+    /// # Ok(())
+    /// # }
+    /// ```
     fn to_multikey(&self) -> String {
         let prefix = &Algorithm::X25519.muticodec_prefix();
         let bytes = &self.public_key.as_bytes()[..];
@@ -48,7 +78,7 @@ pub(super) enum DecodeMultikeyError {
     UnknownAlgorithm,
 }
 
-/// Decodes algorithm and key bytes from multibase-encode value
+// Decodes algorithm and key bytes from multibase-encode value
 pub(super) fn decode_multikey(multikey: &str) -> Result<(Algorithm, Vec<u8>), DecodeMultikeyError> {
     let (base, multicodec) = multibase::decode(multikey).map_err(|_| DecodeMultikeyError::MultibaseDecodeError)?;
 

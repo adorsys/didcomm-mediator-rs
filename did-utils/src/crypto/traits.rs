@@ -25,7 +25,6 @@ pub trait Generate: KeyMaterial {
         Self: Sized;
 
     /// Generates a new key pair with a given seed.
-    ///
     /// If the seed is empty or invalid, a random seed will be generated.
     fn new_with_seed(seed: &[u8]) -> Result<Self, Error>
     where
@@ -37,7 +36,6 @@ pub trait Generate: KeyMaterial {
         Self: Sized;
 
     /// Generates a new key pair from a secret key.
-    ///
     /// A public key will be generated from the secret key.
     fn from_secret_key(private_key: &[u8; BYTES_LENGTH_32]) -> Result<Self, Error>
     where
@@ -46,11 +44,15 @@ pub trait Generate: KeyMaterial {
 
 /// A trait for types that support signing and verification operations.
 pub trait CoreSign {
+    /// Signs the payload with the key pair.
     fn sign(&self, payload: &[u8]) -> Result<Vec<u8>, Error>;
+
+    /// Verifies the signature of the payload with the key pair.
     fn verify(&self, payload: &[u8], signature: &[u8]) -> Result<(), Error>;
 }
 
 /// A trait for types that support ECDH key exchange operations.
 pub trait ECDH {
+    /// Performs ECDH key exchange with the given public key.
     fn key_exchange(&self, their_public: &Self) -> Option<Vec<u8>>;
 }

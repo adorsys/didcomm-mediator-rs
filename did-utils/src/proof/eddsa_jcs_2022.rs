@@ -1,12 +1,15 @@
 use multibase::Base;
 
-use crate::crypto::{ Ed25519KeyPair, sha256_hash, CoreSign, Error };
+use crate::crypto::{sha256_hash, CoreSign, Ed25519KeyPair, Error};
 
 use super::{model::Proof, traits::CryptoProof};
 
+/// The crypto suite for EdDSA-JCS-2022
 pub const CRYPRO_SUITE_EDDSA_JCS_2022: &str = "eddsa-jcs-2022";
+/// The proof type
 pub const PROOF_TYPE_DATA_INTEGRITY_PROOF: &str = "DataIntegrityProof";
 
+/// Proof object for EdDSA-JCS-2022
 pub struct EdDsaJcs2022 {
     /// The proof object
     ///
@@ -17,11 +20,11 @@ pub struct EdDsaJcs2022 {
     ///   secured document, including the proof value
     pub proof: Proof,
 
-    /// The keypair used to sreate the proof: in which case the signing key must be present.
+    /// The keypair used to create the proof: in which case the signing key must be present.
     ///
     /// The keypair used to verify the proof: in which case only the public key must be present.
     ///
-    /// This module does not perform resolution of the verification method. Module assumes calles
+    /// This module does not perform resolution of the verification method. Module assumes caller
     /// extracted the public key prior to calling this module.
     pub key_pair: Ed25519KeyPair,
 

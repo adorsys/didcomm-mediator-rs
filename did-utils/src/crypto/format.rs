@@ -36,7 +36,7 @@ impl TryFrom<Ed25519KeyPair> for Jwk {
 impl TryFrom<Jwk> for Ed25519KeyPair {
     type Error = CryptoError;
 
-    /// Converts a Jwk to an Ed25519KeyPair.
+    // Converts a Jwk to an Ed25519KeyPair.
     fn try_from(jwk: Jwk) -> Result<Self, Self::Error> {
         match jwk.key {
             Key::Okp(okp) => {
