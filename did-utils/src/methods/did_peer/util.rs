@@ -84,7 +84,7 @@ fn abbrv_service(value: &mut Value, abbrv_key: &dyn Fn(&str) -> String, abbrv_va
 }
 
 pub(super) fn validate_input_document(diddoc: &DIDDocument) -> Result<(), DIDPeerMethodError> {
-    // The document must not be empty
+    // The document should not be empty.
     if diddoc.verification_method.is_none()
         && diddoc.authentication.is_none()
         && diddoc.assertion_method.is_none()
@@ -103,6 +103,9 @@ pub(super) fn validate_input_document(diddoc: &DIDDocument) -> Result<(), DIDPee
         return Err(DIDPeerMethodError::InvalidStoredVariant);
     }
     Ok(())
+
+    // If there's already a controller field in the doc it means that
+    // the document is controlled by another DID so we do nothing.
 }
 
 fn are_all_ids_and_references_relative(diddoc: &DIDDocument) -> bool {
