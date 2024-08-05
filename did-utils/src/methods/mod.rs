@@ -64,7 +64,6 @@ mod did_peer;
 mod did_web;
 mod traits;
 mod errors;
-mod common;
 mod utils;
 mod resolution;
 
@@ -74,5 +73,4 @@ pub use traits::{DIDMethod, DIDResolver};
 pub use did_web::resolver::DidWeb;
 pub use did_key::method::DidKey;
 pub use did_peer::method::DidPeer;
-pub use common::PublicKeyFormat;
 pub use resolution::*;

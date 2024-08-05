@@ -1,11 +1,16 @@
-use super::errors::Error;
-use super::traits::{CoreSign, Generate, KeyMaterial, BYTES_LENGTH_32};
-use super::utils::{generate_seed, clone_slice_to_array};
-use super::x25519::X25519KeyPair;
-use super::AsymmetricKey;
 use curve25519_dalek::edwards::CompressedEdwardsY;
 use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
+use multibase::Base::Base58Btc;
 use sha2::{Digest, Sha512};
+
+use super::{
+    alg::Algorithm,
+    errors::Error,
+    traits::{CoreSign, Generate, KeyMaterial, ToMultikey, BYTES_LENGTH_32},
+    utils::{clone_slice_to_array, generate_seed},
+    x25519::X25519KeyPair,
+    AsymmetricKey,
+};
 
 pub type Ed25519KeyPair = AsymmetricKey<VerifyingKey, SigningKey>;
 
@@ -35,9 +40,7 @@ impl KeyMaterial for Ed25519KeyPair {
     /// A `Result` containing the bytes of the private key or an `Error`.
     fn private_key_bytes(&self) -> Result<[u8; BYTES_LENGTH_32], Error> {
         match &self.secret_key {
-            Some(sk) => {
-                Ok(clone_slice_to_array(&sk.to_bytes()))
-            },
+            Some(sk) => Ok(clone_slice_to_array(&sk.to_bytes())),
             None => Err(Error::InvalidSecretKey),
         }
     }
@@ -90,23 +93,21 @@ impl Generate for Ed25519KeyPair {
     /// A new `Ed25519KeyPair` instance.
     fn from_public_key(public_key: &[u8; BYTES_LENGTH_32]) -> Result<Ed25519KeyPair, Error> {
         match public_key.len() {
-            BYTES_LENGTH_32 => {
-                Ok(Ed25519KeyPair {
-                    public_key: match VerifyingKey::from_bytes(&clone_slice_to_array(public_key)) {
-                        Ok(vk) => vk,
-                        Err(_) => return Err(Error::InvalidPublicKey),
-                    },    
-                    secret_key: None,
-                })                
-            }
+            BYTES_LENGTH_32 => Ok(Ed25519KeyPair {
+                public_key: match VerifyingKey::from_bytes(&clone_slice_to_array(public_key)) {
+                    Ok(vk) => vk,
+                    Err(_) => return Err(Error::InvalidPublicKey),
+                },
+                secret_key: None,
+            }),
             _ => Err(Error::InvalidKeyLength),
-        }        
+        }
     }
 
     /// Creates a new `Ed25519KeyPair` from a secret key.
     ///
     /// A public key will be derived from the secret key.
-    /// 
+    ///
     /// # Arguments
     ///
     /// * `secret_key` - The bytes of the secret key.
@@ -150,7 +151,7 @@ impl CoreSign for Ed25519KeyPair {
                     }
                     Err(_) => Err(Error::SignatureError),
                 }
-            },
+            }
             None => Err(Error::InvalidSecretKey),
         }
     }
@@ -169,14 +170,20 @@ impl CoreSign for Ed25519KeyPair {
         // Try to convert the signature to a `Signature` instance
         // This conversion is necessary because the `signature` argument is represented as bytes
         match Signature::try_from(signature) {
-            Ok(sig) => {
-                match self.public_key.verify(payload, &sig) {
-                    Ok(_) => Ok(()),
-                    _ => Err(Error::VerificationError),
-                }
+            Ok(sig) => match self.public_key.verify(payload, &sig) {
+                Ok(_) => Ok(()),
+                _ => Err(Error::VerificationError),
             },
             Err(_) => Err(Error::CanNotRetrieveSignature),
         }
+    }
+}
+
+impl ToMultikey for Ed25519KeyPair {
+    fn to_multikey(&self) -> String {
+        let prefix = &Algorithm::Ed25519.muticodec_prefix();
+        let bytes = &self.public_key.as_bytes()[..];
+        multibase::encode(Base58Btc, [prefix, bytes].concat())
     }
 }
 
@@ -229,9 +236,9 @@ impl Ed25519KeyPair {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::crypto::traits::{CoreSign, Generate, KeyMaterial, BYTES_LENGTH_32};
-
-    use super::Ed25519KeyPair;
+    use crate::key_jwk::Jwk;
 
     // A test to create a new Ed25519KeyPair and check that bytes of both private and public key from
     // key material is 32 bytes long.
@@ -274,5 +281,22 @@ mod tests {
         // Verify the signature
         let verified = keypair.verify(json_data.as_bytes(), &signature.unwrap());
         assert!(verified.is_ok());
+    }
+
+    #[test]
+    fn test_ed25519_keypair_to_multikey() {
+        let jwk: Jwk = serde_json::from_str(
+            r#"{
+                "kty": "OKP",
+                "crv": "Ed25519",
+                "x": "O2onvM62pC1io6jQKm8Nc2UyFXcd4kOmOsBIoYtZ2ik"
+            }"#,
+        )
+        .unwrap();
+
+        let keypair: Ed25519KeyPair = jwk.try_into().unwrap();
+        let multikey = keypair.to_multikey();
+
+        assert_eq!(&multikey, "z6MkiTBz1ymuepAQ4HEHYSF1H8quG5GLVVQR3djdX3mDooWp");
     }
 }
