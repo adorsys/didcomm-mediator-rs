@@ -21,15 +21,16 @@ pub fn sha256_hash(bytes: &[u8]) -> [u8; 32] {
     hash.as_slice()[..32].try_into().unwrap()
 }
 
-/// Compute the SHA256 hash of a given input and return it as a Base58 encoded string.
-/// 
-/// # Arguments
-/// 
-/// * `bytes` - The input to compute the hash from.
-/// 
-/// # Returns
-/// 
-/// The SHA256 hash as a Base58 encoded string.
+/// Compute SHA256 hash of a given input and return it as a multibase-encoded string. 
+ ///  
+ /// # Example 
+ ///  
+ /// ```rust 
+ /// use did_utils::crypto::sha256_multihash; 
+ ///  
+ /// let bytes = b"Hello, world!"; 
+ /// let hash = sha256_multihash(bytes); 
+ /// ``` 
 pub fn sha256_multihash(bytes: &[u8]) -> String {
     const MULTIHASH_CODE: u8 = 0x12;
     const MULTIHASH_SIZE: u8 = 0x20;
@@ -41,7 +42,7 @@ pub fn sha256_multihash(bytes: &[u8]) -> String {
     ]
     .concat();
 
-    Base58Btc.encode(pack)
+    multibase::encode(Base58Btc, pack)
 }
 
 #[cfg(test)]
@@ -69,9 +70,9 @@ mod tests {
     #[test]
     fn test_sha256_multihash() {
         // https://richardschneider.github.io/net-ipfs-core/articles/multihash.html
-        assert_eq!(&sha256_multihash(b"Hello world"), "QmV8cfu6n4NT5xRr2AHdKxFMTZEJrA44qgrBCr739BN9Wb");
+        assert_eq!(&sha256_multihash(b"Hello world"), "zQmV8cfu6n4NT5xRr2AHdKxFMTZEJrA44qgrBCr739BN9Wb");
 
         // https://stackoverflow.com/a/51304779
-        assert_eq!(&sha256_multihash(b"hello world"), "QmaozNR7DZHQK1ZcU9p7QdrshMvXqWK6gpu5rmrkPdT3L4");
+        assert_eq!(&sha256_multihash(b"hello world"), "zQmaozNR7DZHQK1ZcU9p7QdrshMvXqWK6gpu5rmrkPdT3L4");
     }
 }
