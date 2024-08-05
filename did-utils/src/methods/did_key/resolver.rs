@@ -4,15 +4,31 @@ use crate::{
     ldmodel::Context,
     methods::{
         errors::DIDResolutionError,
-        traits::{DIDResolutionMetadata, DIDResolutionOptions, DIDResolver, MediaType, ResolutionOutput},
+        traits::DIDResolver,
     },
 };
 
-use super::DIDKeyMethod;
+use crate::methods::resolution::{
+    DIDResolutionMetadata,
+    DIDResolutionOptions,
+    MediaType,
+    ResolutionOutput,
+};
+
+use crate::methods::DidKey;
 
 #[async_trait]
-impl DIDResolver for DIDKeyMethod {
-    /// Resolves a DID address into its corresponding DID document.
+impl DIDResolver for DidKey {
+    
+    /// Resolves a DID using the did:key method.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `did` - The DID address to resolve.
+    /// 
+    /// # Returns
+    /// 
+    /// A `ResolutionOutput` struct containing the resolved DID document and metadata.
     async fn resolve(&self, did: &str, _options: &DIDResolutionOptions) -> ResolutionOutput {
         let context = Context::SingleString(String::from("https://w3id.org/did-resolution/v1"));
 
@@ -50,15 +66,12 @@ impl DIDResolver for DIDKeyMethod {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::methods::traits::DereferencingOptions;
+    use crate::methods::{common::PublicKeyFormat, resolution::DereferencingOptions};
     use serde_json::Value;
 
     #[async_std::test]
     async fn test_did_key_resolution_with_encryption_derivation() {
-        let did_method = DIDKeyMethod {
-            enable_encryption_key_derivation: true,
-            ..Default::default()
-        };
+        let did_method = DidKey::new_full(true, PublicKeyFormat::default());
 
         let did = "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK";
         let expected: Value = serde_json::from_str(
@@ -109,7 +122,7 @@ mod tests {
 
     #[async_std::test]
     async fn test_did_key_resolution_fails_as_expected() {
-        let did_method = DIDKeyMethod::default();
+        let did_method = DidKey::default();
 
         let did = "did:key:Z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK";
         let expected: Value = serde_json::from_str(
@@ -134,10 +147,7 @@ mod tests {
 
     #[async_std::test]
     async fn test_dereferencing_did_key_url() {
-        let did_method = DIDKeyMethod {
-            enable_encryption_key_derivation: true,
-            ..Default::default()
-        };
+        let did_method = DidKey::new_full(true, PublicKeyFormat::default());
 
         let did_url = "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK#z6LSj72tK8brWgZja8NLRwPigth2T9QRiG1uH9oKZuKjdh9p";
         let expected: Value = serde_json::from_str(

@@ -2,10 +2,10 @@ use hyper::StatusCode;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-/// Registry for error types found across the DID core specification,
+/// Registry for [error] types found across the DID core specification,
 /// and especially during the DID resolution process.
 ///
-/// See https://www.w3.org/TR/did-spec-registries/#error
+/// [error]: https://www.w3.org/TR/did-spec-registries/#error
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Error)]
 #[serde(rename_all = "camelCase")]
 pub enum DIDResolutionError {

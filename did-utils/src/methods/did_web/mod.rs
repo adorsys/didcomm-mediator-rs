@@ -1,1 +1,1 @@
-pub mod resolver;
+pub(super) mod resolver;

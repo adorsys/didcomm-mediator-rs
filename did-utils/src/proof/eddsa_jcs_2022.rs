@@ -1,10 +1,6 @@
 use multibase::Base;
 
-use crate::crypto::{
-    ed25519::Ed25519KeyPair,
-    sha256_hash::sha256_hash,
-    traits::{CoreSign, Error},
-};
+use crate::crypto::{ Ed25519KeyPair, sha256_hash, CoreSign, Error };
 
 use super::{model::Proof, traits::CryptoProof};
 
@@ -111,7 +107,7 @@ impl CryptoProof for EdDsaJcs2022 {
 mod tests {
     use serde_json::Value;
 
-    use crate::{crypto::traits::Generate, proof::model::UnsecuredDocument};
+    use crate::{crypto::Generate, proof::model::UnsecuredDocument};
 
     // create an EdDsaJcs2022 object and use it to produce a proof.
     // The proof is then verified.
@@ -120,7 +116,7 @@ mod tests {
         use chrono::TimeZone;
         use serde_json::json;
 
-        use crate::crypto::ed25519::Ed25519KeyPair;
+        use crate::crypto::Ed25519KeyPair;
 
         use super::*;
 
