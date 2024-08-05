@@ -4,7 +4,7 @@ use did_utils::{
         AssertionMethod, Authentication, Document, KeyAgreement, KeyFormat, Service,
         VerificationMethod,
     },
-    key_jwk::jwk::Jwk,
+    key_jwk::Jwk,
     ldmodel::Context,
 };
 use std::path::Path;
@@ -207,7 +207,7 @@ mod tests {
     use crate::util::dotenv_flow_read;
 
     use did_utils::key_jwk::{
-        bytes::Bytes, jwk::Jwk, key::Key, okp::Okp, okp::OkpCurves, prm::Parameters,
+        Bytes, Jwk, Key, Okp, OkpCurves, Parameters,
     };
 
     fn setup() -> (String, String) {

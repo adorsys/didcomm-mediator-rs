@@ -1,6 +1,6 @@
 use serde_json::Value;
 
-use crate::crypto::traits::Error;
+use crate::crypto::Error;
 
 use super::model::Proof;
 

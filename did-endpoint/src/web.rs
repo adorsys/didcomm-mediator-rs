@@ -3,11 +3,11 @@ use chrono::Utc;
 use did_utils::{
     didcore::{Document, KeyFormat, Proofs},
     proof::{
-        eddsa_jcs_2022::{EdDsaJcs2022, PROOF_TYPE_DATA_INTEGRITY_PROOF},
-        model::Proof,
-        traits::CryptoProof,
+        {EdDsaJcs2022, PROOF_TYPE_DATA_INTEGRITY_PROOF},
+        Proof,
+        CryptoProof,
     },
-    vc::model::{VerifiableCredential, VerifiablePresentation},
+    vc::{VerifiableCredential, VerifiablePresentation},
 };
 use hyper::StatusCode;
 use multibase::Base;
@@ -186,9 +186,9 @@ mod tests {
     };
     use did_utils::{
         didcore::{Document, KeyFormat, Proofs},
-        key_jwk::jwk::Jwk,
-        proof::{eddsa_jcs_2022::EdDsaJcs2022, traits::CryptoProof},
-        vc::model::VerifiablePresentation,
+        key_jwk::Jwk,
+        proof::{EdDsaJcs2022, CryptoProof},
+        vc::VerifiablePresentation,
     };
     use serde_json::json;
     use tower::util::ServiceExt;

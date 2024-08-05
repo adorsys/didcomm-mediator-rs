@@ -1,6 +1,6 @@
 use did_utils::{
-    crypto::{ed25519::Ed25519KeyPair, traits::CoreSign},
-    key_jwk::{jwk::Jwk, key::Key, okp::OkpCurves},
+    crypto::{Ed25519KeyPair, CoreSign},
+    key_jwk::{Jwk, Key, OkpCurves},
 };
 use multibase::Base::Base64Url;
 use serde::{Deserialize, Serialize};
@@ -180,7 +180,7 @@ mod tests {
     use super::*;
 
     use did_endpoint::util::keystore::ToPublic;
-    use did_utils::key_jwk::secret::Secret;
+    use did_utils::key_jwk::Secret;
     use multibase::Base::Base64Url;
     use serde_json::json;
 
