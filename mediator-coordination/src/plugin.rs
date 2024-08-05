@@ -14,7 +14,7 @@ use crate::{
 pub struct MediatorCoordinationPlugin;
 
 struct MediatorCoordinationPluginEnv {
-    public_domain: String,
+    _public_domain: String,
     storage_dirpath: String,
     mongo_uri: String,
     mongo_dbn: String,
@@ -22,7 +22,7 @@ struct MediatorCoordinationPluginEnv {
 
 /// Loads environment variables required for this plugin
 fn load_plugin_env() -> Result<MediatorCoordinationPluginEnv, PluginError> {
-    let public_domain = std::env::var("SERVER_PUBLIC_DOMAIN").map_err(|_| {
+    let _public_domain = std::env::var("SERVER_PUBLIC_DOMAIN").map_err(|_| {
         tracing::error!("SERVER_PUBLIC_DOMAIN env variable required");
         PluginError::InitError
     })?;
@@ -43,7 +43,7 @@ fn load_plugin_env() -> Result<MediatorCoordinationPluginEnv, PluginError> {
     })?;
 
     Ok(MediatorCoordinationPluginEnv {
-        public_domain,
+        _public_domain,
         storage_dirpath,
         mongo_uri,
         mongo_dbn,
@@ -58,11 +58,6 @@ impl Plugin for MediatorCoordinationPlugin {
     // Load environment variables required for this plugin
 
     fn mount(&mut self) -> Result<(), PluginError> {
-        let storage_dirpath = std::env::var("STORAGE_DIRPATH").map_err(|_| {
-            tracing::error!("STORAGE_DIRPATH env variable required");
-            PluginError::InitError
-        })?;
-
         let MediatorCoordinationPluginEnv {
             storage_dirpath,
             mongo_uri,
@@ -93,12 +88,11 @@ impl Plugin for MediatorCoordinationPlugin {
 
     fn routes(&self) -> Router {
         let msg = "This should not occur following successful mounting.";
-        let MediatorCoordinationPluginEnv {
-            public_domain,
-            storage_dirpath,
-            mongo_uri,
-            mongo_dbn,
-        } = load_plugin_env().expect(msg);
+
+        let storage_dirpath = std::env::var("SERVER_PUBLIC_DOMAIN").unwrap();
+        let mongo_uri = std::env::var("MONGO_URI").unwrap();
+        let mongo_dbn = std::env::var("MONGO_DBN").unwrap();
+        let public_domain = std::env::var("MONGO_DBN").unwrap();
 
         // Load crypto identity
         let mut fs = StdFileSystem;

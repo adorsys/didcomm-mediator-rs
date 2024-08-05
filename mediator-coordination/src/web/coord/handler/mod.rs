@@ -31,14 +31,6 @@ pub async fn process_didcomm_mediation_request_message(
         unpack_request_message(&payload, &state.did_resolver, &state.secrets_resolver).await
     );
 
-    // Check message type compliance
-    midlw::run!(ensure_jwm_type_is_mediation_request(&plain_message));
-
-    // Check explicit agreement to HTTP responding
-    midlw::run!(ensure_transport_return_route_is_decorated_all(
-        &plain_message
-    ));
-
     // Attempt to parse message body into a mediation request
     let mediation_request = midlw::run!(parse_message_body_into_mediation_request(&plain_message));
 
