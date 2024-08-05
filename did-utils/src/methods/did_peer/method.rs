@@ -475,6 +475,7 @@ impl DidPeer {
     /// See https://identity.foundation/peer-did-method-spec/#resolving-a-did
     pub fn expand_did_peer_4(&self, did: &str) -> Result<DIDDocument, DIDPeerMethodError> {
         // Ensure long format by computing did:peer:4 short form alias
+        // This also ensures that the hash is valid before shortening the did.
         let alias = Self::shorten_did_peer_4(did)?;
 
         // Extract encoded document
