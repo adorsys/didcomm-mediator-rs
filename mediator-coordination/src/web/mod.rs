@@ -5,7 +5,7 @@ mod midlw;
 
 use axum::{middleware, routing::post, Router};
 use did_endpoint::util::keystore::KeyStore;
-use did_utils::{didcore::Document, key_jwk::jwk::Jwk};
+use did_utils::{didcore::Document, key_jwk::Jwk};
 use std::sync::Arc;
 
 use crate::{

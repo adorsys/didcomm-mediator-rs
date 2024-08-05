@@ -15,7 +15,7 @@ pub enum PublicKeyFormat {
 }
 
 #[allow(unused)]
-pub(super) trait ToMultikey {
+pub trait ToMultikey {
     /// Converts keypair into its multikey string
     fn to_multikey(&self) -> String;
 }

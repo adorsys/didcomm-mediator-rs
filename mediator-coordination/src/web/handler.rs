@@ -79,7 +79,7 @@ pub mod tests {
     use super::*;
 
     use axum::Router;
-    use did_utils::key_jwk::jwk::Jwk;
+    use did_utils::key_jwk::Jwk;
     use didcomm::{
         error::Error as DidcommError, secrets::SecretsResolver, Message, PackEncryptedOptions,
         UnpackOptions,

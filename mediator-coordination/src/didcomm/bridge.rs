@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 use did_utils::{
     didcore::Document,
-    key_jwk::jwk::Jwk,
-    methods::{common::PublicKeyFormat, did_key::DIDKeyMethod, errors::DIDResolutionError},
+    key_jwk::Jwk,
+    methods::{PublicKeyFormat, DidKey, DIDResolutionError},
 };
 use didcomm::{
     did::{DIDDoc, DIDResolver},
@@ -42,10 +42,7 @@ impl DIDResolver for LocalDIDResolver {
             ));
         }
 
-        let method = DIDKeyMethod {
-            key_format: PublicKeyFormat::Jwk,
-            enable_encryption_key_derivation: true,
-        };
+        let method = DidKey::new_full(true, PublicKeyFormat::Jwk);
 
         match method.expand(did) {
             Ok(diddoc) => Ok(Some(

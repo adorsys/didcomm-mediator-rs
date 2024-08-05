@@ -3,16 +3,10 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use did_utils::{
-    crypto::{ed25519::Ed25519KeyPair, traits::Generate, x25519::X25519KeyPair},
+    crypto::{Ed25519KeyPair, Generate, X25519KeyPair},
     didcore::Service,
-    key_jwk::jwk::Jwk,
-    methods::{
-        common::ToMultikey,
-        did_peer::{
-            method::{Purpose, PurposedKey},
-            DIDPeerMethod,
-        },
-    },
+    key_jwk::Jwk,
+    methods::{DidPeer, Purpose, PurposedKey, ToMultikey},
 };
 use didcomm::Message;
 use mongodb::bson::{doc, oid::ObjectId};
@@ -193,7 +187,7 @@ fn generate_did_peer(service_endpoint: String) -> (String, Ed25519KeyPair, X2551
     }];
 
     (
-        DIDPeerMethod::create_did_peer_2(&keys, &services).unwrap(),
+        DidPeer::create_did_peer_2(&keys, &services).unwrap(),
         auth_keys,
         agreem_keys,
     )
@@ -769,7 +763,7 @@ mod tests {
         );
     }
 
-    use did_utils::crypto::traits::{KeyMaterial, BYTES_LENGTH_32};
+    use did_utils::crypto::{KeyMaterial, BYTES_LENGTH_32};
 
     #[test]
     fn test_generate_did_peer() {
@@ -802,7 +796,7 @@ mod tests {
         let (did, _, _) = generate_did_peer(service_endpoint.to_string());
 
         // Expand the generated did:peer address to a DID document
-        let did_method = DIDPeerMethod::default();
+        let did_method = DidPeer::default();
         let did_document = did_method.expand(&did).unwrap();
 
         // Check that the serviceEndpoint in the DID document matches the input
