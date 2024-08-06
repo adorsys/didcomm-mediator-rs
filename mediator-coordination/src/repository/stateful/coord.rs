@@ -5,7 +5,7 @@ use mongodb::{
 };
 
 use crate::{
-    model::entity::stateful::{Connection, Secrets},
+    model::stateful::entity::{Connection, Secrets},
     repository::traits::{Entity, Repository, RepositoryError},
 };
 

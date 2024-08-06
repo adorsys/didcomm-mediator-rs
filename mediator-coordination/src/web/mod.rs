@@ -10,8 +10,8 @@ use std::sync::Arc;
 
 use crate::{
     didcomm::bridge::{LocalDIDResolver, LocalSecretsResolver},
-    model::entity::stateful::Connection,
-    model::entity::stateful::Secrets,
+    model::stateful::entity::Connection,
+    model::stateful::entity::Secrets,
     repository::traits::Repository,
     util,
 };
