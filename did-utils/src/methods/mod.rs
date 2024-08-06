@@ -73,6 +73,6 @@ pub use errors::{DIDResolutionError, DidWebError, ParsingErrorSource};
 pub use traits::{DIDMethod, DIDResolver};
 pub use did_web::resolver::DidWeb;
 pub use did_key::method::DidKey;
-pub use did_peer::method::DidPeer;
-pub use common::PublicKeyFormat;
+pub use did_peer::method::{DidPeer, Purpose, PurposedKey};
+pub use common::{PublicKeyFormat, ToMultikey};
 pub use resolution::*;
