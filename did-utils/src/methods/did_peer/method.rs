@@ -10,11 +10,13 @@ use super::{
 use crate::{
     crypto::{
         sha256_multihash, Ed25519KeyPair, {Generate, KeyMaterial},
+        Algorithm,
+        PublicKeyFormat,
+        alg::decode_multikey,
     },
     didcore::{self, Document as DIDDocument, KeyFormat, Service, VerificationMethod},
     ldmodel::Context,
     methods::{
-        common::{self, Algorithm, PublicKeyFormat},
         did_peer::util,
         errors::DIDResolutionError,
         traits::DIDMethod,
@@ -249,7 +251,7 @@ impl DidPeer {
 
         // Decode multikey in did:peer
         let multikey = did.strip_prefix("did:peer:0").unwrap();
-        let (alg, key) = common::decode_multikey(multikey).map_err(|_| DIDPeerMethodError::MalformedPeerDID)?;
+        let (alg, key) = decode_multikey(multikey).map_err(|_| DIDPeerMethodError::MalformedPeerDID)?;
 
         // Run algorithm for signature verification method expansion
         let signature_verification_method = self.derive_verification_method(did, multikey, alg, &key)?;
@@ -409,7 +411,7 @@ impl DidPeer {
                 public_key: Some(match self.key_format {
                     PublicKeyFormat::Multikey => KeyFormat::Multibase(multikey.to_string()),
                     PublicKeyFormat::Jwk => {
-                        let (alg, key) = common::decode_multikey(multikey).map_err(|_| DIDPeerMethodError::MalformedPeerDID)?;
+                        let (alg, key) = decode_multikey(multikey).map_err(|_| DIDPeerMethodError::MalformedPeerDID)?;
                         KeyFormat::Jwk(alg.build_jwk(&key).map_err(|_| DIDResolutionError::InternalError)?)
                     }
                 }),

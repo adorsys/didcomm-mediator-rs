@@ -12,6 +12,13 @@ use crate::{
 
 use multibase::Base::Base64Url;
 
+#[derive(Default)]
+pub enum PublicKeyFormat {
+    #[default]
+    Multikey,
+    Jwk,
+}
+
 /// Converts an `Ed25519KeyPair` to a `Jwk`.
 impl TryFrom<Ed25519KeyPair> for Jwk {
     type Error = CryptoError;

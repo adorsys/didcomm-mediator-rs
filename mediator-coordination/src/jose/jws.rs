@@ -1,5 +1,5 @@
 use did_utils::{
-    crypto::{Ed25519KeyPair, CoreSign},
+    crypto::{CoreSign, Ed25519KeyPair, KeyMaterial},
     key_jwk::{Jwk, Key, OkpCurves},
 };
 use multibase::Base::Base64Url;
@@ -110,7 +110,7 @@ pub fn make_compact_jws_ed25519(phrase: String, jwk: &Jwk) -> Result<String, Jws
         .clone()
         .try_into()
         .map_err(|_| JwsError::InvalidSigningKey)?;
-    if keypair.secret_key.is_none() {
+    if keypair.private_key_bytes().is_err() {
         return Err(JwsError::MissingPrivateKey);
     }
 
