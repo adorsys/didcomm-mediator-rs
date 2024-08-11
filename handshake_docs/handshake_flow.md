@@ -2,18 +2,21 @@
 
 ## 1. Communication Initiation
 ### Participant Identification:
-- Each mobile agent generates a DID (Decentralized Identifier).
+- Each edge agent generates a DID (Decentralized Identifier), typically involving some interaction with a mediator (cloud agent). The mediator is responsible for:
+  1. Receiving messages sent to the edge agent.
+  2. Forwarding messages sent out by the edge agent.
+   
 
-- Agents exchange their DIDs to identify each other. The initial exchange might involve sending a DIDComm message that includes the agent’s DID and a nonce (a random value used for security purposes).
+- Agents exchange their DIDs to identify each other. This exchange generally occurs in the context of an OOB(Out-of-Band) message, where one edge agent scans the QR code of another.
 ### Initial Message:
-- The initiating agent sends a DIDComm handshake message to the mediator. This message contains:
+- The initiating edge agent sends a DIDComm handshake message to the mediator. This message contains:
 
-  - **DID of the initiating agent**: Identifies the sender.
+  - **DID of the initiating edge agent**: Identifies the sender.
   - **Nonce**: Ensures message freshness and prevents replay attacks.
   - **Service Information**: May include endpoint URLs, service types, and other metadata relevant to the communication.
 ## 2. Message Exchanges
 ### Encryption Methods:
- - Messages are encrypted using DIDComm’s encryption standards, typically using asymmetric encryption (e.g., using public keys derived from the DIDs).
+ - Messages are encrypted using DIDComm's encryption standards, typically using asymmetric encryption (e.g., using public keys derived from the DIDs).
 ### Data Formats:
  - Messages are structured in JSON format, following the DIDComm v2 specification. A typical message contains:
    - **Headers**: Metadata about the message (e.g., type, timestamp, sender, recipient).
@@ -23,7 +26,6 @@
  - **Mediator Acknowledgment**: The mediator responds with its own DID and a nonce, acknowledging the receipt of the initial message.
    - **Capability Negotiation**: Both parties may exchange additional messages to negotiate capabilities, such as supported encryption algorithms, message formats, and routing mechanisms.
    - **Routing Information**: The mediator may provide routing information necessary for forwarding future messages between the agents.
-   - **Verification**: Each party verifies the identity of the other using cryptographic proofs, ensuring the authenticity and integrity of the exchanged DIDs and messages.
 ## 3. Finalization
 ### Successful Connection:
  - The handshake is finalized when both parties have successfully exchanged all necessary cryptographic information and have verified each other’s identities.
