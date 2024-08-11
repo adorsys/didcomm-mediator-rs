@@ -15,6 +15,7 @@
   - **DID of the initiating edge agent**: Identifies the sender.
   - **Nonce**: Ensures message freshness and prevents replay attacks.
   - **Service Information**: May include endpoint URLs, service types, and other metadata relevant to the communication.
+
 ## 2. Message Exchanges
 
 ### Encryption Methods:
