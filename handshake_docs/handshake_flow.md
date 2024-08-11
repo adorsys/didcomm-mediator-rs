@@ -25,15 +25,22 @@
    - **Headers**: Metadata about the message (e.g., type, timestamp, sender, recipient).
    - **Payload**: The actual content of the message, encrypted as needed.
    - **Encryption Details**: Information about the encryption used, such as keys and algorithms.
+  
 ### Sequence of Exchanges:
+
  - **Mediator Acknowledgment**: The mediator responds with its own DID and a nonce, acknowledging the receipt of the initial message.
    - **Capability Negotiation**: Both parties may exchange additional messages to negotiate capabilities, such as supported encryption algorithms, message formats, and routing mechanisms.
    - **Routing Information**: The mediator may provide routing information necessary for forwarding future messages between the agents.
+  
 ## 3. Finalization
+
 ### Successful Connection:
+
  - The handshake is finalized when both parties have successfully exchanged all necessary cryptographic information and have verified each other’s identities.
  - A final confirmation message may be sent by each party to indicate that the handshake process is complete.
+
 ### Error Handling:
+
  - **Error Detection**: If an error occurs (e.g., message tampering, failed verification, or timeout), the affected party sends an error message detailing the issue.
  - **Retries**: Depending on the error, the parties may retry the handshake process a specified number of times.
  - **Logging and Alerts**: Errors are logged for further investigation, and alerts may be triggered to notify administrators or developers of the failure.
