@@ -1,6 +1,7 @@
 # Handshake Flow for DIDComm Mediator-rs
 
 ## 1. Communication Initiation
+
 ### Participant Identification:
 - Each edge agent generates a DID (Decentralized Identifier), typically involving some interaction with a mediator (cloud agent). The mediator is responsible for:
   1. Receiving messages sent to the edge agent.
@@ -15,8 +16,10 @@
   - **Nonce**: Ensures message freshness and prevents replay attacks.
   - **Service Information**: May include endpoint URLs, service types, and other metadata relevant to the communication.
 ## 2. Message Exchanges
+
 ### Encryption Methods:
  - Messages are encrypted using DIDComm's encryption standards, typically using asymmetric encryption (e.g., using public keys derived from the DIDs).
+ - 
 ### Data Formats:
  - Messages are structured in JSON format, following the DIDComm v2 specification. A typical message contains:
    - **Headers**: Metadata about the message (e.g., type, timestamp, sender, recipient).
