@@ -1,11 +1,10 @@
-mod alg;
 pub use alg::Algorithm;
 
 use multibase::Base::Base58Btc;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::crypto::{Ed25519KeyPair, X25519KeyPair};
+use crate::crypto::{alg, Ed25519KeyPair, X25519KeyPair};
 
 #[derive(Default)]
 pub enum PublicKeyFormat {

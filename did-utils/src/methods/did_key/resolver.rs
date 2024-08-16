@@ -66,7 +66,10 @@ impl DIDResolver for DidKey {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::methods::{common::PublicKeyFormat, resolution::DereferencingOptions};
+    use crate::{
+        methods::resolution::DereferencingOptions,
+        crypto::PublicKeyFormat,
+    };
     use serde_json::Value;
 
     #[async_std::test]
