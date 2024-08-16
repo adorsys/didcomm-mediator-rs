@@ -9,7 +9,7 @@
 //! 
 //! # Examples
 //! 
-//! ### Basic did:key resolution example
+//! ### Basic did:key resolution example.
 //! 
 //! ```
 //! # use did_utils::methods::{DIDResolver, DidKey};

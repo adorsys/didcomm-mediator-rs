@@ -122,7 +122,7 @@ pub fn make_compact_jws_ed25519(phrase: String, jwk: &Jwk) -> Result<String, Jws
     Ok(format!("{phrase}.{encoded_signature}"))
 }
 
-/// Verifies a JSON Web Signature (JWS)
+/// Verifies a JSON Web Signature (JWS).
 pub fn verify_compact_jws(jws: &str, jwk: &Jwk) -> Result<(), JwsError> {
     if jws.is_empty() {
         return Err(JwsError::EmptyInput);

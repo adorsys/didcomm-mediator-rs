@@ -131,7 +131,7 @@ mod tests {
     fn test_decode_multikey_negative_cases() {
         let cases = [
             (
-                "z#6MkiTBz1ymuepAQ4HEHYSF1H8quG5GLVVQR3djdX3mDooWpd", //
+                "z#6MkiTBz1ymuepAQ4HEHYSF1H8quG5GLVVQR3djdX3mDooWpd", 
                 DecodeMultikeyError::MultibaseDecodeError,
             ),
             (
