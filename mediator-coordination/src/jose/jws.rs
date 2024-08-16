@@ -1,5 +1,5 @@
 use did_utils::{
-    crypto::{Ed25519KeyPair, CoreSign},
+    crypto::{CoreSign, Ed25519KeyPair},
     key_jwk::{Jwk, Key, OkpCurves},
 };
 use multibase::Base::Base64Url;

@@ -25,7 +25,7 @@ pub async fn process_plain_mediation_request_over_dics(
 
     // Check message type compliance
     midlw::ensure_mediation_request_type(&json!(mediation_request), MEDIATE_REQUEST_DIC_1_0)?;
-    
+
     // Check message type compliance
     midlw::run!(ensure_jwm_type_is_mediation_request(&plain_message));
 
