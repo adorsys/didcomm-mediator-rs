@@ -93,7 +93,7 @@ impl JwtAssertable for DICPayload {
 #[allow(unused)]
 impl JwtAssertable for DDICPayload {
     fn sign(&self, jwk: &Jwk, kid: Option<String>) -> Result<String, JwsError> {
-        self.sign_with_typ("dic/v001", jwk, kid)
+        self.sign_with_typ("ddic/v001", jwk, kid)
     }
 }
 
