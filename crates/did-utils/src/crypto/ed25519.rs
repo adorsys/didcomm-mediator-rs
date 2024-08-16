@@ -238,7 +238,7 @@ impl Ed25519KeyPair {
 mod tests {
     use super::*;
     use crate::crypto::traits::{CoreSign, Generate, KeyMaterial, BYTES_LENGTH_32};
-    use crate::key_jwk::Jwk;
+    use crate::jwk::Jwk;
 
     // A test to create a new Ed25519KeyPair and check that bytes of both private and public key from
     // key material is 32 bytes long.

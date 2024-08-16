@@ -157,7 +157,7 @@ impl ToMultikey for X25519KeyPair {
 pub mod tests {
     // use ed25519_dalek::{Signature, Verifier};
 
-    use crate::key_jwk::Jwk;
+    use crate::jwk::Jwk;
     use x25519_dalek::{EphemeralSecret, PublicKey};
 
     use super::*;

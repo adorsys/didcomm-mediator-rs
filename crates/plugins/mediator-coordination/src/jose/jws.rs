@@ -1,6 +1,6 @@
 use did_utils::{
     crypto::{CoreSign, Ed25519KeyPair, KeyMaterial},
-    key_jwk::{Jwk, Key, OkpCurves},
+    jwk::{Jwk, Key, OkpCurves},
 };
 use multibase::Base::Base64Url;
 use serde::{Deserialize, Serialize};
