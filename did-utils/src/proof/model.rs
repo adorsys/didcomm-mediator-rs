@@ -96,7 +96,7 @@ pub struct UnsecuredDocument {
 
 // the test module
 #[cfg(test)]
-pub mod tests {
+mod tests {
     use super::*;
     use chrono::TimeZone;
     // creates a proof object that serializes to give expected tring

@@ -1,7 +1,5 @@
 #![allow(unused)]
 
 pub fn crate_name() -> String {
-    let current_dir = std::env::current_dir().unwrap();
-    let basename = current_dir.file_name().unwrap().to_str().unwrap();
-    basename.to_string()
+    std::env::var("CARGO_PKG_NAME").unwrap_or_default()
 }

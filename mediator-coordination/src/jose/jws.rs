@@ -1,6 +1,6 @@
 use did_utils::{
-    crypto::{ed25519::Ed25519KeyPair, traits::CoreSign},
-    key_jwk::{jwk::Jwk, key::Key, okp::OkpCurves},
+    crypto::{CoreSign, Ed25519KeyPair, KeyMaterial},
+    key_jwk::{Jwk, Key, OkpCurves},
 };
 use multibase::Base::Base64Url;
 use serde::{Deserialize, Serialize};
@@ -110,7 +110,7 @@ pub fn make_compact_jws_ed25519(phrase: String, jwk: &Jwk) -> Result<String, Jws
         .clone()
         .try_into()
         .map_err(|_| JwsError::InvalidSigningKey)?;
-    if keypair.secret_key.is_none() {
+    if keypair.private_key_bytes().is_err() {
         return Err(JwsError::MissingPrivateKey);
     }
 
@@ -180,7 +180,7 @@ mod tests {
     use super::*;
 
     use did_endpoint::util::keystore::ToPublic;
-    use did_utils::key_jwk::secret::Secret;
+    use did_utils::key_jwk::Secret;
     use multibase::Base::Base64Url;
     use serde_json::json;
 

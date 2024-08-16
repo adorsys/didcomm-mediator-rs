@@ -1,5 +1,5 @@
 extern crate did_utils;
-use did_utils::crypto::{ed25519::Ed25519KeyPair, traits::{Generate, CoreSign}};
+use did_utils::crypto::{Ed25519KeyPair, {Generate, CoreSign}};
 
 
 fn main() {

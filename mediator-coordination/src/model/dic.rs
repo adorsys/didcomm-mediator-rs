@@ -1,4 +1,4 @@
-use did_utils::key_jwk::jwk::Jwk;
+use did_utils::key_jwk::Jwk;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;

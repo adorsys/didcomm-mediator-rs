@@ -1,8 +1,19 @@
-// Module: didkit
 use crate::{didcore::{Document, VerificationMethod, Authentication, AssertionMethod, KeyAgreement, Service}, ldmodel::Context};
 
 
 impl VerificationMethod {
+
+    /// Creates a new `VerificationMethod` instance.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - A unique identifier for the verification method.
+    /// * `key_type` - The type of key used in the verification method.
+    /// * `controller` - The identifier of the controller of the verification method.
+    ///
+    /// # Returns
+    ///
+    /// * A new instance of `VerificationMethod`.
     pub fn new(id: String, key_type: String, controller: String) -> Self {
         Self {
             id,
@@ -17,6 +28,18 @@ impl VerificationMethod {
 }
 
 impl Service {
+
+    /// Creates a new `Service` instance.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - A unique identifier for the service.
+    /// * `service_type` - The type of service.
+    /// * `service_endpoint` - The endpoint where the service can be accessed.
+    ///
+    /// # Returns
+    ///
+    /// * A new instance of `Service`.
     pub fn new(id: String, service_type: String, service_endpoint: String) -> Self {
         Self {
             id,
@@ -27,10 +50,17 @@ impl Service {
     }
 }
 
-// Write a builder like function to create documents from 
-// the object model defined in src/didcore.rs.
 impl Document {
-    // Instantiates a new document given required members
+    /// Creates a new `Document` instance with only the required members.
+    ///
+    /// # Arguments
+    ///
+    /// * `context` - The context defining the vocabulary for the document.
+    /// * `id` - A unique identifier for the DID document.
+    ///
+    /// # Returns
+    ///
+    /// * A new instance of `Document`.
     pub fn new(context: Context, id: String) -> Self {
         Self {
             id,
@@ -49,7 +79,21 @@ impl Document {
         }
     }
 
-    /// Instantiates a new document given frequent members
+    /// Creates a new `Document` instance with frequent members.
+    ///
+    /// # Arguments
+    ///
+    /// * `context` - The context defining the vocabulary for the document.
+    /// * `id` - A unique identifier for the DID document.
+    /// * `authentication` - An optional vector of `Authentication` methods.
+    /// * `assertion_method` - An optional vector of `AssertionMethod` methods.
+    /// * `key_agreement` - An optional vector of `KeyAgreement` methods.
+    /// * `verification_method` - An optional vector of `VerificationMethod` methods.
+    /// * `service` - An optional vector of `Service` instances.
+    ///
+    /// # Returns
+    ///
+    /// * A new instance of `Document`.
     pub fn new_full(
         context: Context,
         id: String,
@@ -79,7 +123,7 @@ impl Document {
 
 #[cfg(test)]
 pub mod tests {
-    use crate::crypto::{ed25519::Ed25519KeyPair, traits::{Generate, KeyMaterial}};
+    use crate::crypto::{Ed25519KeyPair, {Generate, KeyMaterial}};
     use crate::didcore::KeyFormat::Multibase;
     use super::*;
     use multibase::Base::Base58Btc;

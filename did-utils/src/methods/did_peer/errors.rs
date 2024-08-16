@@ -1,6 +1,6 @@
 use serde_json::Error as SerdeError;
 
-use crate::{crypto::traits::Error as CryptoError, methods::errors::DIDResolutionError};
+use crate::{crypto::Error as CryptoError, methods::errors::DIDResolutionError};
 
 #[derive(Debug)]
 pub enum DIDPeerMethodError {
