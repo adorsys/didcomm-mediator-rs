@@ -15,7 +15,7 @@ You can add a new plugin by following the steps below:
 
 **1. Implement the `Plugin` trait**
 
-First, import the [`Plugin`](../crates/plugin-api/src/lib.rs) trait located inside the [plugin-api](../crates/plugin-api) crate. Then,
+First, import the [`Plugin`](../plugin-api/src/lib.rs) trait located inside the [plugin-api](../plugin-api) crate. Then,
 define the necessary methods such as `name()`, `mount()`, `unmount()` and `routes()`.
 
 **2. Register the Plugin**  
