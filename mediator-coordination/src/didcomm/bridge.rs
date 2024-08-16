@@ -2,8 +2,10 @@ use async_trait::async_trait;
 use did_utils::{
     didcore::Document,
     key_jwk::Jwk,
-    methods::{DIDResolutionError, DidKey, PublicKeyFormat},
+    methods::{DIDResolutionError, DidKey},
+    
 };
+use did_utils::crypto::PublicKeyFormat;
 use didcomm::{
     did::{DIDDoc, DIDResolver},
     error::{Error, ErrorKind, Result},

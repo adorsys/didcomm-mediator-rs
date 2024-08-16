@@ -3,11 +3,12 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use did_utils::{
-    crypto::{Ed25519KeyPair, Generate, X25519KeyPair},
+    crypto::{Ed25519KeyPair, Generate, ToMultikey, X25519KeyPair},
     didcore::Service,
     key_jwk::Jwk,
-    methods::{DidPeer, Purpose, PurposedKey, ToMultikey},
+    methods::{DidPeer, Purpose, PurposedKey},
 };
+
 use didcomm::Message;
 use mongodb::bson::{doc, oid::ObjectId};
 use serde_json::json;
