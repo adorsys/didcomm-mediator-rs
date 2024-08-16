@@ -38,6 +38,7 @@
 //! let hash = sha256_hash(json_file.as_bytes());
 //!```
 
+pub(crate) mod alg;
 mod format;
 mod utils;
 mod errors;
@@ -46,6 +47,8 @@ mod traits;
 mod x25519;
 mod sha256_hash;
 
+pub use alg::Algorithm;
+pub use format::PublicKeyFormat;
 pub use errors::Error;
 pub use traits::{Generate, KeyMaterial, CoreSign, ECDH, ToPublic, BYTES_LENGTH_32};
 pub use ed25519::Ed25519KeyPair;

@@ -64,15 +64,13 @@ mod peer;
 mod web;
 mod traits;
 mod errors;
-mod common;
 mod utils;
 mod resolution;
 
 // Re-exported items
 pub use errors::{DIDResolutionError, DidWebError, ParsingErrorSource};
 pub use traits::{DIDMethod, DIDResolver};
-pub use web::resolver::DidWeb;
-pub use key::method::DidKey;
-pub use peer::method::DidPeer;
-pub use common::PublicKeyFormat;
+pub use did_web::resolver::DidWeb;
+pub use did_key::method::DidKey;
+pub use did_peer::method::DidPeer;
 pub use resolution::*;

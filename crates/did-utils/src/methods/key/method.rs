@@ -5,11 +5,13 @@ use crate::{
         Ed25519KeyPair,
         {Generate, KeyMaterial},
         Error as CryptoError,
+        Algorithm,
+        PublicKeyFormat,
+        alg::decode_multikey,
     },
     didcore::{self, Document as DIDDocument, KeyFormat, VerificationMethod},
     ldmodel::Context,
     methods::{
-        common::{self, Algorithm, PublicKeyFormat},
         errors::DIDResolutionError,
         traits::DIDMethod,
     },
@@ -84,7 +86,7 @@ impl DidKey {
 
         // See https://w3c-ccg.github.io/did-method-key/#format
         let multibase_value = did.strip_prefix("did:key:").unwrap();
-        let (alg, raw_public_key_bytes) = common::decode_multikey(multibase_value).map_err(|_| DIDResolutionError::InvalidDid)?;
+        let (alg, raw_public_key_bytes) = decode_multikey(multibase_value).map_err(|_| DIDResolutionError::InvalidDid)?;
 
         // Run algorithm for signature verification method expansion
         let signature_verification_method = self.derive_signature_verification_method(alg, multibase_value, &raw_public_key_bytes)?;

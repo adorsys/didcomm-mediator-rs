@@ -1,8 +1,10 @@
+use multibase::Base::Base58Btc;
 use x25519_dalek::{PublicKey, StaticSecret};
 
 use super::{
+    alg::Algorithm,
     errors::Error,
-    traits::{Generate, KeyMaterial, BYTES_LENGTH_32, ECDH},
+    traits::{Generate, KeyMaterial, ToMultikey, BYTES_LENGTH_32, ECDH},
     utils::{clone_slice_to_array, generate_seed},
     AsymmetricKey,
 };
@@ -143,13 +145,22 @@ impl ECDH for X25519KeyPair {
     }
 }
 
+impl ToMultikey for X25519KeyPair {
+    fn to_multikey(&self) -> String {
+        let prefix = &Algorithm::X25519.muticodec_prefix();
+        let bytes = &self.public_key.as_bytes()[..];
+        multibase::encode(Base58Btc, [prefix, bytes].concat())
+    }
+}
+
 #[cfg(test)]
 pub mod tests {
     // use ed25519_dalek::{Signature, Verifier};
 
+    use crate::key_jwk::Jwk;
     use x25519_dalek::{EphemeralSecret, PublicKey};
 
-    use super::X25519KeyPair;
+    use super::*;
     use crate::crypto::{
         traits::{Generate, KeyMaterial, BYTES_LENGTH_32, ECDH},
         utils::clone_slice_to_array,
@@ -222,5 +233,22 @@ pub mod tests {
 
         // Both equals assumes that encrypted payload will be successfuly decrypted.
         assert_eq!(symmetric_key_at_sender, symmetric_key_at_recipient);
+    }
+
+    #[test]
+    fn test_x25519_keypair_to_multikey() {
+        let jwk: Jwk = serde_json::from_str(
+            r#"{
+                "kty": "OKP",
+                "crv": "X25519",
+                "x": "A2gufB762KKDkbTX0usDbekRJ-_PPBeVhc2gNgjpswU"
+            }"#,
+        )
+        .unwrap();
+
+        let keypair: X25519KeyPair = jwk.try_into().unwrap();
+        let multikey = keypair.to_multikey();
+
+        assert_eq!(&multikey, "z6LSbuUXWSgPfpiDBjUK6E7yiCKMN2eKJsXn5b55ZgqGz6Mr");
     }
 }

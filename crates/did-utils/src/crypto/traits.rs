@@ -8,12 +8,18 @@ use super::errors::Error;
 /// The length of a 32-byte key material.
 pub const BYTES_LENGTH_32: usize = 32;
 
+#[allow(unused)]
+pub trait ToMultikey {
+    /// Converts keypair into its multikey string
+    fn to_multikey(&self) -> String;
+}
+
 /// A trait for types that hold key material bytes.
 pub trait KeyMaterial {
     /// Returns the public key bytes as a slice.
     ///
     /// Returns a `Result` containing the public key bytes, or an `Error` if the operation fails.
-    
+
     fn public_key_bytes(&self) -> Result<[u8; BYTES_LENGTH_32], Error>;
     /// Returns the secret key bytes as a slice.
     ///
@@ -26,22 +32,30 @@ pub trait Generate: KeyMaterial {
     /// Generates a new random key.
     ///
     /// Returns a `Result` containing the new key, or an `Error` if the operation fails.
-    fn new() -> Result<Self, Error> where Self: Sized;
+    fn new() -> Result<Self, Error>
+    where
+        Self: Sized;
 
     /// Generates a new key deterministically using the given seed.
     ///
     /// Returns a `Result` containing the new key, or an `Error` if the operation fails.
-    fn new_with_seed(seed: &[u8]) -> Result<Self, Error> where Self: Sized;
+    fn new_with_seed(seed: &[u8]) -> Result<Self, Error>
+    where
+        Self: Sized;
 
     /// Generates a new instance from an existing public key.
     ///
     /// Returns a `Result` containing the new instance, or an `Error` if the operation fails.
-    fn from_public_key(public_key: &[u8; BYTES_LENGTH_32]) -> Result<Self, Error> where Self: Sized;
+    fn from_public_key(public_key: &[u8; BYTES_LENGTH_32]) -> Result<Self, Error>
+    where
+        Self: Sized;
 
     /// Generates a new instance from an existing secret key.
     ///
     /// Returns a `Result` containing the new instance, or an `Error` if the operation fails.
-    fn from_secret_key(private_key: &[u8; BYTES_LENGTH_32]) -> Result<Self, Error> where Self: Sized;
+    fn from_secret_key(private_key: &[u8; BYTES_LENGTH_32]) -> Result<Self, Error>
+    where
+        Self: Sized;
 }
 
 /// A trait for types that support creating and verifying digital signatures.
