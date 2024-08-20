@@ -76,13 +76,13 @@ pub fn make_compact_jws(header: &JwsHeader, payload: Value, jwk: &Jwk) -> Result
     let make_phrase = || -> Result<String, JwsError> {
         let encoded_header = {
             let header_json =
-                serde_json::to_string(header).map_err(|_| JwsError::SerializationError)?;
+                json_canon::to_string(header).map_err(|_| JwsError::SerializationError)?;
             Base64Url.encode(header_json)
         };
 
         let encoded_payload = {
             let payload_json =
-                serde_json::to_string(&payload).map_err(|_| JwsError::SerializationError)?;
+                json_canon::to_string(&payload).map_err(|_| JwsError::SerializationError)?;
             Base64Url.encode(payload_json)
         };
 
@@ -122,7 +122,7 @@ pub fn make_compact_jws_ed25519(phrase: String, jwk: &Jwk) -> Result<String, Jws
     Ok(format!("{phrase}.{encoded_signature}"))
 }
 
-/// Verifies a JSON Web Signature (JWS)
+/// Verifies a JSON Web Signature (JWS).
 pub fn verify_compact_jws(jws: &str, jwk: &Jwk) -> Result<(), JwsError> {
     if jws.is_empty() {
         return Err(JwsError::EmptyInput);
@@ -237,10 +237,10 @@ mod tests {
 
         let jws = make_compact_jws(&header, payload, &jwk).unwrap();
         let expected_jws = concat!(
-            "eyJ0eXAiOiJhcHBsaWNhdGlvbi9qc29uIiwia2lkIjoiZGlkOndlYjptZWRpYXRvcnMtci11",
-            "cy5jb20ja2V5cy0yIiwiYWxnIjoiRWREU0EifQ.eyJjb250ZW50IjoiZTEyMDBhNmMtZDlhM",
-            "i00OWI0LWJhYTYtZGE4NmQ2NDNjZTNjIn0.SyWVSdFRdAu6Z-fg0hjB31MRAIQ2jBDBdU3Af",
-            "Pf0Fb9Hh8CGnSWH_6yrnDDb0K1tI0YG6iSLFEHasXeCH2-iDw"
+            "eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDp3ZWI6bWVkaWF0b3JzLXItdXMuY29tI2tleXMt",
+            "MiIsInR5cCI6ImFwcGxpY2F0aW9uL2pzb24ifQ.eyJjb250ZW50IjoiZTEyMDBhNmMtZDlhM",
+            "i00OWI0LWJhYTYtZGE4NmQ2NDNjZTNjIn0.bXTxk_ZOErIyxjeuv9ZI_QF0RBJlu8VNbsYx0",
+            "r-ro9d5RcsjLe5d6l418ZzQoceiJRSLJUIwFhuYjkXD6GwnBg"
         );
 
         assert_eq!(jws, expected_jws);

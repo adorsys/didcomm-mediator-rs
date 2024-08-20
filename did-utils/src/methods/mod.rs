@@ -9,7 +9,7 @@
 //! 
 //! # Examples
 //! 
-//! ### Basic did:key resolution example
+//! ### Basic did:key resolution example.
 //! 
 //! ```
 //! # use did_utils::methods::{DIDResolver, DidKey};
@@ -66,11 +66,13 @@ mod traits;
 mod errors;
 mod utils;
 mod resolution;
+mod common;
 
 // Re-exported items
 pub use errors::{DIDResolutionError, DidWebError, ParsingErrorSource};
 pub use traits::{DIDMethod, DIDResolver};
 pub use did_web::resolver::DidWeb;
 pub use did_key::method::DidKey;
-pub use did_peer::method::DidPeer;
+pub use did_peer::method::{DidPeer, Purpose, PurposedKey};
+pub use common::PublicKeyFormat;
 pub use resolution::*;
