@@ -71,7 +71,7 @@ mod web;
 // Re-exported items
 pub use errors::{DIDResolutionError, DidWebError, ParsingErrorSource};
 pub use key::method::DidKey;
-pub use peer::method::DidPeer;
+pub use peer::method::{DidPeer, Purpose, PurposedKey};
 pub use resolution::*;
 pub use traits::{DIDMethod, DIDResolver};
 pub use web::resolver::DidWeb;

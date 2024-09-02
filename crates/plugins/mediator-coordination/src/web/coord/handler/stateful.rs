@@ -5,7 +5,7 @@ use axum::{
 use did_utils::{
     crypto::{Ed25519KeyPair, Generate, ToMultikey, X25519KeyPair},
     didcore::Service,
-    key_jwk::Jwk,
+    jwk::Jwk,
     methods::{DidPeer, Purpose, PurposedKey},
 };
 

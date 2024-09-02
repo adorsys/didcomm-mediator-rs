@@ -1,7 +1,6 @@
 use axum::Router;
 use keystore::filesystem::StdFileSystem;
 use plugin_api::{Plugin, PluginError};
-use did_endpoint::didgen;
 use mongodb::{error::Error as MongoError, options::ClientOptions, Client, Database};
 use std::sync::Arc;
 

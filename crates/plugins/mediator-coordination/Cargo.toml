@@ -9,15 +9,20 @@ did-endpoint.workspace = true
 plugin-api.workspace = true
 keystore.workspace = true
 
-async-trait.workspace = true
-axum = { workspace = true, features = ["macros"] }
 chrono.workspace = true
+mongodb.workspace = true
+async-trait.workspace = true
 multibase.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-thiserror.workspace = true
 tracing.workspace = true
+thiserror.workspace = true
+json-canon.workspace = true
+didcomm = { workspace = true, features = ["uniffi"] }
+tokio = { workspace = true, features = ["full"] }
+axum = { workspace = true, features = ["macros"] }
 uuid = { workspace = true, features = ["v4"] }
+hyper = { workspace = true, features = ["full"] }
 
 [dev-dependencies]
 dotenv-flow = "0.15.0"
