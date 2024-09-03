@@ -13,7 +13,6 @@ lazy_static! {
         #[cfg(feature = "plugin-index")]
         Arc::<Mutex::<index::IndexPlugin>>::default(),
         #[cfg(feature = "plugin-did_endpoint")]
-        Arc::<Mutex::<did_endpoint::plugin::DidEndpointPlugin>>::default(),
         #[cfg(feature = "plugin-oob_messages")]
         Arc::<Mutex::<oob_messages::plugin::OOBMessagesPlugin>>::default(),
     ]);

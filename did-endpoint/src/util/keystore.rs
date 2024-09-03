@@ -1,7 +1,7 @@
 use chrono::Utc;
 use did_utils::{
-    crypto::{ed25519::Ed25519KeyPair, traits::Generate, x25519::X25519KeyPair},
-    key_jwk::{ec::Ec, jwk::Jwk, key::Key, oct::Oct, okp::Okp, rsa::Rsa, secret::Secret},
+    crypto::{Ed25519KeyPair, Generate,X25519KeyPair},
+    key_jwk::{Ec, Jwk, Key, Oct, Okp, Rsa, Secret},
 };
 use std::error::Error;
 

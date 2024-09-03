@@ -2,21 +2,25 @@ use multibase::Base::{Base58Btc, Base64Url};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
-use super::{error::DIDPeerMethodError, util::abbreviate_service_for_did_peer_2};
+use super::{
+    errors::DIDPeerMethodError,
+    util::{abbreviate_service_for_did_peer_2, validate_input_document},
+};
+
 use crate::{
     crypto::{
-        ed25519::Ed25519KeyPair,
-        sha256_hash::sha256_multihash,
-        traits::{Generate, KeyMaterial},
+        sha256_multihash, Ed25519KeyPair, {Generate, KeyMaterial},
+        Algorithm,
+        PublicKeyFormat,
+        alg::decode_multikey,
     },
     didcore::{self, Document as DIDDocument, KeyFormat, Service, VerificationMethod},
     ldmodel::Context,
     methods::{
-        common::{self, Algorithm, PublicKeyFormat},
-        did_key::DIDKeyMethod,
         did_peer::util,
         errors::DIDResolutionError,
         traits::DIDMethod,
+        DidKey,
     },
 };
 
@@ -28,9 +32,9 @@ lazy_static::lazy_static!(
 const MULTICODEC_JSON: [u8; 2] = [0x80, 0x04];
 
 #[derive(Default)]
-pub struct DIDPeerMethod {
+pub struct DidPeer {
     /// Key format to consider during DID expansion into a DID document
-    pub key_format: PublicKeyFormat,
+    key_format: PublicKeyFormat,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
@@ -51,7 +55,7 @@ pub struct PurposedKey {
     pub public_key_multibase: String,
 }
 
-impl DIDMethod for DIDPeerMethod {
+impl DIDMethod for DidPeer {
     fn name() -> String {
         "did:peer".to_string()
     }
@@ -84,7 +88,17 @@ impl Purpose {
     }
 }
 
-impl DIDPeerMethod {
+impl DidPeer {
+    /// Creates new instance of DidPeer.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Creates new instance of DidPeer with given key format.
+    pub fn new_with_format(key_format: PublicKeyFormat) -> Self {
+        Self { key_format }
+    }
+
     // ---------------------------------------------------------------------------
     // Generating did:peer addresses
     // ---------------------------------------------------------------------------
@@ -93,7 +107,7 @@ impl DIDPeerMethod {
     ///
     /// See https://identity.foundation/peer-did-method-spec/#method-0-inception-key-without-doc
     pub fn create_did_peer_0_from_ed25519_keypair(keypair: &Ed25519KeyPair) -> Result<String, DIDPeerMethodError> {
-        let did_key = DIDKeyMethod::from_ed25519_keypair(keypair)?;
+        let did_key = DidKey::from_ed25519_keypair(keypair)?;
 
         Ok(did_key.replace("did:key:", "did:peer:0"))
     }
@@ -102,7 +116,7 @@ impl DIDPeerMethod {
     ///
     /// See https://identity.foundation/peer-did-method-spec/#method-0-inception-key-without-doc
     pub fn create_did_peer_0_from_raw_public_key(alg: Algorithm, bytes: &[u8]) -> Result<String, DIDPeerMethodError> {
-        let did_key = DIDKeyMethod::from_raw_public_key(alg, bytes)?;
+        let did_key = DidKey::from_raw_public_key(alg, bytes)?;
 
         Ok(did_key.replace("did:key:", "did:peer:0"))
     }
@@ -118,7 +132,7 @@ impl DIDPeerMethod {
         let json = json_canon::to_string(diddoc)?;
         let multihash = sha256_multihash(json.as_bytes());
 
-        Ok(format!("did:peer:1z{multihash}"))
+        Ok(format!("did:peer:1{multihash}"))
     }
 
     /// Method 2: Generates did:peer address from multiple inception key
@@ -164,24 +178,22 @@ impl DIDPeerMethod {
         // Multihash with SHA256
         let multihash = sha256_multihash(stripped.as_bytes());
 
-        Ok(format!("did:peer:3z{multihash}"))
+        Ok(format!("did:peer:3{multihash}"))
     }
 
     /// Method 4: Generates did:peer address from DID document (embedding long form)
     ///
     /// See https://identity.foundation/peer-did-method-spec/#method-4-short-form-and-long-form
     pub fn create_did_peer_4_from_stored_variant(diddoc: &DIDDocument) -> Result<String, DIDPeerMethodError> {
-        // Validate argument
-        if !diddoc.id.is_empty() {
-            return Err(DIDPeerMethodError::InvalidStoredVariant);
-        }
+        // Validate input documment
+        validate_input_document(diddoc)?;
 
         // Encode document
         let json = json_canon::to_string(diddoc)?;
         let encoded = multibase::encode(Base58Btc, [&MULTICODEC_JSON, json.as_bytes()].concat());
 
         // Hashing
-        let hash = format!("z{}", sha256_multihash(encoded.as_bytes()));
+        let hash = sha256_multihash(encoded.as_bytes());
 
         Ok(format!("did:peer:4{hash}:{encoded}"))
     }
@@ -196,7 +208,6 @@ impl DIDPeerMethod {
         };
 
         // Split hash and encoded segments
-
         let segments: Vec<_> = stripped.split(':').collect();
         if segments.len() != 2 || segments[1].is_empty() {
             return Err(DIDPeerMethodError::MalformedLongPeerDID);
@@ -205,7 +216,7 @@ impl DIDPeerMethod {
         let (hash, encoded) = (segments[0], segments[1]);
 
         // Verify hash
-        if hash != format!("z{}", sha256_multihash(encoded.as_bytes())) {
+        if hash != sha256_multihash(encoded.as_bytes()) {
             return Err(DIDPeerMethodError::InvalidHash);
         }
 
@@ -240,7 +251,7 @@ impl DIDPeerMethod {
 
         // Decode multikey in did:peer
         let multikey = did.strip_prefix("did:peer:0").unwrap();
-        let (alg, key) = common::decode_multikey(multikey).map_err(|_| DIDPeerMethodError::MalformedPeerDID)?;
+        let (alg, key) = decode_multikey(multikey).map_err(|_| DIDPeerMethodError::MalformedPeerDID)?;
 
         // Run algorithm for signature verification method expansion
         let signature_verification_method = self.derive_verification_method(did, multikey, alg, &key)?;
@@ -400,7 +411,7 @@ impl DIDPeerMethod {
                 public_key: Some(match self.key_format {
                     PublicKeyFormat::Multikey => KeyFormat::Multibase(multikey.to_string()),
                     PublicKeyFormat::Jwk => {
-                        let (alg, key) = common::decode_multikey(multikey).map_err(|_| DIDPeerMethodError::MalformedPeerDID)?;
+                        let (alg, key) = decode_multikey(multikey).map_err(|_| DIDPeerMethodError::MalformedPeerDID)?;
                         KeyFormat::Jwk(alg.build_jwk(&key).map_err(|_| DIDResolutionError::InternalError)?)
                     }
                 }),
@@ -466,24 +477,22 @@ impl DIDPeerMethod {
     /// See https://identity.foundation/peer-did-method-spec/#resolving-a-did
     pub fn expand_did_peer_4(&self, did: &str) -> Result<DIDDocument, DIDPeerMethodError> {
         // Ensure long format by computing did:peer:4 short form alias
-
+        // This also ensures that the hash is valid before shortening the did.
         let alias = Self::shorten_did_peer_4(did)?;
 
         // Extract encoded document
-
-        let encoded_document = did.split(':').nth(3).unwrap();
+        let encoded_document = did.split(':').nth(3).ok_or(DIDPeerMethodError::DIDParseError)?;
 
         // Decode document
-
         let (base, decoded_bytes) = multibase::decode(encoded_document).map_err(|_| DIDPeerMethodError::DIDParseError)?;
-        if base != Base58Btc || decoded_bytes.len() < 2 || decoded_bytes[..2] != MULTICODEC_JSON {
+
+        if Base58Btc != base || decoded_bytes.len() < 2 || &decoded_bytes[..2] != MULTICODEC_JSON {
             return Err(DIDPeerMethodError::MalformedLongPeerDID);
         }
-
-        let mut diddoc: DIDDocument = serde_json::from_slice(&decoded_bytes[2..])?;
+        // Deserialize the document
+        let mut diddoc: DIDDocument = serde_json::from_slice(&decoded_bytes[2..]).map_err(|err| DIDPeerMethodError::SerdeError(err))?;
 
         // Contextualize decoded document
-
         diddoc.id = did.to_string();
 
         if diddoc.also_known_as.is_none() {
@@ -499,8 +508,7 @@ impl DIDPeerMethod {
                 .collect()
         });
 
-        // Output
-
+        // Output DIDDocument
         Ok(diddoc)
     }
 }
@@ -510,7 +518,7 @@ mod tests {
     use serde_json::Value;
 
     use super::*;
-    use crate::key_jwk::jwk::Jwk;
+    use crate::key_jwk::Jwk;
 
     #[test]
     fn test_did_peer_0_generation_from_given_jwk() {
@@ -524,7 +532,7 @@ mod tests {
         .unwrap();
         let keypair: Ed25519KeyPair = jwk.try_into().unwrap();
 
-        let did = DIDPeerMethod::create_did_peer_0_from_ed25519_keypair(&keypair);
+        let did = DidPeer::create_did_peer_0_from_ed25519_keypair(&keypair);
         assert_eq!(did.unwrap(), "did:peer:0z6MkiTBz1ymuepAQ4HEHYSF1H8quG5GLVVQR3djdX3mDooWp");
     }
 
@@ -545,7 +553,7 @@ mod tests {
 
         for entry in entries {
             let (alg, bytes, expected) = entry;
-            let did = DIDPeerMethod::create_did_peer_0_from_raw_public_key(alg, &bytes);
+            let did = DidPeer::create_did_peer_0_from_raw_public_key(alg, &bytes);
             assert_eq!(did.unwrap(), expected);
         }
     }
@@ -553,14 +561,14 @@ mod tests {
     #[test]
     fn test_did_peer_1_generation_from_did_document() {
         let diddoc = _stored_variant_v0();
-        let did = DIDPeerMethod::create_did_peer_1_from_stored_variant(&diddoc);
+        let did = DidPeer::create_did_peer_1_from_stored_variant(&diddoc);
         assert_eq!(did.unwrap(), "did:peer:1zQmbEB1EqP7PnNVaHiSpXhkatAA6kNyQK9mWkvrMx2eckgq");
     }
 
     #[test]
     fn test_did_peer_1_generation_fails_from_did_document_with_id() {
         let diddoc = _invalid_stored_variant_v0();
-        let did = DIDPeerMethod::create_did_peer_1_from_stored_variant(&diddoc);
+        let did = DidPeer::create_did_peer_1_from_stored_variant(&diddoc);
         assert!(matches!(did.unwrap_err(), DIDPeerMethodError::InvalidStoredVariant));
     }
 
@@ -577,7 +585,7 @@ mod tests {
             },
         ];
 
-        let did = DIDPeerMethod::create_did_peer_2(&keys, &[]).unwrap();
+        let did = DidPeer::create_did_peer_2(&keys, &[]).unwrap();
         assert_eq!(
             &did,
             "did:peer:2.Vz6Mkj3PUd1WjvaDhNZhhhXQdz5UnZXmS7ehtx8bsPpD47kKc.Ez6LSg8zQom395jKLrGiBNruB9MM6V8PWuf2FpEy4uRFiqQBR"
@@ -599,7 +607,7 @@ mod tests {
         }];
 
         assert_eq!(
-            &DIDPeerMethod::create_did_peer_2(&keys, &services).unwrap(),
+            &DidPeer::create_did_peer_2(&keys, &services).unwrap(),
             concat!(
                 "did:peer:2",
                 ".Vz6Mkj3PUd1WjvaDhNZhhhXQdz5UnZXmS7ehtx8bsPpD47kKc",
@@ -631,7 +639,7 @@ mod tests {
         ];
 
         assert_eq!(
-            &DIDPeerMethod::create_did_peer_2(&keys, &services).unwrap(),
+            &DidPeer::create_did_peer_2(&keys, &services).unwrap(),
             concat!(
                 "did:peer:2",
                 ".Vz6Mkj3PUd1WjvaDhNZhhhXQdz5UnZXmS7ehtx8bsPpD47kKc",
@@ -649,7 +657,7 @@ mod tests {
         }];
 
         assert!(matches!(
-            DIDPeerMethod::create_did_peer_2(&keys, &[]).unwrap_err(),
+            DidPeer::create_did_peer_2(&keys, &[]).unwrap_err(),
             DIDPeerMethodError::UnexpectedPurpose
         ));
     }
@@ -657,7 +665,7 @@ mod tests {
     #[test]
     fn test_did_peer_2_generation_should_err_on_empty_key_and_service_args() {
         assert!(matches!(
-            DIDPeerMethod::create_did_peer_2(&[], &[]).unwrap_err(),
+            DidPeer::create_did_peer_2(&[], &[]).unwrap_err(),
             DIDPeerMethodError::EmptyArguments
         ));
     }
@@ -673,7 +681,7 @@ mod tests {
         );
 
         assert_eq!(
-            &DIDPeerMethod::create_did_peer_3(did).unwrap(),
+            &DidPeer::create_did_peer_3(did).unwrap(),
             "did:peer:3zQmS19jtYDvGtKVrJhQnRFpBQAx3pJ9omx2HpNrcXFuRCz9"
         );
     }
@@ -688,7 +696,7 @@ mod tests {
 
         for did in dids {
             assert!(matches!(
-                DIDPeerMethod::create_did_peer_3(did).unwrap_err(),
+                DidPeer::create_did_peer_3(did).unwrap_err(),
                 DIDPeerMethodError::IllegalArgument
             ));
         }
@@ -698,7 +706,7 @@ mod tests {
     fn test_did_peer_4_generation() {
         let diddoc = _stored_variant_v0();
         assert_eq!(
-            &DIDPeerMethod::create_did_peer_4_from_stored_variant(&diddoc).unwrap(),
+            &DidPeer::create_did_peer_4_from_stored_variant(&diddoc).unwrap(),
             concat!(
                 "did:peer:4zQmePYVawceZsPSxpLRp54z4Q5DCZXeyyGKwoDMc2NqgZXZ:z2yS424R5nAoSu",
                 "CezPTvBHybrvByZRD9g8L4oMe4ctq9UwPksVskxJFiars33RRyKz3z7RbwwQRAo9ByoXmBhg",
@@ -716,7 +724,7 @@ mod tests {
     #[test]
     fn test_did_peer_4_generation_fails_from_did_document_with_id() {
         let diddoc = _invalid_stored_variant_v0();
-        let did = DIDPeerMethod::create_did_peer_4_from_stored_variant(&diddoc);
+        let did = DidPeer::create_did_peer_4_from_stored_variant(&diddoc);
         assert!(matches!(did.unwrap_err(), DIDPeerMethodError::InvalidStoredVariant));
     }
 
@@ -735,7 +743,7 @@ mod tests {
         );
 
         assert_eq!(
-            &DIDPeerMethod::shorten_did_peer_4(did).unwrap(),
+            &DidPeer::shorten_did_peer_4(did).unwrap(),
             "did:peer:4zQmePYVawceZsPSxpLRp54z4Q5DCZXeyyGKwoDMc2NqgZXZ"
         );
     }
@@ -751,7 +759,7 @@ mod tests {
 
         for did in dids {
             assert!(matches!(
-                DIDPeerMethod::shorten_did_peer_4(did).unwrap_err(),
+                DidPeer::shorten_did_peer_4(did).unwrap_err(),
                 DIDPeerMethodError::IllegalArgument
             ));
         }
@@ -767,7 +775,7 @@ mod tests {
 
         for did in dids {
             assert!(matches!(
-                DIDPeerMethod::shorten_did_peer_4(did).unwrap_err(),
+                DidPeer::shorten_did_peer_4(did).unwrap_err(),
                 DIDPeerMethodError::MalformedLongPeerDID
             ));
         }
@@ -791,23 +799,17 @@ mod tests {
         let mut did = valid_did.to_string();
         did.insert_str(20, "blurg");
 
-        assert!(matches!(
-            DIDPeerMethod::shorten_did_peer_4(&did).unwrap_err(),
-            DIDPeerMethodError::InvalidHash
-        ));
+        assert!(matches!(DidPeer::shorten_did_peer_4(&did).unwrap_err(), DIDPeerMethodError::InvalidHash));
 
         // Invalidate hash by tampering with encoded document
         let did = format!("{valid_did}blurg");
 
-        assert!(matches!(
-            DIDPeerMethod::shorten_did_peer_4(&did).unwrap_err(),
-            DIDPeerMethodError::InvalidHash
-        ));
+        assert!(matches!(DidPeer::shorten_did_peer_4(&did).unwrap_err(), DIDPeerMethodError::InvalidHash));
     }
 
     #[test]
     fn test_expand_fails_on_non_did_peer() {
-        let did_method = DIDPeerMethod::default();
+        let did_method = DidPeer::default();
 
         let did = "did:key:z6LSeu9HkTHSfLLeUs2nnzUSNedgDUevfNQgQjQC23ZCit6F";
         assert!(matches!(did_method.expand(did).unwrap_err(), DIDPeerMethodError::InvalidPeerDID));
@@ -815,7 +817,7 @@ mod tests {
 
     #[test]
     fn test_expand_fails_on_unsupported_did_peer() {
-        let did_method = DIDPeerMethod::default();
+        let did_method = DidPeer::default();
 
         let did = "did:peer:1zQmbEB1EqP7PnNVaHiSpXhkatAA6kNyQK9mWkvrMx2eckgq";
         assert!(matches!(
@@ -826,7 +828,7 @@ mod tests {
 
     #[test]
     fn test_expand_did_peer_0_v1() {
-        let did_method = DIDPeerMethod::default();
+        let did_method = DidPeer::default();
 
         let did = "did:peer:0z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK";
         let expected: Value = serde_json::from_str(
@@ -869,7 +871,7 @@ mod tests {
 
     #[test]
     fn test_expand_did_peer_0_v2() {
-        let did_method = DIDPeerMethod::default();
+        let did_method = DidPeer::default();
 
         let did = "did:peer:0z6LSeu9HkTHSfLLeUs2nnzUSNedgDUevfNQgQjQC23ZCit6F";
         let expected: Value = serde_json::from_str(
@@ -905,7 +907,7 @@ mod tests {
 
     #[test]
     fn test_expand_did_peer_0_jwk_format() {
-        let did_method = DIDPeerMethod {
+        let did_method = DidPeer {
             key_format: PublicKeyFormat::Jwk,
         };
 
@@ -958,7 +960,7 @@ mod tests {
 
     #[test]
     fn test_expand_did_peer_0_fails_for_regex_mismatch() {
-        let did_method = DIDPeerMethod::default();
+        let did_method = DidPeer::default();
 
         let dids = [
             // Must be '0z' not '0Z'
@@ -974,7 +976,7 @@ mod tests {
 
     #[test]
     fn test_expand_did_peer_0_fails_on_malformed_dids() {
-        let did_method = DIDPeerMethod::default();
+        let did_method = DidPeer::default();
 
         let dids = ["did:peer:0z6", "did:peer:0z7MkiTBz1ymuepAQ4HEHYSF1H8quG5GLVVQR3djdX3mDooWpd"];
 
@@ -985,7 +987,7 @@ mod tests {
 
     #[test]
     fn test_expand_did_peer_0_fails_on_too_long_did() {
-        let did_method = DIDPeerMethod::default();
+        let did_method = DidPeer::default();
         let did = "did:peer:0zQebt6zPwbE4Vw5GFAjjARHrNXFALofERVv4q6Z4db8cnDRQm";
         assert!(matches!(
             did_method.expand(did).unwrap_err(),
@@ -995,7 +997,7 @@ mod tests {
 
     #[test]
     fn test_expand_did_peer_2() {
-        let did_method = DIDPeerMethod::default();
+        let did_method = DidPeer::default();
 
         let did = concat!(
             "did:peer:2",
@@ -1060,7 +1062,7 @@ mod tests {
 
     #[test]
     fn test_expand_did_peer_2_jwk_format() {
-        let did_method = DIDPeerMethod {
+        let did_method = DidPeer {
             key_format: PublicKeyFormat::Jwk,
         };
 
@@ -1121,7 +1123,7 @@ mod tests {
 
     #[test]
     fn test_expand_did_peer_2_fails_on_malformed_encoded_service() {
-        let did_method = DIDPeerMethod::default();
+        let did_method = DidPeer::default();
         let did = concat!(
             "did:peer:2",
             ".Vz6Mkj3PUd1WjvaDhNZhhhXQdz5UnZXmS7ehtx8bsPpD47kKc",
@@ -1134,7 +1136,7 @@ mod tests {
 
     #[test]
     fn test_expand_did_peer_4() {
-        let did_method = DIDPeerMethod::default();
+        let did_method = DidPeer::new();
 
         let did = concat!(
             "did:peer:4zQmePYVawceZsPSxpLRp54z4Q5DCZXeyyGKwoDMc2NqgZXZ:z2yS424R5nAoSu",
