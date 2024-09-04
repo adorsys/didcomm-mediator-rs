@@ -26,4 +26,7 @@ Cargo.lock
 .idea
 
 # Environment variables file 
-.env
+.env.example
+
+# Reference crate
+mediator-server
