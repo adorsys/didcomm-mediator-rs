@@ -50,7 +50,7 @@ mod sha256_hash;
 pub use alg::Algorithm;
 pub use format::PublicKeyFormat;
 pub use errors::Error;
-pub use traits::{Generate, KeyMaterial, CoreSign, ECDH, BYTES_LENGTH_32};
+pub use traits::{Generate, KeyMaterial, CoreSign, ECDH, BYTES_LENGTH_32, ToMultikey };
 pub use ed25519::Ed25519KeyPair;
 pub use x25519::X25519KeyPair;
 pub use sha256_hash::{sha256_hash, sha256_multihash};
