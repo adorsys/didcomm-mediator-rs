@@ -1,5 +1,5 @@
 mod coord;
-mod error;
+pub mod error;
 mod handler;
 mod midlw;
 
@@ -38,8 +38,8 @@ pub struct AppState {
     assertion_jwk: (String, Jwk),
 
     // DIDComm Resolvers
-    did_resolver: LocalDIDResolver,
-    secrets_resolver: LocalSecretsResolver,
+    pub did_resolver: LocalDIDResolver,
+    pub secrets_resolver: LocalSecretsResolver,
 
     // Persistence layer
     repository: Option<AppStateRepository>,
