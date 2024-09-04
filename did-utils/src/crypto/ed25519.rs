@@ -1,3 +1,10 @@
+<<<<<<< Updated upstream
+=======
+use super::traits::{CoreSign, Error, Generate, KeyMaterial, BYTES_LENGTH_32};
+use super::utils::{clone_slice_to_array, generate_seed};
+use super::x25519::X25519KeyPair;
+use super::AsymmetricKey;
+>>>>>>> Stashed changes
 use curve25519_dalek::edwards::CompressedEdwardsY;
 use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
 use multibase::Base::Base58Btc;
@@ -142,6 +149,7 @@ impl CoreSign for Ed25519KeyPair {
     fn sign(&self, payload: &[u8]) -> Result<Vec<u8>, Error> {
         // Check if the secret key is present
         match &self.secret_key {
+<<<<<<< Updated upstream
             Some(sk) => {
                 // Try to sign the payload
                 match sk.try_sign(payload) {
@@ -152,6 +160,12 @@ impl CoreSign for Ed25519KeyPair {
                     Err(_) => Err(Error::SignatureError),
                 }
             }
+=======
+            Some(sk) => match sk.try_sign(payload) {
+                Ok(signature) => Ok(signature.to_bytes().to_vec()),
+                Err(_) => Err(Error::SignatureError),
+            },
+>>>>>>> Stashed changes
             None => Err(Error::InvalidSecretKey),
         }
     }
@@ -213,6 +227,7 @@ impl Ed25519KeyPair {
                 // Create a new X25519 key pair using the output buffer
                 X25519KeyPair::new_with_seed(&output)
             }
+<<<<<<< Updated upstream
             None => {
                 // Get the bytes of the public key
                 match self.public_key_bytes() {
@@ -226,10 +241,18 @@ impl Ed25519KeyPair {
                             }
                             None => Err(Error::InvalidPublicKey),
                         }
+=======
+            None => match self.public_key_bytes() {
+                Ok(pk_bytes) => match CompressedEdwardsY(pk_bytes).decompress() {
+                    Some(point) => {
+                        let montgomery = point.to_montgomery();
+                        X25519KeyPair::from_public_key(montgomery.as_bytes())
+>>>>>>> Stashed changes
                     }
-                    Err(_) => Err(Error::InvalidPublicKey),
-                }
-            }
+                    None => Err(Error::InvalidPublicKey),
+                },
+                Err(_) => Err(Error::InvalidPublicKey),
+            },
         }
     }
 }

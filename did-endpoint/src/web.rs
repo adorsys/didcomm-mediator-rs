@@ -246,8 +246,12 @@ mod tests {
             json_canon::to_string(&expected_diddoc).unwrap()
         );
 
-        let Some(proofs) = &vp.proof else { panic!("Verifiable presentation carries no proof") };
-        let Proofs::SetOfProofs(proofs) = proofs else { unreachable!() };
+        let Some(proofs) = &vp.proof else {
+            panic!("Verifiable presentation carries no proof")
+        };
+        let Proofs::SetOfProofs(proofs) = proofs else {
+            unreachable!()
+        };
         for proof in proofs {
             let pubkey = resolve_vm_for_public_key(&diddoc, &proof.verification_method)
                 .expect("ResolutionError");
@@ -264,14 +268,20 @@ mod tests {
     }
 
     fn resolve_vm_for_public_key(diddoc: &Document, vm_id: &str) -> Option<Jwk> {
-        let Some(methods) = &diddoc.verification_method else { return None };
+        let Some(methods) = &diddoc.verification_method else {
+            return None;
+        };
         let method = methods.iter().find(|m| m.id == vm_id);
 
         match method {
             None => None,
             Some(m) => {
-                let Some(key) = &m.public_key else { return None };
-                let KeyFormat::Jwk(jwk) = key else { return None };
+                let Some(key) = &m.public_key else {
+                    return None;
+                };
+                let KeyFormat::Jwk(jwk) = key else {
+                    return None;
+                };
                 Some(jwk.clone())
             }
         }

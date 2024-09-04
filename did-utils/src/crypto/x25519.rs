@@ -1,6 +1,11 @@
 use multibase::Base::Base58Btc;
 use x25519_dalek::{PublicKey, StaticSecret};
 
+<<<<<<< Updated upstream
+=======
+use super::traits::{Error, BYTES_LENGTH_32};
+use super::utils::{clone_slice_to_array, generate_seed};
+>>>>>>> Stashed changes
 use super::{
     alg::Algorithm,
     errors::Error,
@@ -160,7 +165,11 @@ pub mod tests {
     use crate::key_jwk::Jwk;
     use x25519_dalek::{EphemeralSecret, PublicKey};
 
+<<<<<<< Updated upstream
     use super::*;
+=======
+    use super::X25519KeyPair;
+>>>>>>> Stashed changes
     use crate::crypto::{
         traits::{Generate, KeyMaterial, BYTES_LENGTH_32, ECDH},
         utils::clone_slice_to_array,

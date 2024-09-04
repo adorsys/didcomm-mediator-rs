@@ -33,8 +33,11 @@
 pub mod crypto;
 pub mod didcore;
 pub mod key_jwk;
-pub mod proof;
-pub mod vc;
 pub mod ldmodel;
 pub mod methods;
+<<<<<<< Updated upstream
 pub mod didkit;
+=======
+pub mod proof;
+pub mod vc;
+>>>>>>> Stashed changes

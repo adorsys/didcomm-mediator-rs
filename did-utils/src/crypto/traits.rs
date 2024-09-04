@@ -29,6 +29,7 @@ pub trait KeyMaterial {
 
 /// A trait for types that support deterministic key generation.
 pub trait Generate: KeyMaterial {
+<<<<<<< Updated upstream
     /// Generates a new random key.
     ///
     /// Returns a `Result` containing the new key, or an `Error` if the operation fails.
@@ -53,6 +54,21 @@ pub trait Generate: KeyMaterial {
     /// Generates a new instance from an existing secret key.
     ///
     /// Returns a `Result` containing the new instance, or an `Error` if the operation fails.
+=======
+    /// Generate random key
+    fn new() -> Result<Self, Error>
+    where
+        Self: Sized;
+    /// Generate key deterministically using a given seed
+    fn new_with_seed(seed: &[u8]) -> Result<Self, Error>
+    where
+        Self: Sized;
+    /// Generate instance from existing public key
+    fn from_public_key(public_key: &[u8; BYTES_LENGTH_32]) -> Result<Self, Error>
+    where
+        Self: Sized;
+    /// Generate instance from existing secret key
+>>>>>>> Stashed changes
     fn from_secret_key(private_key: &[u8; BYTES_LENGTH_32]) -> Result<Self, Error>
     where
         Self: Sized;

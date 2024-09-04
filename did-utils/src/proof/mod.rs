@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 //! This module provides utilities for creating and verifying proofs.
 //! 
 //! See [RFC 7807](https://tools.ietf.org/html/rfc7807) for details.
@@ -72,3 +73,8 @@ mod eddsa_jcs_2022;
 pub use eddsa_jcs_2022::{EdDsaJcs2022, CRYPRO_SUITE_EDDSA_JCS_2022, PROOF_TYPE_DATA_INTEGRITY_PROOF};
 pub use model::{Proof, UnsecuredDocument, Domain, PreviousProofs, Proofs};
 pub use traits::CryptoProof;
+=======
+pub mod eddsa_jcs_2022;
+pub mod model;
+pub mod traits;
+>>>>>>> Stashed changes

@@ -358,7 +358,7 @@ mod tests {
             PluginContainerError::Unloaded
         );
     }
-    
+
     #[test]
     fn test_unloading() {
         // Initialize PluginContainer with the mock plugins

@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 //! This module provides cryptographic utilities and key pair structures
 //! for various cryptographic algorithms, including Ed25519, X25519, and SHA-256 hashing.
 //!
@@ -37,6 +38,13 @@
 //! // Example usage of SHA-256 hashing
 //! let hash = sha256_hash(json_file.as_bytes());
 //!```
+=======
+pub mod ed25519;
+pub mod sha256_hash;
+pub mod traits;
+pub mod utils;
+pub mod x25519;
+>>>>>>> Stashed changes
 
 pub(crate) mod alg;
 mod format;

@@ -7,13 +7,25 @@ use hyper::{
 };
 use hyper_tls::HttpsConnector;
 
+<<<<<<< Updated upstream
+=======
+use crate::methods::{
+    errors::DidWebError,
+    traits::{DIDResolutionMetadata, DIDResolutionOptions, DIDResolver, MediaType, ResolutionOutput},
+};
+
+>>>>>>> Stashed changes
 use crate::ldmodel::Context;
 use crate::methods::{errors::DidWebError, traits::DIDResolver};
 
 use crate::didcore::Document as DIDDocument;
 
+<<<<<<< Updated upstream
 /// A struct for resolving DID Web documents.
 pub struct DidWeb<C>
+=======
+pub struct DidWebResolver<C>
+>>>>>>> Stashed changes
 where
     C: Connect + Send + Sync + Clone + 'static,
 {
@@ -39,6 +51,7 @@ impl DidWeb<HttpsConnector<HttpConnector>> {
     }
 }
 
+<<<<<<< Updated upstream
 impl<C> DidWeb<C>
 where
     C: Connect + Send + Sync + Clone + 'static,
@@ -55,6 +68,12 @@ where
     /// # Returns
     ///
     /// A `Result` containing the DID document as a string or a `DidWebError`.
+=======
+impl<C> DidWebResolver<C>
+where
+    C: Connect + Send + Sync + Clone + 'static,
+{
+>>>>>>> Stashed changes
     async fn fetch_did_document(&self, url: Uri) -> Result<String, DidWebError> {
         let res = self.client.get(url).await?;
 
@@ -67,6 +86,7 @@ where
         String::from_utf8(body.to_vec()).map_err(|err| err.into())
     }
 
+<<<<<<< Updated upstream
     /// Fetches and parses a DID document for the given DID.
     ///
     /// This method first parses the DID Web URL format from the given DID and then constructs
@@ -80,14 +100,33 @@ where
     /// # Returns
     ///
     /// A `Result` containing the resolved `DIDDocument` or a `DidWebError`.
+=======
+impl<C> DidWebResolver<C>
+where
+    C: Connect + Send + Sync + Clone + 'static,
+{
+>>>>>>> Stashed changes
     async fn resolver_fetcher(&self, did: &str) -> Result<DIDDocument, DidWebError> {
         let (path, domain_name) = parse_did_web_url(did).map_err(|err| DidWebError::RepresentationNotSupported(err.to_string()))?;
 
+<<<<<<< Updated upstream
         // Use HTTP for localhost only during testing
         let scheme = if domain_name.starts_with("localhost") {
             Scheme::HTTP
         } else {
             Scheme::HTTPS
+=======
+        let url: Uri = match uri::Builder::new()
+            .scheme(self.scheme.clone())
+            .authority(domain_name)
+            .path_and_query(path)
+            .build()
+        {
+            Ok(url) => url,
+            Err(err) => {
+                return Err(DidWebError::RepresentationNotSupported(err.to_string()));
+            }
+>>>>>>> Stashed changes
         };
 
         let url = uri::Builder::new()
@@ -134,6 +173,7 @@ fn parse_did_web_url(did: &str) -> Result<(String, String), DidWebError> {
 }
 
 #[async_trait]
+<<<<<<< Updated upstream
 impl<C> DIDResolver for DidWeb<C>
 where
     C: Connect + Send + Sync + Clone + 'static,
@@ -148,6 +188,12 @@ where
     /// # Returns
     ///
     /// A `ResolutionOutput` containing the resolved DID document and metadata.
+=======
+impl<C> DIDResolver for DidWebResolver<C>
+where
+    C: Connect + Send + Sync + Clone + 'static,
+{
+>>>>>>> Stashed changes
     async fn resolve(&self, did: &str, _options: &DIDResolutionOptions) -> ResolutionOutput {
         let context = Context::SingleString(String::from("https://w3id.org/did-resolution/v1"));
 

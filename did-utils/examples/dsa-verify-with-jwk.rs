@@ -1,6 +1,11 @@
 use did_utils::{
+<<<<<<< Updated upstream
     crypto::{Ed25519KeyPair, CoreSign},
     key_jwk::Jwk
+=======
+    crypto::{ed25519::Ed25519KeyPair, traits::CoreSign},
+    key_jwk::jwk::Jwk,
+>>>>>>> Stashed changes
 };
 use multibase::Base::Base64Url;
 
