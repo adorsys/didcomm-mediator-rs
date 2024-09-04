@@ -1,11 +1,12 @@
-use didcomm::{Message, UnpackOptions};
+use didcomm::{Message, PackEncryptedOptions, UnpackOptions};
 
 use crate::web::{error::MediationError, AppState};
 
 pub async fn mediator_forward_process(
     payload: &str,
     state: &AppState,
-) -> Result<Message, MediationError> {
+    mut store: Vec<String>,
+) -> Result<Vec<String>, MediationError> {
     // unpack encrypted payload message
 
     let result = Message::unpack(
@@ -17,143 +18,84 @@ pub async fn mediator_forward_process(
     .await;
     {
         match result {
-            Ok((msg, _)) => Ok(msg) ,
+            Ok((unpack_msg, _)) => {
+                if unpack_msg.to.is_some() {
+                    let dids = Some(unpack_msg.clone().to).unwrap().unwrap();
+                    for did in dids {
+                        let (re_packed_msg, _) = unpack_msg
+                            .pack_encrypted(
+                                &did,
+                                Some(unpack_msg.from.clone()).unwrap().as_deref(),
+                                None,
+                                &state.did_resolver,
+                                &state.secrets_resolver,
+                                &PackEncryptedOptions::default(),
+                            )
+                            .await
+                            .unwrap();
+                        store.push(re_packed_msg)
+                    }
+                }
+
+                Ok(store)
+            }
             Err(_) => Err(MediationError::MessageUnpackingFailure),
         }
-        
     }
-    
 }
 
+#[cfg(test)]
+mod test {
+    use std::{borrow::Borrow, sync::Arc};
 
+    use crate::{
+        repository::stateful::coord::tests::{MockConnectionRepository, MockSecretsRepository},
+        util::{self, MockFileSystem},
+        web::AppStateRepository,
+    };
 
+    use super::*;
+    use didcomm::Message;
 
+    pub fn setup() -> Arc<AppState> {
+        let public_domain = String::from("http://alice-mediator.com");
 
+        let mut mock_fs = MockFileSystem;
+        let diddoc = util::read_diddoc(&mock_fs, "").unwrap();
+        let keystore: did_endpoint::util::keystore::KeyStore<'_> =
+            util::read_keystore(&mut mock_fs, "").unwrap();
 
+        let repository = AppStateRepository {
+            connection_repository: Arc::new(MockConnectionRepository::from(vec![])),
+            secret_repository: Arc::new(MockSecretsRepository::from(vec![])),
+        };
 
+        let state = Arc::new(AppState::from(
+            public_domain,
+            diddoc,
+            keystore,
+            Some(repository),
+        ));
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// use did_utils::{crypto::ed25519::Ed25519KeyPair, key_jwk::jwk::Jwk};
-// use serde::{Deserialize, Serialize};
-
-// #[derive(Serialize, Deserialize)]
-// pub struct Msg {
-//     pub message: String,
-// }
-// // construct plain message to be routed to mediator/receiver
-// #[derive(Serialize, Deserialize)]
-// pub struct Message {
-//     /// Payload type
-//     #[serde(skip_serializing_if = "Option::is_none")]
-//     pub typ: Option<String>,
-
-//     #[serde(skip_serializing_if = "Option::is_none")]
-//     pub id: Option<String>,
-//     pub to: Vec<String>,
-
-//     #[serde(skip_serializing_if = "Option::is_none")]
-//     pub expires_times: Option<isize>,
-
-//     pub body: Vec<String>,
-//     pub attachments: Msg,
-// };
-// async fn forward_message(
-//     message: Message,
-//     Sender_did: String,
-//     receiver_did: String,
-//     mediator_did: String,
-//     sender_key_pair: Ed25519KeyPair,
-// ) {
-//     // sign plaintext message
-
-// }
-
-// #[cfg(test)]
-// mod test {
-
-//     use std::borrow::Borrow;
-
-//     use did_utils::crypto::{
-//         ed25519::Ed25519KeyPair,
-//         traits::{CoreSign, Generate},
-//     };
-//     use serde_json::Value;
-
-//     use crate::forward::routing::Message;
-
-//     use super::Msg;
-
-//     #[test]
-//     fn test_serialize_plaintext_message() {
-//         let msg = Msg {
-//             message: "Hello christian, tell me a joke".to_owned(),
-//         };
-//         let message = Message {
-//             typ: Some("https://didcomm.org/routing/2.0/forward".to_owned()),
-//             id: None,
-//             to: vec!["did:example:mediator".to_owned()],
-//             expires_times: None,
-//             body: vec!["next".to_owned()],
-//             attachments: msg,
-//         };
-
-//         assert_eq!(
-//             r#"{"typ":"https://didcomm.org/routing/2.0/forward","to":["did:example:mediator"],"body":["next"],"attachments":{"message":"Hello christian, tell me a joke"}}"#,
-//             serde_json::to_string(&message).unwrap()
-//         )
-//     }
-//     #[tokio::test]
-//     async fn test_sign_plaintext_message() {
-//         let msg = Msg {
-//             message: "Hello christian, tell me a joke".to_owned(),
-//         };
-//         let keypair = Ed25519KeyPair::new().expect("should generate keypair");
-
-//         let message = Message {
-//             typ: Some("https://didcomm.org/routing/2.0/forward".to_owned()),
-//             id: None,
-//             to: vec!["did:example:mediator".to_owned()],
-//             expires_times: None,
-//             body: vec!["next".to_owned()],
-//             attachments: msg,
-//         };
-
-//         // sign payload
-//         let ptmsg = serde_json::to_string(&message).unwrap();
-//         let signature = keypair.sign(ptmsg.as_bytes()).unwrap();
-
-//         // Verify the signature
-//         let verified = keypair.verify(&ptmsg.as_bytes(), &signature);
-//         assert!(verified.is_ok())
-//     }
-// }
+        state
+    }
+    #[tokio::test]
+    async fn test_mediator_forward_process() {
+        let msg: Message = Message::build(
+            "id".to_owned(),
+            "type_".to_owned(),
+            serde_json::json!("example-body"),
+        )
+        .to("did:web:localhost%3A8080".to_owned())
+        .from("did:sender:mediator".to_owned())
+        .finalize();
+        let serialize_msg = serde_json::to_string(msg.clone().borrow());
+        let state = setup();
+        let store: Vec<String> = Vec::new();
+        let pickup_msg = mediator_forward_process(serialize_msg.unwrap().as_str(), &state, store).await.unwrap();
+        for msg in pickup_msg {
+            println!("{msg}")
+        }
+    
+    }
+}
