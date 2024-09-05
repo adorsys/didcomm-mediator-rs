@@ -2,7 +2,6 @@ use didcomm::{Message, PackEncryptedOptions, UnpackOptions};
 
 use crate::web::{error::MediationError, AppState};
 
-
 pub async fn mediator_forward_process(
     payload: &str,
     state: &AppState,
@@ -56,15 +55,36 @@ mod test {
     };
 
     use super::*;
-    use didcomm::Message;
+
+    use did_utils::jwk::Jwk;
+    use didcomm::{
+        secrets::{Secret, SecretMaterial, SecretType},
+        Message,
+    };
+    use serde_json::json;
 
     pub fn setup() -> Arc<AppState> {
         let public_domain = String::from("http://alice-mediator.com");
 
         let mut mock_fs = MockFileSystem;
         let diddoc = util::read_diddoc(&mock_fs, "").unwrap();
-        let keystore =
-            util::read_keystore(&mut mock_fs, "").unwrap();
+        let keystore = util::read_keystore(&mut mock_fs, "").unwrap();
+
+        // generating secrets
+        let jwk: Jwk = serde_json::from_str(
+            r#"{
+                    "kty": "OKP",
+                    "crv": "Ed25519",
+                    "x": "tjOTPcs4OEMNrmn2ScYZDS-aCCbRFhJgaAmGnRsdmEo"
+                }"#,
+        )
+        .unwrap();
+
+        let secret = Secret {
+                id: "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7#z6LSbuUXWSgPfpiDBjUK6E7yiCKMN2eKJsXn5b55ZgqGz6Mr".to_owned(),
+                type_: SecretType::JsonWebKey2020,
+                secret_material: SecretMaterial::JWK { private_key_jwk: json!(jwk) }
+            };
 
         let repository = AppStateRepository {
             connection_repository: Arc::new(MockConnectionRepository::from(vec![])),
@@ -81,7 +101,7 @@ mod test {
         state
     }
     #[tokio::test]
-        async fn test_mediator_forward_process() {
+    async fn test_mediator_forward_process() {
         let msg: Message = Message::build(
             "id".to_owned(),
             "type_".to_owned(),
@@ -93,10 +113,11 @@ mod test {
         let serialize_msg = serde_json::to_string(msg.clone().borrow());
         let state = setup();
         let store: Vec<String> = Vec::new();
-        let pickup_msg = mediator_forward_process(serialize_msg.unwrap().as_str(), &state, store).await.unwrap();
+        let pickup_msg = mediator_forward_process(serialize_msg.unwrap().as_str(), &state, store)
+            .await
+            .unwrap();
         for msg in pickup_msg {
             println!("{msg}")
         }
-    
     }
 }
