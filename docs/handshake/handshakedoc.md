@@ -94,4 +94,4 @@ The handshake process for the DIDComm Mediator-rs protocol establishes secure co
 ---
 
 ## Conclusion
-This detailed documentation provides an in-depth explanation of the DIDComm Mediator-rs handshake process. It outlines the technical mechanisms that enable secure communication between agents, the role of encryption, message formats, error handling, and fallback mechanisms.
+This detailed documentation provides an in-depth explanation of the DIDComm Mediator-rs handshake process found in the handshake flow. It outlines the technical mechanisms that enable secure communication between agents, the role of encryption, message formats, error handling, and fallback mechanisms.
