@@ -81,14 +81,14 @@ mod test {
         state
     }
     #[tokio::test]
-    async fn test_mediator_forward_process() {
+        async fn test_mediator_forward_process() {
         let msg: Message = Message::build(
             "id".to_owned(),
             "type_".to_owned(),
             serde_json::json!("example-body"),
         )
-        .to("did:web:localhost%3A8080".to_owned())
-        .from("did:sender:mediator".to_owned())
+        .to("did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK".to_owned())
+        .from("did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK".to_owned())
         .finalize();
         let serialize_msg = serde_json::to_string(msg.clone().borrow());
         let state = setup();
