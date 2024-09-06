@@ -1,14 +1,29 @@
+use std::fs;
+
 use didcomm::{Message, PackEncryptedOptions, UnpackOptions};
 
 use crate::web::{error::MediationError, AppState};
+
+struct MessageStore {
+    dirpath: String,
+}
+impl MessageStore {
+    fn persist_msg(&self, content: String, inode: String) {
+        fs::create_dir_all(&self.dirpath).unwrap();
+        let file = format!("{}/{}.json",&self.dirpath, inode,);
+        fs::write(file, content).unwrap();
+    }
+}
+
 
 pub async fn mediator_forward_process(
     mediator_did: Option<&str>,
     payload: &str,
     state: &AppState,
-    mut store: Vec<String>,
-) -> Result<Vec<String>, MediationError> {
+    store_dir_path: String,
+) -> Result<(), MediationError> {
     // unpack encrypted payload message
+    let store = MessageStore { dirpath: store_dir_path };
 
     let result = Message::unpack(
         payload,
@@ -34,11 +49,12 @@ pub async fn mediator_forward_process(
                             )
                             .await
                             .unwrap();
-                        store.push(re_packed_msg)
+
+                        store.persist_msg(serde_json::to_string_pretty(&re_packed_msg).unwrap(), did)
                     }
                 }
 
-                Ok(store)
+                Ok(())
             }
             Err(_) => Err(MediationError::MessageUnpackingFailure),
         }
@@ -91,13 +107,15 @@ mod test {
         .finalize();
         let serialize_msg = serde_json::to_string(msg.clone().borrow());
         let state = setup();
-        let store: Vec<String> = Vec::new();
 
         // case where  mediator did is not provided
-        let pickup_msg =
-            mediator_forward_process(None, serialize_msg.unwrap().as_str(), &state, store)
-                .await
-                .unwrap();
-        pickup_msg.iter().for_each(|msg| println!("{:#?}", msg));
+        let _pickup_msg = mediator_forward_process(
+            None,
+            serialize_msg.unwrap().as_str(),
+            &state,
+            "./msg".to_string(),
+        )
+        .await
+        .unwrap();
     }
 }
