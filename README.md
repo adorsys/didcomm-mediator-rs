@@ -1,89 +1,127 @@
-# didcomm-mediator-rs
+# didcomm-mediator
 
-A DIDComm mediator is a cloud agent that relays and routes messages between mobile agents. It is an essential component in the self-sovereign identity (SSI) ecosystem because it allows mobile agents to communicate with each other without being tied to centralized cloud infrastructures like Facebook, Signal, or Telegram. Unfortunately, mobile phones are not first-class citizens in web-based interactions. Therefore, messages sent by a mobile agent to another one must be routed and/or relayed through some sort of cloud agents, which are always available for web interaction (first-class citizen).
+A DIDComm mediator is a cloud agent that facilitate secure, decentralized communication between mobile agents in the self-sovereign identity (SSI) ecosystem. This mediator acts as a cloud-based intermediary, enabling mobile agents to communicate without reliance on centralized infrastructures like Facebook, Signal, or Telegram.
 
-DIDComm mediators work by storing the DIDs (decentralized identifiers) of mobile agents. When a mobile agent wants to send a message to another mobile agent, it sends the message to the DIDComm mediator. The mediator then routes the message to the recipient's DIDComm mediator. The recipient's DIDComm mediator then delivers the message to the recipient's mobile agent.
+## Overview
+
+### Why a DIDComm Mediator?
+
+Mobile phones are not naturally suited for web-based interactions. To overcome this limitation, messages sent between mobile agents are routed through a DIDComm mediator, a cloud agent that ensures reliable delivery by always being available for web interactions.
+
+### How It Works
+
+A DIDComm mediator stores the Decentralized Identifiers (DIDs) of mobile agents. When one mobile agent sends a message to another, it first sends the message to a DIDComm mediator. This mediator routes the message to the recipient’s mediator, which then delivers the message to the intended recipient.
 
 The following diagram displays some cloud services that can be provided by a DIDComm mediator. In particular, services that take care of routing and relaying messages among mobile agents.
 
-![sample cloud services](./mediator-server/docs/basic-arch.png)
+![sample cloud services](docs/basic-arch.png)
 
-Even though both (proxy and gateway) functionalities are specified in the same component in the DIDComm ecosystem, it is important to distinguish between the proxy and the gateway service. This distinction is made in the same way as the distinction between an SMTP server (which sends out emails) and an IMAP server (which delivers emails).
+**Key Services Provided:**
 
-The data service can be considered a vital service to be provided to a mobile agent. Even though it is not fully aligned with the DIDComm messaging specification, displaying a data service here is essential so that we can see all the functionalities needed by a mobile agent to be complete.
+* **Routing**: Ensures messages are correctly forwarded to the intended recipients.
+* **Relaying**: Acts as an intermediary for messages between agents.
+* **Proxy Service**: Similar to an SMTP server, it handles message sending.
+* **Gateway Service**: Analogous to an IMAP server, it manages message delivery.
 
-Subscriptions will ensure a certain trust relationship between mobile agents and cloud services, and thereby serve as the foundation of the economic model on top of which cloud services are built.
+**Data Service**: Although not part of the core DIDComm specifications, it’s a vital service that ensures mobile agents have the necessary support for comprehensive functionality.
 
-A standardization of these cloud agents, in the same way email protocols were standardized, is essential for the success of the decentralized web.
+**Subscriptions**: Ensures trusted relationships between mobile agents and cloud services, and thereby serve as the foundation of the economic model on top of which cloud services are built.
+
+### The Importance of Standardization
+
+Standardizing these cloud agents is essential for the decentralized web's success, much like the standardization of email protocols.
 
 ## Self-Sovereign Identity (SSI)
 
-* Self-Sovereign Identity (SSI) is a way for individuals to control their own digital identities.
-* SSI uses decentralized identifiers (DIDs) and verifiable credentials (VCs) to allow individuals to share their identity information with others in a secure and privacy-preserving way.
-* SSI has the potential to revolutionize the way that we interact with the internet, making it more secure, private, and user-centric.
+* **Self-Sovereign Identity (SSI)**: Empowers individuals to control their own digital identities without relying on centralized authorities.
+* **Decentralized Identifiers (DIDs) and Verifiable Credentials (VCs)**: The backbone of SSI, allowing secure, privacy-preserving sharing of identity information.
+* **Revolutionary Potential**: SSI has the potential to revolutionize the way that we interact with the internet, making them more secure, private, and user-centric.
 
 ## DIDComm Messaging
 
-The DIDComm messaging specification can be found [here](https://identity.foundation/didcomm-messaging/spec/)
+**DIDComm** is a messaging protocol that works with DIDs to provide secure, private communication between parties. The full specification is available [here](https://identity.foundation/didcomm-messaging/spec/).
 
-### Functionaly
+### Functional Aspects
 
-* DIDComm is a messaging methodology that works with the decentralized identifier (DID) core spec to provide private, secure interaction between parties.
-* DIDComm messaging is designed to be flexible and extensible, allowing for new protocols and applications to be built on top of it.
-* The DIDComm specification is currently under development, but it has already been adopted by a number of projects, including the W3C Verifiable Credentials Working Group.
-* DIDComm is a promising technology with the potential to revolutionize the way that we interact with the internet.
+* **Flexibility**: DIDComm messaging is designed to allow new protocols and applications to be built on top of it.
+* **Adoption**: Already adopted by several projects, including the W3C Verifiable Credentials Working Group.
 
-### Technicaly
+### Technical Aspects
 
-* DIDComm messages are structured as JSON objects, and they can be exchanged over a variety of channels, including HTTP, WebSockets, and SMS.
-* DIDComm messages can be used to send a variety of data, including requests, responses, notifications, and events.
-* DIDComm messages are signed using the DID method, which ensures that they are tamper-proof and can be verified by the recipient.
-* DIDComm is a secure and privacy-preserving messaging methodology that has the potential to be used in a wide variety of applications.
+* **Structure**: DIDComm messages are JSON objects, transferable over channels like HTTP, WebSockets, and SMS.
+* **Usability**: DIDComm messages can be used to send a variety of data, including requests, responses, notifications, and events.
+* **Security**: Messages are signed using the DID method, ensuring tamper-proof, verifiable communication.
 
 ## Building and testing
 
-To build and test the entire project, certain system packages are required especially for the **did-utils** and **oob-messages** crates. Both of these crates require **libssl-dev** and **pkg-config** to be installed on the system to build correctly. Without them, the build process will fail.
+To build and test the project, ensure that **libssl-dev** and **pkg-config** are installed on your system.
 
-### Ubuntu
+### Ubuntu Setup
 
-* **libssl-dev**: This package provides the development files for OpenSSL.
-* **pkg-config**: This package provides a tool to help with the configuration of compiler and linker flags for libraries.  
-
-You can install them using the following command:
+Install the necessary packages with:
 
 ```sh
 sudo apt update
 sudo apt install -y libssl-dev pkg-config
 ```
 
-## Step-by-Step Guides
-
 ### Prerequisites
-Ensure you have the following installed:
- * [Rust & Cargo](https://www.rust-lang.org/tools/install)
+
+Ensure you have [Rust & Cargo](https://www.rust-lang.org/tools/install) installed.
 
 ## Setup
-1. Create a working directory eg(cd didcomm-mediator-rs) and cd into your directory.
 
- 2. Clone the repository using the following command:
+1. Optionally, create a working directory and navigate into it.
 
-git clone https://github.com/adorsys/didcomm-mediator-rs.git
+2. Clone the repository:
 
-## Troubleshooting Tips
-If you encounter any issues while running the application, here are some troubleshooting tips to help you resolve them
- 
- ### Common Issues
+```sh
+git clone git@github.com:adorsys/didcomm-mediator-rs.git
+```
 
-  1. Build Errors:
-  * Ensure that you have the required system packages installed. `libssl-dev` and `pkg-config` 
-  * Ensure that you have the latest version of Rust and Cargo installed.
-  * CHeck for any missing dependencies using `cargo check`.
+## Running the Project
 
-## Example
- 1. Start the mediator service:
+To build and run the project:
 
-cd didcomm-mediator-rs/mediator
+* Compile the project:
+
+```sh
+cargo build
+```
+
+* Start the mediator service:
+
+```sh
 cargo run
+```
+
+The output should look like this:
+
+![image](docs/server-output.png)
+
+### Testing
+
+The tests can be run with:
+
+```sh
+cargo test --workspace
+```
+
+or optionally with `cargo nextest` (you may want to [install](https://nexte.st/docs/installation/pre-built-binaries/) it first) if you want to speed-up the tests:
+
+```sh
+cargo nextest run --workspace
+```
+
+## Troubleshooting
+
+* **Build Errors**: Verify the required packages (**libssl-dev** and **pkg-config**) are installed, and you have the latest Rust and Cargo versions.
+* Use `cargo check` to identify missing dependencies:
+
+```sh
+cargo check
+```
 
 ## License
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
