@@ -30,3 +30,6 @@ Cargo.lock
 
 # Reference crate
 mediator-server
+
+crates/plugins/mediator-coordination/.env.sample
+crates/plugins/mediator-coordination/test
