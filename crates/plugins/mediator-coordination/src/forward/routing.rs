@@ -1,6 +1,6 @@
-use std::fs;
+use std::{fs, sync::Arc};
 
-use didcomm::{Message, PackEncryptedOptions, UnpackOptions};
+use didcomm::{error::Error, Message, PackEncryptedOptions, UnpackOptions};
 
 use crate::web::{error::MediationError, AppState};
 
@@ -10,11 +10,10 @@ struct MessageStore {
 impl MessageStore {
     fn persist_msg(&self, content: String, inode: String) {
         fs::create_dir_all(&self.dirpath).unwrap();
-        let file = format!("{}/{}.json",&self.dirpath, inode,);
+        let file = format!("{}/{}.json", &self.dirpath, inode,);
         fs::write(file, content).unwrap();
     }
 }
-
 
 pub async fn mediator_forward_process(
     mediator_did: Option<&str>,
@@ -23,42 +22,39 @@ pub async fn mediator_forward_process(
     store_dir_path: String,
 ) -> Result<(), MediationError> {
     // unpack encrypted payload message
-    let store = MessageStore { dirpath: store_dir_path };
+    let store = MessageStore {
+        dirpath: store_dir_path,
+    };
 
-    let result = Message::unpack(
+    let (unpack_msg, _) = Message::unpack(
         payload,
         &state.did_resolver,
         &state.secrets_resolver,
         &UnpackOptions::default(),
     )
-    .await;
-    {
-        match result {
-            Ok((unpack_msg, _)) => {
-                if unpack_msg.to.is_some() {
-                    let dids = Some(unpack_msg.clone().to).unwrap().unwrap();
-                    for did in dids {
-                        let (re_packed_msg, _) = unpack_msg
-                            .pack_encrypted(
-                                &did,
-                                mediator_did,
-                                None,
-                                &state.did_resolver,
-                                &state.secrets_resolver,
-                                &PackEncryptedOptions::default(),
-                            )
-                            .await
-                            .unwrap();
+    .await
+    .map_err(|_| MediationError::MessageUnpackingFailure)?;
 
-                        store.persist_msg(serde_json::to_string_pretty(&re_packed_msg).unwrap(), did)
-                    }
-                }
+    if unpack_msg.to.is_some() {
+        let dids = unpack_msg.clone().to.expect("to field is None");
+        for did in dids {
+            let (re_packed_msg, _) = unpack_msg
+                .pack_encrypted(
+                    &did,
+                    mediator_did,
+                    None,
+                    &state.did_resolver,
+                    &state.secrets_resolver,
+                    &PackEncryptedOptions::default(),
+                )
+                .await
+                .expect("could not pack message: {0}");
 
-                Ok(())
-            }
-            Err(_) => Err(MediationError::MessageUnpackingFailure),
+            store.persist_msg(serde_json::to_string_pretty(&re_packed_msg).unwrap(), did)
         }
     }
+
+    Ok(())
 }
 
 #[cfg(test)]
