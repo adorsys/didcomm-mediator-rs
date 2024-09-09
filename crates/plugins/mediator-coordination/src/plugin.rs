@@ -17,7 +17,7 @@ pub struct MediatorCoordinationPlugin {
 
 
 struct MediatorCoordinationPluginEnv {
-    _public_domain: String,
+    public_domain: String,
     storage_dirpath: String,
     mongo_uri: String,
     mongo_dbn: String,
@@ -25,7 +25,7 @@ struct MediatorCoordinationPluginEnv {
 
 /// Loads environment variables required for this plugin
 fn load_plugin_env() -> Result<MediatorCoordinationPluginEnv, PluginError> {
-    let _public_domain = std::env::var("SERVER_PUBLIC_DOMAIN").map_err(|_| {
+    let public_domain = std::env::var("SERVER_PUBLIC_DOMAIN").map_err(|_| { 
         tracing::error!("SERVER_PUBLIC_DOMAIN env variable required");
         PluginError::InitError
     })?;
@@ -46,7 +46,7 @@ fn load_plugin_env() -> Result<MediatorCoordinationPluginEnv, PluginError> {
     })?;
 
     Ok(MediatorCoordinationPluginEnv {
-        _public_domain,
+        public_domain,
         storage_dirpath,
         mongo_uri,
         mongo_dbn,
@@ -100,7 +100,7 @@ impl Plugin for MediatorCoordinationPlugin {
         };
 
         // Compile state
-        let state = AppState::from(env._public_domain.clone(), diddoc, keystore, Some(repository));
+        let state = AppState::from(env.public_domain.clone(), diddoc, keystore, Some(repository)); 
 
         // Build router
         web::routes(Arc::new(state))
