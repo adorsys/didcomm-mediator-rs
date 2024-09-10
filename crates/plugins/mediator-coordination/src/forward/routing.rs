@@ -6,7 +6,8 @@ use crate::{
 };
 /// mediator receives messages of type forward then it unpacks the messages and stores it for pickup
 /// the unpacked message is then repacked for further transmission.
-/// Note: Stored messages are not re_packed and must be before transmission
+/// Note: Stored messages are not re_packed and must be before transmission in case of
+/// Rewrapping.
 pub async fn mediator_forward_process(
     payload: &str,
     state: &AppState,
