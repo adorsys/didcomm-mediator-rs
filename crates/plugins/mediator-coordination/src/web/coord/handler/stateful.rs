@@ -8,7 +8,6 @@ use did_utils::{
     jwk::Jwk,
     methods::{DidPeer, Purpose, PurposedKey},
 };
-
 use didcomm::Message;
 use mongodb::bson::{doc, oid::ObjectId};
 use serde_json::json;
@@ -16,13 +15,10 @@ use std::{collections::HashMap, sync::Arc};
 use uuid::Uuid;
 
 use crate::{
-    constant::{KEYLIST_UPDATE_RESPONSE_2_0, MEDIATE_DENY_2_0, MEDIATE_GRANT_2_0},
-    model::stateful::coord::{
-        KeylistUpdateAction, KeylistUpdateBody, KeylistUpdateConfirmation,
-        KeylistUpdateResponseBody, KeylistUpdateResult, MediationDeny, MediationGrant,
-        MediationGrantBody,
-    },
-    model::stateful::entity::{Connection, Secrets, VerificationMaterial},
+    constant::{KEYLIST_2_0, KEYLIST_UPDATE_RESPONSE_2_0, MEDIATE_DENY_2_0, MEDIATE_GRANT_2_0},
+    model::stateful::{coord::{
+        Keylist, KeylistBody, KeylistEntry, KeylistUpdateAction, KeylistUpdateBody, KeylistUpdateConfirmation, KeylistUpdateResponseBody, KeylistUpdateResult, MediationDeny, MediationGrant, MediationGrantBody
+    }, entity::{Connection, Secrets, VerificationMaterial}},
     web::{error::MediationError, AppState, AppStateRepository},
 };
 
@@ -339,6 +335,77 @@ pub async fn process_plain_keylist_update_message(
     .finalize())
 }
 
+pub async fn process_plain_keylist_query_message(
+    state: Arc<AppState>,
+    message: Message,
+) -> Result<Message, Response> {
+    println!("Processing keylist query...");
+    let sender = message
+        .from
+        .expect("unpacking middleware failed to prevent anonymous senders");
+
+    let AppStateRepository {
+        connection_repository,
+        ..
+    } = state
+        .repository
+        .as_ref()
+        .expect("missing persistence layer");
+
+    let connection = match connection_repository
+        .find_one_by(doc! { "client_did": &sender })
+        .await
+        .unwrap()
+    {
+        Some(connection) => connection,
+        None => {
+            let response = (
+                StatusCode::UNAUTHORIZED,
+                MediationError::UncoordinatedSender.json(),
+            );
+
+            return Err(response.into_response());
+        }
+    };
+
+    println!("keylist: {:?}", connection);
+
+    let keylist_entries = connection
+        .keylist
+        .iter()
+        .map(|key| KeylistEntry {
+            recipient_did: key.clone(),
+        })
+        .collect::<Vec<KeylistEntry>>();
+
+    let body = KeylistBody {
+        keys: keylist_entries,
+        pagination: None,
+    };
+
+    let keylist_object = Keylist {
+        id: format!("urn:uuid:{}", Uuid::new_v4()),
+        message_type: KEYLIST_2_0.to_string(),
+        body: body,
+        additional_properties: None,
+    };
+
+    let mediator_did = &state.diddoc.id;
+
+    let message = Message::build(
+        format!("urn:uuid:{}", Uuid::new_v4()),
+        KEYLIST_2_0.to_string(),
+        json!(keylist_object),
+    )
+    .to(sender.clone())
+    .from(mediator_did.clone())
+    .finalize();
+
+    println!("message: {:?}", message);
+
+    Ok(message)
+}
+
 #[cfg(test)]
 mod tests {
     use serde_json::Value;
@@ -366,6 +433,77 @@ mod tests {
         Arc::new(state)
     }
 
+    #[tokio::test]
+    async fn test_keylist_query_success() {
+        // Initialize the state with initial connections (including keys)
+        let state = setup(_initial_connections());
+    
+        // Define the expected initial keys
+        let initial_keys = vec![
+            "did:example:123".to_string(),
+            "did:example:456".to_string(),
+        ];
+    
+        // Prepare request
+        let message = Message::build(
+            "id_alice_keylist_query".to_owned(),
+            "https://didcomm.org/coordinate-mediation/2.0/keylist-query".to_owned(),
+            json!({}),
+        )
+        .to(global::_mediator_did(&state))
+        .from(global::_edge_did())
+        .finalize();
+    
+        // Process request
+        let response = process_plain_keylist_query_message(Arc::clone(&state), message)
+            .await
+            .unwrap();
+    
+        assert_eq!(response.type_, KEYLIST_2_0);
+        assert_eq!(response.from.unwrap(), global::_mediator_did(&state));
+        assert_eq!(response.to.unwrap(), vec![global::_edge_did()]);
+    
+        // Deserialize the response body to check keys
+        let keylist_body: KeylistBody = serde_json::from_value(response.body).unwrap();
+    
+        // Check that the keys match the initial keys
+        let response_keys: Vec<String> = keylist_body
+            .keys
+            .into_iter()
+            .map(|entry| entry.recipient_did)
+            .collect();
+            
+        // Assert that the response keys match the initial expected keys
+        assert_eq!(response_keys, initial_keys);
+    }
+    #[tokio::test]
+    async fn test_keylist_query_malformed_request() {
+        let state = setup(_initial_connections());
+
+        // Prepare request
+        let message = Message::build(
+            "id_alice_keylist_update_request".to_owned(),
+            "https://didcomm.org/coordinate-mediation/2.0/keylist-query".to_owned(),
+            json!("not-keylist-update-request"),
+        )
+        .header("return_route".into(), json!("all"))
+        .to(global::_mediator_did(&state))
+        .from(global::_edge_did())
+        .finalize();
+
+        // Process request
+        let err = process_plain_keylist_update_message(Arc::clone(&state), message)
+            .await
+            .unwrap_err();
+
+        // Assert issued error
+        _assert_delegate_handler_err(
+            err,
+            StatusCode::BAD_REQUEST,
+            MediationError::UnexpectedMessageFormat,
+        )
+        .await;
+    }
     #[tokio::test]
     async fn test_keylist_update() {
         let state = setup(_initial_connections());
