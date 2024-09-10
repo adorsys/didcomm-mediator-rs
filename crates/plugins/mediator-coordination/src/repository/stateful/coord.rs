@@ -5,7 +5,7 @@ use mongodb::{
 };
 
 use crate::{
-    model::stateful::entity::{Connection, Secrets},
+    model::stateful::entity::{Connection, Messages, Secrets},
     repository::traits::{Entity, Repository, RepositoryError},
 };
 
@@ -117,7 +117,86 @@ impl MongoSecretsRepository {
         }
     }
 }
+pub struct MongoMessagesRepository {
+    collection: Collection<Messages>,
+}
+impl MongoMessagesRepository {
+    pub fn from_db(db: &Database) -> Self {
+        Self {
+            collection: db.collection("messages"),
+        }
+    }
+}
+#[async_trait]
+impl Repository<Messages> for MongoMessagesRepository {
+    async fn find_all(&self) -> Result<Vec<Messages>, RepositoryError> {
+        let mut messages: Vec<Messages> = vec![];
 
+        // Retrieve all messages from the database
+        let mut cursor = self.collection.find(None, None).await?;
+        while cursor.advance().await? {
+            messages.push(cursor.deserialize_current()?);
+        }
+
+        Ok(messages)
+    }
+    async fn find_one(&self, message_id: ObjectId) -> Result<Option<Messages>, RepositoryError> {
+        // Query the database for the specified message ID
+        self.find_one_by(doc! {"_id": message_id}).await
+    }
+    async fn find_one_by(&self, filter: BsonDocument) -> Result<Option<Messages>, RepositoryError> {
+        // Query the database for the specified message ID
+        Ok(self.collection.find_one(filter, None).await?)
+    }
+    async fn store(&self, message: Messages) -> Result<Messages, RepositoryError> {
+        // Insert the new message into the database
+        let metadata = self.collection.insert_one(message.clone(), None).await?;
+
+        // Return persisted message
+        Ok(match metadata.inserted_id {
+            Bson::ObjectId(oid) => Messages {
+                id: Some(oid),
+                ..message
+            },
+            _ => unreachable!(),
+        })
+    }
+    async fn delete_one(&self, message_id: ObjectId) -> Result<(), RepositoryError> {
+        // Delete the connection from the database
+        let metadata = self
+            .collection
+            .delete_one(doc! {"_id": message_id}, None)
+            .await?;
+
+        if metadata.deleted_count > 0 {
+            Ok(())
+        } else {
+            Err(RepositoryError::TargetNotFound)
+        }
+    }
+
+    async fn update(&self, message: Messages) -> Result<Messages, RepositoryError> {
+        if message.id.is_none() {
+            return Err(RepositoryError::MissingIdentifier);
+        }
+
+        // Update the message in the database
+        let metadata = self
+            .collection
+            .update_one(
+                doc! {"_id": message.id.unwrap()},
+                doc! {"$set": bson::to_document(&message).map_err(|_| RepositoryError::BsonConversionError)?},
+                None,
+            )
+            .await?;
+
+        if metadata.matched_count > 0 {
+            Ok(message)
+        } else {
+            Err(RepositoryError::TargetNotFound)
+        }
+    }
+}
 #[async_trait]
 impl Repository<Secrets> for MongoSecretsRepository {
     async fn find_all(&self) -> Result<Vec<Secrets>, RepositoryError> {
@@ -315,6 +394,16 @@ pub mod tests {
             }
         }
     }
+    pub struct MockMessagesRepostiory {
+        messages: RwLock<Vec<Messages>>,
+    }
+    impl MockMessagesRepostiory {
+        pub fn from(messages: Vec<Messages>) -> Self {
+            Self {
+                messages: RwLock::new(messages),
+            }
+        }
+    }
 
     #[async_trait]
     impl Repository<Secrets> for MockSecretsRepository {
@@ -385,6 +474,85 @@ pub mod tests {
 
             if let Some(pos) = pos {
                 self.secrets.write().unwrap().remove(pos);
+                Ok(())
+            } else {
+                Err(RepositoryError::TargetNotFound)
+            }
+        }
+    }
+
+    #[async_trait]
+    impl Repository<Messages> for MockMessagesRepostiory {
+        async fn find_all(&self) -> Result<Vec<Messages>, RepositoryError> {
+            Ok(self.messages.read().unwrap().clone())
+        }
+
+        async fn find_one(
+            &self,
+            secrets_id: ObjectId,
+        ) -> Result<Option<Messages>, RepositoryError> {
+            self.find_one_by(doc! {"_id": secrets_id}).await
+        }
+
+        async fn find_one_by(
+            &self,
+            filter: BsonDocument,
+        ) -> Result<Option<Messages>, RepositoryError> {
+            let filter: HashMap<String, Bson> = filter.into_iter().collect();
+
+            Ok(self
+                .messages
+                .read()
+                .unwrap()
+                .iter()
+                .find(|s| {
+                    if let Some(id) = filter.get("_id") {
+                        if json!(s.id) != json!(id) {
+                            return false;
+                        }
+                    }
+
+                    true
+                })
+                .cloned())
+        }
+
+        async fn store(&self, messages: Messages) -> Result<Messages, RepositoryError> {
+            // Add new entity to collection
+            self.messages.write().unwrap().push(messages.clone());
+
+            // Return added entity
+            Ok(messages)
+        }
+
+        async fn update(&self, messages: Messages) -> Result<Messages, RepositoryError> {
+            // Find entity to update
+            let pos = self
+                .messages
+                .read()
+                .unwrap()
+                .iter()
+                .position(|c| c.id == messages.id);
+
+            if let Some(pos) = pos {
+                self.messages.write().unwrap()[pos] = messages.clone();
+                Ok(messages)
+            } else {
+                Err(RepositoryError::TargetNotFound)
+            }
+        }
+
+        async fn delete_one(&self, message_id: ObjectId) -> Result<(), RepositoryError> {
+            // Find entity to delete
+            let pos = self
+                .messages
+                .read()
+                .unwrap()
+                .iter()
+                .position(|s| s.id == Some(message_id));
+
+            if let Some(pos) = pos {
+                self.messages.write().unwrap().remove(pos);
                 Ok(())
             } else {
                 Err(RepositoryError::TargetNotFound)

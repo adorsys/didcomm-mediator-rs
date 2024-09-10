@@ -36,6 +36,8 @@ pub enum MediationError {
     UnsupportedDidMethod,
     #[error("unsupported operation")]
     UnsupportedOperation,
+    #[error("Could not store Message")]
+    PersisenceError,
 }
 
 impl MediationError {

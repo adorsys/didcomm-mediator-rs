@@ -5,7 +5,7 @@ use mongodb::{error::Error as MongoError, options::ClientOptions, Client, Databa
 use std::sync::Arc;
 
 use crate::{
-    repository::stateful::coord::{MongoConnectionRepository, MongoSecretsRepository},
+    repository::stateful::coord::{MongoConnectionRepository, MongoMessagesRepository, MongoSecretsRepository},
     util,
     web::{self, AppState, AppStateRepository},
 };
@@ -105,6 +105,8 @@ impl Plugin for MediatorCoordinationPlugin {
         let repository = AppStateRepository {
             connection_repository: Arc::new(MongoConnectionRepository::from_db(&db)),
             secret_repository: Arc::new(MongoSecretsRepository::from_db(&db)),
+            message_repository: Arc::new(MongoMessagesRepository::from_db(&db))
+        
         };
 
         // Compile state

@@ -1,31 +1,20 @@
-use std::{fs, sync::Arc};
+use didcomm::{Message, PackEncryptedOptions, UnpackOptions};
 
-use didcomm::{error::Error, Message, PackEncryptedOptions, UnpackOptions};
-
-use crate::web::{error::MediationError, AppState};
-
-struct MessageStore {
-    dirpath: String,
-}
-impl MessageStore {
-    fn persist_msg(&self, content: String, inode: String) {
-        fs::create_dir_all(&self.dirpath).unwrap();
-        let file = format!("{}/{}.json", &self.dirpath, inode,);
-        fs::write(file, content).unwrap();
-    }
-}
+use crate::web::{error::MediationError, AppState, AppStateRepository};
 
 pub async fn mediator_forward_process(
-    mediator_did: Option<&str>,
     payload: &str,
     state: &AppState,
-    store_dir_path: String,
 ) -> Result<(), MediationError> {
     // unpack encrypted payload message
-    let store = MessageStore {
-        dirpath: store_dir_path,
-    };
+    let AppStateRepository {
+        message_repository, ..
+    } = state
+        .repository
+        .as_ref()
+        .expect("Missing Persistence Layer");
 
+    let mediator_did = &state.diddoc.id;
     let (unpack_msg, _) = Message::unpack(
         payload,
         &state.did_resolver,
@@ -34,14 +23,13 @@ pub async fn mediator_forward_process(
     )
     .await
     .map_err(|_| MediationError::MessageUnpackingFailure)?;
-
     if unpack_msg.to.is_some() {
         let dids = unpack_msg.clone().to.expect("to field is None");
         for did in dids {
             let (re_packed_msg, _) = unpack_msg
                 .pack_encrypted(
                     &did,
-                    mediator_did,
+                    Some(mediator_did),
                     None,
                     &state.did_resolver,
                     &state.secrets_resolver,
@@ -50,10 +38,13 @@ pub async fn mediator_forward_process(
                 .await
                 .expect("could not pack message: {0}");
 
-            store.persist_msg(serde_json::to_string_pretty(&re_packed_msg).unwrap(), did)
+            message_repository
+                .store(serde_json::from_str(&re_packed_msg).expect("Could not deserialze packed message"))
+                .await
+                .map_err(|_| MediationError::PersisenceError)
+                .unwrap();
         }
     }
-
     Ok(())
 }
 
@@ -62,7 +53,9 @@ mod test {
     use std::{borrow::Borrow, sync::Arc};
 
     use crate::{
-        repository::stateful::coord::tests::{MockConnectionRepository, MockSecretsRepository},
+        repository::stateful::coord::tests::{
+            MockConnectionRepository, MockMessagesRepostiory, MockSecretsRepository,
+        },
         util::{self, MockFileSystem},
         web::AppStateRepository,
     };
@@ -80,6 +73,7 @@ mod test {
         let repository = AppStateRepository {
             connection_repository: Arc::new(MockConnectionRepository::from(vec![])),
             secret_repository: Arc::new(MockSecretsRepository::from(vec![])),
+            message_repository: Arc::new(MockMessagesRepostiory::from(vec![])),
         };
 
         let state = Arc::new(AppState::from(
@@ -99,19 +93,15 @@ mod test {
             serde_json::json!("example-body"),
         )
         .to("did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK".to_owned())
-        .from("did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK".to_owned())
+        .from("did:web:alice-mediator.com:alice_mediator_pub".to_owned())
         .finalize();
         let serialize_msg = serde_json::to_string(msg.clone().borrow());
         let state = setup();
 
-        // case where  mediator did is not provided
-        let _pickup_msg = mediator_forward_process(
-            None,
-            serialize_msg.unwrap().as_str(),
-            &state,
-            "./msg".to_string(),
-        )
-        .await
-        .unwrap();
+        mediator_forward_process(serialize_msg.unwrap().as_str(), &state)
+            .await
+            .ok();
     }
 }
+
+
