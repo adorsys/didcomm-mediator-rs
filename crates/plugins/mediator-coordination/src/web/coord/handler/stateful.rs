@@ -70,8 +70,8 @@ pub async fn process_mediate_request(
     } else {
         /* Issue mediate grant response */
         println!("Sending mediate grant.");
-        // Create routing, store it and send mediation grant 
-        let (routing_did, auth_keys, agreem_keys) = 
+        // Create routing, store it and send mediation grant
+        let (routing_did, auth_keys, agreem_keys) =
             generate_did_peer(state.public_domain.to_string());
 
         let AppStateRepository {
