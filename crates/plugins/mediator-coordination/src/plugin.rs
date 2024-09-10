@@ -1,7 +1,7 @@
 use axum::Router;
 use keystore::filesystem::StdFileSystem;
 use plugin_api::{Plugin, PluginError};
-use mongodb::{error::Error as MongoError, options::ClientOptions, Client, Database};
+use mongodb::{ options::ClientOptions, Client, Database};
 use std::sync::Arc;
 
 use crate::{
@@ -9,12 +9,15 @@ use crate::{
     util,
     web::{self, AppState, AppStateRepository},
 };
-
 #[derive(Default)]
-pub struct MediatorCoordinationPlugin;
+pub struct MediatorCoordinationPlugin {
+    env: Option<MediatorCoordinationPluginEnv>,
+    db: Option<Database>,
+}
+
 
 struct MediatorCoordinationPluginEnv {
-    _public_domain: String,
+    public_domain: String,
     storage_dirpath: String,
     mongo_uri: String,
     mongo_dbn: String,
@@ -22,7 +25,7 @@ struct MediatorCoordinationPluginEnv {
 
 /// Loads environment variables required for this plugin
 fn load_plugin_env() -> Result<MediatorCoordinationPluginEnv, PluginError> {
-    let _public_domain = std::env::var("SERVER_PUBLIC_DOMAIN").map_err(|_| {
+    let public_domain = std::env::var("SERVER_PUBLIC_DOMAIN").map_err(|_| { 
         tracing::error!("SERVER_PUBLIC_DOMAIN env variable required");
         PluginError::InitError
     })?;
@@ -43,7 +46,7 @@ fn load_plugin_env() -> Result<MediatorCoordinationPluginEnv, PluginError> {
     })?;
 
     Ok(MediatorCoordinationPluginEnv {
-        _public_domain,
+        public_domain,
         storage_dirpath,
         mongo_uri,
         mongo_dbn,
@@ -55,28 +58,21 @@ impl Plugin for MediatorCoordinationPlugin {
         "mediator_coordination"
     }
 
-    // Load environment variables required for this plugin
-
     fn mount(&mut self) -> Result<(), PluginError> {
-        let MediatorCoordinationPluginEnv {
-            storage_dirpath,
-            mongo_uri,
-            mongo_dbn,
-            ..
-        } = load_plugin_env()?;
+        let env = load_plugin_env()?;
 
         // Expect DID document from file system
-        if did_endpoint::validate_diddoc(&storage_dirpath).is_err() {
+        if did_endpoint::validate_diddoc(&env.storage_dirpath).is_err() {
             tracing::error!("diddoc validation failed; is plugin did-endpoint mounted?");
             return Err(PluginError::InitError);
         }
 
         // Check connectivity to database
+        let db = load_mongo_connector(&env.mongo_uri, &env.mongo_dbn)?;
 
-        if load_mongo_connector(&mongo_uri, &mongo_dbn).is_err() {
-            tracing::error!("could not establish connectivity with mongodb");
-            return Err(PluginError::InitError);
-        }
+        // Save the environment and MongoDB connection in the struct
+        self.env = Some(env);
+        self.db = Some(db);
 
         Ok(())
     }
@@ -86,42 +82,45 @@ impl Plugin for MediatorCoordinationPlugin {
     }
 
     fn routes(&self) -> Router {
-        let msg = "This should not occur following successful mounting.";
+        // Ensure the plugin is properly mounted
+        let env = self.env.as_ref().expect("Plugin not mounted");
+        let db = self.db.as_ref().expect("Plugin not mounted");
 
-        let storage_dirpath = std::env::var("SERVER_PUBLIC_DOMAIN").unwrap();
-        let mongo_uri = std::env::var("MONGO_URI").unwrap();
-        let mongo_dbn = std::env::var("MONGO_DBN").unwrap();
-        let public_domain = std::env::var("MONGO_DBN").unwrap();
+        let msg = "This should not occur following successful mounting.";
 
         // Load crypto identity
         let mut fs = StdFileSystem;
-        let diddoc = util::read_diddoc(&fs, &storage_dirpath).expect(msg);
-        let keystore = util::read_keystore(&mut fs, &storage_dirpath).expect(msg);
-
-        // Load connection to database
-        let db = load_mongo_connector(&mongo_uri, &mongo_dbn).expect(msg);
+        let diddoc = util::read_diddoc(&fs, &env.storage_dirpath).expect(msg);
+        let keystore = util::read_keystore(&mut fs, &env.storage_dirpath).expect(msg);
 
         // Load persistence layer
         let repository = AppStateRepository {
-            connection_repository: Arc::new(MongoConnectionRepository::from_db(&db)),
-            secret_repository: Arc::new(MongoSecretsRepository::from_db(&db)),
+            connection_repository: Arc::new(MongoConnectionRepository::from_db(db)),
+            secret_repository: Arc::new(MongoSecretsRepository::from_db(db)),
         };
 
         // Compile state
-        let state = AppState::from(public_domain, diddoc, keystore, Some(repository));
+        let state = AppState::from(env.public_domain.clone(), diddoc, keystore, Some(repository)); 
 
         // Build router
         web::routes(Arc::new(state))
     }
 }
 
-fn load_mongo_connector(mongo_uri: &str, mongo_dbn: &str) -> Result<Database, MongoError> {
+
+fn load_mongo_connector(mongo_uri: &str, mongo_dbn: &str) -> Result<Database, PluginError> {
     let task = async {
         // Parse a connection string into an options struct.
-        let client_options = ClientOptions::parse(mongo_uri).await?;
+        let client_options = ClientOptions::parse(mongo_uri).await.map_err(|_| {
+            tracing::error!("Failed to parse Mongo URI");
+            PluginError::InitError
+        })?;
 
         // Get a handle to the deployment.
-        let client = Client::with_options(client_options)?;
+        let client = Client::with_options(client_options).map_err(|_| {
+            tracing::error!("Failed to create MongoDB client");
+            PluginError::InitError
+        })?;
 
         // Get a handle to a database.
         Ok(client.database(mongo_dbn))
