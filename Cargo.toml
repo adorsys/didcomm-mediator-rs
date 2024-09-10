@@ -12,6 +12,7 @@ members = [
     "crates/keystore",
     "crates/plugin-api",
     "crates/plugins/did-endpoint",
+    "crates/plugins/message-pickup",
     "crates/plugins/mediator-coordination",
     "crates/plugins/oob-messages",
 ]
@@ -22,6 +23,7 @@ did-utils = { path = "./crates/did-utils", version = "0.1.0" }
 keystore = { path = "./crates/keystore", version = "0.1.0" }
 plugin-api = { path = "./crates/plugin-api", version = "0.1.0" }
 did-endpoint = { path = "./crates/plugins/did-endpoint", version = "0.1.0" }
+message-pickup = { path = "./crates/plugins/message-pickup", version = "0.1.0" }
 oob-messages = { path = "./crates/plugins/oob-messages", version = "0.1.0" }
 mediator-coordination = { path = "./crates/plugins/mediator-coordination", version = "0.1.0" }
 

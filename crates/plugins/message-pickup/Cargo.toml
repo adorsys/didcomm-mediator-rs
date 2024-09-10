@@ -1,0 +1,12 @@
+[package]
+name = "message-pickup"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+didcomm.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+uuid = { workspace = true, features = ["v4"] }
+serde = { workspace = true, features = ["derive"] }
+tokio = { workspace = true, features = ["full"] }

@@ -95,7 +95,7 @@ impl DidPeer {
     }
 
     /// Creates new instance of DidPeer with given key format.
-    pub fn new_with_format(key_format: PublicKeyFormat) -> Self {
+    pub fn with_format(key_format: PublicKeyFormat) -> Self {
         Self { key_format }
     }
 
