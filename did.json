@@ -1,0 +1,55 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/did/v1",
+    "https://w3id.org/security/suites/jws-2020/v1"
+  ],
+  "id": "did:web:alice-mediator.com",
+  "verificationMethod": [
+    {
+      "id": "did:web:alice-mediator.com#keys-1",
+      "type": "JsonWebKey2020",
+      "controller": "did:web:alice-mediator.com",
+      "publicKeyJwk": {
+        "kty": "OKP",
+        "crv": "Ed25519",
+        "x": "av6FfczN7117pfuZSlUCLdwg0b2dl0XozOXqEAqiBbk"
+      }
+    },
+    {
+      "id": "did:web:alice-mediator.com#keys-2",
+      "type": "JsonWebKey2020",
+      "controller": "did:web:alice-mediator.com",
+      "publicKeyJwk": {
+        "kty": "OKP",
+        "crv": "Ed25519",
+        "x": "xjmMHMJlqBqHONYvsS_bj1ce2QnoZJ23IVean-TLBf4"
+      }
+    },
+    {
+      "id": "did:web:alice-mediator.com#keys-3",
+      "type": "JsonWebKey2020",
+      "controller": "did:web:alice-mediator.com",
+      "publicKeyJwk": {
+        "kty": "OKP",
+        "crv": "X25519",
+        "x": "Vn8t-0lfJr-4LCuaPbYa1a5ERJBNNwH3PanAGBqEMSM"
+      }
+    }
+  ],
+  "authentication": [
+    "did:web:alice-mediator.com#keys-1"
+  ],
+  "assertionMethod": [
+    "did:web:alice-mediator.com#keys-2"
+  ],
+  "keyAgreement": [
+    "did:web:alice-mediator.com#keys-3"
+  ],
+  "service": [
+    {
+      "id": "did:web:alice-mediator.com#pop-domain",
+      "type": "LinkedDomains",
+      "serviceEndpoint": "http://alice-mediator.com/.well-known/did/pop.json"
+    }
+  ]
+}
