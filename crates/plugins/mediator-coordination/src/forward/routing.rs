@@ -1,11 +1,16 @@
 use didcomm::{Message, PackEncryptedOptions, UnpackOptions};
 
-use crate::web::{error::MediationError, AppState, AppStateRepository};
-
+use crate::{
+    model::stateful::entity::Messages,
+    web::{error::MediationError, AppState, AppStateRepository},
+};
+/// mediator receives messages of type forward then it unpacks the messages and stores it for pickup
+/// the unpacked message is then repacked for further transmission.
+/// Note: Stored messages are not re_packed and must be before transmission
 pub async fn mediator_forward_process(
     payload: &str,
     state: &AppState,
-) -> Result<(), MediationError> {
+) -> Result<Vec<String>, MediationError> {
     // unpack encrypted payload message
     let AppStateRepository {
         message_repository, ..
@@ -14,6 +19,7 @@ pub async fn mediator_forward_process(
         .as_ref()
         .expect("Missing Persistence Layer");
 
+    let mut forward = Vec::new();
     let mediator_did = &state.diddoc.id;
     let (unpack_msg, _) = Message::unpack(
         payload,
@@ -38,19 +44,26 @@ pub async fn mediator_forward_process(
                 .await
                 .expect("could not pack message: {0}");
 
+            let messages = Messages {
+                id: None,
+                message: unpack_msg.clone(),
+                recipient_did: did,
+            };
             message_repository
-                .store(serde_json::from_str(&re_packed_msg).expect("Could not deserialze packed message"))
+                .store(messages)
                 .await
                 .map_err(|_| MediationError::PersisenceError)
                 .unwrap();
+            forward.push(re_packed_msg)
         }
     }
-    Ok(())
+
+    Ok(forward)
 }
 
 #[cfg(test)]
 mod test {
-    use std::{borrow::Borrow, sync::Arc};
+    use std::sync::Arc;
 
     use crate::{
         repository::stateful::coord::tests::{
@@ -86,6 +99,7 @@ mod test {
         state
     }
     #[tokio::test]
+    /// simulate sender forwarding process
     async fn test_mediator_forward_process() {
         let msg: Message = Message::build(
             "id".to_owned(),
@@ -95,13 +109,23 @@ mod test {
         .to("did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK".to_owned())
         .from("did:web:alice-mediator.com:alice_mediator_pub".to_owned())
         .finalize();
-        let serialize_msg = serde_json::to_string(msg.clone().borrow());
-        let state = setup();
 
-        mediator_forward_process(serialize_msg.unwrap().as_str(), &state)
+        let state = setup();
+        let (msg, _metadata) = msg
+            .pack_encrypted(
+                "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+                Some("did:web:alice-mediator.com:alice_mediator_pub"),
+                None,
+                &state.did_resolver,
+                &state.secrets_resolver,
+                &PackEncryptedOptions::default(),
+            )
+            .await
+            .unwrap();
+        let serialize_msg = serde_json::to_string(&msg).unwrap();
+
+        mediator_forward_process(serialize_msg.as_str(), &state)
             .await
             .ok();
     }
 }
-
-
