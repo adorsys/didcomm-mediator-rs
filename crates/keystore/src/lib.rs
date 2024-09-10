@@ -40,7 +40,7 @@ impl<'a> KeyStore<'a> {
         Self {
             fs,
             dirpath: format!("{storage_dirpath}/keystore"),
-            filename: format!("{}.json", Utc::now().timestamp()),
+            filename: format!("1725657472.json"),
             keys: vec![],
         }
     }

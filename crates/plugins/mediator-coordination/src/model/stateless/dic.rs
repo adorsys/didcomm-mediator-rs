@@ -1,10 +1,8 @@
-<<<<<<<< HEAD:crates/plugins/mediator-coordination/src/model/dic.rs
 use did_utils::jwk::Jwk;
-use serde::{Deserialize, Serialize};
-========
+
 use did_utils::key_jwk::jwk::Jwk;
 use serde::{de::Error, Deserialize, Deserializer, Serialize, Serializer};
->>>>>>>> origin/main:crates/plugins/mediator-coordination/src/model/stateless/dic.rs
+
 use serde_json::{json, Value};
 use std::collections::HashMap;
 

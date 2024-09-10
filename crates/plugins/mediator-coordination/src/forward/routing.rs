@@ -78,7 +78,8 @@ mod test {
         let public_domain = String::from("http://alice-mediator.com");
 
         let mut mock_fs = MockFileSystem;
-        let diddoc = util::read_diddoc(&mock_fs, "").unwrap();
+        let storage_dirpath = std::env::var("STORAGE_DIRPATH").unwrap_or_else(|_| "/".to_owned());
+        let diddoc = util::read_diddoc(&mock_fs,&storage_dirpath).unwrap();
         let keystore = util::read_keystore(&mut mock_fs, "").unwrap();
 
         let repository = AppStateRepository {
