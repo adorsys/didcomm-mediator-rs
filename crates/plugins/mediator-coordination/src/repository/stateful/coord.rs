@@ -394,10 +394,10 @@ pub mod tests {
             }
         }
     }
-    pub struct MockMessagesRepostiory {
+    pub struct MockMessagesRepository {
         messages: RwLock<Vec<Messages>>,
     }
-    impl MockMessagesRepostiory {
+    impl MockMessagesRepository {
         pub fn from(messages: Vec<Messages>) -> Self {
             Self {
                 messages: RwLock::new(messages),
@@ -482,7 +482,7 @@ pub mod tests {
     }
 
     #[async_trait]
-    impl Repository<Messages> for MockMessagesRepostiory {
+    impl Repository<Messages> for MockMessagesRepository {
         async fn find_all(&self) -> Result<Vec<Messages>, RepositoryError> {
             Ok(self.messages.read().unwrap().clone())
         }

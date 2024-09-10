@@ -68,7 +68,7 @@ mod test {
 
     use crate::{
         repository::stateful::coord::tests::{
-            MockConnectionRepository, MockMessagesRepostiory, MockSecretsRepository,
+            MockConnectionRepository, MockMessagesRepository, MockSecretsRepository,
         },
         util::{self, MockFileSystem},
         web::AppStateRepository,
@@ -87,7 +87,7 @@ mod test {
         let repository = AppStateRepository {
             connection_repository: Arc::new(MockConnectionRepository::from(vec![])),
             secret_repository: Arc::new(MockSecretsRepository::from(vec![])),
-            message_repository: Arc::new(MockMessagesRepostiory::from(vec![])),
+            message_repository: Arc::new(MockMessagesRepository::from(vec![])),
         };
 
         let state = Arc::new(AppState::from(
