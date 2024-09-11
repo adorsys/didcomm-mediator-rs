@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use mongodb::bson::{oid::ObjectId, Document as BsonDocument};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-
+use mongodb::error::Error as MongoError;
 /// A trait representing an abstract resource.
 /// Any type implementing this trait should also implement `Serialize`.
 pub trait Entity: Sized + Serialize {}
@@ -40,4 +40,10 @@ pub trait Repository<Entity>: Sync + Send {
 
     /// Deletes a single entity by its identifier.
     async fn delete_one(&self, entity_id: ObjectId) -> Result<(), RepositoryError>;
+}
+
+impl From<MongoError> for RepositoryError {
+    fn from(error: MongoError) -> Self {
+        RepositoryError::Generic(error.to_string())
+    }
 }

@@ -87,7 +87,7 @@ pub mod tests {
 
     use crate::{
         didcomm::bridge::LocalSecretsResolver,
-        repository::stateful::coord::tests::{MockConnectionRepository, MockSecretsRepository},
+        repository::stateful::tests::{MockConnectionRepository, MockSecretsRepository},
         util::{self, MockFileSystem},
         web::{self, AppStateRepository},
     };
@@ -195,7 +195,7 @@ mod tests2 {
     use super::{tests as global, *};
     use crate::{
         constant::KEYLIST_UPDATE_RESPONSE_2_0,
-        repository::stateful::coord::tests::MockConnectionRepository,
+        repository::stateful::tests::MockConnectionRepository,
         web::{self, AppStateRepository},
     };
 

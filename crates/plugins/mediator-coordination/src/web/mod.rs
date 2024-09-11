@@ -4,6 +4,7 @@ mod handler;
 mod midlw;
 
 use axum::{middleware, routing::post, Router};
+use database::Repository;
 use keystore::KeyStore;
 use did_utils::{didcore::Document, jwk::Jwk};
 use std::sync::Arc;
@@ -12,7 +13,6 @@ use crate::{
     didcomm::bridge::{LocalDIDResolver, LocalSecretsResolver},
     model::stateful::entity::Connection,
     model::stateful::entity::Secrets,
-    repository::traits::Repository,
     util,
 };
 

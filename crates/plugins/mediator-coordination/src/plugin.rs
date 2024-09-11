@@ -5,7 +5,7 @@ use mongodb::{error::Error as MongoError, options::ClientOptions, Client, Databa
 use std::sync::Arc;
 
 use crate::{
-    repository::stateful::coord::{MongoConnectionRepository, MongoSecretsRepository},
+    repository::stateful::{MongoConnectionRepository, MongoSecretsRepository},
     util,
     web::{self, AppState, AppStateRepository},
 };

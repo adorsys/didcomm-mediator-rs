@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use database::{Entity, Repository, RepositoryError};
 use mongodb::{
     bson::{self, doc, oid::ObjectId, Bson, Document as BsonDocument},
     Collection, Database,
@@ -6,7 +7,6 @@ use mongodb::{
 
 use crate::{
     model::stateful::entity::{Connection, Secrets},
-    repository::traits::{Entity, Repository, RepositoryError},
 };
 
 impl Entity for Connection {}
