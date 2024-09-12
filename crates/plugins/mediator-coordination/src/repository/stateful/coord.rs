@@ -5,7 +5,7 @@ use mongodb::{
 };
 
 use crate::{
-    model::stateful::entity::{Connection, Messages, Secrets},
+    model::stateful::entity::{Connection, RoutedMessage, Secrets},
     repository::traits::{Entity, Repository, RepositoryError},
 };
 
@@ -118,7 +118,7 @@ impl MongoSecretsRepository {
     }
 }
 pub struct MongoMessagesRepository {
-    collection: Collection<Messages>,
+    collection: Collection<RoutedMessage>,
 }
 impl MongoMessagesRepository {
     pub fn from_db(db: &Database) -> Self {
@@ -128,9 +128,9 @@ impl MongoMessagesRepository {
     }
 }
 #[async_trait]
-impl Repository<Messages> for MongoMessagesRepository {
-    async fn find_all(&self) -> Result<Vec<Messages>, RepositoryError> {
-        let mut messages: Vec<Messages> = vec![];
+impl Repository<RoutedMessage> for MongoMessagesRepository {
+    async fn find_all(&self) -> Result<Vec<RoutedMessage>, RepositoryError> {
+        let mut messages: Vec<RoutedMessage> = vec![];
 
         // Retrieve all messages from the database
         let mut cursor = self.collection.find(None, None).await?;
@@ -140,21 +140,21 @@ impl Repository<Messages> for MongoMessagesRepository {
 
         Ok(messages)
     }
-    async fn find_one(&self, message_id: ObjectId) -> Result<Option<Messages>, RepositoryError> {
+    async fn find_one(&self, message_id: ObjectId) -> Result<Option<RoutedMessage>, RepositoryError> {
         // Query the database for the specified message ID
         self.find_one_by(doc! {"_id": message_id}).await
     }
-    async fn find_one_by(&self, filter: BsonDocument) -> Result<Option<Messages>, RepositoryError> {
+    async fn find_one_by(&self, filter: BsonDocument) -> Result<Option<RoutedMessage>, RepositoryError> {
         // Query the database for the specified message ID
         Ok(self.collection.find_one(filter, None).await?)
     }
-    async fn store(&self, message: Messages) -> Result<Messages, RepositoryError> {
+    async fn store(&self, message: RoutedMessage) -> Result<RoutedMessage, RepositoryError> {
         // Insert the new message into the database
         let metadata = self.collection.insert_one(message.clone(), None).await?;
 
         // Return persisted message
         Ok(match metadata.inserted_id {
-            Bson::ObjectId(oid) => Messages {
+            Bson::ObjectId(oid) => RoutedMessage {
                 id: Some(oid),
                 ..message
             },
@@ -175,7 +175,7 @@ impl Repository<Messages> for MongoMessagesRepository {
         }
     }
 
-    async fn update(&self, message: Messages) -> Result<Messages, RepositoryError> {
+    async fn update(&self, message: RoutedMessage) -> Result<RoutedMessage, RepositoryError> {
         if message.id.is_none() {
             return Err(RepositoryError::MissingIdentifier);
         }
@@ -395,10 +395,10 @@ pub mod tests {
         }
     }
     pub struct MockMessagesRepository {
-        messages: RwLock<Vec<Messages>>,
+        messages: RwLock<Vec<RoutedMessage>>,
     }
     impl MockMessagesRepository {
-        pub fn from(messages: Vec<Messages>) -> Self {
+        pub fn from(messages: Vec<RoutedMessage>) -> Self {
             Self {
                 messages: RwLock::new(messages),
             }
@@ -482,22 +482,22 @@ pub mod tests {
     }
 
     #[async_trait]
-    impl Repository<Messages> for MockMessagesRepository {
-        async fn find_all(&self) -> Result<Vec<Messages>, RepositoryError> {
+    impl Repository<RoutedMessage> for MockMessagesRepository {
+        async fn find_all(&self) -> Result<Vec<RoutedMessage>, RepositoryError> {
             Ok(self.messages.read().unwrap().clone())
         }
 
         async fn find_one(
             &self,
             secrets_id: ObjectId,
-        ) -> Result<Option<Messages>, RepositoryError> {
+        ) -> Result<Option<RoutedMessage>, RepositoryError> {
             self.find_one_by(doc! {"_id": secrets_id}).await
         }
 
         async fn find_one_by(
             &self,
             filter: BsonDocument,
-        ) -> Result<Option<Messages>, RepositoryError> {
+        ) -> Result<Option<RoutedMessage>, RepositoryError> {
             let filter: HashMap<String, Bson> = filter.into_iter().collect();
 
             Ok(self
@@ -517,7 +517,7 @@ pub mod tests {
                 .cloned())
         }
 
-        async fn store(&self, messages: Messages) -> Result<Messages, RepositoryError> {
+        async fn store(&self, messages: RoutedMessage) -> Result<RoutedMessage, RepositoryError> {
             // Add new entity to collection
             self.messages.write().unwrap().push(messages.clone());
 
@@ -525,7 +525,7 @@ pub mod tests {
             Ok(messages)
         }
 
-        async fn update(&self, messages: Messages) -> Result<Messages, RepositoryError> {
+        async fn update(&self, messages: RoutedMessage) -> Result<RoutedMessage, RepositoryError> {
             // Find entity to update
             let pos = self
                 .messages

@@ -24,7 +24,7 @@ pub struct Connection {
     pub routing_did: String,
 }
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-pub struct Messages {
+pub struct RoutedMessage {
     #[serde(rename = "_id")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub id: Option<ObjectId>,
