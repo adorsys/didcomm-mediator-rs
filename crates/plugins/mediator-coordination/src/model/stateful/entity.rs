@@ -1,3 +1,4 @@
+use didcomm::Message;
 /// Resources to map in a database.
 use mongodb::bson::oid::ObjectId;
 use serde::{Deserialize, Serialize};
@@ -21,6 +22,14 @@ pub struct Connection {
 
     /// Generated DID to route messages to client.
     pub routing_did: String,
+}
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct RoutedMessage {
+    #[serde(rename = "_id")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<ObjectId>,
+    pub message: Message,
+    pub recipient_did: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
