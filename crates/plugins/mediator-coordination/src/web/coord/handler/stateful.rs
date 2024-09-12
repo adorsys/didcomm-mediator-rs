@@ -461,30 +461,28 @@ mod tests {
     async fn test_keylist_query_malformed_request() {
         let state = setup(_initial_connections());
 
-        // Prepare request
+        // Prepare request with a sender that is not in the system 
         let message = Message::build(
-            "id_alice_keylist_update_request".to_owned(),
+            "id_alice_keylist_query".to_owned(),
             "https://didcomm.org/coordinate-mediation/2.0/keylist-query".to_owned(),
-            json!("not-keylist-update-request"),
+            json!({}),
         )
-        .header("return_route".into(), json!("all"))
         .to(global::_mediator_did(&state))
-        .from(global::_edge_did())
+        .from("did:example:uncoordinated_sender".to_string()) 
         .finalize();
 
         // Process request
-        let err = process_plain_keylist_update_message(Arc::clone(&state), message)
+        let err = process_plain_keylist_query_message(Arc::clone(&state), message)
             .await
             .unwrap_err();
-
-        // Assert issued error
+        // Assert issued error for uncoordinated sender
         _assert_delegate_handler_err(
             err,
-            StatusCode::BAD_REQUEST,
-            MediationError::UnexpectedMessageFormat,
+            StatusCode::UNAUTHORIZED,
+            MediationError::UncoordinatedSender,
         )
         .await;
-    }
+    }    
     #[tokio::test]
     async fn test_keylist_update() {
         let state = setup(_initial_connections());
