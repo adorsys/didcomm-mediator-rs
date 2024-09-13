@@ -1,10 +1,14 @@
-use axum::response::Response;
+use std::cell::RefCell;
+
+use axum::response::{IntoResponse, Response};
 use didcomm::Message;
 
+use hyper::StatusCode;
+use mongodb::bson::doc;
 use serde_json::{from_value, json, Value};
 
 use crate::{
-    model::stateful::entity::Messages,
+    model::stateful::entity::{Connection, Messages},
     web::{error::MediationError, AppState, AppStateRepository},
 };
 
@@ -17,7 +21,9 @@ pub async fn mediator_forward_process(
     payload: Message,
 ) -> Result<Option<Message>, Response> {
     let AppStateRepository {
-        message_repository, ..
+        message_repository,
+        connection_repository,
+        ..
     } = state
         .repository
         .as_ref()
@@ -26,6 +32,23 @@ pub async fn mediator_forward_process(
 
     let body: Value = json!(payload.body.as_object());
     let next: Vec<String> = from_value(body.get("next").unwrap().to_owned()).unwrap();
+
+    // Check if the sender has a connection with the mediator else return early with custom error.
+    let sender = payload.clone().from.unwrap();
+    let _connection: Option<Connection> = match connection_repository
+        .find_one_by(doc! {"client_did": &sender})
+        .await
+        .unwrap()
+    {
+        Some(_connection) => None,
+        None => {
+            let response = (
+                StatusCode::UNAUTHORIZED,
+                MediationError::UncoordinatedSender.json(),
+            );
+            return Err(response.into_response());
+        }
+    };
 
     // store unpacked payload with associated dids in the next field of body for routing
     let receivering_dids = next;
