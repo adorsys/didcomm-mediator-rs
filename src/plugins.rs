@@ -17,5 +17,9 @@ lazy_static! {
         Arc::new(Mutex::new(did_endpoint::plugin::DidEndpoint {})),
         #[cfg(feature = "plugin-oob_messages")]
         Arc::new(Mutex::new(oob_messages::plugin::OOBMessages {})),
+        #[cfg(feature = "plugin-mediator-coordination")]
+        Arc::new(Mutex::new(
+            <mediator_coordination::plugin::MediatorCoordinationPlugin as std::default::Default>::default()
+        ))
     ];
 }

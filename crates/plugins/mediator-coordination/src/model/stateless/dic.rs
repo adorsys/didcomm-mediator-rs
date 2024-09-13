@@ -1,6 +1,6 @@
 use did_utils::jwk::Jwk;
-
 use did_utils::key_jwk::jwk::Jwk;
+
 use serde::{de::Error, Deserialize, Deserializer, Serialize, Serializer};
 
 use serde_json::{json, Value};

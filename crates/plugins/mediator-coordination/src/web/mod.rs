@@ -10,8 +10,7 @@ use std::sync::Arc;
 
 use crate::{
     didcomm::bridge::{LocalDIDResolver, LocalSecretsResolver},
-    model::stateful::entity::Connection,
-    model::stateful::entity::Secrets,
+    model::stateful::entity::{Connection, RoutedMessage, Secrets},
     repository::traits::Repository,
     util,
 };
@@ -19,7 +18,7 @@ use crate::{
 pub fn routes(state: Arc<AppState>) -> Router {
     Router::new()
         // Unified route for all DIDComm messages
-        .route("/", post(handler::process_didcomm_message))
+        .route("/me", post(handler::process_didcomm_message))
         .route_layer(middleware::from_fn_with_state(
             state.clone(),
             midlw::unpack_didcomm_message,
@@ -34,7 +33,7 @@ pub struct AppState {
     public_domain: String,
 
     // Crypto identity
-    diddoc: Document,
+    pub diddoc: Document,
     assertion_jwk: (String, Jwk),
 
     // DIDComm Resolvers
@@ -42,13 +41,14 @@ pub struct AppState {
     pub secrets_resolver: LocalSecretsResolver,
 
     // Persistence layer
-    repository: Option<AppStateRepository>,
+    pub repository: Option<AppStateRepository>,
 }
 
 #[derive(Clone)]
 pub struct AppStateRepository {
     pub connection_repository: Arc<dyn Repository<Connection>>,
     pub secret_repository: Arc<dyn Repository<Secrets>>,
+    pub message_repository: Arc<dyn Repository<RoutedMessage>>,
 }
 
 impl AppState {
