@@ -227,7 +227,17 @@ mod tests2 {
             connection_repository: Arc::new(MockConnectionRepository::from(
                 serde_json::from_str(
                     r##"[
-                 
+                      {
+                        "_id": {
+                            "$oid": "6580701fd2d92bb3cd291b2a"
+                        },
+                        "client_did": "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7",
+                        "mediator_did": "did:web:alice-mediator.com:alice_mediator_pub",
+                        "routing_did": "did:key:generated",
+                        "keylist": [
+                            "did:key:alice_identity_pub1@alice_mediator"
+                        ]
+                    }
                 ]"##,
                 )
                 .unwrap(),
@@ -370,7 +380,7 @@ mod tests2 {
             .await
             .unwrap();
 
-        // Assert response's metadata
+        // Assert response's metadata 
         assert_eq!(response.status(), StatusCode::ACCEPTED);
         assert_eq!(
             response.headers().get(CONTENT_TYPE).unwrap(),
