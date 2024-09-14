@@ -4,8 +4,8 @@ mod handler;
 mod midlw;
 
 use axum::{middleware, routing::post, Router};
-use keystore::KeyStore;
 use did_utils::{didcore::Document, jwk::Jwk};
+use keystore::KeyStore;
 use std::sync::Arc;
 
 use crate::{
@@ -33,15 +33,15 @@ pub struct AppState {
     public_domain: String,
 
     // Crypto identity
-    pub diddoc: Document,
+    pub(crate) diddoc: Document,
     assertion_jwk: (String, Jwk),
 
     // DIDComm Resolvers
-    pub did_resolver: LocalDIDResolver,
-    pub secrets_resolver: LocalSecretsResolver,
+    pub(crate) did_resolver: LocalDIDResolver,
+    pub(crate) secrets_resolver: LocalSecretsResolver,
 
     // Persistence layer
-    pub repository: Option<AppStateRepository>,
+    pub(crate) repository: Option<AppStateRepository>,
 }
 
 #[derive(Clone)]

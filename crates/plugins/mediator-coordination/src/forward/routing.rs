@@ -1,64 +1,74 @@
-use std::fs;
-
-use didcomm::{Message, PackEncryptedOptions, UnpackOptions};
-
-use crate::web::{error::MediationError, AppState};
-
-struct MessageStore {
-    dirpath: String,
-}
-impl MessageStore {
-    fn persist_msg(&self, content: String, inode: String) {
-        fs::create_dir_all(&self.dirpath).unwrap();
-        let file = format!("{}/{}.json",&self.dirpath, inode,);
-        fs::write(file, content).unwrap();
-    }
-}
 
 
+use axum::response::{IntoResponse, Response};
+use didcomm::Message;
+
+use hyper::StatusCode;
+use mongodb::bson::doc;
+use serde_json::{from_value, json, Value};
+
+use crate::{
+    model::stateful::entity::{Connection, Messages},
+    web::{error::MediationError, AppState, AppStateRepository},
+};
+
+/// mediator receives messages of type forward then it unpacks the messages and stores it for pickup
+/// the unpacked message is then repacked for further transmission.
+/// Note: Stored messages are not re_packed and must be before transmission in case of
+/// Rewrapping.
 pub async fn mediator_forward_process(
-    mediator_did: Option<&str>,
-    payload: &str,
     state: &AppState,
-    store_dir_path: String,
-) -> Result<(), MediationError> {
-    // unpack encrypted payload message
-    let store = MessageStore { dirpath: store_dir_path };
+    payload: Message,
+) -> Result<Option<Message>, Response> {
+    let AppStateRepository {
+        message_repository,
+        connection_repository,
+        ..
+    } = state
+        .repository
+        .as_ref()
+        .ok_or_else(|| MediationError::RepostitoryError)
+        .unwrap();
 
-    let result = Message::unpack(
-        payload,
-        &state.did_resolver,
-        &state.secrets_resolver,
-        &UnpackOptions::default(),
-    )
-    .await;
+    let body: Value = json!(payload.body.as_object());
+    let next: Vec<String> = from_value(body.get("next").unwrap().to_owned()).unwrap();
+
+    // Check if the sender has a connection with the mediator else return early with custom error.
+    let sender = payload.clone().from.unwrap();
+    let _connection: Option<Connection> = match connection_repository
+        .find_one_by(doc! {"client_did": &sender})
+        .await
+        .unwrap()
     {
-        match result {
-            Ok((unpack_msg, _)) => {
-                if unpack_msg.to.is_some() {
-                    let dids = Some(unpack_msg.clone().to).unwrap().unwrap();
-                    for did in dids {
-                        let (re_packed_msg, _) = unpack_msg
-                            .pack_encrypted(
-                                &did,
-                                mediator_did,
-                                None,
-                                &state.did_resolver,
-                                &state.secrets_resolver,
-                                &PackEncryptedOptions::default(),
-                            )
-                            .await
-                            .unwrap();
+        Some(_connection) => None,
+        None => {
+            let response = (
+                StatusCode::UNAUTHORIZED,
+                MediationError::UncoordinatedSender.json(),
+            );
+            return Err(response.into_response());
 
-                        store.persist_msg(serde_json::to_string_pretty(&re_packed_msg).unwrap(), did)
-                    }
-                }
-
-                Ok(())
-            }
-            Err(_) => Err(MediationError::MessageUnpackingFailure),
         }
+    };
+
+    // store unpacked payload with associated dids in the next field of body for routing
+    let receivering_dids = next;
+    for did in receivering_dids {
+        let messages = Messages {
+            id: None,
+            message: payload.clone(),
+            recipient_did: did,
+        };
+        message_repository
+            .store(messages)
+            .await
+            .map_err(|_| MediationError::PersisenceError)
+            .unwrap();
     }
+
+
+    Ok(None)
+
 }
 
 #[cfg(test)]
@@ -66,14 +76,24 @@ mod test {
     use std::{borrow::Borrow, sync::Arc};
 
     use crate::{
-        repository::stateful::coord::tests::{MockConnectionRepository, MockSecretsRepository},
+
+        constant::MEDIATE_FORWARD_2_0,
+        forward::ledger::{ALICE_DID_DOC, ALICE_SECRETS, MEDIATOR_DID_DOC},
+        repository::stateful::coord::tests::{
+            MockConnectionRepository, MockMessagesRepository, MockSecretsRepository,
+        },
+
         util::{self, MockFileSystem},
         web::AppStateRepository,
     };
 
     use super::*;
 
-    use didcomm::Message;
+    use didcomm::{
+        did::resolvers::ExampleDIDResolver, secrets::resolvers::ExampleSecretsResolver, Message,
+        PackEncryptedOptions, UnpackOptions,
+    };
+    use uuid::Uuid;
     pub fn setup() -> Arc<AppState> {
         let public_domain = String::from("http://alice-mediator.com");
 
@@ -98,25 +118,45 @@ mod test {
     }
     #[tokio::test]
     async fn test_mediator_forward_process() {
+        // simulate sender forwarding process
+        let did_resolver =
+            ExampleDIDResolver::new(vec![MEDIATOR_DID_DOC.clone(), ALICE_DID_DOC.clone()]);
+        let secret_resolver = ExampleSecretsResolver::new(ALICE_SECRETS.clone());
+        const ALICE_DID: &str = "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7";
+        const MEDIATOR_DID: &str = "did:web:alice-mediator.com:alice_mediator_pub";
+        let id = Uuid::new_v4().to_string();
         let msg: Message = Message::build(
-            "id".to_owned(),
-            "type_".to_owned(),
-            serde_json::json!("example-body"),
+            id,
+            MEDIATE_FORWARD_2_0.to_string(),
+            serde_json::json!({"next":["did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7"]}),
         )
-        .to("did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK".to_owned())
-        .from("did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK".to_owned())
+        .to(MEDIATOR_DID.to_owned())
+        .from(ALICE_DID.to_owned())
         .finalize();
-        let serialize_msg = serde_json::to_string(msg.clone().borrow());
-        let state = setup();
+        let state = &setup();
 
-        // case where  mediator did is not provided
-        let _pickup_msg = mediator_forward_process(
-            None,
-            serialize_msg.unwrap().as_str(),
-            &state,
-            "./msg".to_string(),
+        let (msg, _metadata) = msg
+            .pack_encrypted(
+                MEDIATOR_DID,
+                Some(ALICE_DID),
+                None,
+                &did_resolver,
+                &secret_resolver,
+                &PackEncryptedOptions::default(),
+            )
+            .await
+            .unwrap();
+
+        // Mediator in action
+        let (payload, _) = Message::unpack(
+            &msg,
+            &state.did_resolver,
+            &state.secrets_resolver,
+            &UnpackOptions::default(),
         )
         .await
         .unwrap();
+        mediator_forward_process(state, payload).await.ok();
+
     }
 }

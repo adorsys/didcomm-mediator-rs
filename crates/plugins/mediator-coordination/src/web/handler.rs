@@ -8,7 +8,10 @@ use hyper::{header::CONTENT_TYPE, StatusCode};
 use std::sync::Arc;
 
 use crate::{
-    constant::{DIDCOMM_ENCRYPTED_MIME_TYPE, KEYLIST_UPDATE_2_0, MEDIATE_REQUEST_2_0},
+    constant::{
+        DIDCOMM_ENCRYPTED_MIME_TYPE, KEYLIST_UPDATE_2_0, MEDIATE_FORWARD_2_0, MEDIATE_REQUEST_2_0,
+    },
+    forward::routing::mediator_forward_process,
     web::{self, error::MediationError, AppState},
 };
 
@@ -29,6 +32,7 @@ pub async fn process_didcomm_message(
         MEDIATE_REQUEST_2_0 => {
             web::coord::handler::stateful::process_mediate_request(&state, &message).await
         }
+        MEDIATE_FORWARD_2_0 => mediator_forward_process(&state, message).await,
         _ => {
             let response = (
                 StatusCode::BAD_REQUEST,
@@ -44,7 +48,7 @@ pub async fn process_didcomm_message(
 
 async fn process_response_from_delegate_handler(
     state: Arc<AppState>,
-    response: Result<Message, Response>,
+    response: Result<Option<Message>, Response>,
 ) -> Response {
     // Extract plain message or early return error response
     let plain_response_message = match response {
@@ -54,7 +58,7 @@ async fn process_response_from_delegate_handler(
 
     // Pack response message
     let packed_message = match web::midlw::pack_response_message(
-        &plain_response_message,
+        &plain_response_message.unwrap(),
         &state.did_resolver,
         &state.secrets_resolver,
     )
