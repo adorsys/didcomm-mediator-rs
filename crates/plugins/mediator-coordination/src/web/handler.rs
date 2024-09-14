@@ -201,7 +201,7 @@ pub mod tests {
 mod tests2 {
     use super::{tests as global, *};
     use crate::{
-        constant::KEYLIST_UPDATE_RESPONSE_2_0,
+        constant::{KEYLIST_UPDATE_RESPONSE_2_0, MEDIATE_GRANT_2_0},
         repository::stateful::coord::tests::MockConnectionRepository,
         web::{self, AppStateRepository},
     };
@@ -227,17 +227,7 @@ mod tests2 {
             connection_repository: Arc::new(MockConnectionRepository::from(
                 serde_json::from_str(
                     r##"[
-                    {
-                        "_id": {
-                            "$oid": "6580701fd2d92bb3cd291b2a"
-                        },
-                        "client_did": "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7",
-                        "mediator_did": "did:web:alice-mediator.com:alice_mediator_pub",
-                        "routing_did": "did:key:generated",
-                        "keylist": [
-                            "did:key:alice_identity_pub1@alice_mediator"
-                        ]
-                    }
+                 
                 ]"##,
                 )
                 .unwrap(),
@@ -291,7 +281,7 @@ mod tests2 {
         let response = app
             .oneshot(
                 Request::builder()
-                    .uri(String::from("/"))
+                    .uri(String::from("/mediate"))
                     .method(Method::POST)
                     .header(CONTENT_TYPE, DIDCOMM_ENCRYPTED_MIME_TYPE)
                     .body(Body::from(packed_msg))
@@ -340,5 +330,85 @@ mod tests2 {
                 ]
             })
         );
+    }
+    #[tokio::test]
+    async fn test_mediate_request() {
+        let (app, state) = setup();
+
+        // Build message
+        let msg = Message::build(
+            "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
+            "https://didcomm.org/coordinate-mediation/2.0/mediate-request".to_owned(),
+            json!({}),
+        )
+        .header("return_route".into(), json!("all"))
+        .to(global::_mediator_did(&state))
+        .from(global::_edge_did())
+        .finalize();
+
+        // Encrypt message for mediator
+        let packed_msg = global::_edge_pack_message(
+            &state,
+            &msg,
+            Some(global::_edge_did()),
+            global::_mediator_did(&state),
+        )
+        .await
+        .unwrap();
+
+        println!("{}", packed_msg);
+        // Send request
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri(String::from("/mediate"))
+                    .method(Method::POST)
+                    .header(CONTENT_TYPE, DIDCOMM_ENCRYPTED_MIME_TYPE)
+                    .body(Body::from(packed_msg))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        // Assert response's metadata
+        assert_eq!(response.status(), StatusCode::ACCEPTED);
+        assert_eq!(
+            response.headers().get(CONTENT_TYPE).unwrap(),
+            DIDCOMM_ENCRYPTED_MIME_TYPE
+        );
+
+        // Parse response's body
+        let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+        let body: Value = serde_json::from_slice(&body).unwrap();
+        let response = serde_json::to_string(&body).unwrap();
+
+        // Decrypt response
+        let response: Message = global::_edge_unpack_message(&state, &response)
+            .await
+            .unwrap();
+
+        // Assert metadata
+        assert_eq!(response.type_, MEDIATE_GRANT_2_0);
+        assert_eq!(response.from.unwrap(), global::_mediator_did(&state));
+        assert_eq!(response.to.unwrap(), vec![global::_edge_did()]);
+
+        // Assert updates
+        // assert_eq!(
+        //     response.body,
+        //     json!({
+        //         "updated": [
+        //             {
+        //                 "recipient_did": "did:key:alice_identity_pub1@alice_mediator",
+        //                 "action": "remove",
+        //                 "result": "success"
+        //             },
+        //             {
+        //                 "recipient_did":"did:key:alice_identity_pub2@alice_mediator",
+        //                 "action": "add",
+        //                 "result": "success"
+        //             },
+        //         ]
+        //     })
+        // );
     }
 }

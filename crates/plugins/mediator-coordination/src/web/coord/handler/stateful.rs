@@ -55,18 +55,20 @@ pub async fn process_mediate_request(
         .unwrap()
     {
         println!("Sending mediate deny.");
-        return Ok(Some(Message::build(
-            format!("urn:uuid:{}", Uuid::new_v4()),
-            MEDIATE_DENY_2_0.to_string(),
-            json!(MediationDeny {
-                id: format!("urn:uuid:{}", Uuid::new_v4()),
-                message_type: MEDIATE_DENY_2_0.to_string(),
-                ..Default::default()
-            }),
-        )
-        .to(sender_did.clone())
-        .from(mediator_did.clone())
-        .finalize()));
+        return Ok(Some(
+            Message::build(
+                format!("urn:uuid:{}", Uuid::new_v4()),
+                MEDIATE_DENY_2_0.to_string(),
+                json!(MediationDeny {
+                    id: format!("urn:uuid:{}", Uuid::new_v4()),
+                    message_type: MEDIATE_DENY_2_0.to_string(),
+                    ..Default::default()
+                }),
+            )
+            .to(sender_did.clone())
+            .from(mediator_did.clone())
+            .finalize(),
+        ));
     } else {
         /* Issue mediate grant response */
         println!("Sending mediate grant.");
@@ -137,14 +139,16 @@ pub async fn process_mediate_request(
             Err(error) => eprintln!("Error storing connection: {:?}", error),
         }
 
-        Ok(Some(Message::build(
-            format!("urn:uuid:{}", Uuid::new_v4()),
-            mediation_grant.message_type.clone(),
-            json!(mediation_grant),
-        )
-        .to(sender_did.clone())
-        .from(mediator_did.clone())
-        .finalize()))
+        Ok(Some(
+            Message::build(
+                format!("urn:uuid:{}", Uuid::new_v4()),
+                mediation_grant.message_type.clone(),
+                json!(mediation_grant),
+            )
+            .to(sender_did.clone())
+            .from(mediator_did.clone())
+            .finalize(),
+        ))
     }
 }
 
@@ -348,7 +352,7 @@ mod tests {
     use super::*;
 
     use crate::{
-        repository::stateful::coord::tests::MockConnectionRepository, web::handler::tests as global,
+        constant::MEDIATE_REQUEST_2_0, repository::stateful::coord::tests::MockConnectionRepository, web::handler::tests as global
     };
 
     #[allow(clippy::needless_update)]
@@ -814,5 +818,72 @@ mod tests {
                 .map(|s| &s.service_endpoint),
             Some(service_endpoint.to_string()).as_ref()
         );
+    }
+
+    #[tokio::test]
+    async fn test_mediate_request() {
+        let state = setup(vec![Connection{..Default::default()}]);
+
+        // Prepare request
+
+        let message = Message::build(
+            "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
+            "https://didcomm.org/coordinate-mediation/2.0/mediate-request".to_owned(),
+            json!({}),
+        )
+        .header("return_route".into(), json!("all"))
+        .to(global::_mediator_did(&state))
+        .from(global::_edge_did())
+        .finalize();
+
+        // Process request
+
+        let response = process_mediate_request(&state, &message).await                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           .unwrap();
+        let response = response.unwrap();
+
+        // Assert metadata
+
+        assert_eq!(response.type_,  MEDIATE_GRANT_2_0);
+        assert_eq!(response.from.unwrap(), global::_mediator_did(&state));
+        assert_eq!(response.to.unwrap(), vec![global::_edge_did()]);
+
+    
+
+        // Assert repository state
+
+        let AppStateRepository {
+            connection_repository,
+            ..
+        } = state.repository.as_ref().unwrap();
+
+        let _connections = connection_repository.find_all().await.unwrap();
+        // assert_eq!(
+        //     connections,
+        //     serde_json::from_str::<Vec<Connection>>(
+        //         r##"[
+        //             {
+        //                 "_id": {
+        //                     "$oid": "6580701fd2d92bb3cd291b2a"
+        //                 },
+        //                 "client_did": "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7",
+        //                 "mediator_did": "did:web:alice-mediator.com:alice_mediator_pub",
+        //                 "routing_did": "did:key:generated",
+        //                 "keylist": [
+        //                     "did:key:alice_identity_pub2@alice_mediator"
+        //                 ]
+        //             },
+        //             {
+        //                 "_id": {
+        //                     "$oid": "6580701fd2d92bb3cd291b2b"
+        //                 },
+        //                 "client_did": "did:key:other",
+        //                 "mediator_did": "did:web:alice-mediator.com:alice_mediator_pub",
+        //                 "routing_did": "did:key:generated",
+        //                 "keylist": []
+        //             }
+        //         ]"##
+        //     )
+        //     .unwrap()
+        // );
     }
 }
