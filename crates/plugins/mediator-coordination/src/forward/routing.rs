@@ -8,7 +8,7 @@ use mongodb::bson::doc;
 use serde_json::{from_value, json, Value};
 
 use crate::{
-    model::stateful::entity::{Connection, Messages},
+    model::stateful::entity::{Connection, RoutedMessage},
     web::{error::MediationError, AppState, AppStateRepository},
 };
 
@@ -54,7 +54,7 @@ pub async fn mediator_forward_process(
     // store unpacked payload with associated dids in the next field of body for routing
     let receivering_dids = next;
     for did in receivering_dids {
-        let messages = Messages {
+        let messages = RoutedMessage {
             id: None,
             message: payload.clone(),
             recipient_did: did,
@@ -105,6 +105,7 @@ mod test {
         let repository = AppStateRepository {
             connection_repository: Arc::new(MockConnectionRepository::from(vec![])),
             secret_repository: Arc::new(MockSecretsRepository::from(vec![])),
+            message_repository: Arc::new(MockMessagesRepository::from(vec![]))
         };
 
         let state = Arc::new(AppState::from(
