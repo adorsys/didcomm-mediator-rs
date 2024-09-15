@@ -97,8 +97,8 @@ mod test {
     use super::*;
 
     use didcomm::{
-        did::resolvers::ExampleDIDResolver, secrets::resolvers::ExampleSecretsResolver, Message,
-        PackEncryptedOptions, UnpackOptions,
+        did::resolvers::ExampleDIDResolver, secrets::resolvers::ExampleSecretsResolver, Attachment,
+        AttachmentData, JsonAttachmentData, Message, PackEncryptedOptions, UnpackOptions,
     };
     use uuid::Uuid;
     pub fn setup() -> Arc<AppState> {
@@ -132,18 +132,32 @@ mod test {
         let secret_resolver = ExampleSecretsResolver::new(ALICE_SECRETS.clone());
         const ALICE_DID: &str = "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7";
         const MEDIATOR_DID: &str = "did:web:alice-mediator.com:alice_mediator_pub";
+
         let id = Uuid::new_v4().to_string();
-        let msg: Message = Message::build(
+        let msg = Attachment {
+            id: None,
+            description: Some("A friendly reminder to take a break and enjoy some fresh air!".to_string()),
+            media_type: None,
+            data: AttachmentData::Json { value: JsonAttachmentData{json: json!("Hey there! Just wanted to remind you to step outside for a bit. A little fresh air can do wonders for your mood."), jws: None} },
+            filename: Some("reminder.txt".to_string()),
+            format: Some("mime_type".to_string()),
+            lastmod_time: None,
+            byte_count: None
+        };
+        
+        let forward_msg: Message = Message::build(
             id,
             MEDIATE_FORWARD_2_0.to_string(),
             serde_json::json!({"next":["did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7"]}),
         )
         .to(MEDIATOR_DID.to_owned())
         .from(ALICE_DID.to_owned())
+        .attachment(msg)
         .finalize();
+    
         let state = &setup();
 
-        let (msg, _metadata) = msg
+        let (msg, _metadata) = forward_msg
             .pack_encrypted(
                 MEDIATOR_DID,
                 Some(ALICE_DID),
