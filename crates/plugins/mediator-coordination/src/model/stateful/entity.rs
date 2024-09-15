@@ -28,7 +28,7 @@ pub struct RoutedMessage {
     #[serde(rename = "_id")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub id: Option<ObjectId>,
-    pub message: Message,
+    pub message: String,
     pub recipient_did: String,
 }
 
