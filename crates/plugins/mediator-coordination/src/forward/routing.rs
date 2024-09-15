@@ -1,4 +1,4 @@
-
+use std::clone;
 
 use axum::response::{IntoResponse, Response};
 use didcomm::Message;
@@ -8,14 +8,12 @@ use mongodb::bson::doc;
 use serde_json::{from_value, json, Value};
 
 use crate::{
-    model::stateful::entity::{Connection, Messages},
+    model::stateful::{coord::KeylistEntry, entity::Messages},
     web::{error::MediationError, AppState, AppStateRepository},
 };
 
 /// mediator receives messages of type forward then it unpacks the messages and stores it for pickup
 /// the unpacked message is then repacked for further transmission.
-/// Note: Stored messages are not re_packed and must be before transmission in case of
-/// Rewrapping.
 pub async fn mediator_forward_process(
     state: &AppState,
     payload: Message,
@@ -34,13 +32,13 @@ pub async fn mediator_forward_process(
     let next: Vec<String> = from_value(body.get("next").unwrap().to_owned()).unwrap();
 
     // Check if the sender has a connection with the mediator else return early with custom error.
-    let sender = payload.clone().from.unwrap();
-    let _connection: Option<Connection> = match connection_repository
-        .find_one_by(doc! {"client_did": &sender})
+    let sender_did = payload.clone().from.unwrap();
+    let connection = match connection_repository
+        .find_one_by(doc! {"client_did": &sender_did})
         .await
         .unwrap()
     {
-        Some(_connection) => None,
+        Some(connection) => connection,
         None => {
             let response = (
                 StatusCode::UNAUTHORIZED,
@@ -50,19 +48,33 @@ pub async fn mediator_forward_process(
         }
     };
 
-    // store unpacked payload with associated dids in the next field of body for routing
-    let receivering_dids = next;
-    for did in receivering_dids {
-        let messages = Messages {
-            id: None,
-            message: payload.clone(),
-            recipient_did: did,
-        };
-        message_repository
-            .store(messages)
-            .await
-            .map_err(|_| MediationError::PersisenceError)
-            .unwrap();
+    // check if sender's did in mediator's keylist
+    let keylist_entries = connection.keylist.iter().find(|keys| keys == &&sender_did);
+    match keylist_entries {
+        Some(_) => {
+            // store message attachement with associated recipient did
+            let message = payload.clone().attachments.expect("expect attachements");
+            let receivering_dids = next;
+            for did in receivering_dids {
+                let messages = Messages {
+                    id: None,
+                    message: message.clone(),
+                    recipient_did: did,
+                };
+                message_repository
+                    .store(messages)
+                    .await
+                    .map_err(|_| MediationError::PersisenceError)
+                    .unwrap();
+            }
+        }
+        None => {
+            let response = (
+                StatusCode::UNAUTHORIZED,
+                MediationError::UncoordinatedSender.json(),
+            );
+            return Err(response.into_response());
+        }
     }
 
     Ok(None)

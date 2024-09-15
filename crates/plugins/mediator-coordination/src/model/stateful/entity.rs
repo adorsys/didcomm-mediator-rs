@@ -1,4 +1,4 @@
-use didcomm::Message;
+use didcomm::{Attachment, Message};
 /// Resources to map in a database.
 use mongodb::bson::oid::ObjectId;
 use serde::{Deserialize, Serialize};
@@ -28,7 +28,7 @@ pub struct Messages {
     #[serde(rename = "_id")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub id: Option<ObjectId>,
-    pub message: Message,
+    pub message: Vec<Attachment>,
     pub recipient_did: String,
 }
 
