@@ -5,7 +5,6 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 /// A trait representing an abstract resource.
 /// Any type implementing this trait should also implement `Serialize`.
-pub trait Entity: Sized + Serialize {}
 
 /// Definition of custom errors for repository operations
 #[derive(Debug, Serialize, Deserialize, Error)]
@@ -22,7 +21,10 @@ pub enum RepositoryError {
 
 /// Definition of a trait for repository operations
 #[async_trait]
-pub trait Repository<Entity>: Sync + Send {
+pub trait Repository<Entity>: Sync + Send
+where
+    Entity: Sized + Serialize,
+{
     /// Retrieves all entities.
     async fn find_all(&self) -> Result<Vec<Entity>, RepositoryError>;
 
