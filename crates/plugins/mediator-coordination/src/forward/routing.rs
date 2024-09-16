@@ -1,14 +1,13 @@
-use std::clone;
 
 use axum::response::{IntoResponse, Response};
-use didcomm::Message;
+use didcomm::{protocols::routing::try_parse_forward, Message};
 
 use hyper::StatusCode;
 use mongodb::bson::doc;
-use serde_json::{from_value, json, Value};
+
 
 use crate::{
-    model::stateful::{coord::KeylistEntry, entity::Messages},
+    model::stateful::entity::Messages,
     web::{error::MediationError, AppState, AppStateRepository},
 };
 
@@ -27,9 +26,6 @@ pub async fn mediator_forward_process(
         .as_ref()
         .ok_or_else(|| MediationError::RepostitoryError)
         .unwrap();
-
-    let body: Value = json!(payload.body.as_object());
-    let next: Vec<String> = from_value(body.get("next").unwrap().to_owned()).unwrap();
 
     // Check if the sender has a connection with the mediator else return early with custom error.
     let sender_did = payload.clone().from.unwrap();
@@ -53,20 +49,20 @@ pub async fn mediator_forward_process(
     match keylist_entries {
         Some(_) => {
             // store message attachement with associated recipient did
-            let message = payload.clone().attachments.expect("expect attachements");
-            let receivering_dids = next;
-            for did in receivering_dids {
-                let messages = Messages {
-                    id: None,
-                    message: message.clone(),
-                    recipient_did: did,
-                };
-                message_repository
-                    .store(messages)
-                    .await
-                    .map_err(|_| MediationError::PersisenceError)
-                    .unwrap();
-            }
+            let result = try_parse_forward(&payload).expect("Could Not Parse Forward");
+
+            let forward_msg = serde_json::to_string(&result.forwarded_msg).unwrap();
+
+            let messages = Messages {
+                id: None,
+                message: vec![forward_msg],
+                recipient_did: result.next,
+            };
+            message_repository
+                .store(messages)
+                .await
+                .map_err(|_| MediationError::PersisenceError)
+                .unwrap();
         }
         None => {
             let response = (
@@ -85,8 +81,7 @@ mod test {
     use std::sync::Arc;
 
     use crate::{
-        constant::MEDIATE_FORWARD_2_0,
-        forward::ledger::{ALICE_DID_DOC, ALICE_SECRETS, MEDIATOR_DID_DOC},
+        didcomm::bridge::LocalSecretsResolver,
         repository::stateful::coord::tests::{
             MockConnectionRepository, MockMessagesRepository, MockSecretsRepository,
         },
@@ -96,10 +91,12 @@ mod test {
 
     use super::*;
 
+    use did_utils::jwk::Jwk;
     use didcomm::{
-        did::resolvers::ExampleDIDResolver, secrets::resolvers::ExampleSecretsResolver, Attachment,
-        AttachmentData, JsonAttachmentData, Message, PackEncryptedOptions, UnpackOptions,
+        secrets::SecretsResolver,
+        Message, PackEncryptedOptions, UnpackOptions,
     };
+    use serde_json::json;
     use uuid::Uuid;
     pub fn setup() -> Arc<AppState> {
         let public_domain = String::from("http://alice-mediator.com");
@@ -127,47 +124,27 @@ mod test {
     #[tokio::test]
     async fn test_mediator_forward_process() {
         // simulate sender forwarding process
-        let did_resolver =
-            ExampleDIDResolver::new(vec![MEDIATOR_DID_DOC.clone(), ALICE_DID_DOC.clone()]);
-        let secret_resolver = ExampleSecretsResolver::new(ALICE_SECRETS.clone());
-        const ALICE_DID: &str = "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7";
-        const MEDIATOR_DID: &str = "did:web:alice-mediator.com:alice_mediator_pub";
-
-        let id = Uuid::new_v4().to_string();
-        let msg = Attachment {
-            id: None,
-            description: Some("A friendly reminder to take a break and enjoy some fresh air!".to_string()),
-            media_type: None,
-            data: AttachmentData::Json { value: JsonAttachmentData{json: json!("Hey there! Just wanted to remind you to step outside for a bit. A little fresh air can do wonders for your mood."), jws: None} },
-            filename: Some("reminder.txt".to_string()),
-            format: Some("mime_type".to_string()),
-            lastmod_time: None,
-            byte_count: None
-        };
-        
-        let forward_msg: Message = Message::build(
-            id,
-            MEDIATE_FORWARD_2_0.to_string(),
-            serde_json::json!({"next":["did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7"]}),
+   let state = &setup();
+        let msg = Message::build(
+            Uuid::new_v4().to_string(),
+            "example/v1".to_owned(),
+            json!("Hey there! Just wanted to remind you to step outside for a bit. A little fresh air can do wonders for your mood."),
         )
-        .to(MEDIATOR_DID.to_owned())
-        .from(ALICE_DID.to_owned())
-        .attachment(msg)
+        .to(_recipient_did())
+        .from(_sender_did())
         .finalize();
-    
-        let state = &setup();
 
-        let (msg, _metadata) = forward_msg
+        let (msg, _) = msg
             .pack_encrypted(
-                MEDIATOR_DID,
-                Some(ALICE_DID),
+                &_recipient_did(),
+                Some(&_sender_did()),
                 None,
-                &did_resolver,
-                &secret_resolver,
+                &state.did_resolver,
+                &_sender_secrets_resolver(),
                 &PackEncryptedOptions::default(),
             )
             .await
-            .unwrap();
+            .expect("Unable pack_encrypted");
 
         // Mediator in action
         let (payload, _) = Message::unpack(
@@ -178,6 +155,34 @@ mod test {
         )
         .await
         .unwrap();
-        mediator_forward_process(state, payload).await.ok();
+
+        assert!(mediator_forward_process(state, payload).await.is_ok());
+    }
+
+    pub fn _sender_did() -> String {
+        "did:key:z6MkwKfDFAK49Lb9D6HchFiCXdcurRUSFrbnwDBk5qFZeHA3".to_string()
+    }
+
+    pub fn _mediator_did(state: &AppState) -> String {
+        state.diddoc.id.clone()
+    }
+
+    pub fn _recipient_did() -> String {
+        "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7".to_string()
+    }
+
+    pub fn _sender_secrets_resolver() -> impl SecretsResolver {
+        let secret_id = _sender_did() + "#z6LSiZbfm5L5zR3mrqpHyL7T2b2x3afUMpmGnMrEQznAz5F3";
+        let secret: Jwk = serde_json::from_str(
+            r#"{
+                "kty": "OKP",
+                "crv": "X25519",
+                "x": "ZlJzHqy2dLrDQNlV15O3zDOIXpWVQnq6VtiVZ78O0hY",
+                "d": "8OK7-1IVMdcM86PZzYKsbIi3kCJ-RxI8XFKe9JEcF2Y"
+            }"#,
+        )
+        .unwrap();
+
+        LocalSecretsResolver::new(&secret_id, &secret)
     }
 }
