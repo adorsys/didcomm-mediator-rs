@@ -320,3 +320,20 @@ async fn test_local_did_resolver_resolves_peer_did_successfully() {
         ],
         "service": []
     }"#;
+    // Mock Peer DID resolution by setting up a fake resolver
+    let diddoc: Document = serde_json::from_str(peer_did_doc).unwrap();
+    let resolver = LocalDIDResolver::new(&diddoc);
+
+    // Resolving Peer DID
+    let did = "did:peer:123456789abcdefghi";
+    let resolved = resolver.resolve(did).await.unwrap().unwrap();
+
+    // Expected DID Document
+    let expected: serde_json::Value = serde_json::from_str(peer_did_doc).unwrap();
+    
+    // Check if resolved DID document matches the expected document
+    assert_eq!(
+        json_canon::to_string(&resolved).unwrap(),
+        json_canon::to_string(&expected).unwrap()
+    );
+}
