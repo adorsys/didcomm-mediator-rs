@@ -49,7 +49,8 @@ impl DIDResolver for LocalDIDResolver {
                     }))
                     .expect("Should easily convert between DID document representations."),
                 )),
-                
+                Err(err) => Err(Error::new(ErrorKind::DIDNotResolved, Box::new(err))),
+
             }
         } else if did.starts_with("did:key:") {
             let method = DidKey::new_full(true, PublicKeyFormat::Jwk);
