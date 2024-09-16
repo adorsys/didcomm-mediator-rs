@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use database::{ Repository, RepositoryError};
+use database::{Entity, Repository, RepositoryError};
 use mongodb::{
     bson::{self, doc, oid::ObjectId, Bson, Document as BsonDocument},
     Collection, Database,
@@ -7,6 +7,7 @@ use mongodb::{
 
 use crate::model::stateful::entity::{Connection, RoutedMessage, Secrets};
 
+impl Entity for Connection {}
 
 pub struct MongoConnectionRepository {
     collection: Collection<Connection>,
@@ -101,6 +102,7 @@ impl Repository<Connection> for MongoConnectionRepository {
     }
 }
 
+impl Entity for Secrets {}
 
 pub struct MongoSecretsRepository {
     collection: Collection<Secrets>, // Use the Secrets entity for the collection
