@@ -5,7 +5,6 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 /// A trait representing an abstract resource.
 /// Any type implementing this trait should also implement `Serialize`.
-pub trait Entity: Sized + Serialize {}
 
 /// Definition of custom errors for repository operations
 #[derive(Debug, Serialize, Deserialize, Error)]
