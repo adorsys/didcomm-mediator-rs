@@ -353,3 +353,16 @@ async fn test_local_did_resolver_fails_on_malformed_peer_did() {
                     "x": "InvalidPublicKey"
                 }
             }
+            ]
+    }"#;
+
+    let diddoc: Document = serde_json::from_str(malformed_peer_did_doc).unwrap();
+    let resolver = LocalDIDResolver::new(&diddoc);
+
+    // Resolving the malformed Peer DID
+    let did = "did:peer:malformed";
+    let resolved = resolver.resolve(did).await;
+
+    // Expect DIDNotResolved error due to malformed DID document
+    assert!(matches!(resolved.unwrap_err().kind(), ErrorKind::DIDNotResolved));
+}
