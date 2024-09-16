@@ -21,10 +21,12 @@ macro_rules! run {
     ($expression:expr) => {
         match $expression {
             Ok(res) => res,
+            
             Err(err) => return Err(err),
         }
     };
 }
+
 pub(crate) use run;
 
 /// Ensure header content-type match `application/didcomm-encrypted+json` or `didcomm-encrypted+json`
