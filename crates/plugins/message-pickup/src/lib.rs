@@ -9,6 +9,7 @@
 
 mod web;
 mod model;
+mod repository;
 mod constants;
 pub mod error;
 pub mod plugin;

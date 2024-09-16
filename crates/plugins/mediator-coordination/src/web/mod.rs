@@ -3,6 +3,8 @@ mod error;
 mod handler;
 mod midlw;
 
+pub use self::midlw::{unpack_didcomm_message, pack_response_message};
+
 use axum::{middleware, routing::post, Router};
 use keystore::KeyStore;
 use did_utils::{didcore::Document, jwk::Jwk};
@@ -31,18 +33,18 @@ pub fn routes(state: Arc<AppState>) -> Router {
 #[allow(unused)]
 pub struct AppState {
     // Metadata
-    public_domain: String,
+    pub public_domain: String,
 
     // Crypto identity
-    diddoc: Document,
-    assertion_jwk: (String, Jwk),
+    pub diddoc: Document,
+    pub assertion_jwk: (String, Jwk),
 
     // DIDComm Resolvers
-    did_resolver: LocalDIDResolver,
-    secrets_resolver: LocalSecretsResolver,
+    pub did_resolver: LocalDIDResolver,
+    pub secrets_resolver: LocalSecretsResolver,
 
     // Persistence layer
-    repository: Option<AppStateRepository>,
+    pub repository: Option<AppStateRepository>,
 }
 
 #[derive(Clone)]

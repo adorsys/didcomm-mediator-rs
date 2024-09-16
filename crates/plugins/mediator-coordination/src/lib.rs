@@ -1,4 +1,5 @@
 pub mod client;
+pub mod web;
 pub mod plugin;
 
 mod constant;
@@ -7,4 +8,3 @@ mod jose;
 mod model;
 mod repository;
 mod util;
-mod web;

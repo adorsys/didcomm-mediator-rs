@@ -61,3 +61,22 @@ pub(crate) enum ReturnRoute {
     #[default]
     All,
 }
+
+impl ReturnRoute {
+    pub(crate) fn as_str(&self) -> &'static str {
+        match self {
+            ReturnRoute::None => "none",
+            ReturnRoute::Thread => "thread",
+            ReturnRoute::All => "all",
+        }
+    }
+
+    pub(crate) fn from_str(s: &str) -> Self {
+        match s {
+            "none" => Self::None,
+            "thread" => Self::Thread,
+            "all" => Self::All,
+            _ => Self::All,
+        }
+    }
+}
