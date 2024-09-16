@@ -321,6 +321,7 @@ async fn test_local_did_resolver_resolves_peer_did_successfully() {
         ],
         "service": []
     }"#;
+
     // Mock Peer DID resolution by setting up a fake resolver
     let diddoc: Document = serde_json::from_str(peer_did_doc).unwrap();
     let resolver = LocalDIDResolver::new(&diddoc);
@@ -331,13 +332,18 @@ async fn test_local_did_resolver_resolves_peer_did_successfully() {
 
     // Expected DID Document
     let expected: serde_json::Value = serde_json::from_str(peer_did_doc).unwrap();
-    
+
+    // Debugging: Print both resolved and expected documents
+    println!("Resolved DID Doc: {}", json_canon::to_string(&resolved).unwrap());
+    println!("Expected DID Doc: {}", json_canon::to_string(&expected).unwrap());
+
     // Check if resolved DID document matches the expected document
     assert_eq!(
         json_canon::to_string(&resolved).unwrap(),
         json_canon::to_string(&expected).unwrap()
     );
 }
+
 
 #[tokio::test]
 async fn test_local_did_resolver_fails_on_malformed_peer_did() {
