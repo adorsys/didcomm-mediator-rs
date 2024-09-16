@@ -1,6 +1,8 @@
 use async_trait::async_trait;
-use mongodb::bson::{oid::ObjectId, Document as BsonDocument};
-use mongodb::error::Error as MongoError;
+use mongodb::
+{   bson::{oid::ObjectId, Document as BsonDocument},
+    error::Error as MongoError,
+};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 /// A trait representing an abstract resource.
