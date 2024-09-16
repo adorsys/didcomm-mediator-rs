@@ -11,6 +11,7 @@ use didcomm::{
     secrets::{Secret, SecretMaterial, SecretType, SecretsResolver},
 };
 use serde_json::json;
+use did_utils::methods::DidPeer;
 
 #[derive(Clone)]
 pub struct LocalDIDResolver {
@@ -29,6 +30,7 @@ impl LocalDIDResolver {
     }
 }
 
+
 #[async_trait]
 impl DIDResolver for LocalDIDResolver {
     async fn resolve(&self, did: &str) -> Result<Option<DIDDoc>> {
@@ -36,27 +38,40 @@ impl DIDResolver for LocalDIDResolver {
             return Ok(Some(self.diddoc.clone()));
         }
 
-        if !did.starts_with("did:key:") {
+        if did.starts_with("did:peer:") {
+            // Add logic to resolve Peer DIDs here
+            let method = DidPeer::new(); // Assuming a Peer DID resolver
+            match method.expand(did) {
+                Ok(diddoc) => Ok(Some(
+                    serde_json::from_value(json!(Document {
+                        service: Some(vec![]),
+                        ..diddoc
+                    }))
+                    .expect("Should easily convert between DID document representations."),
+                )),
+                
+            }
+        } else if did.starts_with("did:key:") {
+            let method = DidKey::new_full(true, PublicKeyFormat::Jwk);
+            match method.expand(did) {
+                Ok(diddoc) => Ok(Some(
+                    serde_json::from_value(json!(Document {
+                        service: Some(vec![]),
+                        ..diddoc
+                    }))
+                    .expect("Should easily convert between DID document representations."),
+                )),
+                Err(err) => Err(Error::new(ErrorKind::DIDNotResolved, err)),
+            }
+        } else {
             return Err(Error::new(
                 ErrorKind::Unsupported,
                 DIDResolutionError::MethodNotSupported,
             ));
         }
-
-        let method = DidKey::new_full(true, PublicKeyFormat::Jwk);
-
-        match method.expand(did) {
-            Ok(diddoc) => Ok(Some(
-                serde_json::from_value(json!(Document {
-                    service: Some(vec![]),
-                    ..diddoc
-                }))
-                .expect("Should easily convert between DID document representations."),
-            )),
-            Err(err) => Err(Error::new(ErrorKind::DIDNotResolved, err)),
-        }
     }
 }
+
 
 #[derive(Clone)]
 pub struct LocalSecretsResolver {
