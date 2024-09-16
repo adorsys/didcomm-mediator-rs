@@ -8,7 +8,7 @@ use hyper::{header::CONTENT_TYPE, StatusCode};
 use std::sync::Arc;
 
 use crate::{
-    constant::{DIDCOMM_ENCRYPTED_MIME_TYPE, KEYLIST_UPDATE_2_0, MEDIATE_REQUEST_2_0},
+    constant::{DIDCOMM_ENCRYPTED_MIME_TYPE, KEYLIST_UPDATE_2_0, KEYLIST_QUERY_2_0},
     web::{self, error::MediationError, AppState},
 };
 
@@ -17,10 +17,16 @@ pub async fn process_didcomm_message(
     State(state): State<Arc<AppState>>,
     Extension(message): Extension<Message>,
 ) -> Response {
-    // handle mediation request
     let delegate_response = match message.type_.as_str() {
         KEYLIST_UPDATE_2_0 => {
             web::coord::handler::stateful::process_plain_keylist_update_message(
+                Arc::clone(&state),
+                message,
+            )
+            .await
+        },
+        KEYLIST_QUERY_2_0 => {
+            web::coord::handler::stateful::process_plain_keylist_query_message(
                 Arc::clone(&state),
                 message,
             )
@@ -87,7 +93,7 @@ pub mod tests {
 
     use crate::{
         didcomm::bridge::LocalSecretsResolver,
-        repository::stateful::coord::tests::{
+        repository::stateful::tests::{
             MockConnectionRepository, MockMessagesRepository, MockSecretsRepository,
         },
         util::{self, MockFileSystem},
@@ -198,7 +204,7 @@ mod tests2 {
     use super::{tests as global, *};
     use crate::{
         constant::KEYLIST_UPDATE_RESPONSE_2_0,
-        repository::stateful::coord::tests::MockConnectionRepository,
+        repository::stateful::tests::MockConnectionRepository,
         web::{self, AppStateRepository},
     };
 

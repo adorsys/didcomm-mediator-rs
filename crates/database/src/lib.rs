@@ -1,11 +1,12 @@
 use async_trait::async_trait;
-use mongodb::bson::{oid::ObjectId, Document as BsonDocument};
+use mongodb::{
+    bson::{oid::ObjectId, Document as BsonDocument},
+    error::Error as MongoError,
+};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-
 /// A trait representing an abstract resource.
 /// Any type implementing this trait should also implement `Serialize`.
-pub trait Entity: Sized + Serialize {}
 
 /// Definition of custom errors for repository operations
 #[derive(Debug, Serialize, Deserialize, Error)]
@@ -22,7 +23,10 @@ pub enum RepositoryError {
 
 /// Definition of a trait for repository operations
 #[async_trait]
-pub trait Repository<Entity>: Sync + Send {
+pub trait Repository<Entity>: Sync + Send
+where
+    Entity: Sized + Serialize,
+{
     /// Retrieves all entities.
     async fn find_all(&self) -> Result<Vec<Entity>, RepositoryError>;
 
@@ -40,4 +44,10 @@ pub trait Repository<Entity>: Sync + Send {
 
     /// Deletes a single entity by its identifier.
     async fn delete_one(&self, entity_id: ObjectId) -> Result<(), RepositoryError>;
+}
+
+impl From<MongoError> for RepositoryError {
+    fn from(error: MongoError) -> Self {
+        RepositoryError::Generic(error.to_string())
+    }
 }

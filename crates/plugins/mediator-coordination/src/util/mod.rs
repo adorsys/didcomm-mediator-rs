@@ -1,10 +1,10 @@
 #![allow(unused)]
 
-use keystore::{KeyStore, KeyStoreError, filesystem::FileSystem};
 use did_utils::{
     didcore::{AssertionMethod, Document, KeyAgreement, KeyFormat, VerificationMethod},
     jwk::Jwk,
 };
+use keystore::{filesystem::FileSystem, KeyStore, KeyStoreError};
 use serde_json::Error as SerdeError;
 use std::io;
 

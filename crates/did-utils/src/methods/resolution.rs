@@ -7,12 +7,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
-use crate::{
-    ldmodel::Context,
-    didcore::Document as DIDDocument,
-    methods::errors::DIDResolutionError,
-};
-
+use crate::{didcore::Document as DIDDocument, ldmodel::Context, methods::errors::DIDResolutionError};
 
 /// DID Resolution Options.
 ///
@@ -180,9 +175,10 @@ impl Display for MediaType {
 }
 
 /// Serves derefencing query given a DID document.
-pub(super) fn dereference_did_document(diddoc: &DIDDocument,
-                            query: &HashMap<String, String>,
-                            fragment: &Option<String>
+pub(super) fn dereference_did_document(
+    diddoc: &DIDDocument,
+    query: &HashMap<String, String>,
+    fragment: &Option<String>,
 ) -> Result<Content, DIDResolutionError> {
     // Primary resource
     if let Some(service) = query.get("service") {

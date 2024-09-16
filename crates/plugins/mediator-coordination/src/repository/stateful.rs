@@ -1,15 +1,11 @@
 use async_trait::async_trait;
+use database::{Repository, RepositoryError};
 use mongodb::{
     bson::{self, doc, oid::ObjectId, Bson, Document as BsonDocument},
     Collection, Database,
 };
 
-use crate::{
-    model::stateful::entity::{Connection, RoutedMessage, Secrets},
-    repository::traits::{Entity, Repository, RepositoryError},
-};
-
-impl Entity for Connection {}
+use crate::model::stateful::entity::{Connection, RoutedMessage, Secrets};
 
 pub struct MongoConnectionRepository {
     collection: Collection<Connection>,
@@ -104,8 +100,6 @@ impl Repository<Connection> for MongoConnectionRepository {
     }
 }
 
-impl Entity for Secrets {}
-
 pub struct MongoSecretsRepository {
     collection: Collection<Secrets>, // Use the Secrets entity for the collection
 }
@@ -140,11 +134,17 @@ impl Repository<RoutedMessage> for MongoMessagesRepository {
 
         Ok(messages)
     }
-    async fn find_one(&self, message_id: ObjectId) -> Result<Option<RoutedMessage>, RepositoryError> {
+    async fn find_one(
+        &self,
+        message_id: ObjectId,
+    ) -> Result<Option<RoutedMessage>, RepositoryError> {
         // Query the database for the specified message ID
         self.find_one_by(doc! {"_id": message_id}).await
     }
-    async fn find_one_by(&self, filter: BsonDocument) -> Result<Option<RoutedMessage>, RepositoryError> {
+    async fn find_one_by(
+        &self,
+        filter: BsonDocument,
+    ) -> Result<Option<RoutedMessage>, RepositoryError> {
         // Query the database for the specified message ID
         Ok(self.collection.find_one(filter, None).await?)
     }

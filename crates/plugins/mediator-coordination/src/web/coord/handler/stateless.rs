@@ -541,7 +541,6 @@ mod tests {
         let packed_msg = _edge_pack_message(&state, &msg, Some(_edge_did()), _mediator_did(&state))
             .await
             .unwrap();
-
         // Send request
         let response = app
             .oneshot(

@@ -82,7 +82,7 @@ pub trait ECDH {
 /// A trait for converting a key to its public counterpart.
 pub trait ToPublic {
     /// Converts the key to its public counterpart.
-    /// 
+    ///
     /// This method returns a new instance of the key with any private information removed.
     /// The returned key contains only the public key components.
     fn to_public(&self) -> Self;

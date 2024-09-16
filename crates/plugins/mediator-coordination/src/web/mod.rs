@@ -6,14 +6,14 @@ mod midlw;
 pub use self::midlw::{unpack_didcomm_message, pack_response_message};
 
 use axum::{middleware, routing::post, Router};
-use keystore::KeyStore;
+use database::Repository;
 use did_utils::{didcore::Document, jwk::Jwk};
+use keystore::KeyStore;
 use std::sync::Arc;
 
 use crate::{
     didcomm::bridge::{LocalDIDResolver, LocalSecretsResolver},
     model::stateful::entity::{Connection, RoutedMessage, Secrets},
-    repository::traits::Repository,
     util,
 };
 
