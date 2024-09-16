@@ -21,7 +21,7 @@ macro_rules! run {
     ($expression:expr) => {
         match $expression {
             Ok(res) => res,
-            Err(err) => return err,
+            Err(err) => return Err(err),
         }
     };
 }
