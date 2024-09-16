@@ -17,16 +17,30 @@ use uuid::Uuid;
 use crate::{
     constant::{KEYLIST_2_0, KEYLIST_UPDATE_RESPONSE_2_0, MEDIATE_DENY_2_0, MEDIATE_GRANT_2_0},
     model::stateful::{coord::{
-        Keylist, KeylistBody, KeylistEntry, KeylistUpdateAction, KeylistUpdateBody, KeylistUpdateConfirmation, KeylistUpdateResponseBody, KeylistUpdateResult, MediationDeny, MediationGrant, MediationGrantBody
+        Keylist, KeylistBody, KeylistEntry, KeylistUpdateAction, KeylistUpdateBody,
+        KeylistUpdateConfirmation, KeylistUpdateResponseBody, KeylistUpdateResult, MediationDeny,
+        MediationGrant, MediationGrantBody,
     }, entity::{Connection, Secrets, VerificationMaterial}},
-    web::{error::MediationError, AppState, AppStateRepository},
+    web::{coord::midlw::{self, ensure_jwm_type_is_mediation_request, ensure_transport_return_route_is_decorated_all}, 
+        error::MediationError, AppState, AppStateRepository},
 };
+
 
 /// Process a DIDComm mediate request
 pub async fn process_mediate_request(
     state: &AppState,
     plain_message: &Message,
 ) -> Result<Message, Response> {
+
+    
+    // This is to Check message type compliance
+    midlw::run!(ensure_jwm_type_is_mediation_request(&plain_message));
+
+    // This is to Check explicit agreement to HTTP responding
+    midlw::run!(ensure_transport_return_route_is_decorated_all(
+        &plain_message
+    ));
+    
     let mediator_did = &state.diddoc.id;
 
     let sender_did = plain_message

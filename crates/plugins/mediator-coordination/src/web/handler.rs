@@ -93,7 +93,9 @@ pub mod tests {
 
     use crate::{
         didcomm::bridge::LocalSecretsResolver,
-        repository::stateful::coord::tests::{MockConnectionRepository, MockSecretsRepository},
+        repository::stateful::coord::tests::{
+            MockConnectionRepository, MockMessagesRepository, MockSecretsRepository,
+        },
         util::{self, MockFileSystem},
         web::{self, AppStateRepository},
     };
@@ -108,6 +110,7 @@ pub mod tests {
         let repository = AppStateRepository {
             connection_repository: Arc::new(MockConnectionRepository::from(vec![])),
             secret_repository: Arc::new(MockSecretsRepository::from(vec![])),
+            message_repository: Arc::new(MockMessagesRepository::from(vec![])),
         };
 
         let state = Arc::new(AppState::from(
