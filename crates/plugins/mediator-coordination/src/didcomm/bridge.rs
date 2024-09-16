@@ -289,3 +289,34 @@ mod tests {
         assert!(resolved.is_none());
     }
 }
+
+async fn test_local_did_resolver_resolves_peer_did_successfully() {
+    // Setup a sample Peer DID document
+    let peer_did_doc = r#"{
+        "id": "did:peer:123456789abcdefghi",
+        "authentication": [
+            {
+                "id": "did:peer:123456789abcdefghi#keys-1",
+                "type": "JsonWebKey2020",
+                "controller": "did:peer:123456789abcdefghi",
+                "publicKeyJwk": {
+                    "kty": "OKP",
+                    "crv": "Ed25519",
+                    "x": "Gfp9JkyH0SBz7c3skvRFS32NCMkR5VjkxF3aWjUhRXA"
+                }
+            }
+        ],
+        "keyAgreement": [
+            {
+                "id": "did:peer:123456789abcdefghi#keys-2",
+                "type": "JsonWebKey2020",
+                "controller": "did:peer:123456789abcdefghi",
+                "publicKeyJwk": {
+                    "kty": "OKP",
+                    "crv": "X25519",
+                    "x": "SCMU76FUIUVS7HDgIt6EBQHVuEzUjhnEqa7PA-UyH2w"
+                }
+            }
+        ],
+        "service": []
+    }"#;
