@@ -1,4 +1,7 @@
-use super::{web, models::{retrieve_or_generate_oob_inv, retrieve_or_generate_qr_image}};
+use super::{
+    models::{retrieve_or_generate_oob_inv, retrieve_or_generate_qr_image},
+    web,
+};
 use axum::Router;
 use keystore::filesystem::StdFileSystem;
 use plugin_api::{Plugin, PluginError};
@@ -42,13 +45,11 @@ impl Plugin for OOBMessages {
 
         tracing::debug!("Out Of Band Invitation: {}", oob_inv);
 
-        let _ = retrieve_or_generate_qr_image(&mut fs, &storage_dirpath, &oob_inv).map_err(|e| {
-            println!(
-                "Error retrieving or generating QR code image: {}",
-                e
-            );
-            PluginError::InitError
-        })?;
+        let _ =
+            retrieve_or_generate_qr_image(&mut fs, &storage_dirpath, &oob_inv).map_err(|e| {
+                println!("Error retrieving or generating QR code image: {}", e);
+                PluginError::InitError
+            })?;
 
         Ok(())
     }

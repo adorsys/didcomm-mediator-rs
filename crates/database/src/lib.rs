@@ -1,11 +1,11 @@
 use async_trait::async_trait;
 use mongodb::bson::{oid::ObjectId, Document as BsonDocument};
+use mongodb::error::Error as MongoError;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use mongodb::error::Error as MongoError;
 /// A trait representing an abstract resource.
 /// Any type implementing this trait should also implement `Serialize`.
-pub trait Entity: Sized + Serialize {} 
+pub trait Entity: Sized + Serialize {}
 
 /// Definition of custom errors for repository operations
 #[derive(Debug, Serialize, Deserialize, Error)]

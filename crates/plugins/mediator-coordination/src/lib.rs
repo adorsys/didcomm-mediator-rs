@@ -1,7 +1,6 @@
 pub mod client;
 pub mod plugin;
 
-
 mod constant;
 mod didcomm;
 mod jose;

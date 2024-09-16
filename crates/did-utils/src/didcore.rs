@@ -1,5 +1,5 @@
 //! Implements the DID Core specification
-//! 
+//!
 //! As specified by [Decentralized Identifiers (DIDs) v1.0 - Core architecture,
 //! data model, and representations][did-core].
 //!
@@ -16,7 +16,7 @@ use crate::{jwk::Jwk, ldmodel::Context, proof::Proof};
 // === Structure of a did document ===
 
 /// Represents a DID Document according to the [DID Core specification][did-core].
-/// 
+///
 /// [did-core]: https://www.w3.org/TR/did-core/
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -78,13 +78,13 @@ pub struct Document {
     pub proof: Option<Proofs>,
 }
 
-impl Default for Document {  
-    fn default() -> Self {  
-        let id = String::new();  
-        let context = Context::SingleString(String::from("https://www.w3.org/ns/did/v1"));  
-        
-        Self::new(context, id)  
-    }  
+impl Default for Document {
+    fn default() -> Self {
+        let id = String::new();
+        let context = Context::SingleString(String::from("https://www.w3.org/ns/did/v1"));
+
+        Self::new(context, id)
+    }
 }
 
 /// Represents a DID Document controller(s).
@@ -96,9 +96,9 @@ pub enum Controller {
 }
 
 /// Represents a [service] in a DID Document.
-/// 
+///
 /// A service defines how to interact with the DID subject.
-/// 
+///
 /// [service]: https://www.w3.org/TR/did-core/#services
 #[derive(Serialize, Debug, Clone, PartialEq, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
@@ -118,7 +118,7 @@ pub struct Service {
 }
 
 /// Represents a [verification method] in a DID Document.
-/// 
+///
 /// [verification method]: https://www.w3.org/TR/did-core/#verification-methods
 #[derive(Serialize, Debug, Clone, PartialEq, Default, Deserialize)]
 pub struct VerificationMethod {
@@ -200,7 +200,6 @@ pub enum KeyAgreement {
 }
 
 impl VerificationMethod {
-
     /// Serializes the private key format into a JSON map with the appropriate key format field.
     fn serialize_private_key_format<S>(value: &Option<KeyFormat>, serializer: S) -> Result<S::Ok, S::Error>
     where

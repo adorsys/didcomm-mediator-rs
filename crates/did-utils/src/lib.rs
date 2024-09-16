@@ -1,12 +1,12 @@
 //! # did-utils
-//! 
+//!
 //! This crate provides a set of utilities for working with Decentralized Identifiers (DIDs).
-//! It includes support for cryptographic operations, DID core functionality, key management, proof handling, 
+//! It includes support for cryptographic operations, DID core functionality, key management, proof handling,
 //! verifiable credentials, linked data models, and various DID methods.
 //!
 //! ## Modules
 //!
-//! - [`crypto`]: Contains cryptographic utilities for key generation, encryption, 
+//! - [`crypto`]: Contains cryptographic utilities for key generation, encryption,
 //!   decryption, signing, and verification.
 //! - [`didcore`]: Provides core functionality for DIDs, including parsing and manipulation.
 //! - [`didkit`]: Provides high-level functionality for creating and managing DIDs.
@@ -32,9 +32,9 @@
 //! ```
 pub mod crypto;
 pub mod didcore;
+pub mod didkit;
 pub mod jwk;
-pub mod proof;
-pub mod vc;
 pub mod ldmodel;
 pub mod methods;
-pub mod didkit;
+pub mod proof;
+pub mod vc;

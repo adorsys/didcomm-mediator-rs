@@ -1,11 +1,13 @@
 use axum::Router;
 use keystore::filesystem::StdFileSystem;
+use mongodb::{options::ClientOptions, Client, Database};
 use plugin_api::{Plugin, PluginError};
-use mongodb::{ options::ClientOptions, Client, Database};
 use std::sync::Arc;
 
 use crate::{
-    repository::stateful::{MongoConnectionRepository, MongoMessagesRepository, MongoSecretsRepository},
+    repository::stateful::{
+        MongoConnectionRepository, MongoMessagesRepository, MongoSecretsRepository,
+    },
     util,
     web::{self, AppState, AppStateRepository},
 };
@@ -14,7 +16,6 @@ pub struct MediatorCoordinationPlugin {
     env: Option<MediatorCoordinationPluginEnv>,
     db: Option<Database>,
 }
-
 
 struct MediatorCoordinationPluginEnv {
     public_domain: String,
@@ -25,7 +26,7 @@ struct MediatorCoordinationPluginEnv {
 
 /// Loads environment variables required for this plugin
 fn load_plugin_env() -> Result<MediatorCoordinationPluginEnv, PluginError> {
-    let public_domain = std::env::var("SERVER_PUBLIC_DOMAIN").map_err(|_| { 
+    let public_domain = std::env::var("SERVER_PUBLIC_DOMAIN").map_err(|_| {
         tracing::error!("SERVER_PUBLIC_DOMAIN env variable required");
         PluginError::InitError
     })?;
@@ -95,21 +96,23 @@ impl Plugin for MediatorCoordinationPlugin {
 
         // Load persistence layer
         let repository = AppStateRepository {
-
             connection_repository: Arc::new(MongoConnectionRepository::from_db(&db)),
             secret_repository: Arc::new(MongoSecretsRepository::from_db(&db)),
-            message_repository: Arc::new(MongoMessagesRepository::from_db(&db))
-        
+            message_repository: Arc::new(MongoMessagesRepository::from_db(&db)),
         };
 
         // Compile state
-        let state = AppState::from(env.public_domain.clone(), diddoc, keystore, Some(repository)); 
+        let state = AppState::from(
+            env.public_domain.clone(),
+            diddoc,
+            keystore,
+            Some(repository),
+        );
 
         // Build router
         web::routes(Arc::new(state))
     }
 }
-
 
 fn load_mongo_connector(mongo_uri: &str, mongo_dbn: &str) -> Result<Database, PluginError> {
     let task = async {

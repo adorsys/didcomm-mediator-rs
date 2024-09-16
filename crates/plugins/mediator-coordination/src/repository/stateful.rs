@@ -5,9 +5,7 @@ use mongodb::{
     Collection, Database,
 };
 
-use crate::{
-    model::stateful::entity::{Connection, RoutedMessage, Secrets},
-};
+use crate::model::stateful::entity::{Connection, RoutedMessage, Secrets};
 
 impl Entity for Connection {}
 
@@ -140,11 +138,17 @@ impl Repository<RoutedMessage> for MongoMessagesRepository {
 
         Ok(messages)
     }
-    async fn find_one(&self, message_id: ObjectId) -> Result<Option<RoutedMessage>, RepositoryError> {
+    async fn find_one(
+        &self,
+        message_id: ObjectId,
+    ) -> Result<Option<RoutedMessage>, RepositoryError> {
         // Query the database for the specified message ID
         self.find_one_by(doc! {"_id": message_id}).await
     }
-    async fn find_one_by(&self, filter: BsonDocument) -> Result<Option<RoutedMessage>, RepositoryError> {
+    async fn find_one_by(
+        &self,
+        filter: BsonDocument,
+    ) -> Result<Option<RoutedMessage>, RepositoryError> {
         // Query the database for the specified message ID
         Ok(self.collection.find_one(filter, None).await?)
     }
