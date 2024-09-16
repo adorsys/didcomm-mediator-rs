@@ -1,6 +1,6 @@
 use multibase::Base;
 
-use crate::crypto::{ Ed25519KeyPair, sha256_hash, CoreSign, Error };
+use crate::crypto::{sha256_hash, CoreSign, Ed25519KeyPair, Error};
 
 use super::{model::Proof, traits::CryptoProof};
 

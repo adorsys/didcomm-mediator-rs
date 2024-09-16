@@ -9,19 +9,12 @@ use super::{
 
 use crate::{
     crypto::{
-        sha256_multihash, Ed25519KeyPair, {Generate, KeyMaterial},
-        Algorithm,
-        PublicKeyFormat,
         alg::decode_multikey,
+        sha256_multihash, Algorithm, Ed25519KeyPair, PublicKeyFormat, {Generate, KeyMaterial},
     },
     didcore::{self, Document as DIDDocument, KeyFormat, Service, VerificationMethod},
     ldmodel::Context,
-    methods::{
-        peer::util,
-        errors::DIDResolutionError,
-        traits::DIDMethod,
-        DidKey,
-    },
+    methods::{errors::DIDResolutionError, peer::util, traits::DIDMethod, DidKey},
 };
 
 lazy_static::lazy_static!(

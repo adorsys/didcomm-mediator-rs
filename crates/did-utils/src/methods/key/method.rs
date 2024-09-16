@@ -2,19 +2,12 @@ use multibase::Base::Base58Btc;
 
 use crate::{
     crypto::{
-        Ed25519KeyPair,
-        {Generate, KeyMaterial},
-        Error as CryptoError,
-        Algorithm,
-        PublicKeyFormat,
         alg::decode_multikey,
+        Algorithm, Ed25519KeyPair, Error as CryptoError, PublicKeyFormat, {Generate, KeyMaterial},
     },
     didcore::{self, Document as DIDDocument, KeyFormat, VerificationMethod},
     ldmodel::Context,
-    methods::{
-        errors::DIDResolutionError,
-        traits::DIDMethod,
-    },
+    methods::{errors::DIDResolutionError, traits::DIDMethod},
 };
 
 #[derive(Default)]
@@ -33,7 +26,6 @@ impl DIDMethod for DidKey {
 }
 
 impl DidKey {
-
     /// Creates a new DidKey resolver instance.
     pub fn new() -> Self {
         Self::new_full(false, PublicKeyFormat::default())

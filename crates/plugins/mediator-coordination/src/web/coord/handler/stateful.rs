@@ -427,7 +427,7 @@ mod tests {
     use super::*;
 
     use crate::{
-        repository::stateful::coord::tests::MockConnectionRepository, web::handler::tests as global,
+        repository::stateful::tests::MockConnectionRepository, web::handler::tests as global,
     };
 
     #[allow(clippy::needless_update)]

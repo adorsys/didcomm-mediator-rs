@@ -4,9 +4,9 @@ use super::method::DidPeer;
 use crate::{
     ldmodel::Context,
     methods::{
-        traits::DIDResolver,
         errors::DIDResolutionError,
         resolution::{DIDResolutionMetadata, DIDResolutionOptions, MediaType, ResolutionOutput},
+        traits::DIDResolver,
     },
 };
 

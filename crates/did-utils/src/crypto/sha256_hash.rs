@@ -21,16 +21,16 @@ pub fn sha256_hash(bytes: &[u8]) -> [u8; 32] {
     hash.as_slice()[..32].try_into().unwrap()
 }
 
-/// Compute SHA256 hash of a given input and return it as a multibase-encoded string. 
- ///  
- /// # Example 
- ///  
- /// ```rust 
- /// use did_utils::crypto::sha256_multihash; 
- ///  
- /// let bytes = b"Hello, world!"; 
- /// let hash = sha256_multihash(bytes); 
- /// ``` 
+/// Compute SHA256 hash of a given input and return it as a multibase-encoded string.
+///  
+/// # Example
+///  
+/// ```rust
+/// use did_utils::crypto::sha256_multihash;
+///  
+/// let bytes = b"Hello, world!";
+/// let hash = sha256_multihash(bytes);
+/// ```
 pub fn sha256_multihash(bytes: &[u8]) -> String {
     const MULTIHASH_CODE: u8 = 0x12;
     const MULTIHASH_SIZE: u8 = 0x20;
@@ -59,7 +59,7 @@ mod tests {
             0x31, 0x5f, 0x5b, 0xdb, 0x76, 0xd0, 0x78, 0xc4, 0x3b, 0x8a, 0xc0, 0x06, 0x4e, 0x4a, 0x01, 0x64, //
             0x61, 0x2b, 0x1f, 0xce, 0x77, 0xc8, 0x69, 0x34, 0x5b, 0xfc, 0x94, 0xc7, 0x58, 0x94, 0xed, 0xd3, //
         ];
-        
+
         // Compute the hash of the input bytes
         let hash = sha256_hash(bytes);
 
