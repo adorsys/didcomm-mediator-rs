@@ -8,12 +8,10 @@ use hyper::{header::CONTENT_TYPE, StatusCode};
 use std::sync::Arc;
 
 use crate::{
-
     constant::{
-        DIDCOMM_ENCRYPTED_MIME_TYPE, KEYLIST_UPDATE_2_0, MEDIATE_FORWARD_2_0, MEDIATE_REQUEST_2_0,
+        DIDCOMM_ENCRYPTED_MIME_TYPE, KEYLIST_QUERY_2_0, KEYLIST_UPDATE_2_0, MEDIATE_FORWARD_2_0, MEDIATE_REQUEST_2_0
     },
     forward::routing::mediator_forward_process,
-
     web::{self, error::MediationError, AppState},
 };
 
@@ -29,7 +27,7 @@ pub async fn process_didcomm_message(
                 message,
             )
             .await
-        },
+        }
         KEYLIST_QUERY_2_0 => {
             web::coord::handler::stateful::process_plain_keylist_query_message(
                 Arc::clone(&state),
@@ -219,6 +217,7 @@ mod tests2 {
         http::{Method, Request},
         Router,
     };
+    use mongodb::bson::doc;
     use serde_json::{json, Value};
     use tower::ServiceExt;
 
@@ -365,6 +364,7 @@ mod tests2 {
         .finalize();
 
         // Encrypt message for mediator
+
         let packed_msg = global::_edge_pack_message(
             &state,
             &msg,
@@ -373,8 +373,7 @@ mod tests2 {
         )
         .await
         .unwrap();
-
-        println!("{}", packed_msg);
+   
         // Send request
         let response = app
             .oneshot(
@@ -388,7 +387,7 @@ mod tests2 {
             .await
             .unwrap();
 
-        // Assert response's metadata 
+        // Assert response's metadata
         assert_eq!(response.status(), StatusCode::ACCEPTED);
         assert_eq!(
             response.headers().get(CONTENT_TYPE).unwrap(),
@@ -443,16 +442,16 @@ mod tests2 {
         .from(global::_edge_did())
         .finalize();
 
-       // Encrypt message for mediator
-       let packed_msg = global::_edge_pack_message(
-        &state.1,
-        &message,
-        Some(global::_edge_did()),
-        global::_mediator_did(&state.1),
-    )
-    .await
-    .unwrap();
+        // Encrypt message for mediator
+        let packed_msg = global::_edge_pack_message(
+            &state.1,
+            &message,
+            Some(global::_edge_did()),
+            global::_mediator_did(&state.1),
+        )
+        .await
+        .unwrap();
 
-    println!("{}", packed_msg);
+        println!("{}", packed_msg);
     }
 }
