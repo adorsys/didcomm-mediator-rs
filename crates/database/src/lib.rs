@@ -1,6 +1,6 @@
 use async_trait::async_trait;
-use mongodb::
-{   bson::{oid::ObjectId, Document as BsonDocument},
+use mongodb::{
+    bson::{oid::ObjectId, Document as BsonDocument},
     error::Error as MongoError,
 };
 use serde::{Deserialize, Serialize};
