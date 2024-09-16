@@ -290,6 +290,7 @@ mod tests {
     }
 }
 
+#[tokio::test]
 async fn test_local_did_resolver_resolves_peer_did_successfully() {
     // Setup a sample Peer DID document
     let peer_did_doc = r#"{
@@ -338,6 +339,7 @@ async fn test_local_did_resolver_resolves_peer_did_successfully() {
     );
 }
 
+#[tokio::test]
 async fn test_local_did_resolver_fails_on_malformed_peer_did() {
     // Malformed Peer DID document
     let malformed_peer_did_doc = r#"{
