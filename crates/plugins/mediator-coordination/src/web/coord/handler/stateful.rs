@@ -32,10 +32,10 @@ pub async fn process_mediate_request(
 ) -> Result<Message, Response> {
 
     
-    // Check message type compliance
+    // This is to Check message type compliance
     midlw::run!(ensure_jwm_type_is_mediation_request(&plain_message));
 
-    // Check explicit agreement to HTTP responding
+    // This is to Check explicit agreement to HTTP responding
     midlw::run!(ensure_transport_return_route_is_decorated_all(
         &plain_message
     ));
