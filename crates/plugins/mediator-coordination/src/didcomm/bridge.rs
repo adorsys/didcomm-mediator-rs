@@ -337,3 +337,19 @@ async fn test_local_did_resolver_resolves_peer_did_successfully() {
         json_canon::to_string(&expected).unwrap()
     );
 }
+
+async fn test_local_did_resolver_fails_on_malformed_peer_did() {
+    // Malformed Peer DID document
+    let malformed_peer_did_doc = r#"{
+        "id": "did:peer:malformed",
+        "authentication": [
+            {
+                "id": "did:peer:malformed#keys-1",
+                "type": "JsonWebKey2020",
+                "controller": "did:peer:malformed",
+                "publicKeyJwk": {
+                    "kty": "OKP",
+                    "crv": "Ed25519",
+                    "x": "InvalidPublicKey"
+                }
+            }
