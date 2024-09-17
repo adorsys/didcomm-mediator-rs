@@ -393,3 +393,20 @@ async fn test_local_did_resolver_fails_on_unsupported_peer_did_format() {
         ErrorKind::Unsupported
     ));
 }
+
+#[tokio::test]
+async fn test_local_did_resolver_fails_on_non_existent_peer_did() {
+    // Setup DID document
+    let diddoc = setup();
+    let resolver = LocalDIDResolver::new(&diddoc);
+
+    // Non-existent Peer DID
+    let did = "did:peer:non-existent";
+    
+    // Resolving should result in a DIDNotResolved error
+    let resolved = resolver.resolve(did).await;
+    assert!(matches!(
+        resolved.unwrap_err().kind(),
+        ErrorKind::DIDNotResolved
+    ));
+}
