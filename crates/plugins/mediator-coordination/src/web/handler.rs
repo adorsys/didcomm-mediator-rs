@@ -8,23 +8,26 @@ use hyper::{header::CONTENT_TYPE, StatusCode};
 use std::sync::Arc;
 
 use crate::{
-    constant::{DIDCOMM_ENCRYPTED_MIME_TYPE, KEYLIST_UPDATE_2_0, KEYLIST_QUERY_2_0},
+    constant::{
+        DIDCOMM_ENCRYPTED_MIME_TYPE, KEYLIST_QUERY_2_0, KEYLIST_UPDATE_2_0, MEDIATE_REQUEST_2_0,
+    },
+    pickup::{self, constants::STATUS_REQUEST_3_0},
     web::{self, error::MediationError, AppState},
 };
 
 #[axum::debug_handler]
-pub async fn process_didcomm_message(
+pub(crate) async fn handle_mediator_requests(
     State(state): State<Arc<AppState>>,
     Extension(message): Extension<Message>,
 ) -> Response {
-    let delegate_response = match message.type_.as_str() {
+    let response = match message.type_.as_str() {
         KEYLIST_UPDATE_2_0 => {
             web::coord::handler::stateful::process_plain_keylist_update_message(
                 Arc::clone(&state),
                 message,
             )
             .await
-        },
+        }
         KEYLIST_QUERY_2_0 => {
             web::coord::handler::stateful::process_plain_keylist_query_message(
                 Arc::clone(&state),
@@ -34,6 +37,9 @@ pub async fn process_didcomm_message(
         }
         MEDIATE_REQUEST_2_0 => {
             web::coord::handler::stateful::process_mediate_request(&state, &message).await
+        }
+        STATUS_REQUEST_3_0 => {
+            pickup::handler::handle_status_request(Arc::clone(&state), message).await
         }
         _ => {
             let response = (
@@ -45,39 +51,28 @@ pub async fn process_didcomm_message(
         }
     };
 
-    process_response_from_delegate_handler(state, delegate_response).await
+    process_response(state, response).await
 }
 
-async fn process_response_from_delegate_handler(
-    state: Arc<AppState>,
-    response: Result<Message, Response>,
-) -> Response {
-    // Extract plain message or early return error response
-    let plain_response_message = match response {
-        Ok(message) => message,
-        Err(response) => return response,
-    };
-
-    // Pack response message
-    let packed_message = match web::midlw::pack_response_message(
-        &plain_response_message,
-        &state.did_resolver,
-        &state.secrets_resolver,
-    )
-    .await
-    {
-        Ok(packed) => packed,
-        Err(response) => return response,
-    };
-
-    // Build final response
-    let response = (
-        StatusCode::ACCEPTED,
-        [(CONTENT_TYPE, DIDCOMM_ENCRYPTED_MIME_TYPE)],
-        Json(packed_message),
-    );
-
-    response.into_response()
+async fn process_response(state: Arc<AppState>, response: Result<Message, Response>) -> Response {
+    match response {
+        Ok(message) => web::midlw::pack_response_message(
+            &message,
+            &state.did_resolver,
+            &state.secrets_resolver,
+        )
+        .await
+        .map(|packed| {
+            (
+                StatusCode::ACCEPTED,
+                [(CONTENT_TYPE, DIDCOMM_ENCRYPTED_MIME_TYPE)],
+                Json(packed),
+            )
+                .into_response()
+        })
+        .unwrap_or_else(|err| err.into_response()),
+        Err(response) => response,
+    }
 }
 
 #[cfg(test)]

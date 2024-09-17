@@ -20,7 +20,7 @@ use crate::{
 pub fn routes(state: Arc<AppState>) -> Router {
     Router::new()
         // Unified route for all DIDComm messages
-        .route("/", post(handler::process_didcomm_message))
+        .route("/", post(handler::handle_mediator_requests))
         .route_layer(middleware::from_fn_with_state(
             state.clone(),
             midlw::unpack_didcomm_message,
