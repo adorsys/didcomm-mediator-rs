@@ -1,9 +1,9 @@
-use didcomm::did::DIDDoc;
+// use didcomm::did::DIDDoc;
 
 
-fn main() {
+// fn main() {
 
-}
-fn get_mediator_didoc() -> DIDDoc {
+// }
+// fn get_mediator_didoc() -> DIDDoc {
      
-}
+// }

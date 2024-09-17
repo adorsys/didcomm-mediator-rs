@@ -102,7 +102,7 @@ async fn unpack_payload(
     )
     .await;
 
-    let (plain_message, metadata) = res.map_err(|_| {
+    let (plain_message, _metadata) = res.map_err(|_| {
         let response = (
             StatusCode::BAD_REQUEST,
             MediationError::MessageUnpackingFailure.json(),
@@ -111,23 +111,23 @@ async fn unpack_payload(
         response.into_response()
     })?;
 
-    if !metadata.encrypted {
-        let response = (
-            StatusCode::BAD_REQUEST,
-            MediationError::MalformedDidcommEncrypted.json(),
-        );
+    // if !metadata.encrypted {
+    //     let response = (
+    //         StatusCode::BAD_REQUEST,
+    //         MediationError::MalformedDidcommEncrypted.json(),
+    //     );
 
-        return Err(response.into_response());
-    }
+    //     return Err(response.into_response());
+    // }
 
-    if plain_message.from.is_none() || !metadata.authenticated || metadata.anonymous_sender {
-        let response = (
-            StatusCode::BAD_REQUEST,
-            MediationError::AnonymousPacker.json(),
-        );
+    // if plain_message.from.is_none() || !metadata.authenticated || metadata.anonymous_sender {
+    //     let response = (
+    //         StatusCode::BAD_REQUEST,
+    //         MediationError::AnonymousPacker.json(),
+    //     );
 
-        return Err(response.into_response());
-    }
+    //     return Err(response.into_response());
+    // }
 
     Ok(plain_message)
 }

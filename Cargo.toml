@@ -15,6 +15,7 @@ members = [
     "crates/plugins/mediator-coordination",
     "crates/plugins/oob-messages",
     "crates/database",
+    "crates/demo"
 ]
 
 
@@ -26,6 +27,7 @@ did-endpoint = { path = "./crates/plugins/did-endpoint", version = "0.1.0" }
 oob-messages = { path = "./crates/plugins/oob-messages", version = "0.1.0" }
 mediator-coordination = { path = "./crates/plugins/mediator-coordination", version = "0.1.0" }
 database = { path = "./crates/database", version = "0.1.0" }
+demo = {path = "./crates/demo", version = "*"}
 
 # Other common dependencies
 serde = "1.0"
