@@ -14,7 +14,7 @@ use crate::{
 pub async fn mediator_forward_process(
     state: &AppState,
     payload: Message,
-) -> Result<Option<Message>, Response> {
+) -> Result<Message, Response> {
     let AppStateRepository {
         message_repository,
         connection_repository,
@@ -25,11 +25,13 @@ pub async fn mediator_forward_process(
         .ok_or_else(|| MediationError::RepostitoryError)
         .unwrap();
 
-    // Check if the sender has a connection with the mediator else return early with custom error.
+    // Check if the receiver has a connection with the mediator else return early with custom error.
 
-    let sender_did = payload.clone().from.unwrap_or_else(|| "None".to_owned());
+    let result = try_parse_forward(&payload).expect("Could Not Parse Forward");
+    let client_did = result.next;
+
     let connection = match connection_repository
-        .find_one_by(doc! {"client_did": &sender_did})
+        .find_one_by(doc! {"client_did": &client_did})
         .await
         .unwrap()
     {
@@ -43,19 +45,19 @@ pub async fn mediator_forward_process(
         }
     };
 
-    // check if sender's did in mediator's keylist
-    let keylist_entries = connection.keylist.iter().find(|keys| keys == &&sender_did);
+    // check if receiver's did in mediator's keylist
+    let keylist_entries = connection.keylist.iter().find(|keys| keys == &&client_did);
+
     match keylist_entries {
         Some(_) => {
             // store message attachement with associated recipient did
-            let result = try_parse_forward(&payload).expect("Could Not Parse Forward");
 
             let forward_msg = serde_json::to_string(&result.forwarded_msg).unwrap();
 
             let messages = Messages {
                 id: None,
                 message: vec![forward_msg],
-                recipient_did: result.next,
+                recipient_did: client_did,
             };
             message_repository
                 .store(messages)
@@ -72,7 +74,7 @@ pub async fn mediator_forward_process(
         }
     }
 
-    Ok(None)
+    Ok(result.msg.to_owned())
 }
 
 #[cfg(test)]
@@ -81,6 +83,7 @@ mod test {
 
     use crate::{
         didcomm::bridge::LocalSecretsResolver,
+        model::stateful::entity::Connection,
         repository::stateful::coord::tests::{
             MockConnectionRepository, MockMessagesRepository, MockSecretsRepository,
         },
@@ -105,7 +108,7 @@ mod test {
         let keystore = util::read_keystore(&mut mock_fs, "").unwrap();
 
         let repository = AppStateRepository {
-            connection_repository: Arc::new(MockConnectionRepository::from(vec![])),
+            connection_repository: Arc::new(MockConnectionRepository::from(_initial_connections())),
             secret_repository: Arc::new(MockSecretsRepository::from(vec![])),
             message_repository: Arc::new(MockMessagesRepository::from(vec![])),
         };
@@ -119,9 +122,31 @@ mod test {
 
         state
     }
+    fn _initial_connections() -> Vec<Connection> {
+        let recipient_did = _recipient_did();
+
+        let connections = format!(
+            r##"[
+                {{
+                    "_id": {{
+                        "$oid": "6580701fd2d92bb3cd291b2a"
+                    }},
+                    "client_did": "{recipient_did}",
+                    "mediator_did": "did:web:alice-mediator.com:alice_mediator_pub",
+                    "routing_did": "did:key:generated",
+                    "keylist": [
+                        "{recipient_did}"
+                    ]
+                }}
+            ]"##
+        );
+
+        serde_json::from_str(&connections).unwrap()
+    }
 
     #[tokio::test]
     async fn test_mediator_forward_process() {
+        _initial_connections();
         // simulate sender forwarding process
         let state = &setup();
         let msg = Message::build(
@@ -179,8 +204,6 @@ mod test {
         let msg = mediator_forward_process(state, msg).await.unwrap();
 
         println!("Mediator1 is forwarding message \n{:?}\n", msg);
-
-   
     }
 
     pub fn _sender_did() -> String {
