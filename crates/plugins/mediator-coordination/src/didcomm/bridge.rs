@@ -376,3 +376,20 @@ async fn test_local_did_resolver_fails_on_malformed_peer_did() {
     // Expect DIDNotResolved error due to malformed DID document
     assert!(matches!(resolved.unwrap_err().kind(), ErrorKind::DIDNotResolved));
 }
+
+#[tokio::test]
+async fn test_local_did_resolver_fails_on_unsupported_peer_did_format() {
+    // Setup DID document
+    let diddoc = setup();
+    let resolver = LocalDIDResolver::new(&diddoc);
+
+    // Unsupported Peer DID
+    let did = "did:peer:unsupported-format";
+    
+    // Resolving should result in an unsupported error
+    let resolved = resolver.resolve(did).await;
+    assert!(matches!(
+        resolved.unwrap_err().kind(),
+        ErrorKind::Unsupported
+    ));
+}
