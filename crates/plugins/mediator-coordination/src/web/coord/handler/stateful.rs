@@ -16,17 +16,37 @@ use uuid::Uuid;
 
 use crate::{
     constant::{KEYLIST_2_0, KEYLIST_UPDATE_RESPONSE_2_0, MEDIATE_DENY_2_0, MEDIATE_GRANT_2_0},
-    model::stateful::{coord::{
-        Keylist, KeylistBody, KeylistEntry, KeylistUpdateAction, KeylistUpdateBody, KeylistUpdateConfirmation, KeylistUpdateResponseBody, KeylistUpdateResult, MediationDeny, MediationGrant, MediationGrantBody
-    }, entity::{Connection, Secrets, VerificationMaterial}},
-    web::{error::MediationError, AppState, AppStateRepository},
+    model::stateful::{
+        coord::{
+            Keylist, KeylistBody, KeylistEntry, KeylistUpdateAction, KeylistUpdateBody,
+            KeylistUpdateConfirmation, KeylistUpdateResponseBody, KeylistUpdateResult,
+            MediationDeny, MediationGrant, MediationGrantBody,
+        },
+        entity::{Connection, Secrets, VerificationMaterial},
+    },
+    web::{
+        coord::midlw::{
+            self, ensure_jwm_type_is_mediation_request,
+            ensure_transport_return_route_is_decorated_all,
+        },
+        error::MediationError,
+        AppState, AppStateRepository,
+    },
 };
 
 /// Process a DIDComm mediate request
 pub async fn process_mediate_request(
     state: &AppState,
     plain_message: &Message,
-) -> Result<Option<Message>, Response> {
+) -> Result<Message, Response> {
+    // This is to Check message type compliance
+    midlw::run!(ensure_jwm_type_is_mediation_request(&plain_message));
+
+    // This is to Check explicit agreement to HTTP responding
+    midlw::run!(ensure_transport_return_route_is_decorated_all(
+        &plain_message
+    ));
+
     let mediator_did = &state.diddoc.id;
 
     let sender_did = plain_message
@@ -419,7 +439,7 @@ mod tests {
     use super::*;
 
     use crate::{
-        constant::MEDIATE_REQUEST_2_0, repository::stateful::coord::tests::MockConnectionRepository, web::handler::tests as global
+        repository::stateful::tests::MockConnectionRepository, web::handler::tests as global,
     };
 
     #[allow(clippy::needless_update)]
@@ -456,25 +476,25 @@ mod tests {
         // Process request
         let response = process_plain_keylist_query_message(Arc::clone(&state), message)
             .await
-            .unwrap().unwrap();
+            .unwrap()
+            .unwrap();
 
         assert_eq!(response.type_, KEYLIST_2_0);
         assert_eq!(response.from.unwrap(), global::_mediator_did(&state));
         assert_eq!(response.to.unwrap(), vec![global::_edge_did()]);
-
     }
     #[tokio::test]
     async fn test_keylist_query_malformed_request() {
         let state = setup(_initial_connections());
 
-        // Prepare request with a sender that is not in the system 
+        // Prepare request with a sender that is not in the system
         let message = Message::build(
             "id_alice_keylist_query".to_owned(),
             "https://didcomm.org/coordinate-mediation/2.0/keylist-query".to_owned(),
             json!({}),
         )
         .to(global::_mediator_did(&state))
-        .from("did:example:uncoordinated_sender".to_string()) 
+        .from("did:example:uncoordinated_sender".to_string())
         .finalize();
 
         // Process request
@@ -488,7 +508,7 @@ mod tests {
             MediationError::UncoordinatedSender,
         )
         .await;
-    }    
+    }
     #[tokio::test]
     async fn test_keylist_update() {
         let state = setup(_initial_connections());
@@ -939,7 +959,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_mediate_request() {
-        let state = setup(vec![Connection{..Default::default()}]);
+        let state = setup(vec![Connection {
+            ..Default::default()
+        }]);
 
         // Prepare request
 
@@ -955,16 +977,14 @@ mod tests {
 
         // Process request
 
-        let response = process_mediate_request(&state, &message).await                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           .unwrap();
+        let response = process_mediate_request(&state, &message).await.unwrap();
         let response = response.unwrap();
 
         // Assert metadata
 
-        assert_eq!(response.type_,  MEDIATE_GRANT_2_0);
+        assert_eq!(response.type_, MEDIATE_GRANT_2_0);
         assert_eq!(response.from.unwrap(), global::_mediator_did(&state));
         assert_eq!(response.to.unwrap(), vec![global::_edge_did()]);
-
-    
 
         // Assert repository state
 
@@ -1004,4 +1024,3 @@ mod tests {
         // );
     }
 }
-

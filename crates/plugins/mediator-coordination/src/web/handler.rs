@@ -9,7 +9,8 @@ use std::sync::Arc;
 
 use crate::{
     constant::{
-        DIDCOMM_ENCRYPTED_MIME_TYPE, KEYLIST_QUERY_2_0, KEYLIST_UPDATE_2_0, MEDIATE_FORWARD_2_0, MEDIATE_REQUEST_2_0
+        DIDCOMM_ENCRYPTED_MIME_TYPE, KEYLIST_QUERY_2_0, KEYLIST_UPDATE_2_0, MEDIATE_FORWARD_2_0,
+        MEDIATE_REQUEST_2_0,
     },
     forward::routing::mediator_forward_process,
     web::{self, error::MediationError, AppState},
@@ -97,7 +98,7 @@ pub mod tests {
 
     use crate::{
         didcomm::bridge::LocalSecretsResolver,
-        repository::stateful::coord::tests::{
+        repository::stateful::tests::{
             MockConnectionRepository, MockMessagesRepository, MockSecretsRepository,
         },
         util::{self, MockFileSystem},
@@ -373,7 +374,7 @@ mod tests2 {
         )
         .await
         .unwrap();
-   
+
         // Send request
         let response = app
             .oneshot(

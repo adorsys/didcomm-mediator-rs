@@ -56,7 +56,7 @@ pub async fn mediator_forward_process(
     for did in receivering_dids {
         let messages = RoutedMessage {
             id: None,
-            message: payload.clone(),
+            messages: payload.clone(),
             recipient_did: did,
         };
         message_repository

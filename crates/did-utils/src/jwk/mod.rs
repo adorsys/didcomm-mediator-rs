@@ -1,5 +1,5 @@
 //! This module provides types and utilities for handling JSON Web Keys (JWKs).
-//! 
+//!
 //! It includes support for various key types, secure serialization and deserialization, and encoding schemes.
 //!
 //! ## Submodules
@@ -13,7 +13,7 @@
 //! - [`prm`]:    Defines parameter-related types for keys and cryptographic operations.
 //! - [`rsa`]:    Provides support for working with RSA keys.
 //! - [`secret`]: Provides utilities for working with secrets securely.
-//! 
+//!
 //! //! # Examples
 //!
 //! ```no run

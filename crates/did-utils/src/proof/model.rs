@@ -5,7 +5,6 @@ use serde_json::Value;
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Proof {
-
     // An optional identifier for the proof.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub id: Option<String>,
@@ -48,14 +47,14 @@ pub struct Proof {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub proof_value: Option<String>,
 
-    // Each value identifies another data integrity proof that 
+    // Each value identifies another data integrity proof that
     // MUST verify before the current proof is processed
     // See https://www.w3.org/TR/vc-data-integrity/#proof-chains
     #[serde(skip_serializing_if = "Option::is_none")]
     pub previous_proof: Option<PreviousProofs>,
 
     // A string value supplied by the proof creator that is unique to the proof
-    // One use of this field is to increase privacy by decreasing linkability 
+    // One use of this field is to increase privacy by decreasing linkability
     // that is the result of deterministically generated signatures
     #[serde(skip_serializing_if = "Option::is_none")]
     pub nonce: Option<String>,
@@ -81,7 +80,6 @@ pub enum Proofs {
     SingleProof(Box<Proof>),
     SetOfProofs(Box<Vec<Proof>>),
 }
-
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -122,12 +120,11 @@ mod tests {
         let canonicalized_expected = r#"{"created":"2023-03-05T19:23:24Z","cryptosuite":"jcs-eddsa-2022","proofPurpose":"assertionMethod","proofValue":"zQeVbY4oey5q2M3XKaxup3tmzN4DRFTLVqpLMweBrSxMY2xHX5XTYV8nQApmEcqaqA3Q1gVHMrXFkXJeV6doDwLWx","type":"DataIntegrityProof","verificationMethod":"https://di.example/issuer#z6MkjLrk3gKS2nnkeWcmcxiZPGskmesDpuwRBorgHxUXfxnG"}"#;
 
         assert_eq!(canonicalized_expected, canonicalized_actual);
-
     }
 
     // Add a single proof to a josn object
     #[test]
-    fn test_add_proof_to_unsecure_document(){
+    fn test_add_proof_to_unsecure_document() {
         let doc_json = r#"{
             "@context": [
                 {"title": "https://schema.org/title"},
@@ -152,12 +149,11 @@ mod tests {
         let proofs = Proofs::SingleProof(Box::new(proof));
 
         generic_add_proof_to_document(doc, proofs, canonicalized_expected).unwrap();
-
     }
 
     // Add a list of proof to the unsecure object
     #[test]
-    fn test_add_proofs_to_secured_document(){
+    fn test_add_proofs_to_secured_document() {
         let doc_json = r#"{
             "@context": [
                 {"title": "https://schema.org/title"},
@@ -190,16 +186,11 @@ mod tests {
         let proofs = Proofs::SetOfProofs(Box::new(proof_list));
 
         generic_add_proof_to_document(doc, proofs, canonicalized_expected).unwrap();
-
     }
 
-    fn generic_add_proof_to_document(doc: Value, proofs: Proofs, canonicalized_expected: &str)-> Result<(), Box<dyn std::error::Error>>{
-
+    fn generic_add_proof_to_document(doc: Value, proofs: Proofs, canonicalized_expected: &str) -> Result<(), Box<dyn std::error::Error>> {
         // create the unsecure document
-        let unsecure_doc = UnsecuredDocument {
-            content: doc,
-            proof: proofs,
-        };
+        let unsecure_doc = UnsecuredDocument { content: doc, proof: proofs };
 
         // serialize the unsecure document
         let canonicalized_actual = json_canon::to_string(&unsecure_doc).unwrap();
@@ -207,6 +198,5 @@ mod tests {
         assert_eq!(canonicalized_expected, canonicalized_actual);
 
         Ok(())
-
     }
 }

@@ -52,7 +52,7 @@ pub use ed25519::Ed25519KeyPair;
 pub use errors::Error;
 pub use format::PublicKeyFormat;
 pub use sha256_hash::{sha256_hash, sha256_multihash};
-pub use traits::{CoreSign, Generate, KeyMaterial, ToPublic, ToMultikey, BYTES_LENGTH_32, ECDH};
+pub use traits::{CoreSign, Generate, KeyMaterial, ToMultikey, ToPublic, BYTES_LENGTH_32, ECDH};
 pub use x25519::X25519KeyPair;
 
 /// A wrapper struct for an asymmetric key pair.

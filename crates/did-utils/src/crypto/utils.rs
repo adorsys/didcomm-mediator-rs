@@ -44,7 +44,6 @@ pub(super) fn generate_seed(initial_seed: &[u8]) -> Result<[u8; BYTES_LENGTH_32]
 ///
 /// Panics if the length of the slice is not equal to `BYTES_LENGTH_32`.
 pub(super) fn clone_slice_to_array(slice: &[u8; BYTES_LENGTH_32]) -> [u8; BYTES_LENGTH_32] {
-    
     let mut array = [0u8; BYTES_LENGTH_32];
 
     array.clone_from_slice(slice);
