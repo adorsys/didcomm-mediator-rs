@@ -9,9 +9,7 @@ use std::sync::Arc;
 
 use crate::{
 
-    constant::{DIDCOMM_ENCRYPTED_MIME_TYPE, KEYLIST_QUERY_2_0, KEYLIST_UPDATE_2_0, MEDIATE_FORWARD_2_0, MEDIATE_REQUEST_2_0},
-
-    web::{self, error::MediationError, AppState},
+    constant::{DIDCOMM_ENCRYPTED_MIME_TYPE, KEYLIST_QUERY_2_0, KEYLIST_UPDATE_2_0, MEDIATE_FORWARD_2_0, MEDIATE_REQUEST_2_0}, forward::routing::mediator_forward_process, web::{self, error::MediationError, AppState}
 };
 
 #[axum::debug_handler]
@@ -54,7 +52,7 @@ pub async fn process_didcomm_message(
 
 async fn process_response_from_delegate_handler(
     state: Arc<AppState>,
-    response: Result<Option<Message>, Response>,
+    response: Result<Message, Response>,
 ) -> Response {
     // Extract plain message or early return error response
     let plain_response_message = match response {
@@ -64,7 +62,7 @@ async fn process_response_from_delegate_handler(
 
     // Pack response message
     let packed_message = match web::midlw::pack_response_message(
-        &plain_response_message.unwrap(),
+        &plain_response_message,
         &state.did_resolver,
         &state.secrets_resolver,
     )
@@ -207,9 +205,7 @@ pub mod tests {
 mod tests2 {
     use super::{tests as global, *};
     use crate::{
-        constant::{KEYLIST_UPDATE_RESPONSE_2_0, MEDIATE_GRANT_2_0},
-        repository::stateful::coord::tests::MockConnectionRepository,
-        web::{self, AppStateRepository},
+        constant::{KEYLIST_UPDATE_RESPONSE_2_0, MEDIATE_GRANT_2_0}, repository::stateful::tests::MockConnectionRepository, web::{self, AppStateRepository}
     };
 
     use axum::{
@@ -217,7 +213,6 @@ mod tests2 {
         http::{Method, Request},
         Router,
     };
-    use mongodb::bson::doc;
     use serde_json::{json, Value};
     use tower::ServiceExt;
 

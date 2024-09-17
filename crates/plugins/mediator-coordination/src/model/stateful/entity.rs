@@ -1,8 +1,5 @@
-<<<<<<< HEAD
-use didcomm::Attachment;
-=======
 use didcomm::{Attachment, Message};
->>>>>>> iss-41-forward-protocol
+
 /// Resources to map in a database.
 use mongodb::bson::oid::ObjectId;
 use serde::{Deserialize, Serialize};

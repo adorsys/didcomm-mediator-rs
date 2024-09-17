@@ -71,20 +71,18 @@ pub async fn process_mediate_request(
         .unwrap()
     {
         println!("Sending mediate deny.");
-        return Ok(Some(
-            Message::build(
-                format!("urn:uuid:{}", Uuid::new_v4()),
-                MEDIATE_DENY_2_0.to_string(),
-                json!(MediationDeny {
-                    id: format!("urn:uuid:{}", Uuid::new_v4()),
-                    message_type: MEDIATE_DENY_2_0.to_string(),
-                    ..Default::default()
-                }),
-            )
-            .to(sender_did.clone())
-            .from(mediator_did.clone())
-            .finalize(),
-        ));
+        return Ok(Message::build(
+            format!("urn:uuid:{}", Uuid::new_v4()),
+            MEDIATE_DENY_2_0.to_string(),
+            json!(MediationDeny {
+                id: format!("urn:uuid:{}", Uuid::new_v4()),
+                message_type: MEDIATE_DENY_2_0.to_string(),
+                ..Default::default()
+            }),
+        )
+        .to(sender_did.clone())
+        .from(mediator_did.clone())
+        .finalize());
     } else {
         /* Issue mediate grant response */
         println!("Sending mediate grant.");
@@ -155,16 +153,14 @@ pub async fn process_mediate_request(
             Err(error) => eprintln!("Error storing connection: {:?}", error),
         }
 
-        Ok(Some(
-            Message::build(
-                format!("urn:uuid:{}", Uuid::new_v4()),
-                mediation_grant.message_type.clone(),
-                json!(mediation_grant),
-            )
-            .to(sender_did.clone())
-            .from(mediator_did.clone())
-            .finalize(),
-        ))
+        Ok(Message::build(
+            format!("urn:uuid:{}", Uuid::new_v4()),
+            mediation_grant.message_type.clone(),
+            json!(mediation_grant),
+        )
+        .to(sender_did.clone())
+        .from(mediator_did.clone())
+        .finalize())
     }
 }
 
@@ -217,7 +213,7 @@ fn generate_did_peer(service_endpoint: String) -> (String, Ed25519KeyPair, X2551
 pub async fn process_plain_keylist_update_message(
     state: Arc<AppState>,
     message: Message,
-) -> Result<Option<Message>, Response> {
+) -> Result<Message, Response> {
     // Extract message sender
 
     let sender = message
@@ -347,24 +343,22 @@ pub async fn process_plain_keylist_update_message(
 
     let mediator_did = &state.diddoc.id;
 
-    Ok(Some(
-        Message::build(
-            format!("urn:uuid:{}", Uuid::new_v4()),
-            KEYLIST_UPDATE_RESPONSE_2_0.to_string(),
-            json!(KeylistUpdateResponseBody {
-                updated: confirmations
-            }),
-        )
-        .to(sender.clone())
-        .from(mediator_did.clone())
-        .finalize(),
-    ))
+    Ok(Message::build(
+        format!("urn:uuid:{}", Uuid::new_v4()),
+        KEYLIST_UPDATE_RESPONSE_2_0.to_string(),
+        json!(KeylistUpdateResponseBody {
+            updated: confirmations
+        }),
+    )
+    .to(sender.clone())
+    .from(mediator_did.clone())
+    .finalize())
 }
 
 pub async fn process_plain_keylist_query_message(
     state: Arc<AppState>,
     message: Message,
-) -> Result<Option<Message>, Response> {
+) -> Result<Message, Response> {
     println!("Processing keylist query...");
     let sender = message
         .from
@@ -429,7 +423,7 @@ pub async fn process_plain_keylist_query_message(
 
     println!("message: {:?}", message);
 
-    Ok(Some(message))
+    Ok(message)
 }
 
 #[cfg(test)]
@@ -476,7 +470,6 @@ mod tests {
         // Process request
         let response = process_plain_keylist_query_message(Arc::clone(&state), message)
             .await
-            .unwrap()
             .unwrap();
 
         assert_eq!(response.type_, KEYLIST_2_0);
@@ -541,7 +534,7 @@ mod tests {
         let response = process_plain_keylist_update_message(Arc::clone(&state), message)
             .await
             .unwrap();
-        let response = response.unwrap();
+        let response = response;
 
         // Assert metadata
 
@@ -640,7 +633,7 @@ mod tests {
             .await
             .unwrap();
 
-        let response = response.unwrap();
+        let response = response;
         // Assert updates
 
         assert_eq!(
@@ -704,7 +697,7 @@ mod tests {
         let response = process_plain_keylist_update_message(Arc::clone(&state), message)
             .await
             .unwrap();
-        let response = response.unwrap();
+        let response = response;
         // Assert updates
 
         assert_eq!(
@@ -764,7 +757,7 @@ mod tests {
         let response = process_plain_keylist_update_message(Arc::clone(&state), message)
             .await
             .unwrap();
-        let response = response.unwrap();
+        let response = response;
 
         // Assert updates
 
@@ -978,7 +971,7 @@ mod tests {
         // Process request
 
         let response = process_mediate_request(&state, &message).await.unwrap();
-        let response = response.unwrap();
+        let response = response;
 
         // Assert metadata
 

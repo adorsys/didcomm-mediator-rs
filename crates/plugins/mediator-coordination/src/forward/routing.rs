@@ -4,12 +4,7 @@ use didcomm::{protocols::routing::try_parse_forward, Message};
 use hyper::StatusCode;
 use mongodb::bson::doc;
 
-use crate::{
-
-    model::stateful::entity::Messages,
-
-    web::{error::MediationError, AppState, AppStateRepository},
-};
+use crate::{model::stateful::entity::RoutedMessage, web::{error::MediationError, AppState, AppStateRepository}};
 
 /// mediator receives messages of type forward then it unpacks the messages and stores it for pickup
 /// the unpacked message is then repacked for further transmission.
@@ -57,7 +52,7 @@ pub async fn mediator_forward_process(
 
             let forward_msg = serde_json::to_string(&result.forwarded_msg).unwrap();
 
-            let messages = Messages {
+            let messages = RoutedMessage {
                 id: None,
                 message: vec![forward_msg],
                 recipient_did: client_did,
@@ -83,19 +78,11 @@ pub async fn mediator_forward_process(
 
 #[cfg(test)]
 mod test {
-    use std::{borrow::Borrow, sync::Arc};
+    use std::{collections::HashMap, sync::Arc};
 
     use crate::{
 
-        didcomm::bridge::LocalSecretsResolver,
-        model::stateful::entity::Connection,
-
-        repository::stateful::coord::tests::{
-            MockConnectionRepository, MockMessagesRepository, MockSecretsRepository,
-        },
-
-        util::{self, MockFileSystem},
-        web::AppStateRepository,
+        didcomm::bridge::LocalSecretsResolver, model::stateful::entity::Connection, repository::stateful::tests::{MockConnectionRepository, MockMessagesRepository, MockSecretsRepository}, util::{self, MockFileSystem}, web::AppStateRepository
     };
 
     use super::*;
@@ -103,11 +90,10 @@ mod test {
     use did_utils::jwk::Jwk;
     use didcomm::{
 
-        algorithms::AnonCryptAlg, protocols::routing::wrap_in_forward, secrets::SecretsResolver,
-        Message, PackEncryptedOptions, UnpackOptions,
+        algorithms::AnonCryptAlg, did::DIDResolver, protocols::routing::wrap_in_forward, secrets::SecretsResolver, Message, PackEncryptedOptions, UnpackOptions
 
     };
-    use serde_json::json;
+    use serde_json::{json, Value};
     use uuid::Uuid;
     pub fn setup() -> Arc<AppState> {
         let public_domain = String::from("http://alice-mediator.com");
@@ -170,7 +156,7 @@ mod test {
         .from(_sender_did())
         .finalize();
 
-        let (packed_forward_msg, _metadata) = forward_msg
+        let (packed_forward_msg, _metadata) = msg
 
             .pack_encrypted(
                 &_recipient_did(),
@@ -186,10 +172,10 @@ mod test {
 
 
         // --- Sending message by Alice ---
-        println!("Alice is sending message \n{}\n", msg);
+        println!("Alice is sending message \n{}\n", packed_forward_msg);
 
         let msg = wrap_in_forward(
-            &msg,
+            &packed_forward_msg,
             None,
             &&_recipient_did(),
             &vec![_mediator_did(state)],
@@ -198,6 +184,7 @@ mod test {
         )
         .await
         .expect("Unable wrap_in_forward");
+   
         println!(" wraped in forward\n{}\n", msg);
         let (msg, _metadata) = Message::unpack(
             &msg,
@@ -249,4 +236,6 @@ mod test {
         LocalSecretsResolver::new(&secret_id, &secret)
 
     }
+   
+
 }
