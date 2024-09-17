@@ -36,6 +36,7 @@ pub async fn process_didcomm_message(
         _ => {
             let response = (
                 StatusCode::BAD_REQUEST,
+                
                 MediationError::UnsupportedOperation.json(),
             );
 

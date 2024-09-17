@@ -1,10 +1,8 @@
-
 use axum::response::{IntoResponse, Response};
 use didcomm::{protocols::routing::try_parse_forward, Message};
 
 use hyper::StatusCode;
 use mongodb::bson::doc;
-
 
 use crate::{
     model::stateful::entity::Messages,
@@ -28,7 +26,8 @@ pub async fn mediator_forward_process(
         .unwrap();
 
     // Check if the sender has a connection with the mediator else return early with custom error.
-    let sender_did = payload.clone().from.unwrap();
+
+    let sender_did = payload.clone().from.unwrap_or_else(|| "None".to_owned());
     let connection = match connection_repository
         .find_one_by(doc! {"client_did": &sender_did})
         .await
@@ -81,22 +80,25 @@ mod test {
     use std::sync::Arc;
 
     use crate::{
+        constant::DIDCOMM_ENCRYPTED_MIME_TYPE,
         didcomm::bridge::LocalSecretsResolver,
         repository::stateful::coord::tests::{
             MockConnectionRepository, MockMessagesRepository, MockSecretsRepository,
         },
         util::{self, MockFileSystem},
-        web::AppStateRepository,
+        web::{self, AppStateRepository},
     };
 
     use super::*;
 
     use did_utils::jwk::Jwk;
     use didcomm::{
-        secrets::SecretsResolver,
+        algorithms::AnonCryptAlg, protocols::routing::wrap_in_forward, secrets::SecretsResolver,
         Message, PackEncryptedOptions, UnpackOptions,
     };
+    use hyper::{header::CONTENT_TYPE, Body, Method, Request};
     use serde_json::json;
+    use tower::ServiceExt;
     use uuid::Uuid;
     pub fn setup() -> Arc<AppState> {
         let public_domain = String::from("http://alice-mediator.com");
@@ -124,7 +126,7 @@ mod test {
     #[tokio::test]
     async fn test_mediator_forward_process() {
         // simulate sender forwarding process
-   let state = &setup();
+        let state = &setup();
         let msg = Message::build(
             Uuid::new_v4().to_string(),
             "example/v1".to_owned(),
@@ -134,7 +136,7 @@ mod test {
         .from(_sender_did())
         .finalize();
 
-        let (msg, _) = msg
+        let (msg, _metadata) = msg
             .pack_encrypted(
                 &_recipient_did(),
                 Some(&_sender_did()),
@@ -145,18 +147,43 @@ mod test {
             )
             .await
             .expect("Unable pack_encrypted");
+        println!("Encryption metadata is\n{:?}\n", _metadata);
 
-        // Mediator in action
-        let (payload, _) = Message::unpack(
+        // --- Sending message by Alice ---
+        println!("Alice is sending message \n{}\n", msg);
+
+        let msg = wrap_in_forward(
+            &msg,
+            None,
+            &&_recipient_did(),
+            &vec![_mediator_did(state)],
+            &AnonCryptAlg::default(),
+            &state.did_resolver,
+        )
+        .await
+        .expect("Unable wrap_in_forward");
+        println!(" wraped in forward\n{}\n", msg);
+        let (msg, _metadata) = Message::unpack(
             &msg,
             &state.did_resolver,
             &state.secrets_resolver,
             &UnpackOptions::default(),
         )
         .await
-        .unwrap();
+        .expect("Unable unpack");
 
-        assert!(mediator_forward_process(state, payload).await.is_ok());
+        println!("Mediator1 received message is \n{:?}\n", msg);
+
+        println!(
+            "Mediator1 received message unpack metadata is \n{:?}\n",
+            _metadata
+        );
+
+        let msg = mediator_forward_process(state, msg).await.unwrap();
+
+        println!("Mediator1 is forwarding message \n{:?}\n", msg);
+
+   
     }
 
     pub fn _sender_did() -> String {
