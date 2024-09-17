@@ -377,6 +377,26 @@ async fn test_local_did_resolver_fails_on_malformed_peer_did() {
     assert!(matches!(resolved.unwrap_err().kind(), ErrorKind::DIDNotResolved));
 }
 
+fn setup() -> Document {
+    // Create and return a sample Document for testing
+    serde_json::from_str(r#"{
+        "id": "did:peer:123456789abcdefghi",
+        "authentication": [
+            {
+                "id": "did:peer:123456789abcdefghi#keys-1",
+                "type": "JsonWebKey2020",
+                "controller": "did:peer:123456789abcdefghi",
+                "publicKeyJwk": {
+                    "kty": "OKP",
+                    "crv": "Ed25519",
+                    "x": "Gfp9JkyH0SBz7c3skvRFS32NCMkR5VjkxF3aWjUhRXA"
+                }
+            }
+        ]
+    }"#).unwrap()
+}
+
+
 #[tokio::test]
 async fn test_local_did_resolver_fails_on_unsupported_peer_did_format() {
     // Setup DID document
