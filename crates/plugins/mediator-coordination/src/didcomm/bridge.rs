@@ -410,3 +410,20 @@ async fn test_local_did_resolver_fails_on_non_existent_peer_did() {
         ErrorKind::DIDNotResolved
     ));
 }
+
+#[tokio::test]
+async fn test_local_did_resolver_handles_both_peer_did_and_key_did() {
+    // Setup DID document
+    let diddoc = setup();
+    let resolver = LocalDIDResolver::new(&diddoc);
+
+    // Valid Peer DID
+    let peer_did = "did:peer:123456789abcdefghi";
+    let resolved_peer_did = resolver.resolve(peer_did).await.unwrap().unwrap();
+    assert_eq!(resolved_peer_did.id, peer_did);
+
+    // Valid Key DID
+    let key_did = "didz6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7";
+    let resolved_key_did = resolver.resolve(key_did).await.unwrap().unwrap();
+    assert_eq!(resolved_key_did.id, key_did);
+}
