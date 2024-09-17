@@ -80,13 +80,12 @@ mod test {
     use std::sync::Arc;
 
     use crate::{
-        constant::DIDCOMM_ENCRYPTED_MIME_TYPE,
         didcomm::bridge::LocalSecretsResolver,
         repository::stateful::coord::tests::{
             MockConnectionRepository, MockMessagesRepository, MockSecretsRepository,
         },
         util::{self, MockFileSystem},
-        web::{self, AppStateRepository},
+        web::AppStateRepository,
     };
 
     use super::*;
@@ -96,9 +95,7 @@ mod test {
         algorithms::AnonCryptAlg, protocols::routing::wrap_in_forward, secrets::SecretsResolver,
         Message, PackEncryptedOptions, UnpackOptions,
     };
-    use hyper::{header::CONTENT_TYPE, Body, Method, Request};
     use serde_json::json;
-    use tower::ServiceExt;
     use uuid::Uuid;
     pub fn setup() -> Arc<AppState> {
         let public_domain = String::from("http://alice-mediator.com");
