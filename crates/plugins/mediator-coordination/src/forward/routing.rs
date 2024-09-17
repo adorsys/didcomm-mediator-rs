@@ -1,25 +1,22 @@
-
-
 use axum::response::{IntoResponse, Response};
-use didcomm::Message;
+use didcomm::{protocols::routing::try_parse_forward, Message};
 
 use hyper::StatusCode;
 use mongodb::bson::doc;
-use serde_json::{from_value, json, Value};
 
 use crate::{
-    model::stateful::entity::{Connection, RoutedMessage},
+
+    model::stateful::entity::Messages,
+
     web::{error::MediationError, AppState, AppStateRepository},
 };
 
 /// mediator receives messages of type forward then it unpacks the messages and stores it for pickup
 /// the unpacked message is then repacked for further transmission.
-/// Note: Stored messages are not re_packed and must be before transmission in case of
-/// Rewrapping.
 pub async fn mediator_forward_process(
     state: &AppState,
     payload: Message,
-) -> Result<Option<Message>, Response> {
+) -> Result<Message, Response> {
     let AppStateRepository {
         message_repository,
         connection_repository,
@@ -30,17 +27,17 @@ pub async fn mediator_forward_process(
         .ok_or_else(|| MediationError::RepostitoryError)
         .unwrap();
 
-    let body: Value = json!(payload.body.as_object());
-    let next: Vec<String> = from_value(body.get("next").unwrap().to_owned()).unwrap();
+    // Check if the receiver has a connection with the mediator else return early with custom error.
 
-    // Check if the sender has a connection with the mediator else return early with custom error.
-    let sender = payload.clone().from.unwrap();
-    let _connection: Option<Connection> = match connection_repository
-        .find_one_by(doc! {"client_did": &sender})
+    let result = try_parse_forward(&payload).expect("Could Not Parse Forward");
+    let client_did = result.next;
+
+    let connection = match connection_repository
+        .find_one_by(doc! {"client_did": &client_did})
         .await
         .unwrap()
     {
-        Some(_connection) => None,
+        Some(connection) => connection,
         None => {
             let response = (
                 StatusCode::UNAUTHORIZED,
@@ -51,23 +48,36 @@ pub async fn mediator_forward_process(
         }
     };
 
-    // store unpacked payload with associated dids in the next field of body for routing
-    let receivering_dids = next;
-    for did in receivering_dids {
-        let messages = RoutedMessage {
-            id: None,
-            messages: payload.clone(),
-            recipient_did: did,
-        };
-        message_repository
-            .store(messages)
-            .await
-            .map_err(|_| MediationError::PersisenceError)
-            .unwrap();
+    // check if receiver's did in mediator's keylist
+    let keylist_entries = connection.keylist.iter().find(|keys| keys == &&client_did);
+
+    match keylist_entries {
+        Some(_) => {
+            // store message attachement with associated recipient did
+
+            let forward_msg = serde_json::to_string(&result.forwarded_msg).unwrap();
+
+            let messages = Messages {
+                id: None,
+                message: vec![forward_msg],
+                recipient_did: client_did,
+            };
+            message_repository
+                .store(messages)
+                .await
+                .map_err(|_| MediationError::PersisenceError)
+                .unwrap();
+        }
+        None => {
+            let response = (
+                StatusCode::UNAUTHORIZED,
+                MediationError::UncoordinatedSender.json(),
+            );
+            return Err(response.into_response());
+        }
     }
 
-
- Ok(None)
+    Ok(result.msg.to_owned())
 
 }
 
@@ -77,8 +87,9 @@ mod test {
 
     use crate::{
 
-        constant::MEDIATE_FORWARD_2_0,
-        forward::ledger::{ALICE_DID_DOC, ALICE_SECRETS, MEDIATOR_DID_DOC},
+        didcomm::bridge::LocalSecretsResolver,
+        model::stateful::entity::Connection,
+
         repository::stateful::coord::tests::{
             MockConnectionRepository, MockMessagesRepository, MockSecretsRepository,
         },
@@ -89,9 +100,14 @@ mod test {
 
     use super::*;
 
+    use did_utils::jwk::Jwk;
     use didcomm::{
-        did::resolvers::ExampleDIDResolver, secrets::resolvers::ExampleSecretsResolver, Attachment, AttachmentData, JsonAttachmentData, Message, PackEncryptedOptions, UnpackOptions
+
+        algorithms::AnonCryptAlg, protocols::routing::wrap_in_forward, secrets::SecretsResolver,
+        Message, PackEncryptedOptions, UnpackOptions,
+
     };
+    use serde_json::json;
     use uuid::Uuid;
     pub fn setup() -> Arc<AppState> {
         let public_domain = String::from("http://alice-mediator.com");
@@ -102,7 +118,7 @@ mod test {
         let keystore = util::read_keystore(&mut mock_fs, "").unwrap();
 
         let repository = AppStateRepository {
-            connection_repository: Arc::new(MockConnectionRepository::from(vec![])),
+            connection_repository: Arc::new(MockConnectionRepository::from(_initial_connections())),
             secret_repository: Arc::new(MockSecretsRepository::from(vec![])),
             message_repository: Arc::new(MockMessagesRepository::from(vec![]))
         };
@@ -116,63 +132,121 @@ mod test {
 
         state
     }
+
+    fn _initial_connections() -> Vec<Connection> {
+        let recipient_did = _recipient_did();
+
+        let connections = format!(
+            r##"[
+                {{
+                    "_id": {{
+                        "$oid": "6580701fd2d92bb3cd291b2a"
+                    }},
+                    "client_did": "{recipient_did}",
+                    "mediator_did": "did:web:alice-mediator.com:alice_mediator_pub",
+                    "routing_did": "did:key:generated",
+                    "keylist": [
+                        "{recipient_did}"
+                    ]
+                }}
+            ]"##
+        );
+
+        serde_json::from_str(&connections).unwrap()
+    }
+
     #[tokio::test]
     async fn test_mediator_forward_process() {
+        _initial_connections();
         // simulate sender forwarding process
-        let did_resolver =
-            ExampleDIDResolver::new(vec![MEDIATOR_DID_DOC.clone(), ALICE_DID_DOC.clone()]);
-        let secret_resolver = ExampleSecretsResolver::new(ALICE_SECRETS.clone());
-        const ALICE_DID: &str = "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7";
-        const MEDIATOR_DID: &str = "did:web:alice-mediator.com:alice_mediator_pub";
-        let id = Uuid::new_v4().to_string();
 
-        let plaintext_msg = Attachment {
-            id: None,
-            description: Some("A friendly reminder to take a break and enjoy some fresh air!".to_string()),
-            media_type: None,
-            data: AttachmentData::Json { value: JsonAttachmentData{json: json!("Hey there! Just wanted to remind you to step outside for a bit. A little fresh air can do wonders for your mood."), jws: None} },
-            filename: Some("reminder.txt".to_string()),
-            format: Some("mime_type".to_string()),
-            lastmod_time: None,
-            byte_count: None
-        };
-        
-        let forward_msg: Message = Message::build(
-
-            id,
-            MEDIATE_FORWARD_2_0.to_string(),
-            serde_json::json!({"next":["did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7"]}),
-        )
-        .to(MEDIATOR_DID.to_owned())
-        .from(ALICE_DID.to_owned())
-        .attachment(plaintext_msg)
-
-        .finalize();
         let state = &setup();
+        let msg = Message::build(
+            Uuid::new_v4().to_string(),
+            "example/v1".to_owned(),
+            json!("Hey there! Just wanted to remind you to step outside for a bit. A little fresh air can do wonders for your mood."),
+        )
+        .to(_recipient_did())
+        .from(_sender_did())
+        .finalize();
 
         let (packed_forward_msg, _metadata) = forward_msg
 
             .pack_encrypted(
-                MEDIATOR_DID,
-                Some(ALICE_DID),
+                &_recipient_did(),
+                Some(&_sender_did()),
                 None,
-                &did_resolver,
-                &secret_resolver,
+                &state.did_resolver,
+                &_sender_secrets_resolver(),
                 &PackEncryptedOptions::default(),
             )
             .await
-            .unwrap();
+            .expect("Unable pack_encrypted");
+        println!("Encryption metadata is\n{:?}\n", _metadata);
 
-        // Mediator in action
-        let (payload, _) = Message::unpack(
-            &packed_forward_msg,
+
+        // --- Sending message by Alice ---
+        println!("Alice is sending message \n{}\n", msg);
+
+        let msg = wrap_in_forward(
+            &msg,
+            None,
+            &&_recipient_did(),
+            &vec![_mediator_did(state)],
+            &AnonCryptAlg::default(),
+            &state.did_resolver,
+        )
+        .await
+        .expect("Unable wrap_in_forward");
+        println!(" wraped in forward\n{}\n", msg);
+        let (msg, _metadata) = Message::unpack(
+            &msg,
+
             &state.did_resolver,
             &state.secrets_resolver,
             &UnpackOptions::default(),
         )
         .await
+        .expect("Unable unpack");
+
+        println!("Mediator1 received message is \n{:?}\n", msg);
+
+        println!(
+            "Mediator1 received message unpack metadata is \n{:?}\n",
+            _metadata
+        );
+
+        let msg = mediator_forward_process(state, msg).await.unwrap();
+
+        println!("Mediator1 is forwarding message \n{:?}\n", msg);
+    }
+
+    pub fn _sender_did() -> String {
+        "did:key:z6MkwKfDFAK49Lb9D6HchFiCXdcurRUSFrbnwDBk5qFZeHA3".to_string()
+    }
+
+    pub fn _mediator_did(state: &AppState) -> String {
+        state.diddoc.id.clone()
+    }
+
+    pub fn _recipient_did() -> String {
+        "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7".to_string()
+    }
+
+    pub fn _sender_secrets_resolver() -> impl SecretsResolver {
+        let secret_id = _sender_did() + "#z6LSiZbfm5L5zR3mrqpHyL7T2b2x3afUMpmGnMrEQznAz5F3";
+        let secret: Jwk = serde_json::from_str(
+            r#"{
+                "kty": "OKP",
+                "crv": "X25519",
+                "x": "ZlJzHqy2dLrDQNlV15O3zDOIXpWVQnq6VtiVZ78O0hY",
+                "d": "8OK7-1IVMdcM86PZzYKsbIi3kCJ-RxI8XFKe9JEcF2Y"
+            }"#,
+        )
         .unwrap();
-        mediator_forward_process(state, payload).await.ok();
+
+
+        LocalSecretsResolver::new(&secret_id, &secret)
 
     }
 }

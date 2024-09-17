@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 use didcomm::Attachment;
+=======
+use didcomm::{Attachment, Message};
+>>>>>>> iss-41-forward-protocol
 /// Resources to map in a database.
 use mongodb::bson::oid::ObjectId;
 use serde::{Deserialize, Serialize};
@@ -28,7 +32,7 @@ pub struct RoutedMessage {
     #[serde(rename = "_id")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub id: Option<ObjectId>,
-    pub messages: Vec<Attachment>,
+    pub message: Vec<String>,
     pub recipient_did: String,
 }
 
