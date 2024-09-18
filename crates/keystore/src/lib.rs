@@ -39,7 +39,6 @@ pub struct KeyStore<'a> {
     filename: String,
     keys: Vec<Jwk>,
 }
-      //Import Chacha20Poly1303 encryption algorith 
 use chacha20poly1305::{
     aead::{Aead, AeadCore, OsRng},
     ChaCha20Poly1305,
@@ -51,7 +50,7 @@ struct FileSystemkeystore {
 }
 
 impl FileSystemkeystore{
-    fn encrypts(mut self, secret: KeyStore) {
+    fn encrypt(mut self, secret: KeyStore) {
         let cipher = ChaCha20Poly1305::new(GenericArray::from_slice(&self.key));
 
         let nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
@@ -67,7 +66,20 @@ impl FileSystemkeystore{
         keystorefile.write_all(&encrypted_key).unwrap();
         self.nonce = nonce.to_vec();
     }
+
+    fn decrypt( self, secret: KeyStore) -> Result<Vec<u8>, chacha20poly1305::aead::Error> {
+        let cipher = ChaCha20Poly1305::new(GenericArray::from_slice(&self.key));
+        let path = secret.path();
+        let mut keystorefile = File::open(path).unwrap();
+        let mut buffer = Vec::new();
+        keystorefile.read_to_end(&mut buffer).unwrap();
+
+        let decrypted_key = cipher.decrypt(GenericArray::from_slice(&self.nonce), buffer.as_slice())?;
+        Ok(decrypted_key)
+
+    }
 }
+
 impl<'a> KeyStore<'a> {
     /// Constructs file-based key-value store.
     pub fn new(fs: &'a mut dyn FileSystem, storage_dirpath: &str) -> Self {
