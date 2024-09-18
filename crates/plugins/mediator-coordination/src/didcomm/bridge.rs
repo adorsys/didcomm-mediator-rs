@@ -288,6 +288,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_local_did_resolver_resolves_peer_did_successfully() {
+        
         let diddoc = setup();
         let resolver = LocalDIDResolver::new(&diddoc);
 
