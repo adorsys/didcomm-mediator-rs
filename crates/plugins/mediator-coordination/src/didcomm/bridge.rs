@@ -385,5 +385,22 @@ async fn test_local_did_resolver_fails_on_unsupported_peer_did_format() {
     ));
 }
 
+#[tokio::test]
+async fn test_local_did_resolver_fails_on_non_existent_peer_did() {
+    let diddoc = setup();
+    let resolver = LocalDIDResolver::new(&diddoc);
+
+    // Example of a Peer DID that doesn't exist in the resolver
+    let non_existent_peer_did = "did:peer:0zNonExistentDID";
+
+    // Attempt to resolve the non-existent Peer DID
+    let resolved = resolver.resolve(non_existent_peer_did).await;
+
+    // Assert that the resolver returns a DIDNotResolved error for the non-existent DID
+    assert!(matches!(
+        resolved.unwrap_err().kind(),
+        ErrorKind::DIDNotResolved
+    ));
+}
 
 }
