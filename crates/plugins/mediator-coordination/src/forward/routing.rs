@@ -25,13 +25,13 @@ pub async fn mediator_forward_process(
         .ok_or_else(|| MediationError::RepostitoryError)
         .unwrap();
 
-    // Check if the receiver has a connection with the mediator else return early with custom error.
+    // Check if the client's did in mediator's keylist
 
     let result = try_parse_forward(&payload).expect("Could Not Parse Forward");
     let client_did = result.next;
 
     let _connection = match connection_repository
-        .find_one_by(doc! {"client_did": &client_did})
+        .find_one_by(doc! {"keylist": doc!{ "$elemMatch": { "$eq": &client_did}}})
         .await
         .unwrap()
     {
@@ -121,11 +121,11 @@ mod test {
                         "$oid": "6580701fd2d92bb3cd291b2a"
                     }},
 
-                    "client_did": "did:key:client_did",
+                    "client_did": "{_recipient_did}",
                     "mediator_did": "did:web:alice-mediator.com:alice_mediator_pub",
                     "routing_did": "did:key:generated",
                     "keylist": [
-                        "DFS"
+                        "{_recipient_did}"
                     ]
                 }}
             ]"##

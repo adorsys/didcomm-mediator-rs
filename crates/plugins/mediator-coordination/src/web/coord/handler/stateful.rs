@@ -43,9 +43,9 @@ pub async fn process_mediate_request(
     midlw::run!(ensure_jwm_type_is_mediation_request(&plain_message));
 
     // This is to Check explicit agreement to HTTP responding
-    midlw::run!(ensure_transport_return_route_is_decorated_all(
-        &plain_message
-    ));
+    // midlw::run!(ensure_transport_return_route_is_decorated_all(
+    //     &plain_message
+    // ));
 
     let mediator_did = &state.diddoc.id;
 

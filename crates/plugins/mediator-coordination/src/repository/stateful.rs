@@ -32,11 +32,6 @@ impl Repository<Connection> for MongoConnectionRepository {
 
         Ok(connections)
     }
-    async fn find(&self, filter: BsonDocument) -> Result<Option<Connection>, RepositoryError> {
-
-        Ok(self.collection.find(filter, None).await?)
-
-    }
 
     async fn find_one(
         &self,
@@ -201,7 +196,6 @@ impl Repository<RoutedMessage> for MongoMessagesRepository {
             Err(RepositoryError::TargetNotFound)
         }
     }
-    
 }
 #[async_trait]
 impl Repository<Secrets> for MongoSecretsRepository {

@@ -383,7 +383,7 @@ mod tests2 {
         )
         .await
         .unwrap();
-
+println!("{}", packed_msg);
         // Send request
         let response = app
             .oneshot(
