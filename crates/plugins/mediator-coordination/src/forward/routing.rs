@@ -3,6 +3,7 @@ use didcomm::{protocols::routing::try_parse_forward, Message};
 
 use hyper::StatusCode;
 use mongodb::bson::doc;
+use serde_json::Value;
 
 use crate::{
     model::stateful::entity::RoutedMessage,
@@ -27,11 +28,11 @@ pub async fn mediator_forward_process(
 
     // Check if the client's did in mediator's keylist
 
-    let result = try_parse_forward(&payload).expect("Could Not Parse Forward");
-    let client_did = result.next;
+    let next = payload.body.get("next").and_then(Value::as_str).unwrap();
+    println!("{}", next);
 
     let _connection = match connection_repository
-        .find_one_by(doc! {"keylist": doc!{ "$elemMatch": { "$eq": &client_did}}})
+        .find_one_by(doc! {"keylist": doc!{ "$elemMatch": { "$eq": &next}}})
         .await
         .unwrap()
     {
@@ -45,21 +46,53 @@ pub async fn mediator_forward_process(
         }
     };
 
-    // store message attachement with associated recipient did
-
-    let forward_msg = serde_json::to_string(&result.forwarded_msg).unwrap();
-
-    let messages = RoutedMessage {
-        id: None,
-        message: vec![forward_msg],
-        recipient_did: client_did,
-    };
-    message_repository
-        .store(messages)
+    let attachments = payload.attachments.as_ref().unwrap();
+    for att in attachments {
+        message_repository
+        .store(RoutedMessage {
+            id: None,
+            message: att.clone(),
+            recipient_did: next.to_string(),
+        })
         .await
         .map_err(|_| MediationError::PersisenceError)
         .unwrap();
-    Ok(result.msg.to_owned())
+    }
+
+    // let result = try_parse_forward(&payload).expect("Could Not Parse Forward");
+    // let client_did = result.next;
+
+    // let _connection = match connection_repository
+    //     .find_one_by(doc! {"keylist": doc!{ "$elemMatch": { "$eq": &client_did}}})
+    //     .await
+    //     .unwrap()
+    // {
+    //     Some(connection) => connection,
+    //     None => {
+    //         let response = (
+    //             StatusCode::UNAUTHORIZED,
+    //             MediationError::UncoordinatedSender.json(),
+    //         );
+    //         return Err(response.into_response());
+    //     }
+    // };
+
+    // // store message attachement with associated recipient did
+
+    // let forward_msg = serde_json::to_string(&result.forwarded_msg).unwrap();
+
+    // let messages = RoutedMessage {
+    //     id: None,
+    //     message: vec![forward_msg],
+    //     recipient_did: client_did,
+    // };
+    // message_repository
+    //     .store(messages)
+    //     .await
+    //     .map_err(|_| MediationError::PersisenceError)
+    //     .unwrap();
+    // Ok(result.msg.to_owned())
+    Ok(payload)
 }
 
 #[cfg(test)]
