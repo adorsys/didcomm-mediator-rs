@@ -367,4 +367,23 @@ async fn test_local_did_resolver_fails_on_malformed_peer_did() {
     }
 }
 
+#[tokio::test]
+async fn test_local_did_resolver_fails_on_unsupported_peer_did_format() {
+    let diddoc = setup();
+    let resolver = LocalDIDResolver::new(&diddoc);
+
+    // Example of an unsupported Peer DID format (incorrect DID syntax or unsupported format)
+    let unsupported_peer_did = "did:peer:unsupported_format";
+
+    // Attempt to resolve the unsupported Peer DID
+    let resolved = resolver.resolve(unsupported_peer_did).await;
+
+    // Assert that the resolver returns a DIDNotResolved error
+    assert!(matches!(
+        resolved.unwrap_err().kind(),
+        ErrorKind::DIDNotResolved
+    ));
+}
+
+
 }
