@@ -288,7 +288,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_local_did_resolver_resolves_peer_did_successfully() {
-        
+
         let diddoc = setup();
         let resolver = LocalDIDResolver::new(&diddoc);
 
@@ -345,4 +345,26 @@ mod tests {
             json_canon::to_string(&expected).unwrap()
         );
     }
+
+    #[tokio::test]
+async fn test_local_did_resolver_fails_on_malformed_peer_did() {
+    let diddoc = setup();
+    let resolver = LocalDIDResolver::new(&diddoc);
+
+    // Test cases for malformed Peer DIDs
+    let malformed_dids = [
+        "did:peer:invalid-did-format", // Invalid DID format
+        "did:peer:1234567890123456789012345678901234567890123456789012345678901234567890", // Too long DID
+        "did:peer:0z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK#", // Invalid DID suffix
+    ];
+
+    for did in malformed_dids {
+        let resolved = resolver.resolve(did).await;
+        assert!(matches!(
+            resolved.unwrap_err().kind(),
+            ErrorKind::DIDNotResolved
+        ));
+    }
+}
+
 }
