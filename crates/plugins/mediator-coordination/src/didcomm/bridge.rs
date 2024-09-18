@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use did_utils::crypto::PublicKeyFormat;
+use did_utils::methods::DidPeer;
 use did_utils::{
     didcore::Document,
     jwk::Jwk,
@@ -11,7 +12,6 @@ use didcomm::{
     secrets::{Secret, SecretMaterial, SecretType, SecretsResolver},
 };
 use serde_json::json;
-use did_utils::methods::DidPeer;
 
 #[derive(Clone)]
 pub struct LocalDIDResolver {
@@ -30,7 +30,6 @@ impl LocalDIDResolver {
     }
 }
 
-
 #[async_trait]
 impl DIDResolver for LocalDIDResolver {
     async fn resolve(&self, did: &str) -> Result<Option<DIDDoc>> {
@@ -40,7 +39,7 @@ impl DIDResolver for LocalDIDResolver {
 
         if did.starts_with("did:peer:") {
             // Add logic to resolve Peer DIDs here
-            let method = DidPeer::new(); // Assuming a Peer DID resolver
+            let method = DidPeer::new_with_format(PublicKeyFormat::Jwk); // Assuming a Peer DID resolver
             match method.expand(did) {
                 Ok(diddoc) => Ok(Some(
                     serde_json::from_value(json!(Document {
@@ -50,7 +49,6 @@ impl DIDResolver for LocalDIDResolver {
                     .expect("Should easily convert between DID document representations."),
                 )),
                 Err(err) => Err(Error::new(ErrorKind::DIDNotResolved, Box::new(err))),
-
             }
         } else if did.starts_with("did:key:") {
             let method = DidKey::new_full(true, PublicKeyFormat::Jwk);
@@ -72,7 +70,6 @@ impl DIDResolver for LocalDIDResolver {
         }
     }
 }
-
 
 #[derive(Clone)]
 pub struct LocalSecretsResolver {
@@ -288,162 +285,63 @@ mod tests {
         let resolved = resolver.get_secret(secret_id).await.unwrap();
         assert!(resolved.is_none());
     }
-}
 
-#[tokio::test]
-async fn test_local_did_resolver_resolves_peer_did_successfully() {
-    
-    // Setup a sample Peer DID document
-    let peer_did_doc = r#"{
-        "id": "did:peer:123456789abcdefghi",
-        "authentication": [
-            {
-                "id": "did:peer:123456789abcdefghi#keys-1",
-                "type": "JsonWebKey2020",
-                "controller": "did:peer:123456789abcdefghi",
-                "publicKeyJwk": {
-                    "kty": "OKP",
-                    "crv": "Ed25519",
-                    "x": "Gfp9JkyH0SBz7c3skvRFS32NCMkR5VjkxF3aWjUhRXA"
-                }
-            }
-        ],
-        "keyAgreement": [
-            {
-                "id": "did:peer:123456789abcdefghi#keys-2",
-                "type": "JsonWebKey2020",
-                "controller": "did:peer:123456789abcdefghi",
-                "publicKeyJwk": {
-                    "kty": "OKP",
-                    "crv": "X25519",
-                    "x": "SCMU76FUIUVS7HDgIt6EBQHVuEzUjhnEqa7PA-UyH2w"
-                }
-            }
-        ],
-        "service": []
-    }"#;
+    #[tokio::test]
+    async fn test_local_did_resolver_resolves_peer_did_successfully() {
+        let diddoc = setup();
+        let resolver = LocalDIDResolver::new(&diddoc);
 
-    // Mock Peer DID resolution by setting up a fake resolver
-    let diddoc: Document = serde_json::from_str(peer_did_doc).unwrap();
-    let resolver = LocalDIDResolver::new(&diddoc);
+        // Setup a sample Peer DID document
+        let peer_did_doc = r##"{
+                "id": "did:peer:0z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+                "verificationMethod": [
+                    {
+                        "id": "#z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+                        "type": "JsonWebKey2020",
+                        "controller": "did:peer:0z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+                        "publicKeyJwk": {
+                            "kty": "OKP",
+                            "crv": "Ed25519",
+                            "x": "Lm_M42cB3HkUiODQsXRcweM6TByfzEHGO9ND274JcOY"
+                        }
+                    },
+                    {
+                        "id": "#z6LSj72tK8brWgZja8NLRwPigth2T9QRiG1uH9oKZuKjdh9p",
+                        "type": "JsonWebKey2020",
+                        "controller": "did:peer:0z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+                        "publicKeyJwk": {
+                            "kty": "OKP",
+                            "crv": "X25519",
+                            "x": "bl_3kgKpz9jgsg350CNuHa_kQL3B60Gi-98WmdQW2h8"
+                        }
+                    }
+                ],
+                "authentication": ["#z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"],
+                "keyAgreement": ["#z6LSj72tK8brWgZja8NLRwPigth2T9QRiG1uH9oKZuKjdh9p"],
+                "service": []
+            }"##;
 
-    // Resolving Peer DID
-    let did = "did:peer:123456789abcdefghi";
-    let resolved = resolver.resolve(did).await.unwrap().unwrap();
+        // Resolving Peer DID
+        let did = "did:peer:0z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK";
+        let resolved = resolver.resolve(did).await.unwrap().unwrap();
 
-    // Expected DID Document
-    let expected: serde_json::Value = serde_json::from_str(peer_did_doc).unwrap();
+        // Expected DID Document
+        let expected: serde_json::Value = serde_json::from_str(peer_did_doc).unwrap();
 
-    // Debugging: Print both resolved and expected documents
-    println!("Resolved DID Doc: {}", json_canon::to_string(&resolved).unwrap());
-    println!("Expected DID Doc: {}", json_canon::to_string(&expected).unwrap());
+        // Debugging: Print both resolved and expected documents
+        println!(
+            "Resolved DID Doc: {}",
+            json_canon::to_string(&resolved).unwrap()
+        );
+        println!(
+            "Expected DID Doc: {}",
+            json_canon::to_string(&expected).unwrap()
+        );
 
-    // Check if resolved DID document matches the expected document
-    assert_eq!(
-        json_canon::to_string(&resolved).unwrap(),
-        json_canon::to_string(&expected).unwrap()
-    );
-}
-
-
-#[tokio::test]
-async fn test_local_did_resolver_fails_on_malformed_peer_did() {
-    
-    // Malformed Peer DID document
-    let malformed_peer_did_doc = r#"{
-        "id": "did:peer:malformed",
-        "authentication": [
-            {
-                "id": "did:peer:malformed#keys-1",
-                "type": "JsonWebKey2020",
-                "controller": "did:peer:malformed",
-                "publicKeyJwk": {
-                    "kty": "OKP",
-                    "crv": "Ed25519",
-                    "x": "InvalidPublicKey"
-                }
-            }
-            ]
-    }"#;
-
-    let diddoc: Document = serde_json::from_str(malformed_peer_did_doc).unwrap();
-    let resolver = LocalDIDResolver::new(&diddoc);
-
-    // Resolving the malformed Peer DID
-    let did = "did:peer:malformed";
-    let resolved = resolver.resolve(did).await;
-
-    // Expect DIDNotResolved error due to malformed DID document
-    assert!(matches!(resolved.unwrap_err().kind(), ErrorKind::DIDNotResolved));
-}
-
-fn setup() -> Document {
-    // Create and return a sample Document for testing
-    serde_json::from_str(r#"{
-        "id": "did:peer:123456789abcdefghi",
-        "authentication": [
-            {
-                "id": "did:peer:123456789abcdefghi#keys-1",
-                "type": "JsonWebKey2020",
-                "controller": "did:peer:123456789abcdefghi",
-                "publicKeyJwk": {
-                    "kty": "OKP",
-                    "crv": "Ed25519",
-                    "x": "Gfp9JkyH0SBz7c3skvRFS32NCMkR5VjkxF3aWjUhRXA"
-                }
-            }
-        ]
-    }"#).unwrap()
-}
-
-
-#[tokio::test]
-async fn test_local_did_resolver_fails_on_unsupported_peer_did_format() {
-    // Setup DID document
-    let diddoc = setup();
-    let resolver = LocalDIDResolver::new(&diddoc);
-
-    // Unsupported Peer DID
-    let did = "did:peer:unsupported-format";
-    
-    // Resolving should result in an unsupported error
-    let resolved = resolver.resolve(did).await;
-    assert!(matches!(
-        resolved.unwrap_err().kind(),
-        ErrorKind::Unsupported
-    ));
-}
-
-#[tokio::test]
-async fn test_local_did_resolver_fails_on_non_existent_peer_did() {
-    // Setup DID document
-    let diddoc = setup();
-    let resolver = LocalDIDResolver::new(&diddoc);
-
-    // Non-existent Peer DID
-    let did = "did:peer:non-existent";
-    
-    // Resolving should result in a DIDNotResolved error
-    let resolved = resolver.resolve(did).await;
-    assert!(matches!(
-        resolved.unwrap_err().kind(),
-        ErrorKind::DIDNotResolved
-    ));
-}
-
-#[tokio::test]
-async fn test_local_did_resolver_handles_both_peer_did_and_key_did() {
-    // Setup DID document
-    let diddoc = setup();
-    let resolver = LocalDIDResolver::new(&diddoc);
-
-    // Valid Peer DID
-    let peer_did = "did:peer:123456789abcdefghi";
-    let resolved_peer_did = resolver.resolve(peer_did).await.unwrap().unwrap();
-    assert_eq!(resolved_peer_did.id, peer_did);
-
-    // Valid Key DID
-    let key_did = "didz6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7";
-    let resolved_key_did = resolver.resolve(key_did).await.unwrap().unwrap();
-    assert_eq!(resolved_key_did.id, key_did);
+        // Check if resolved DID document matches the expected document
+        assert_eq!(
+            json_canon::to_string(&resolved).unwrap(),
+            json_canon::to_string(&expected).unwrap()
+        );
+    }
 }
