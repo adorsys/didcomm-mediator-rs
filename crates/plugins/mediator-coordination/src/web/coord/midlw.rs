@@ -137,7 +137,7 @@ pub fn ensure_transport_return_route_is_decorated_all(message: &Message) -> Resu
 }
 
 /// Parse message body into mediation request
-pub fn parse_message_body_into_mediation_request(
+pub fn _parse_message_body_into_mediation_request(
     message: &Message,
 ) -> Result<MediationRequest, Response> {
     serde_json::from_value::<MediationRequest>(message.body.clone()).map_err(|_| {

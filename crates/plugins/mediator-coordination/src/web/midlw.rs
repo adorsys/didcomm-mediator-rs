@@ -141,7 +141,7 @@ pub async fn pack_response_message(
     let from = msg.from.as_ref();
     let to = msg.to.as_ref().and_then(|v| v.get(0));
 
-    if from.is_none() || to.is_none() {
+    if to.is_none() {
         let response = (
             StatusCode::INTERNAL_SERVER_ERROR,
             MediationError::MessagePackingFailure(DidcommErrorKind::Malformed).json(),

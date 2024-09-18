@@ -4,7 +4,10 @@ use didcomm::{protocols::routing::try_parse_forward, Message};
 use hyper::StatusCode;
 use mongodb::bson::doc;
 
-use crate::{model::stateful::entity::RoutedMessage, web::{error::MediationError, AppState, AppStateRepository}};
+use crate::{
+    model::stateful::entity::RoutedMessage,
+    web::{error::MediationError, AppState, AppStateRepository},
+};
 
 /// mediator receives messages of type forward then it unpacks the messages and stores it for pickup
 /// the unpacked message is then repacked for further transmission.
@@ -27,7 +30,7 @@ pub async fn mediator_forward_process(
     let result = try_parse_forward(&payload).expect("Could Not Parse Forward");
     let client_did = result.next;
 
-    let connection = match connection_repository
+    let _connection = match connection_repository
         .find_one_by(doc! {"client_did": &client_did})
         .await
         .unwrap()
@@ -39,74 +42,63 @@ pub async fn mediator_forward_process(
                 MediationError::UncoordinatedSender.json(),
             );
             return Err(response.into_response());
-
         }
     };
 
-    // check if receiver's did in mediator's keylist
-    let keylist_entries = connection.keylist.iter().find(|keys| keys == &&client_did);
+    // store message attachement with associated recipient did
 
-    match keylist_entries {
-        Some(_) => {
-            // store message attachement with associated recipient did
+    let forward_msg = serde_json::to_string(&result.forwarded_msg).unwrap();
 
-            let forward_msg = serde_json::to_string(&result.forwarded_msg).unwrap();
-
-            let messages = RoutedMessage {
-                id: None,
-                message: vec![forward_msg],
-                recipient_did: client_did,
-            };
-            message_repository
-                .store(messages)
-                .await
-                .map_err(|_| MediationError::PersisenceError)
-                .unwrap();
-        }
-        None => {
-            let response = (
-                StatusCode::UNAUTHORIZED,
-                MediationError::UncoordinatedSender.json(),
-            );
-            return Err(response.into_response());
-        }
-    }
-
+    let messages = RoutedMessage {
+        id: None,
+        message: vec![forward_msg],
+        recipient_did: client_did,
+    };
+    message_repository
+        .store(messages)
+        .await
+        .map_err(|_| MediationError::PersisenceError)
+        .unwrap();
     Ok(result.msg.to_owned())
-
 }
 
 #[cfg(test)]
 mod test {
-    use std::{collections::HashMap, sync::Arc};
+
+    use std::sync::Arc;
 
     use crate::{
-
-        didcomm::bridge::LocalSecretsResolver, model::stateful::entity::Connection, repository::stateful::tests::{MockConnectionRepository, MockMessagesRepository, MockSecretsRepository}, util::{self, MockFileSystem}, web::AppStateRepository
+        didcomm::bridge::LocalSecretsResolver,
+        model::stateful::entity::Connection,
+        repository::stateful::tests::{
+            MockConnectionRepository, MockMessagesRepository, MockSecretsRepository,
+        },
+        util::{self, MockFileSystem},
+        web::AppStateRepository,
     };
 
     use super::*;
 
     use did_utils::jwk::Jwk;
     use didcomm::{
-
-        algorithms::AnonCryptAlg, did::DIDResolver, protocols::routing::wrap_in_forward, secrets::SecretsResolver, Message, PackEncryptedOptions, UnpackOptions
-
+        algorithms::AnonCryptAlg, protocols::routing::wrap_in_forward, secrets::SecretsResolver,
+        Message, PackEncryptedOptions, UnpackOptions,
     };
-    use serde_json::{json, Value};
+    use serde_json::json;
+
     use uuid::Uuid;
     pub fn setup() -> Arc<AppState> {
         let public_domain = String::from("http://alice-mediator.com");
 
         let mut mock_fs = MockFileSystem;
         let storage_dirpath = std::env::var("STORAGE_DIRPATH").unwrap_or_else(|_| "/".to_owned());
-        let diddoc = util::read_diddoc(&mock_fs,&storage_dirpath).unwrap();
+        let diddoc = util::read_diddoc(&mock_fs, &storage_dirpath).unwrap();
         let keystore = util::read_keystore(&mut mock_fs, "").unwrap();
 
         let repository = AppStateRepository {
             connection_repository: Arc::new(MockConnectionRepository::from(_initial_connections())),
             secret_repository: Arc::new(MockSecretsRepository::from(vec![])),
-            message_repository: Arc::new(MockMessagesRepository::from(vec![]))
+            message_repository: Arc::new(MockMessagesRepository::from(vec![])),
         };
 
         let state = Arc::new(AppState::from(
@@ -120,7 +112,7 @@ mod test {
     }
 
     fn _initial_connections() -> Vec<Connection> {
-        let recipient_did = _recipient_did();
+        let _recipient_did = _recipient_did();
 
         let connections = format!(
             r##"[
@@ -128,11 +120,12 @@ mod test {
                     "_id": {{
                         "$oid": "6580701fd2d92bb3cd291b2a"
                     }},
-                    "client_did": "{recipient_did}",
+
+                    "client_did": "did:key:client_did",
                     "mediator_did": "did:web:alice-mediator.com:alice_mediator_pub",
                     "routing_did": "did:key:generated",
                     "keylist": [
-                        "{recipient_did}"
+                        "DFS"
                     ]
                 }}
             ]"##
@@ -157,7 +150,6 @@ mod test {
         .finalize();
 
         let (packed_forward_msg, _metadata) = msg
-
             .pack_encrypted(
                 &_recipient_did(),
                 Some(&_sender_did()),
@@ -169,7 +161,6 @@ mod test {
             .await
             .expect("Unable pack_encrypted");
         println!("Encryption metadata is\n{:?}\n", _metadata);
-
 
         // --- Sending message by Alice ---
         println!("Alice is sending message \n{}\n", packed_forward_msg);
@@ -184,11 +175,10 @@ mod test {
         )
         .await
         .expect("Unable wrap_in_forward");
- 
+
         println!(" wraped in forward\n{}\n", msg);
         let (msg, _metadata) = Message::unpack(
             &msg,
-
             &state.did_resolver,
             &state.secrets_resolver,
             &UnpackOptions::default(),
@@ -232,10 +222,6 @@ mod test {
         )
         .unwrap();
 
-
         LocalSecretsResolver::new(&secret_id, &secret)
-
     }
-   
-
 }

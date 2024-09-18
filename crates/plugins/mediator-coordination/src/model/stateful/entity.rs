@@ -1,4 +1,3 @@
-use didcomm::{Attachment, Message};
 
 /// Resources to map in a database.
 use mongodb::bson::oid::ObjectId;

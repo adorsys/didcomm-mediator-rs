@@ -1,11 +1,16 @@
 pub mod filesystem;
 
-use chrono::Utc;
+use chacha20poly1305::{aead::generic_array::GenericArray, KeyInit};
+
 use did_utils::{
     crypto::{Ed25519KeyPair, Generate, ToPublic, X25519KeyPair},
     jwk::Jwk,
 };
-use std::error::Error;
+use std::{
+    error::Error,
+    fs::File,
+    io::{self, Read, Write},
+};
 
 use crate::filesystem::FileSystem;
 
@@ -33,7 +38,33 @@ pub struct KeyStore<'a> {
     filename: String,
     keys: Vec<Jwk>,
 }
+use chacha20poly1305::{
+    aead::{Aead, AeadCore, OsRng},
+    ChaCha20Poly1305,
+};
 
+struct FileSystemkeystore {
+    key:Vec<u8>,
+    nonce: Vec<u8>,
+}
+
+impl FileSystemkeystore{
+    fn encryptfs(mut self, secret: KeyStore) {
+        let cipher = ChaCha20Poly1305::new(GenericArray::from_slice(&self.key));
+
+        let nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
+        let path = secret.path();
+        let mut input_key = File::open(path).unwrap();
+        let mut buffer = Vec::new();
+        input_key.read_to_end(&mut buffer);
+
+        let encrypted_key = cipher
+            .encrypt(GenericArray::from_slice(&self.nonce), buffer.as_slice())
+            .unwrap();
+        input_key.write_all(&encrypted_key).unwrap();
+        self.nonce = nonce.to_vec();
+    }
+}
 impl<'a> KeyStore<'a> {
     /// Constructs file-based key-value store.
     pub fn new(fs: &'a mut dyn FileSystem, storage_dirpath: &str) -> Self {

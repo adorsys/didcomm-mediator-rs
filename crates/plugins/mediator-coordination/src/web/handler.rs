@@ -8,13 +8,12 @@ use hyper::{header::CONTENT_TYPE, StatusCode};
 use std::sync::Arc;
 
 use crate::{
-<<<<<<< Updated upstream
-
-    constant::{DIDCOMM_ENCRYPTED_MIME_TYPE, KEYLIST_QUERY_2_0, KEYLIST_UPDATE_2_0, MEDIATE_FORWARD_2_0, MEDIATE_REQUEST_2_0}, forward::routing::mediator_forward_process, web::{self, error::MediationError, AppState}
-=======
-    constant::{DIDCOMM_ENCRYPTED_MIME_TYPE, KEYLIST_QUERY_2_0, KEYLIST_UPDATE_2_0, MEDIATE_REQUEST_2_0},
+    constant::{
+        DIDCOMM_ENCRYPTED_MIME_TYPE, KEYLIST_QUERY_2_0, KEYLIST_UPDATE_2_0, MEDIATE_FORWARD_2_0,
+        MEDIATE_REQUEST_2_0,
+    },
+    forward::routing::mediator_forward_process,
     web::{self, error::MediationError, AppState},
->>>>>>> Stashed changes
 };
 
 #[axum::debug_handler]
@@ -22,6 +21,19 @@ pub async fn process_didcomm_message(
     State(state): State<Arc<AppState>>,
     Extension(message): Extension<Message>,
 ) -> Response {
+
+    // handle mediation request
+    if message.type_ == MEDIATE_FORWARD_2_0 {
+        let response = mediator_forward_process(&state, message)
+            .await
+            .map(|_| StatusCode::ACCEPTED.into_response())
+            .map_err(|err| err);
+
+        return match response {
+            Ok(_message) => StatusCode::ACCEPTED.into_response(),
+            Err(response) => response,
+        };
+    }
     let delegate_response = match message.type_.as_str() {
         KEYLIST_UPDATE_2_0 => {
             web::coord::handler::stateful::process_plain_keylist_update_message(
@@ -44,10 +56,8 @@ pub async fn process_didcomm_message(
         _ => {
             let response = (
                 StatusCode::BAD_REQUEST,
-                
                 MediationError::UnsupportedOperation.json(),
             );
-
             return response.into_response();
         }
     };
