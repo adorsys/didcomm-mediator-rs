@@ -6,7 +6,7 @@ use lazy_static::lazy_static;
 use serde_json::json;
 
 lazy_static! {
-    pub static ref ALICE_DID: String = String::from("did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH6");
+    pub static ref ALICE_DID: String = String::from("did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7");
 
     pub static ref ALICE_DID_DOC: DIDDoc = serde_json::from_str(
         r#"{
