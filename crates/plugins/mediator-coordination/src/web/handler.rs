@@ -436,6 +436,7 @@ mod tests2 {
         //         ]
         //     })
         // );
+        
     }
     #[tokio::test]
     async fn test_keylist_query_success() {
@@ -470,8 +471,8 @@ mod tests2 {
         // Build message
         let msg = Message::build(
             "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
-            "https://didcomm.org/messagepickup/2.0/status-request".to_owned(),
-            json!({}),
+            "https://didcomm.org/messagepickup/3.0/status-request".to_owned(),
+            json!({"recipient_did": "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7"}),
         )
         .header("return_route".into(), json!("all"))
         .to(global::_mediator_did(&state))
@@ -486,6 +487,6 @@ mod tests2 {
         )
         .await
         .unwrap();
-    println!("{}", packed_msg);
+        println!("{}", packed_msg);
     }
 }

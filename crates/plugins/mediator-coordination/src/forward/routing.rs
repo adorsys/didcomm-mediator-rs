@@ -1,9 +1,9 @@
 use axum::response::{IntoResponse, Response};
-use didcomm::{protocols::routing::try_parse_forward, Message};
+use didcomm::Message;
 
 use hyper::StatusCode;
 use mongodb::bson::doc;
-use serde_json::Value;
+use serde_json::{json, Value};
 
 use crate::{
     model::stateful::entity::RoutedMessage,
@@ -50,7 +50,7 @@ pub async fn mediator_forward_process(
         message_repository
             .store(RoutedMessage {
                 id: None,
-                message: att.clone(),
+                message: json!(att),
                 recipient_did: next.to_string(),
             })
             .await
@@ -58,8 +58,6 @@ pub async fn mediator_forward_process(
             .unwrap();
     }
 
-    // let result = try_parse_forward(&payload).expect("Could Not Parse Forward");
-    // let client_did = result.next;
 
     // let _connection = match connection_repository
     //     .find_one_by(doc! {"keylist": doc!{ "$elemMatch": { "$eq": &client_did}}})
