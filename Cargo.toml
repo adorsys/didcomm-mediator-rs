@@ -14,7 +14,7 @@ members = [
     "crates/plugins/did-endpoint",
     "crates/plugins/mediator-coordination",
     "crates/plugins/oob-messages",
-    "crates/database",
+    "crates/database", "demo",
 
 ]
 
@@ -88,6 +88,7 @@ chrono = { workspace = true, optional = true }
 did-endpoint = { workspace = true, optional = true }
 oob-messages = { workspace = true, optional = true }
 mediator-coordination = {workspace = true, optional = true }
+didcomm.workspace = true
 
 
 [features]

@@ -44,7 +44,6 @@ where
 
     /// Deletes a single entity by its identifier.
     async fn delete_one(&self, entity_id: ObjectId) -> Result<(), RepositoryError>;
-
 }
 
 impl From<MongoError> for RepositoryError {

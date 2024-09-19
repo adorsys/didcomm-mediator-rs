@@ -29,7 +29,6 @@ pub async fn mediator_forward_process(
     // Check if the client's did in mediator's keylist
 
     let next = payload.body.get("next").and_then(Value::as_str).unwrap();
-    println!("{}", next);
 
     let _connection = match connection_repository
         .find_one_by(doc! {"keylist": doc!{ "$elemMatch": { "$eq": &next}}})
@@ -49,14 +48,14 @@ pub async fn mediator_forward_process(
     let attachments = payload.attachments.as_ref().unwrap();
     for att in attachments {
         message_repository
-        .store(RoutedMessage {
-            id: None,
-            message: att.clone(),
-            recipient_did: next.to_string(),
-        })
-        .await
-        .map_err(|_| MediationError::PersisenceError)
-        .unwrap();
+            .store(RoutedMessage {
+                id: None,
+                message: att.clone(),
+                recipient_did: next.to_string(),
+            })
+            .await
+            .map_err(|_| MediationError::PersisenceError)
+            .unwrap();
     }
 
     // let result = try_parse_forward(&payload).expect("Could Not Parse Forward");
@@ -125,7 +124,8 @@ mod test {
 
         let mut mock_fs = MockFileSystem;
         let storage_dirpath = std::env::var("STORAGE_DIRPATH").unwrap_or_else(|_| "/".to_owned());
-        let diddoc = util::read_diddoc(&mock_fs, &storage_dirpath).unwrap();
+        let diddoc: did_utils::didcore::Document =
+            util::read_diddoc(&mock_fs, &storage_dirpath).unwrap();
         let keystore = util::read_keystore(&mut mock_fs, "").unwrap();
 
         let repository = AppStateRepository {

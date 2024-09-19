@@ -1,0 +1,48 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/did/v1",
+    "https://w3id.org/security/suites/jws-2020/v1"
+  ],
+  "assertionMethod": [
+    "did:web:alice-mediator.com:alice_mediator_pub#keys-2"
+  ],
+  "authentication": [
+    "did:web:alice-mediator.com:alice_mediator_pub#keys-1"
+  ],
+  "id": "did:web:alice-mediator.com:alice_mediator_pub",
+  "keyAgreement": [
+    "did:web:alice-mediator.com:alice_mediator_pub#keys-3"
+  ],
+  "verificationMethod": [
+    {
+      "controller": "did:web:alice-mediator.com:alice_mediator_pub",
+      "id": "did:web:alice-mediator.com:alice_mediator_pub#keys-1",
+      "publicKeyJwk": {
+        "crv": "Ed25519",
+        "kty": "OKP",
+        "x": "Z0GqpN71rMcnAkky6_J6Bfknr8B-TBsekG3qdI0EQX4"
+      },
+      "type": "JsonWebKey2020"
+    },
+    {
+      "controller": "did:web:alice-mediator.com:alice_mediator_pub",
+      "id": "did:web:alice-mediator.com:alice_mediator_pub#keys-2",
+      "publicKeyJwk": {
+        "crv": "Ed25519",
+        "kty": "OKP",
+        "x": "Z0GqpN71rMcnAkky6_J6Bfknr8B-TBsekG3qdI0EQX4"
+      },
+      "type": "JsonWebKey2020"
+    },
+    {
+      "controller": "did:web:alice-mediator.com:alice_mediator_pub",
+      "id": "did:web:alice-mediator.com:alice_mediator_pub#keys-3",
+      "publicKeyJwk": {
+        "crv": "X25519",
+        "kty": "OKP",
+        "x": "SHSUZ6V3x355FqCzIUfgoPzrZB0BQs0JKyag4UfMqHQ"
+      },
+      "type": "JsonWebKey2020"
+    }
+  ]
+}
