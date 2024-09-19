@@ -9,9 +9,9 @@ use crate::{
 };
 use axum::response::{IntoResponse, Response};
 use didcomm::{Attachment, Message, MessageBuilder};
-use mongodb::bson::doc;
+use mongodb::bson::{doc, oid::ObjectId};
 use serde_json::{json, Value};
-use std::sync::Arc;
+use std::{str::FromStr, sync::Arc};
 use uuid::Uuid;
 
 // Process pickup status request
@@ -125,6 +125,68 @@ pub(crate) async fn handle_delivery_request(
         }
         .into();
     }
+
+    Ok(response
+        .to(sender_did.to_string())
+        .from(mediator_did.to_string())
+        .finalize())
+}
+
+pub(crate) async fn handle_message_acknowledgement(
+    state: Arc<AppState>,
+    message: Message,
+) -> Result<Message, Response> {
+    if message
+        .extra_headers
+        .get("return_route")
+        .and_then(Value::as_str)
+        != Some("all")
+    {
+        return Err(PickupError::MalformedRequest(
+            "Invalid \"return_route\" specifier".to_string(),
+        )
+        .into_response());
+    }
+
+    let mediator_did = &state.diddoc.id;
+    let repository = repository(Arc::clone(&state))?;
+    let sender_did = sender_did(&message)?;
+    let connection = client_connection(&repository, sender_did).await?;
+    let message_id_list = message.body.get("message_id_list").and_then(Value::as_array).ok_or_else(|| {
+        PickupError::MalformedRequest("Invalid \"message_id_list\" specifier".to_string()).into_response()
+    })?
+    .iter()
+    .map(|value| value.as_str().unwrap_or_default())
+    .collect::<Vec<_>>();
+
+    for id in message_id_list {
+        let msg_id = ObjectId::from_str(id);
+        if msg_id.is_err() {
+            return Err(PickupError::MalformedRequest(
+                format!("Invalid message id: {id}"),
+            )
+            .into_response());
+        }
+        repository
+            .message_repository
+            .delete_one(msg_id.unwrap())
+            .await
+            .map_err(|err| PickupError::RepositoryError(err).into_response())?;
+    }
+
+    let message_count = count_messages(repository, None, connection).await?;
+
+    let id = Uuid::new_v4().urn().to_string();
+    let response: MessageBuilder = StatusResponse {
+        id: id.as_str(),
+        type_: STATUS_RESPONSE_3_0,
+        body: BodyStatusResponse {
+            message_count,
+            live_delivery: Some(false),
+            ..Default::default()
+        },
+    }
+    .into();
 
     Ok(response
         .to(sender_did.to_string())
