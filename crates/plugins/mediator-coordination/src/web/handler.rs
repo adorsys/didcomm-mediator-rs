@@ -13,7 +13,10 @@ use crate::{
         MEDIATE_REQUEST_2_0,
     },
     forward::routing::mediator_forward_process,
-    pickup::constants::{STATUS_REQUEST_3_0, DELIVERY_REQUEST_3_0},
+    pickup::{
+        self,
+        constants::{DELIVERY_REQUEST_3_0, STATUS_REQUEST_3_0},
+    },
     web::{self, error::MediationError, AppState},
 };
 
@@ -21,18 +24,19 @@ use crate::{
 pub(crate) async fn handle_mediator_requests(
     State(state): State<Arc<AppState>>,
     Extension(message): Extension<Message>,
-) -> Response {if message.type_ == MEDIATE_FORWARD_2_0 {
-    let response = mediator_forward_process(&state, message)
-        .await
-        .map(|_| StatusCode::ACCEPTED.into_response())
-        .map_err(|err| err);
+) -> Response {
+    if message.type_ == MEDIATE_FORWARD_2_0 {
+        let response = mediator_forward_process(&state, message)
+            .await
+            .map(|_| StatusCode::ACCEPTED.into_response())
+            .map_err(|err| err);
 
-    return match response {
-        Ok(_message) => StatusCode::ACCEPTED.into_response(),
-        Err(response) => response,
-    };
-
-}    let response = match message.type_.as_str() {
+        return match response {
+            Ok(_message) => StatusCode::ACCEPTED.into_response(),
+            Err(response) => response,
+        };
+    }
+    let response = match message.type_.as_str() {
         KEYLIST_UPDATE_2_0 => {
             web::coord::handler::stateful::process_plain_keylist_update_message(
                 Arc::clone(&state),
@@ -213,7 +217,9 @@ pub mod tests {
 mod tests2 {
     use super::{tests as global, *};
     use crate::{
-        constant::{KEYLIST_UPDATE_RESPONSE_2_0, MEDIATE_GRANT_2_0}, repository::stateful::tests::MockConnectionRepository, web::{self, AppStateRepository}
+        constant::{KEYLIST_UPDATE_RESPONSE_2_0, MEDIATE_GRANT_2_0},
+        repository::stateful::tests::MockConnectionRepository,
+        web::{self, AppStateRepository},
     };
 
     use axum::{
@@ -376,7 +382,7 @@ mod tests2 {
         )
         .await
         .unwrap();
-println!("{}", packed_msg);
+
         // Send request
         let response = app
             .oneshot(
@@ -456,5 +462,30 @@ println!("{}", packed_msg);
         .unwrap();
 
         println!("{}", packed_msg);
+    }
+
+    #[tokio::test]
+    async fn test_pickup_test() {
+        let (app, state) = setup();
+        // Build message
+        let msg = Message::build(
+            "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
+            "https://didcomm.org/messagepickup/2.0/status-request".to_owned(),
+            json!({}),
+        )
+        .header("return_route".into(), json!("all"))
+        .to(global::_mediator_did(&state))
+        .from(global::_edge_did())
+        .finalize();
+
+        let packed_msg = global::_edge_pack_message(
+            &state,
+            &msg,
+            Some(global::_edge_did()),
+            global::_mediator_did(&state),
+        )
+        .await
+        .unwrap();
+    println!("{}", packed_msg);
     }
 }
