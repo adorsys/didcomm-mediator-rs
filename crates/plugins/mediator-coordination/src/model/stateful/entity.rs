@@ -1,7 +1,7 @@
-use didcomm::Attachment;
 /// Resources to map in a database.
 use mongodb::bson::oid::ObjectId;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 /// Record of a mediation relationship between an edge agent (client) and a mediator.
 #[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq)]
@@ -29,7 +29,7 @@ pub struct RoutedMessage {
     #[serde(rename = "_id")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub id: Option<ObjectId>,
-    pub message: Attachment,
+    pub message: Value,
     pub recipient_did: String,
 }
 

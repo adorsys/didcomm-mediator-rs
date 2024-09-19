@@ -1,16 +1,19 @@
 use crate::{
     model::stateful::entity::{Connection, RoutedMessage},
     pickup::{
-        constants::{MESSAGE_DELIVERY_3_0, STATUS_RESPONSE_3_0},
+        constants::{MESSAGE_DELIVERY_3_0, PROBLEM_REPORT_2_0, STATUS_RESPONSE_3_0},
         error::PickupError,
-        model::{BodyDeliveryResponse, BodyStatusResponse, DeliveryResponse, StatusResponse},
+        model::{
+            BodyDeliveryResponse, BodyLiveDeliveryChange, BodyStatusResponse, DeliveryResponse,
+            LiveDeliveryChange, StatusResponse,
+        },
     },
     web::{AppState, AppStateRepository},
 };
 use axum::response::{IntoResponse, Response};
 use didcomm::{Attachment, Message, MessageBuilder};
 use mongodb::bson::{doc, oid::ObjectId};
-use serde_json::{json, Value};
+use serde_json::Value;
 use std::{str::FromStr, sync::Arc};
 use uuid::Uuid;
 
@@ -53,10 +56,12 @@ pub(crate) async fn handle_status_request(
     }
     .into();
 
-    Ok(response
+    let response = response
         .to(sender_did.to_string())
         .from(mediator_did.to_string())
-        .finalize())
+        .finalize();
+
+    Ok(response)
 }
 
 pub(crate) async fn handle_delivery_request(
@@ -109,7 +114,7 @@ pub(crate) async fn handle_delivery_request(
         .into();
     } else {
         for message in messages {
-            let attached = Attachment::json(json!(message.message))
+            let attached = Attachment::json(message.message)
                 .id(message.id.unwrap_or_default().to_string())
                 .finalize();
 
@@ -126,10 +131,12 @@ pub(crate) async fn handle_delivery_request(
         .into();
     }
 
-    Ok(response
+    let response = response
         .to(sender_did.to_string())
         .from(mediator_did.to_string())
-        .finalize())
+        .finalize();
+
+    Ok(response)
 }
 
 pub(crate) async fn handle_message_acknowledgement(
@@ -152,20 +159,24 @@ pub(crate) async fn handle_message_acknowledgement(
     let repository = repository(Arc::clone(&state))?;
     let sender_did = sender_did(&message)?;
     let connection = client_connection(&repository, sender_did).await?;
-    let message_id_list = message.body.get("message_id_list").and_then(Value::as_array).ok_or_else(|| {
-        PickupError::MalformedRequest("Invalid \"message_id_list\" specifier".to_string()).into_response()
-    })?
-    .iter()
-    .map(|value| value.as_str().unwrap_or_default())
-    .collect::<Vec<_>>();
+    let message_id_list = message
+        .body
+        .get("message_id_list")
+        .and_then(Value::as_array)
+        .ok_or_else(|| {
+            PickupError::MalformedRequest("Invalid \"message_id_list\" specifier".to_string())
+                .into_response()
+        })?
+        .iter()
+        .map(|value| value.as_str().unwrap_or_default())
+        .collect::<Vec<_>>();
 
     for id in message_id_list {
         let msg_id = ObjectId::from_str(id);
         if msg_id.is_err() {
-            return Err(PickupError::MalformedRequest(
-                format!("Invalid message id: {id}"),
-            )
-            .into_response());
+            return Err(
+                PickupError::MalformedRequest(format!("Invalid message id: {id}")).into_response(),
+            );
         }
         repository
             .message_repository
@@ -188,10 +199,69 @@ pub(crate) async fn handle_message_acknowledgement(
     }
     .into();
 
-    Ok(response
+    let response = response
         .to(sender_did.to_string())
         .from(mediator_did.to_string())
-        .finalize())
+        .finalize();
+
+    Ok(response)
+}
+
+pub(crate) async fn handle_live_delivery_change(
+    state: Arc<AppState>,
+    message: Message,
+) -> Result<Message, Response> {
+    if message
+        .extra_headers
+        .get("return_route")
+        .and_then(Value::as_str)
+        != Some("all")
+    {
+        return Err(PickupError::MalformedRequest(
+            "Invalid \"return_route\" specifier".to_string(),
+        )
+        .into_response());
+    }
+
+    let mediator_did = &state.diddoc.id;
+    let sender_did = sender_did(&message)?;
+
+    let id = Uuid::new_v4().urn().to_string();
+    let response: MessageBuilder = LiveDeliveryChange {
+        id: id.as_str(),
+        pthid: if let Some(thid) = message.thid.as_ref() {
+            thid.as_str()
+        } else {
+            id.as_str()
+        },
+        type_: PROBLEM_REPORT_2_0,
+        body: BodyLiveDeliveryChange {
+            code: "e.m.live-mode-not-supported",
+            comment: "Connection does not support Live Delivery",
+        },
+    }
+    .into();
+
+    let response: MessageBuilder = match message.body.get("live_delivery").and_then(Value::as_bool)
+    {
+        Some(true) => response,
+
+        Some(false) => response,
+
+        None => {
+            return Err(PickupError::MalformedRequest(
+                "Missing \"live_delivery\" specifier".to_string(),
+            )
+            .into_response());
+        }
+    };
+
+    let response = response
+        .to(sender_did.to_string())
+        .from(mediator_did.to_string())
+        .finalize();
+
+    Ok(response)
 }
 
 async fn count_messages(
@@ -201,12 +271,14 @@ async fn count_messages(
 ) -> Result<usize, Response> {
     let recipients = recipients(recipient_did, &connection);
 
-    Ok(repository
+    let count = repository
         .message_repository
         .find_all_by(doc! { "recipient_did": { "$in": recipients } }, None)
         .await
         .map_err(|err| PickupError::RepositoryError(err).into_response())?
-        .len())
+        .len();
+
+    Ok(count)
 }
 
 async fn messages(
