@@ -17,6 +17,9 @@ pub enum PickupError {
 
     #[error("Database error: {0}")]
     RepositoryError(#[from] RepositoryError),
+
+    #[error("Malformed request: {0}")]
+    MalformedRequest(String),
 }
 
 impl IntoResponse for PickupError {
@@ -26,6 +29,7 @@ impl IntoResponse for PickupError {
             PickupError::MissingRepository => StatusCode::INTERNAL_SERVER_ERROR,
             PickupError::MissingClientConnection => StatusCode::INTERNAL_SERVER_ERROR,
             PickupError::RepositoryError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            PickupError::MalformedRequest(_) => StatusCode::BAD_REQUEST,
         };
 
         let body = Json(serde_json::json!({

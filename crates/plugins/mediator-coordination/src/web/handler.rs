@@ -11,7 +11,7 @@ use crate::{
     constant::{
         DIDCOMM_ENCRYPTED_MIME_TYPE, KEYLIST_QUERY_2_0, KEYLIST_UPDATE_2_0, MEDIATE_REQUEST_2_0,
     },
-    pickup::{self, constants::STATUS_REQUEST_3_0},
+    pickup::{self, constants::{STATUS_REQUEST_3_0, DELIVERY_REQUEST_3_0}},
     web::{self, error::MediationError, AppState},
 };
 
@@ -40,6 +40,9 @@ pub(crate) async fn handle_mediator_requests(
         }
         STATUS_REQUEST_3_0 => {
             pickup::handler::handle_status_request(Arc::clone(&state), message).await
+        }
+        DELIVERY_REQUEST_3_0 => {
+            pickup::handler::handle_delivery_request(Arc::clone(&state), message).await
         }
         _ => {
             let response = (

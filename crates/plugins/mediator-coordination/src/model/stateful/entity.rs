@@ -23,12 +23,13 @@ pub struct Connection {
     /// Generated DID to route messages to client.
     pub routing_did: String,
 }
+
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct RoutedMessage {
     #[serde(rename = "_id")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub id: Option<ObjectId>,
-    pub messages: Vec<Attachment>,
+    pub message: Attachment,
     pub recipient_did: String,
 }
 
