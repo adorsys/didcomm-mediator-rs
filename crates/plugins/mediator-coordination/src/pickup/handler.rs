@@ -139,7 +139,6 @@ async fn count_messages(
 ) -> Result<usize, Response> {
     let recipients = recipients(recipient_did, &connection);
     let filter = doc! { "recipient_did": { "$in": recipients } };
-    println!("{:?}", filter);
     Ok(repository
         .message_repository
         .find_all_by(filter, None)
