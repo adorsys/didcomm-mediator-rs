@@ -1,12 +1,13 @@
 use didcomm::{
-    did::resolvers::ExampleDIDResolver, secrets::resolvers::ExampleSecretsResolver, Message,
-    PackEncryptedOptions, UnpackOptions,
+    algorithms::AnonCryptAlg, did::resolvers::ExampleDIDResolver, protocols::routing::wrap_in_forward, secrets::resolvers::ExampleSecretsResolver, Message, PackEncryptedOptions, UnpackOptions
 };
 use ledger::{ALICE_DID, ALICE_DID_DOC, ALICE_SECRETS, MEDIATOR_DID, MEDIATOR_DID_DOC};
 use reqwest::{header::CONTENT_TYPE, Client};
 use serde_json::json;
 const DIDCOMM_CONTENT_TYPE: &str = "application/didcomm-encrypted+json";
+pub const BOB_DID: &str = "did:example:bob";
 
+mod bob;
 mod ledger;
 #[tokio::main]
 async fn main() {
@@ -21,6 +22,9 @@ async fn main() {
 
     println!("\n=================== GET THE KEYLIST QUERY PAYLOAD ===================\n");
     keylist_query_payload().await;
+
+    println!("\n=================== GET THE MEDIATOR FORWARD PAYLOAD ===================\n");
+    mediator_forward_payload().await;
 }
 
 async fn get_mediator_didoc() {
@@ -143,6 +147,8 @@ async fn keylist_update_payload() {
         .text()
         .await
         .unwrap();
+    println!("packed message from");
+
 
     // Unpacking the message
     let (msg, _) = Message::unpack(
@@ -153,6 +159,7 @@ async fn keylist_update_payload() {
     )
     .await
     .unwrap();
+print!("{:#?}", msg)
 }
 
 async fn keylist_query_payload() {
@@ -198,9 +205,82 @@ async fn keylist_query_payload() {
         .text()
         .await
         .unwrap();
+    println!("packed message from");
+
 
     // --- Unpack the message ---
     let (message, _) = Message::unpack(
+        &response,
+        &did_resolver,
+        &secrets_resolver,
+        &UnpackOptions::default(),
+    )
+    .await
+    .unwrap();
+print!("{:#?}", message)
+
+}
+
+async fn mediator_forward_payload() {
+    let client = Client::new();
+    let msg = Message::build(
+        "foward".to_owned(),
+        "example/v1".to_owned(),
+        json!("Hey there! Just wanted to remind you to step outside for a bit. A little fresh air can do wonders for your mood."),
+    )
+    .to(BOB_DID.to_owned())
+    .from(ALICE_DID.to_owned())
+    .finalize();
+
+        // --- Packing encrypted and authenticated message ---
+        let did_resolver =
+        ExampleDIDResolver::new(vec![ALICE_DID_DOC.clone(), MEDIATOR_DID_DOC.clone()]);
+        let secrets_resolver = ExampleSecretsResolver::new(ALICE_SECRETS.clone());
+
+    let (message, _metadata) = msg
+        .pack_encrypted(
+            &BOB_DID,
+            Some(&ALICE_DID),
+            None,
+            &did_resolver,
+            &secrets_resolver,
+            &PackEncryptedOptions::default(),
+        )
+        .await
+        .expect("Unable pack_encrypted");
+    println!("Encryption metadata is\n{:?}\n", _metadata);
+
+    // --- Sending message by Alice ---
+    println!("Alice is sending message \n{}\n", message);
+
+    let msg = wrap_in_forward(
+        &message,
+        None,
+        &BOB_DID,
+        &vec![mediator_did],
+        &AnonCryptAlg::default(),
+        &did_resolver,
+    )
+    .await
+    .expect("Unable wrap_in_forward");
+
+    let response = client
+    .post("http://localhost:3000/mediate")
+    .header(CONTENT_TYPE, "application/didcomm-encrypted+json")
+    .body(message)
+    .send()
+    .await
+    .unwrap()
+    .text()
+    .await
+    .unwrap();
+println!("packed message from");
+
+
+    // --- Unpack the message ---
+
+    println!(" wraped in forward\n{}\n", msg);
+    let (message, _metadata) = Message::unpack(
         &response,
         &did_resolver,
         &secrets_resolver,

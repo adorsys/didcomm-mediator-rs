@@ -10,4 +10,3 @@ mediator-coordination ={ path = "../crates/plugins/mediator-coordination" }
 reqwest = { workspace = true, features = ["json"] }
 serde_json.workspace = true
 tokio = { workspace = true, features = ["full", "rt"] }
-
