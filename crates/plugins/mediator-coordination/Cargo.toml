@@ -10,6 +10,7 @@ plugin-api.workspace = true
 keystore.workspace = true
 database.workspace = true
 
+base64.workspace = true
 chrono.workspace = true
 mongodb.workspace = true
 async-trait.workspace = true

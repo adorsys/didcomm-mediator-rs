@@ -3,6 +3,8 @@ pub mod error;
 mod handler;
 mod midlw;
 
+pub use self::midlw::{unpack_didcomm_message, pack_response_message};
+
 use axum::{middleware, routing::post, Router};
 
 use database::Repository;
@@ -20,7 +22,7 @@ use crate::{
 pub fn routes(state: Arc<AppState>) -> Router {
     Router::new()
         // Unified route for all DIDComm messages
-        .route("/mediate", post(handler::process_didcomm_message))
+        .route("/", post(handler::handle_mediator_requests))
         .route_layer(middleware::from_fn_with_state(
             state.clone(),
             midlw::unpack_didcomm_message,
@@ -32,11 +34,12 @@ pub fn routes(state: Arc<AppState>) -> Router {
 #[allow(unused)]
 pub struct AppState {
     // Metadata
-    public_domain: String,
+    pub public_domain: String,
 
     // Crypto identity
     pub(crate) diddoc: Document,
-    assertion_jwk: (String, Jwk),
+    pub(crate) assertion_jwk: (String, Jwk),
+    pub(crate) diddoc: Document,
 
     // DIDComm Resolvers
     pub(crate) did_resolver: LocalDIDResolver,

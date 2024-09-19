@@ -36,6 +36,13 @@ where
     /// Retrieves a single entity by filter.
     async fn find_one_by(&self, filter: BsonDocument) -> Result<Option<Entity>, RepositoryError>;
 
+    /// Retrieves all entities by filter.
+    async fn find_all_by(
+        &self,
+        filter: BsonDocument,
+        limit: Option<i64>,
+    ) -> Result<Vec<Entity>, RepositoryError>;
+
     /// Stores a new entity.
     async fn store(&self, entity: Entity) -> Result<Entity, RepositoryError>;
 

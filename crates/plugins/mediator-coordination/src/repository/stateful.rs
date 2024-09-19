@@ -1,8 +1,7 @@
 use async_trait::async_trait;
 use database::{Repository, RepositoryError};
 use mongodb::{
-    bson::{self, doc, oid::ObjectId, Bson, Document as BsonDocument},
-    Collection, Database,
+    bson::{self, doc, oid::ObjectId, Bson, Document as BsonDocument}, options::FindOptions, Collection, Database
 };
 
 use crate::model::stateful::entity::{Connection, RoutedMessage, Secrets};
@@ -39,6 +38,19 @@ impl Repository<Connection> for MongoConnectionRepository {
     ) -> Result<Option<Connection>, RepositoryError> {
         // Query the database for the specified connection ID
         self.find_one_by(doc! {"_id": connection_id}).await
+    }
+
+    async fn find_all_by(&self, filter: BsonDocument, limit : Option<i64>) -> Result<Vec<Connection>, RepositoryError> {
+        let find_options = FindOptions::builder().limit(limit).build();
+        let mut connections: Vec<Connection> = vec![];
+
+        // Retrieve all connections from the database
+        let mut cursor = self.collection.find(filter, find_options).await?;
+        while cursor.advance().await? {
+            connections.push(cursor.deserialize_current()?);
+        }
+
+        Ok(connections)
     }
 
     async fn find_one_by(
@@ -134,6 +146,7 @@ impl Repository<RoutedMessage> for MongoMessagesRepository {
 
         Ok(messages)
     }
+
     async fn find_one(
         &self,
         message_id: ObjectId,
@@ -141,6 +154,7 @@ impl Repository<RoutedMessage> for MongoMessagesRepository {
         // Query the database for the specified message ID
         self.find_one_by(doc! {"_id": message_id}).await
     }
+
     async fn find_one_by(
         &self,
         filter: BsonDocument,
@@ -148,6 +162,7 @@ impl Repository<RoutedMessage> for MongoMessagesRepository {
         // Query the database for the specified message ID
         Ok(self.collection.find_one(filter, None).await?)
     }
+
     async fn store(&self, message: RoutedMessage) -> Result<RoutedMessage, RepositoryError> {
         // Insert the new message into the database
         let metadata = self.collection.insert_one(message.clone(), None).await?;
@@ -161,6 +176,20 @@ impl Repository<RoutedMessage> for MongoMessagesRepository {
             _ => unreachable!(),
         })
     }
+
+    async fn find_all_by(&self, filter: BsonDocument, limit : Option<i64>) -> Result<Vec<RoutedMessage>, RepositoryError> {
+        let find_options = FindOptions::builder().limit(limit).build();
+        let mut messages: Vec<RoutedMessage> = vec![];
+
+        // Retrieve all messages from the database
+        let mut cursor = self.collection.find(filter, find_options).await?;
+        while cursor.advance().await? {
+            messages.push(cursor.deserialize_current()?);
+        }
+
+        Ok(messages)
+    }
+
     async fn delete_one(&self, message_id: ObjectId) -> Result<(), RepositoryError> {
         // Delete the connection from the database
         let metadata = self
@@ -214,6 +243,19 @@ impl Repository<Secrets> for MongoSecretsRepository {
     async fn find_one(&self, secrets_id: ObjectId) -> Result<Option<Secrets>, RepositoryError> {
         // Query the database for the specified secrets ID
         self.find_one_by(doc! {"_id": secrets_id}).await
+    }
+
+    async fn find_all_by(&self, filter: BsonDocument, limit : Option<i64>) -> Result<Vec<Secrets>, RepositoryError> {
+        let find_options = FindOptions::builder().limit(limit).build();
+        // Query the database for the specified secrets ID
+        let mut cursor = self.collection.find(filter, find_options).await?;
+
+        let mut secrets: Vec<Secrets> = vec![];
+        while cursor.advance().await? {
+            secrets.push(cursor.deserialize_current()?);
+        }
+
+        Ok(secrets)
     }
 
     async fn find_one_by(&self, filter: BsonDocument) -> Result<Option<Secrets>, RepositoryError> {
@@ -329,6 +371,37 @@ pub mod tests {
                 .cloned())
         }
 
+        async fn find_all_by (&self, filter: BsonDocument, limit : Option<i64>) -> Result<Vec<Connection>, RepositoryError> {
+            if let Some(l) = limit {
+                if l < 0 {
+                    return Ok(vec![]);
+                }
+            }
+            let filter: HashMap<String, Bson> = filter.into_iter().collect();
+            Ok(self
+                .connections
+                .read()
+                .unwrap()
+                .iter()
+                .filter(|c| {
+                    if let Some(id) = filter.get("_id") {
+                        if json!(c.id) != json!(id) {
+                            return false;
+                        }
+                    }
+                    
+                    if let Some(client_did) = filter.get("client_did") {
+                        if json!(c.client_did) != json!(client_did) {
+                            return false;
+                        }
+                    }
+
+                    true
+                })  
+                .cloned()
+                .collect())
+        }
+
         async fn store(&self, connection: Connection) -> Result<Connection, RepositoryError> {
             // Generate a new ID for the entity
             let connection = Connection {
@@ -438,6 +511,31 @@ pub mod tests {
                 .cloned())
         }
 
+        async fn find_all_by (&self, filter: BsonDocument, limit : Option<i64>) -> Result<Vec<Secrets>, RepositoryError> {
+            if let Some(l) = limit {
+                if l < 0 {
+                    return Ok(vec![]);
+                }
+            }
+            let filter: HashMap<String, Bson> = filter.into_iter().collect();
+            Ok(self
+                .secrets
+                .read()
+                .unwrap()
+                .iter()
+                .filter(|s| {
+                    if let Some(id) = filter.get("_id") {
+                        if json!(s.id) != json!(id) {
+                            return false;
+                        }
+                    }
+                    
+                    true
+                })  
+                .cloned()
+                .collect())
+        }
+
         async fn store(&self, secrets: Secrets) -> Result<Secrets, RepositoryError> {
             // Add new entity to collection
             self.secrets.write().unwrap().push(secrets.clone());
@@ -515,6 +613,31 @@ pub mod tests {
                     true
                 })
                 .cloned())
+        }
+
+        async fn find_all_by (&self, filter: BsonDocument, limit : Option<i64>) -> Result<Vec<RoutedMessage>, RepositoryError> {
+            if let Some(l) = limit {
+                if l < 0 {
+                    return Ok(vec![]);
+                }
+            }
+            let filter: HashMap<String, Bson> = filter.into_iter().collect();
+            Ok(self
+                .messages
+                .read()
+                .unwrap()
+                .iter()
+                .filter(|s| {
+                    if let Some(id) = filter.get("_id") {
+                        if json!(s.id) != json!(id) {
+                            return false;
+                        }
+                    }
+                    
+                    true
+                })  
+                .cloned()
+                .collect())
         }
 
         async fn store(&self, messages: RoutedMessage) -> Result<RoutedMessage, RepositoryError> {

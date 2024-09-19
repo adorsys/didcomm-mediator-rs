@@ -24,6 +24,7 @@ pub struct Connection {
     /// Generated DID to route messages to client.
     pub routing_did: String,
 }
+
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct RoutedMessage {
     #[serde(rename = "_id")]

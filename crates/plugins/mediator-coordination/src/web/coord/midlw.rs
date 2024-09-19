@@ -52,6 +52,7 @@ pub fn ensure_content_type_is_didcomm_encrypted(headers: &HeaderMap) -> Result<(
     Ok(())
 }
 
+
 /// Decrypt assumed authcrypt'd didcomm messaged
 pub async fn unpack_request_message(
     msg: &str,
