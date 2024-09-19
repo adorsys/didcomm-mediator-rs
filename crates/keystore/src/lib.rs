@@ -7,6 +7,7 @@ use did_utils::{
     crypto::{Ed25519KeyPair, Generate, ToPublic, X25519KeyPair},
     jwk::Jwk,
 };
+use nix::libc::mremap;
 use std::{
     error::Error,
     fs::File,
@@ -65,6 +66,10 @@ impl FileSystemkeystore{
         // overwritting file with encrypted keys
         keystorefile.write_all(&encrypted_key).unwrap();
         self.nonce = nonce.to_vec();
+
+        // Overwrite the buffer with zeros to prevent data leakage
+        buffer.clear();
+        std::mem::forget(buffer);
     }
 
     fn decrypt( self, secret: KeyStore) -> Result<Vec<u8>, chacha20poly1305::aead::Error> {
@@ -75,6 +80,11 @@ impl FileSystemkeystore{
         keystorefile.read_to_end(&mut buffer).unwrap();
 
         let decrypted_key = cipher.decrypt(GenericArray::from_slice(&self.nonce), buffer.as_slice())?;
+
+
+        buffer.clear();
+        std::mem::forget(buffer);
+
         Ok(decrypted_key)
 
     }
