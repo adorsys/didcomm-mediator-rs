@@ -86,42 +86,49 @@ lazy_static! {
 
     pub static ref MEDIATOR_DID_DOC: DIDDoc = serde_json::from_str(
         r#"{
-          "id": "did:web:alice-mediator.com:alice_mediator_pub",
-  "keyAgreement": [
-    "did:web:alice-mediator.com:alice_mediator_pub#keys-3"
-  ],
-  "verificationMethod": [
-    {
-      "controller": "did:web:alice-mediator.com:alice_mediator_pub",
-      "id": "did:web:alice-mediator.com:alice_mediator_pub#keys-1",
-      "publicKeyJwk": {
-        "crv": "Ed25519",
-        "kty": "OKP",
-        "x": "Z0GqpN71rMcnAkky6_J6Bfknr8B-TBsekG3qdI0EQX4"
-      },
-      "type": "JsonWebKey2020"
-    },
-    {
-      "controller": "did:web:alice-mediator.com:alice_mediator_pub",
-      "id": "did:web:alice-mediator.com:alice_mediator_pub#keys-2",
-      "publicKeyJwk": {
-        "crv": "Ed25519",
-        "kty": "OKP",
-        "x": "Z0GqpN71rMcnAkky6_J6Bfknr8B-TBsekG3qdI0EQX4"
-      },
-      "type": "JsonWebKey2020"
-    },
-    {
-      "controller": "did:web:alice-mediator.com:alice_mediator_pub",
-      "id": "did:web:alice-mediator.com:alice_mediator_pub#keys-3",
-      "publicKeyJwk": {
-        "crv": "X25519",
-        "kty": "OKP",
-        "x": "SHSUZ6V3x355FqCzIUfgoPzrZB0BQs0JKyag4UfMqHQ"
-      },
-      "type": "JsonWebKey2020"
-    }
-  ]
+            "id": "did:web:alice-mediator.com:alice_mediator_pub",
+            "verificationMethod": [
+                {
+                    "id": "did:web:alice-mediator.com:alice_mediator_pub#keys-1",
+                    "type": "JsonWebKey2020",
+                    "controller": "did:web:alice-mediator.com:alice_mediator_pub",
+                    "publicKeyJwk": {
+                        "kty": "OKP",
+                        "crv": "Ed25519",
+                        "x": "Z0GqpN71rMcnAkky6_J6Bfknr8B-TBsekG3qdI0EQX4"
+                    }
+                },
+                {
+                    "id": "did:web:alice-mediator.com:alice_mediator_pub#keys-2",
+                    "type": "JsonWebKey2020",
+                    "controller": "did:web:alice-mediator.com:alice_mediator_pub",
+                    "publicKeyJwk": {
+                        "kty": "OKP",
+                        "crv": "Ed25519",
+                        "x": "Z0GqpN71rMcnAkky6_J6Bfknr8B-TBsekG3qdI0EQX4"
+                    }
+                },
+                {
+                    "id": "did:web:alice-mediator.com:alice_mediator_pub#keys-3",
+                    "type": "JsonWebKey2020",
+                    "controller": "did:web:alice-mediator.com:alice_mediator_pub",
+                    "publicKeyJwk": {
+                        "kty": "OKP",
+                        "crv": "X25519",
+                        "x": "SHSUZ6V3x355FqCzIUfgoPzrZB0BQs0JKyag4UfMqHQ"
+                    }
+                }
+            ],
+            "authentication": [
+                "did:web:alice-mediator.com:alice_mediator_pub#keys-1"
+            ],
+            "assertionMethod": [
+                "did:web:alice-mediator.com:alice_mediator_pub#keys-2"
+            ],
+            "keyAgreement": [
+                "did:web:alice-mediator.com:alice_mediator_pub#keys-3"
+            ],
+            "service": []
         }"#
     ).unwrap();
 
@@ -134,7 +141,7 @@ lazy_static! {
                     "kty": "OKP",
                     "crv": "X25519",
                     "x": "SHSUZ6V3x355FqCzIUfgoPzrZB0BQs0JKyag4UfMqHQ",
-                   // "d": "0A8SSFkGHg3N9gmVDRnl63ih5fcwtEvnQu9912SVplY"
+                    "d": "0A8SSFkGHg3N9gmVDRnl63ih5fcwtEvnQu9912SVplY"
                 })
             },
         }
