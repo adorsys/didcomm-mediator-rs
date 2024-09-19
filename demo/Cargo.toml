@@ -5,7 +5,6 @@ edition = "2021"
 
 [dependencies]
 didcomm.workspace = true
-
 lazy_static.workspace = true
 mediator-coordination ={ path = "../crates/plugins/mediator-coordination" }
 reqwest = { workspace = true, features = ["json"] }
