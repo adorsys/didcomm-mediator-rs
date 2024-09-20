@@ -82,7 +82,7 @@ lazy_static! {
 
     /////////////////////////////////////////////////////////////////////////////
 
-    pub static ref MEDIATOR_DID: String = String::from("did:web:alice-mediator.com:alice_mediator_pub");
+
 
     pub static ref MEDIATOR_DID_DOC: DIDDoc = serde_json::from_str(
         r#"{
