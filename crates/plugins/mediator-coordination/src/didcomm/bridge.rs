@@ -54,8 +54,7 @@ impl DIDResolver for LocalDIDResolver {
             let method = DidPeer::with_format(PublicKeyFormat::Jwk);
             match method.expand(did) {
                 Ok(diddoc) => {
-                    let document = serde_json::from_value(json!(diddoc))
-                        .expect("Should easily convert between DID document representations.");
+                    let document = diddoc.into();
                     Ok(Some(document))
                 }
                 Err(err) => Err(Error::new(ErrorKind::DIDNotResolved, err)),
