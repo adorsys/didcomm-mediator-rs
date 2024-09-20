@@ -202,16 +202,11 @@ impl Repository<RoutedMessage> for MongoMessagesRepository {
 
     async fn delete_one(&self, message_id: ObjectId) -> Result<(), RepositoryError> {
         // Delete the connection from the database
-        let metadata = self
-            .collection
+        self.collection
             .delete_one(doc! {"_id": message_id}, None)
             .await?;
 
-        if metadata.deleted_count > 0 {
-            Ok(())
-        } else {
-            Err(RepositoryError::TargetNotFound)
-        }
+        Ok(())
     }
 
     async fn update(&self, message: RoutedMessage) -> Result<RoutedMessage, RepositoryError> {

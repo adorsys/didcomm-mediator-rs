@@ -215,7 +215,7 @@ lazy_static! {
         },
     };
     pub static ref BOB_DID_DOC: DIDDoc = DIDDoc {
-        id: "did:example:bob".into(),
+        id: "did:key:z6MkwKfDFAK49Lb9D6HchFiCXdcurRUSFrbnwDBk5qFZeHA3".into(),
         authentication: vec![],
         key_agreement: vec![
             "did:example:bob#key-x25519-1".into(),

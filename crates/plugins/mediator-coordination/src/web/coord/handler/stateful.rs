@@ -141,8 +141,8 @@ pub async fn process_mediate_request(
             id: None,
             client_did: sender_did.to_string(),
             mediator_did: mediator_did.to_string(),
-            keylist: vec!["".to_string()],
-            routing_did: routing_did,
+            keylist: vec![],
+            routing_did,
         };
 
         // Use store_one to store the sample connection

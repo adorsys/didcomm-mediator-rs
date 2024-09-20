@@ -295,12 +295,12 @@ pub(crate) async fn test_pickup_delivery_request() {
         //     AttachmentData::Json { value: val } => val.json.clone(),
         //     _ => json!(0)
         // };
-        let message = serde_json::to_string(&match attachemnt.data {
+        let mes = serde_json::to_string(&match attachemnt.data {
             AttachmentData::Json { value: val } => val.json.clone(),
             _ => json!(0)
         }).unwrap();
         
-        let message = Message::unpack(&message, &did_resolver, &secrets_resolver, &UnpackOptions::default()).await.unwrap();
+        let message = Message::unpack(&mes, &did_resolver, &secrets_resolver, &UnpackOptions::default()).await.unwrap();
         println!("\nPickup Delivery Message\n{:#?}", message);
     }
 
