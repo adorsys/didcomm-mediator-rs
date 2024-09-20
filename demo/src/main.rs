@@ -2,6 +2,7 @@ use alice_edge::alice::{
     get_mediator_didoc, keylist_update_payload, mediate_request, test_pickup_delivery_request,
     test_pickup_message_received, test_pickup_request,keylist_query_payload,
 };
+use bob_edge::bob::forward_msg;
 const DIDCOMM_CONTENT_TYPE: &str = "application/didcomm-encrypted+json";
 pub const BOB_DID: &str = "did:example:bob";
 
