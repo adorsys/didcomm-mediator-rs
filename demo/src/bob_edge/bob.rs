@@ -1,19 +1,67 @@
-use did_utils::crypto::PublicKeyFormat;
+use did_utils::didcore::Document;
 use didcomm::{
-    algorithms::AnonCryptAlg, did::resolvers::ExampleDIDResolver, protocols::routing::wrap_in_forward, secrets::resolvers::ExampleSecretsResolver, Attachment, AttachmentData, JsonAttachmentData, Message, PackEncryptedOptions, UnpackOptions
+    algorithms::AnonCryptAlg, protocols::routing::wrap_in_forward, secrets::resolvers::ExampleSecretsResolver, Attachment, AttachmentData, JsonAttachmentData, Message, PackEncryptedOptions, UnpackOptions
 };
 use reqwest::header::CONTENT_TYPE;
 use serde_json::json;
-
 use crate::{
     alice_edge::constants::MEDIATION_ENDPOINT, bob_edge::{
-        constants::BOB_DID, data::{BOB_DID_DOC, BOB_SECRETS, MEDIATOR_DID_DOC}}, ledger::ALICE_DID, DIDCOMM_CONTENT_TYPE
+        constants::BOB_DID,
+        data::{_sender_secrets_resolver, BOB_SECRETS},
+    }, ledger::ALICE_DID, DIDCOMM_CONTENT_TYPE
 };
 
-
 pub(crate) async fn forward_msg() {
-    let did_resolver = ExampleDIDResolver::new(vec![BOB_DID_DOC.clone(), MEDIATOR_DID_DOC.clone()]);
-    let peeres = did_utils::methods::DidPeer::with_format(PublicKeyFormat::Jwk);
+    let doc: Document = serde_json::from_str(
+        r#"{
+            "@context": [
+                "https://www.w3.org/ns/did/v1",
+                "https://w3id.org/security/suites/jws-2020/v1"
+            ],
+            "id": "did:web:alice-mediator.com:alice_mediator_pub",
+            "verificationMethod": [
+                {
+                    "id": "did:web:alice-mediator.com:alice_mediator_pub#keys-1",
+                    "type": "JsonWebKey2020",
+                    "controller": "did:web:alice-mediator.com:alice_mediator_pub",
+                    "publicKeyJwk": {
+                        "kty": "OKP",
+                        "crv": "Ed25519",
+                        "x": "Z0GqpN71rMcnAkky6_J6Bfknr8B-TBsekG3qdI0EQX4"
+                    }
+                },
+                {
+                    "id": "did:web:alice-mediator.com:alice_mediator_pub#keys-2",
+                    "type": "JsonWebKey2020",
+                    "controller": "did:web:alice-mediator.com:alice_mediator_pub",
+                    "publicKeyJwk": {
+                        "kty": "OKP",
+                        "crv": "Ed25519",
+                        "x": "Z0GqpN71rMcnAkky6_J6Bfknr8B-TBsekG3qdI0EQX4"
+                    }
+                },
+                {
+                    "id": "did:web:alice-mediator.com:alice_mediator_pub#keys-3",
+                    "type": "JsonWebKey2020",
+                    "controller": "did:web:alice-mediator.com:alice_mediator_pub",
+                    "publicKeyJwk": {
+                        "kty": "OKP",
+                        "crv": "X25519",
+                        "x": "SHSUZ6V3x355FqCzIUfgoPzrZB0BQs0JKyag4UfMqHQ"
+                    }
+                }
+            ],
+            "authentication": [
+                "did:web:alice-mediator.com:alice_mediator_pub#keys-1"
+            ],
+            "keyAgreement": [
+                "did:web:alice-mediator.com:alice_mediator_pub#keys-3"
+            ],
+            "service": []
+        }"#,
+    )
+    .unwrap();
+    let did_resolver = mediator_coordination::didcomm::bridge::LocalDIDResolver::new(&doc);
     let secrets_resolver = ExampleSecretsResolver::new(BOB_SECRETS.clone());
 
     let plaintest_msg = Attachment {
@@ -38,11 +86,11 @@ pub(crate) async fn forward_msg() {
 
     let (packed_forward_msg, _metadata) = msg
         .pack_encrypted(
-            "did:web:alice-mediator.com:alice_mediator",
+            &ALICE_DID,
             Some(BOB_DID),
             None,
             &did_resolver,
-            &secrets_resolver,
+            &_sender_secrets_resolver(),
             &PackEncryptedOptions::default(),
         )
         .await

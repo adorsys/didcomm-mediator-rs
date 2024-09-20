@@ -49,7 +49,7 @@
     {
       "id": "did:web:alice-mediator.com#pop-domain",
       "type": "LinkedDomains",
-      "serviceEndpoint": "http://alice-mediator.com/.well-known/did/pop.json"
+      "serviceEndpoint": "http://alice-mediator.com/"
     }
   ]
 }

@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use did_utils::crypto::PublicKeyFormat;
+use did_utils::methods::DidPeer;
 use did_utils::{
     didcore::Document,
     jwk::Jwk,
@@ -36,24 +37,32 @@ impl DIDResolver for LocalDIDResolver {
             return Ok(Some(self.diddoc.clone()));
         }
 
-        if !did.starts_with("did:key:") {
-            return Err(Error::new(
-                ErrorKind::Unsupported,
-                DIDResolutionError::MethodNotSupported,
-            ));
-        }
-
-        let method = DidKey::new_full(true, PublicKeyFormat::Jwk);
-
-        match method.expand(did) {
-            Ok(diddoc) => Ok(Some(
-                serde_json::from_value(json!(Document {
-                    service: Some(vec![]),
-                    ..diddoc
-                }))
-                .expect("Should easily convert between DID document representations."),
-            )),
-            Err(err) => Err(Error::new(ErrorKind::DIDNotResolved, err)),
+        if did.starts_with("did:key") {
+            let method = DidKey::new_full(true, PublicKeyFormat::Jwk);
+            match method.expand(did) {
+                Ok(diddoc) => {
+                    let document = serde_json::from_value(json!(Document {
+                        service: Some(vec![]),
+                        ..diddoc
+                    }))
+                    .expect("Should easily convert between DID document representations.");
+                    Ok(Some(document))
+                }
+                Err(err) => Err(Error::new(ErrorKind::DIDNotResolved, err)),
+            }
+        } else if did.starts_with("did:peer") {
+            let method = DidPeer::with_format(PublicKeyFormat::Jwk);
+            match method.expand(did) {
+                Ok(diddoc) => {
+                    let document = serde_json::from_value(json!(diddoc))
+                        .expect("Should easily convert between DID document representations.");
+                    Ok(Some(document))
+                }
+                Err(err) => Err(Error::new(ErrorKind::DIDNotResolved, err)),
+            }
+        } else {
+            // Handle unsupported DID methods or return a default DIDDoc
+            return Ok(Some(self.diddoc.clone()));
         }
     }
 }
