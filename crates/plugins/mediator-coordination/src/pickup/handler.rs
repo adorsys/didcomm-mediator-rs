@@ -100,7 +100,7 @@ pub(crate) async fn handle_delivery_request(
     let id = Uuid::new_v4().urn().to_string();
     let mut attachments: Vec<Attachment> = vec![];
 
-    if messages.is_empty() || limit == 0 {
+    if messages.is_empty() {
         response = StatusResponse {
             id: id.as_str(),
             type_: STATUS_RESPONSE_3_0,
