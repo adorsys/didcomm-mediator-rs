@@ -15,9 +15,9 @@ use crate::{
     forward::routing::mediator_forward_process,
     pickup::{
         self,
-        constants::{DELIVERY_REQUEST_3_0, STATUS_REQUEST_3_0},
-    },
-    web::{self, error::MediationError, AppState},
+        constants::{DELIVERY_REQUEST_3_0, LIVE_MODE_CHANGE_3_0, MESSAGE_RECEIVED_3_0, STATUS_REQUEST_3_0},
+    }, web::{self, error::MediationError, AppState},
+   
 };
 
 #[axum::debug_handler]
@@ -60,6 +60,12 @@ pub(crate) async fn handle_mediator_requests(
         }
         DELIVERY_REQUEST_3_0 => {
             pickup::handler::handle_delivery_request(Arc::clone(&state), message).await
+        }
+        MESSAGE_RECEIVED_3_0 => {
+            pickup::handler::handle_message_acknowledgement(Arc::clone(&state), message).await
+        }
+        LIVE_MODE_CHANGE_3_0 => {
+            pickup::handler::handle_live_delivery_change(Arc::clone(&state), message).await
         }
         _ => {
             let response = (
@@ -436,6 +442,7 @@ mod tests2 {
         //         ]
         //     })
         // );
+        
     }
     #[tokio::test]
     async fn test_keylist_query_success() {
@@ -470,8 +477,8 @@ mod tests2 {
         // Build message
         let msg = Message::build(
             "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
-            "https://didcomm.org/messagepickup/2.0/status-request".to_owned(),
-            json!({}),
+            "https://didcomm.org/messagepickup/3.0/status-request".to_owned(),
+            json!({"recipient_did": "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7"}),
         )
         .header("return_route".into(), json!("all"))
         .to(global::_mediator_did(&state))
@@ -486,6 +493,6 @@ mod tests2 {
         )
         .await
         .unwrap();
-    println!("{}", packed_msg);
+        println!("{}", packed_msg);
     }
 }

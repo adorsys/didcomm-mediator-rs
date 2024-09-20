@@ -76,3 +76,33 @@ impl<'a> From<DeliveryResponse<'a>> for MessageBuilder {
         .attachments(value.attachments)
     }
 }
+
+#[derive(Debug, Serialize, Default)]
+pub(crate) struct LiveDeliveryChange<'a> {
+    pub(crate) id: &'a str,
+
+    pub(crate) pthid: &'a str,
+    
+    #[serde(rename = "type")]
+    pub(crate) type_: &'a str,
+
+    pub(crate) body: BodyLiveDeliveryChange<'a>,
+}
+
+#[derive(Debug, Serialize, Default)]
+pub(crate) struct BodyLiveDeliveryChange<'a> {
+    pub(crate) code: &'a str,
+    
+    pub(crate) comment: &'a str,
+}
+
+impl<'a> From<LiveDeliveryChange<'a>> for MessageBuilder {
+    fn from(value: LiveDeliveryChange<'a>) -> Self {
+        Message::build(
+            value.id.to_string(),
+            value.type_.to_string(),
+            json!(value.body),
+        )
+        .pthid(value.pthid.to_string())
+    }
+}

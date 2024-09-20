@@ -1,7 +1,9 @@
 use async_trait::async_trait;
 use database::{Repository, RepositoryError};
 use mongodb::{
-    bson::{self, doc, oid::ObjectId, Bson, Document as BsonDocument}, options::FindOptions, Collection, Database
+    bson::{self, doc, oid::ObjectId, Bson, Document as BsonDocument},
+    options::FindOptions,
+    Collection, Database,
 };
 
 use crate::model::stateful::entity::{Connection, RoutedMessage, Secrets};
@@ -40,7 +42,11 @@ impl Repository<Connection> for MongoConnectionRepository {
         self.find_one_by(doc! {"_id": connection_id}).await
     }
 
-    async fn find_all_by(&self, filter: BsonDocument, limit : Option<i64>) -> Result<Vec<Connection>, RepositoryError> {
+    async fn find_all_by(
+        &self,
+        filter: BsonDocument,
+        limit: Option<i64>,
+    ) -> Result<Vec<Connection>, RepositoryError> {
         let find_options = FindOptions::builder().limit(limit).build();
         let mut connections: Vec<Connection> = vec![];
 
@@ -177,7 +183,11 @@ impl Repository<RoutedMessage> for MongoMessagesRepository {
         })
     }
 
-    async fn find_all_by(&self, filter: BsonDocument, limit : Option<i64>) -> Result<Vec<RoutedMessage>, RepositoryError> {
+    async fn find_all_by(
+        &self,
+        filter: BsonDocument,
+        limit: Option<i64>,
+    ) -> Result<Vec<RoutedMessage>, RepositoryError> {
         let find_options = FindOptions::builder().limit(limit).build();
         let mut messages: Vec<RoutedMessage> = vec![];
 
@@ -245,7 +255,11 @@ impl Repository<Secrets> for MongoSecretsRepository {
         self.find_one_by(doc! {"_id": secrets_id}).await
     }
 
-    async fn find_all_by(&self, filter: BsonDocument, limit : Option<i64>) -> Result<Vec<Secrets>, RepositoryError> {
+    async fn find_all_by(
+        &self,
+        filter: BsonDocument,
+        limit: Option<i64>,
+    ) -> Result<Vec<Secrets>, RepositoryError> {
         let find_options = FindOptions::builder().limit(limit).build();
         // Query the database for the specified secrets ID
         let mut cursor = self.collection.find(filter, find_options).await?;
@@ -371,7 +385,11 @@ pub mod tests {
                 .cloned())
         }
 
-        async fn find_all_by (&self, filter: BsonDocument, limit : Option<i64>) -> Result<Vec<Connection>, RepositoryError> {
+        async fn find_all_by(
+            &self,
+            filter: BsonDocument,
+            limit: Option<i64>,
+        ) -> Result<Vec<Connection>, RepositoryError> {
             if let Some(l) = limit {
                 if l < 0 {
                     return Ok(vec![]);
@@ -389,7 +407,7 @@ pub mod tests {
                             return false;
                         }
                     }
-                    
+
                     if let Some(client_did) = filter.get("client_did") {
                         if json!(c.client_did) != json!(client_did) {
                             return false;
@@ -397,7 +415,7 @@ pub mod tests {
                     }
 
                     true
-                })  
+                })
                 .cloned()
                 .collect())
         }
@@ -511,7 +529,11 @@ pub mod tests {
                 .cloned())
         }
 
-        async fn find_all_by (&self, filter: BsonDocument, limit : Option<i64>) -> Result<Vec<Secrets>, RepositoryError> {
+        async fn find_all_by(
+            &self,
+            filter: BsonDocument,
+            limit: Option<i64>,
+        ) -> Result<Vec<Secrets>, RepositoryError> {
             if let Some(l) = limit {
                 if l < 0 {
                     return Ok(vec![]);
@@ -529,9 +551,9 @@ pub mod tests {
                             return false;
                         }
                     }
-                    
+
                     true
-                })  
+                })
                 .cloned()
                 .collect())
         }
@@ -615,7 +637,11 @@ pub mod tests {
                 .cloned())
         }
 
-        async fn find_all_by (&self, filter: BsonDocument, limit : Option<i64>) -> Result<Vec<RoutedMessage>, RepositoryError> {
+        async fn find_all_by(
+            &self,
+            filter: BsonDocument,
+            limit: Option<i64>,
+        ) -> Result<Vec<RoutedMessage>, RepositoryError> {
             if let Some(l) = limit {
                 if l < 0 {
                     return Ok(vec![]);
@@ -633,9 +659,9 @@ pub mod tests {
                             return false;
                         }
                     }
-                    
+
                     true
-                })  
+                })
                 .cloned()
                 .collect())
         }
