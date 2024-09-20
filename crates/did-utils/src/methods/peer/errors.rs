@@ -21,6 +21,14 @@ pub enum DIDPeerMethodError {
     UnsupportedPeerDIDAlgorithm,
 }
 
+impl std::fmt::Display for DIDPeerMethodError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "DIDPeerMethodError: {:?}", self)  // Customize your error message
+    }
+}
+
+impl std::error::Error for DIDPeerMethodError {}
+
 impl From<CryptoError> for DIDPeerMethodError {
     fn from(err: CryptoError) -> Self {
         Self::CryptoError(err)

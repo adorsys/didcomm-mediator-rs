@@ -82,19 +82,19 @@ pub(crate) async fn mediate_request() {
     )
     .await
     .unwrap();
-    let result = msg
-        .body
-        .get("body")
-        .unwrap()
-        .as_object()
-        .unwrap()
-        .get("routing_did")
-        .unwrap()
-        .as_str()
-        .unwrap()
-        .to_string();
-    let mut routing_did = ROUTING_DID.lock().unwrap();
-    *routing_did = result;
+    // let result = msg
+    //     .body
+    //     .get("body")
+    //     .unwrap()
+    //     .as_object()
+    //     .unwrap()
+    //     .get("routing_did")
+    //     .unwrap()
+    //     .as_str()
+    //     .unwrap()
+    //     .to_string();
+    // let mut routing_did = ROUTING_DID.lock().unwrap();
+    // *routing_did = result;
     println!("\nMediation Request Response{:#?}\n", msg,)
 }
 pub(crate) async fn keylist_update_payload() {
