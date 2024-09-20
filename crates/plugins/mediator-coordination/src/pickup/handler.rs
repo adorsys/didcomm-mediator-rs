@@ -173,7 +173,7 @@ pub(crate) async fn handle_message_acknowledgement(
 
     for id in message_id_list {
         let msg_id = ObjectId::from_str(id);
-        if msg_id.is_err() {
+        if ObjectId::from_str(id).is_err() {
             return Err(
                 PickupError::MalformedRequest(format!("Invalid message id: {id}")).into_response(),
             );
