@@ -1,6 +1,8 @@
+use did_utils::didcore::Document;
 use didcomm::{
     did::resolvers::ExampleDIDResolver, secrets::resolvers::ExampleSecretsResolver, AttachmentData, JsonAttachmentData, Message, PackEncryptedOptions, UnpackOptions
 };
+use mediator_coordination::didcomm::bridge::LocalDIDResolver;
 use reqwest::{header::CONTENT_TYPE, Client};
 use serde_json::json;
 use uuid::Uuid;
@@ -190,8 +192,57 @@ pub(crate) async fn test_pickup_request() {
 }
 
 pub(crate) async fn test_pickup_delivery_request() {
+    let doc: Document = serde_json::from_str(
+        r#"{
+            "@context": [
+                "https://www.w3.org/ns/did/v1",
+                "https://w3id.org/security/suites/jws-2020/v1"
+            ],
+            "id": "did:web:alice-mediator.com:alice_mediator_pub",
+            "verificationMethod": [
+                {
+                    "id": "did:web:alice-mediator.com:alice_mediator_pub#keys-1",
+                    "type": "JsonWebKey2020",
+                    "controller": "did:web:alice-mediator.com:alice_mediator_pub",
+                    "publicKeyJwk": {
+                        "kty": "OKP",
+                        "crv": "Ed25519",
+                        "x": "Z0GqpN71rMcnAkky6_J6Bfknr8B-TBsekG3qdI0EQX4"
+                    }
+                },
+                {
+                    "id": "did:web:alice-mediator.com:alice_mediator_pub#keys-2",
+                    "type": "JsonWebKey2020",
+                    "controller": "did:web:alice-mediator.com:alice_mediator_pub",
+                    "publicKeyJwk": {
+                        "kty": "OKP",
+                        "crv": "Ed25519",
+                        "x": "Z0GqpN71rMcnAkky6_J6Bfknr8B-TBsekG3qdI0EQX4"
+                    }
+                },
+                {
+                    "id": "did:web:alice-mediator.com:alice_mediator_pub#keys-3",
+                    "type": "JsonWebKey2020",
+                    "controller": "did:web:alice-mediator.com:alice_mediator_pub",
+                    "publicKeyJwk": {
+                        "kty": "OKP",
+                        "crv": "X25519",
+                        "x": "SHSUZ6V3x355FqCzIUfgoPzrZB0BQs0JKyag4UfMqHQ"
+                    }
+                }
+            ],
+            "authentication": [
+                "did:web:alice-mediator.com:alice_mediator_pub#keys-1"
+            ],
+            "keyAgreement": [
+                "did:web:alice-mediator.com:alice_mediator_pub#keys-3"
+            ],
+            "service": []
+        }"#,
+    )
+    .unwrap();
     let did_resolver =
-        ExampleDIDResolver::new(vec![ALICE_DID_DOC.clone(), MEDIATOR_DID_DOC.clone(), BOB_DID_DOC.clone()]);
+       LocalDIDResolver::new(&doc);
     let secrets_resolver = ExampleSecretsResolver::new(ALICE_SECRETS.clone());
 
     // Build message

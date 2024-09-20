@@ -15,7 +15,7 @@ use didcomm::{
     secrets::{resolvers::ExampleSecretsResolver, SecretsResolver},
     Attachment, AttachmentData, JsonAttachmentData, Message, PackEncryptedOptions, UnpackOptions,
 };
-use mediator_coordination::didcomm::bridge::LocalSecretsResolver;
+use mediator_coordination::didcomm::bridge::{LocalDIDResolver, LocalSecretsResolver};
 use reqwest::header::CONTENT_TYPE;
 use serde_json::json;
 use uuid::Uuid;
@@ -70,11 +70,7 @@ pub(crate) async fn forward_msg() {
         }"#,
     )
     .unwrap();
-    let did_resolver = ExampleDIDResolver::new(vec![
-        MEDIATOR_DID_DOC.clone(),
-        BOB_DID_DOC.clone(),
-        ALICE_DID_DOC.clone(),
-    ]);
+let did_resolver = LocalDIDResolver::new(&doc);
     let _secrets_resolver = ExampleSecretsResolver::new(BOB_SECRETS.clone());
 
     let msg = Message::build(
