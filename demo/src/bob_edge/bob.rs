@@ -1,21 +1,16 @@
 use crate::{
-    alice_edge::{constants::MEDIATION_ENDPOINT, secret_data::MEDIATOR_DID},
-    bob_edge::{
-        constants::BOB_DID,
-        data::{_sender_secrets_resolver, BOB_DID_DOC, BOB_SECRETS, MEDIATOR_DID_DOC},
-    },
-    ledger::{ALICE_DID, ALICE_DID_DOC},
-    DIDCOMM_CONTENT_TYPE,
+    alice_edge::{constants::MEDIATION_ENDPOINT, secret_data::MEDIATOR_DID}, bob_edge::
+        data::{_sender_secrets_resolver, BOB_DID_DOC, BOB_SECRETS, MEDIATOR_DID_DOC}, ledger::ALICE_DID_DOC, DIDCOMM_CONTENT_TYPE
 };
-use did_utils::{didcore::Document, jwk::Jwk};
+use did_utils::didcore::Document;
 use didcomm::{
     algorithms::AnonCryptAlg,
     did::resolvers::ExampleDIDResolver,
     protocols::routing::wrap_in_forward,
-    secrets::{resolvers::ExampleSecretsResolver, SecretsResolver},
-    Attachment, AttachmentData, JsonAttachmentData, Message, PackEncryptedOptions, UnpackOptions,
+    secrets::resolvers::ExampleSecretsResolver,
+    Message, PackEncryptedOptions,
 };
-use mediator_coordination::didcomm::bridge::LocalSecretsResolver;
+use mediator_coordination::didcomm::bridge::LocalDIDResolver;
 use reqwest::header::CONTENT_TYPE;
 use serde_json::json;
 use uuid::Uuid;
@@ -70,11 +65,12 @@ pub(crate) async fn forward_msg() {
         }"#,
     )
     .unwrap();
-    let did_resolver = ExampleDIDResolver::new(vec![
-        MEDIATOR_DID_DOC.clone(),
-        BOB_DID_DOC.clone(),
-        ALICE_DID_DOC.clone(),
-    ]);
+    let did_resolver = LocalDIDResolver::new(&doc);
+    // let did_resolver = ExampleDIDResolver::new(vec![
+    //     MEDIATOR_DID_DOC.clone(),
+    //     BOB_DID_DOC.clone(),
+    //     ALICE_DID_DOC.clone(),
+    // ]);
     let _secrets_resolver = ExampleSecretsResolver::new(BOB_SECRETS.clone());
 
     let msg = Message::build(
@@ -89,7 +85,7 @@ pub(crate) async fn forward_msg() {
     let (packed_forward_msg, _metadata) = msg
         .pack_encrypted(
             &_recipient_did(),
-            Some(&_sender_did()),
+            Some("did:key:z6MkwKfDFAK49Lb9D6HchFiCXdcurRUSFrbnwDBk5qFZeHA3"),
             None,
             &did_resolver,
             &_sender_secrets_resolver(),
@@ -98,7 +94,6 @@ pub(crate) async fn forward_msg() {
         .await
         .expect("Unable pack_encrypted");
 
-    println!("{}", MEDIATOR_DID.lock().unwrap().clone());
     let msg = wrap_in_forward(
         &packed_forward_msg,
         None,
