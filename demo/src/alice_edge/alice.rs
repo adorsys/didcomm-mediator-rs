@@ -2,8 +2,8 @@ use didcomm::{
     did::resolvers::ExampleDIDResolver, secrets::resolvers::ExampleSecretsResolver, Message,
     PackEncryptedOptions, UnpackOptions,
 };
-use reqwest::header::CONTENT_TYPE;
-use serde_json::{json, Value};
+use reqwest::{header::CONTENT_TYPE, Client};
+use serde_json::json;
 use uuid::Uuid;
 
 use crate::{
@@ -296,4 +296,63 @@ pub(crate) async fn test_pickup_message_received() {
     .unwrap();
 
     println!("\nMessage Received\n{:#?}", msg);
+}
+
+pub(crate) async fn keylist_query_payload() {
+    let client = Client::new();
+
+    // --- Building message from ALICE to MEDIATOR ---
+    let message = Message::build(
+        "id_alice_keylist_query".to_owned(),
+        "https://didcomm.org/coordinate-mediation/2.0/keylist-query".to_owned(),
+        json!({}),
+    )
+    .header("return_route".into(), json!("all"))
+    .to(MEDIATOR_DID.lock().unwrap().clone())
+    .from(ALICE_DID.to_string())
+    .finalize();
+
+    // --- Packing encrypted and authenticated message ---
+    let did_resolver =
+        ExampleDIDResolver::new(vec![ALICE_DID_DOC.clone(), MEDIATOR_DID_DOC.clone()]);
+    let secrets_resolver = ExampleSecretsResolver::new(ALICE_SECRETS.clone());
+
+    let (message, _) = message
+        .pack_encrypted(
+            &MEDIATOR_DID.lock().unwrap(),
+            Some(&ALICE_DID),
+            None,
+            &did_resolver,
+            &secrets_resolver,
+            &PackEncryptedOptions::default(),
+        )
+        .await
+        .expect("Unable to pack_encrypted");
+
+    // --- Sending message by Alice ---
+    println!("Edge agent is sending message \n{}\n", message);
+
+    let response = client
+        .post("http://localhost:3000/mediate")
+        .header(CONTENT_TYPE, "application/didcomm-encrypted+json")
+        .body(message)
+        .send()
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+    println!("packed message from");
+
+
+    // --- Unpack the message ---
+    let (message, _) = Message::unpack(
+        &response,
+        &did_resolver,
+        &secrets_resolver,
+        &UnpackOptions::default(),
+    )
+    .await
+    .unwrap();
+print!("{:#?}", message)
 }
