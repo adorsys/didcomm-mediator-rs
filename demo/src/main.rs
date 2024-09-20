@@ -7,6 +7,7 @@ const DIDCOMM_CONTENT_TYPE: &str = "application/didcomm-encrypted+json";
 pub const BOB_DID: &str = "did:example:bob";
 
 mod alice_edge;
+mod bob;
 mod bob_edge;
 mod ledger;
 #[tokio::main]
