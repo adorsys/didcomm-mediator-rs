@@ -184,11 +184,11 @@ fn generate_did_peer(service_endpoint: String) -> (String, Ed25519KeyPair, X2551
     let keys = vec![
         PurposedKey {
             purpose: Purpose::Encryption,
-            public_key_multibase: auth_keys.to_multikey(),
+            public_key_multibase: agreem_keys.to_multikey(),
         },
         PurposedKey {
             purpose: Purpose::Verification,
-            public_key_multibase: agreem_keys.to_multikey(),
+            public_key_multibase: auth_keys.to_multikey(),
         },
     ];
 

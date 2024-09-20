@@ -1,6 +1,5 @@
 use didcomm::{
-    did::resolvers::ExampleDIDResolver, secrets::resolvers::ExampleSecretsResolver, Message,
-    PackEncryptedOptions, UnpackOptions,
+    did::resolvers::ExampleDIDResolver, secrets::resolvers::ExampleSecretsResolver, AttachmentData, JsonAttachmentData, Message, PackEncryptedOptions, UnpackOptions
 };
 use reqwest::header::CONTENT_TYPE;
 use serde_json::{json, Value};
@@ -10,9 +9,7 @@ use crate::{
     alice_edge::{
         constants::{DID_DOC_ENDPOINT, MEDIATE_REQUEST_2_0, MEDIATE_UPDATE_2_0, MEDIATION_ENDPOINT, PICKUP_DELIVERY_3_0, PICKUP_RECIEVE_3_0, PICKUP_REQUEST_3_0},
         secret_data::MEDIATOR_DID,
-    },
-    ledger::{ALICE_DID, ALICE_DID_DOC, ALICE_SECRETS, MEDIATOR_DID_DOC},
-    DIDCOMM_CONTENT_TYPE,
+    }, bob::BOB_DID_DOC, ledger::{ALICE_DID, ALICE_DID_DOC, ALICE_SECRETS, MEDIATOR_DID_DOC}, DIDCOMM_CONTENT_TYPE
 };
 
 // get
@@ -194,7 +191,7 @@ pub(crate) async fn test_pickup_request() {
 
 pub(crate) async fn test_pickup_delivery_request() {
     let did_resolver =
-        ExampleDIDResolver::new(vec![ALICE_DID_DOC.clone(), MEDIATOR_DID_DOC.clone()]);
+        ExampleDIDResolver::new(vec![ALICE_DID_DOC.clone(), MEDIATOR_DID_DOC.clone(), BOB_DID_DOC.clone()]);
     let secrets_resolver = ExampleSecretsResolver::new(ALICE_SECRETS.clone());
 
     // Build message
@@ -241,8 +238,21 @@ pub(crate) async fn test_pickup_delivery_request() {
     )
     .await
     .unwrap();
+    let attachments = msg.attachments.unwrap();
+    for attachemnt in attachments {
+        // let val = match attachemnt.data {
+        //     AttachmentData::Json { value: val } => val.json.clone(),
+        //     _ => json!(0)
+        // };
+        let message = serde_json::to_string(&match attachemnt.data {
+            AttachmentData::Json { value: val } => val.json.clone(),
+            _ => json!(0)
+        }).unwrap();
+        
+        let message = Message::unpack(&message, &did_resolver, &secrets_resolver, &UnpackOptions::default()).await.unwrap();
+        println!("\nPickup Delivery Message\n{:#?}", message);
+    }
 
-    println!("\nPickup Delivery Message\n{:#?}", msg);
 }
 
 pub(crate) async fn test_pickup_message_received() {

@@ -1,15 +1,24 @@
-use did_utils::didcore::Document;
-use didcomm::{
-    algorithms::AnonCryptAlg, protocols::routing::wrap_in_forward, secrets::resolvers::ExampleSecretsResolver, Attachment, AttachmentData, JsonAttachmentData, Message, PackEncryptedOptions, UnpackOptions
+use crate::{
+    alice_edge::{constants::MEDIATION_ENDPOINT, secret_data::MEDIATOR_DID},
+    bob_edge::{
+        constants::BOB_DID,
+        data::{_sender_secrets_resolver, BOB_DID_DOC, BOB_SECRETS, MEDIATOR_DID_DOC},
+    },
+    ledger::{ALICE_DID, ALICE_DID_DOC},
+    DIDCOMM_CONTENT_TYPE,
 };
+use did_utils::{didcore::Document, jwk::Jwk};
+use didcomm::{
+    algorithms::AnonCryptAlg,
+    did::resolvers::ExampleDIDResolver,
+    protocols::routing::wrap_in_forward,
+    secrets::{resolvers::ExampleSecretsResolver, SecretsResolver},
+    Attachment, AttachmentData, JsonAttachmentData, Message, PackEncryptedOptions, UnpackOptions,
+};
+use mediator_coordination::didcomm::bridge::LocalSecretsResolver;
 use reqwest::header::CONTENT_TYPE;
 use serde_json::json;
-use crate::{
-    alice_edge::constants::MEDIATION_ENDPOINT, bob_edge::{
-        constants::BOB_DID,
-        data::{_sender_secrets_resolver, BOB_SECRETS},
-    }, ledger::ALICE_DID, DIDCOMM_CONTENT_TYPE
-};
+use uuid::Uuid;
 
 pub(crate) async fn forward_msg() {
     let doc: Document = serde_json::from_str(
@@ -61,33 +70,26 @@ pub(crate) async fn forward_msg() {
         }"#,
     )
     .unwrap();
-    let did_resolver = mediator_coordination::didcomm::bridge::LocalDIDResolver::new(&doc);
-    let secrets_resolver = ExampleSecretsResolver::new(BOB_SECRETS.clone());
+    let did_resolver = ExampleDIDResolver::new(vec![
+        MEDIATOR_DID_DOC.clone(),
+        BOB_DID_DOC.clone(),
+        ALICE_DID_DOC.clone(),
+    ]);
+    let _secrets_resolver = ExampleSecretsResolver::new(BOB_SECRETS.clone());
 
-    let plaintest_msg = Attachment {
-        id: None,
-        description: Some("A friendly reminder to take a break and enjoy some fresh air!".to_string()),
-        media_type: None,
-        data: AttachmentData::Json { value: JsonAttachmentData{json: json!("Hey there! Just wanted to remind you to step outside for a bit. A little fresh air can do wonders for your mood."), jws: None} },
-        filename: Some("reminder.txt".to_string()),
-        format: Some("mime_type".to_string()),
-        lastmod_time: None,
-        byte_count: None
-    };
     let msg = Message::build(
-        "example-1".to_owned(),
+        Uuid::new_v4().to_string(),
         "example/v1".to_owned(),
-        json!("example-body"),
+        json!("Hey there! Just wanted to remind you to step outside for a bit. A little fresh air can do wonders for your mood."),
     )
-    .to(ALICE_DID.to_owned())
-    .from(BOB_DID.to_owned())
-    .attachments(vec![plaintest_msg])
+    .to(_recipient_did())
+    .from(_sender_did())
     .finalize();
 
     let (packed_forward_msg, _metadata) = msg
         .pack_encrypted(
-            &ALICE_DID,
-            Some(BOB_DID),
+            &_recipient_did(),
+            Some(&_sender_did()),
             None,
             &did_resolver,
             &_sender_secrets_resolver(),
@@ -95,24 +97,22 @@ pub(crate) async fn forward_msg() {
         )
         .await
         .expect("Unable pack_encrypted");
-    println!("Encryption metadata is\n{:?}\n", _metadata);
 
-    // --- Sending message to Alice ---
-    println!("Alice is sending message \n{}\n", packed_forward_msg);
-
+    println!("{}", MEDIATOR_DID.lock().unwrap().clone());
     let msg = wrap_in_forward(
         &packed_forward_msg,
         None,
-        &ALICE_DID,
-        &vec!["did:peer:2.Ez6MkiEHxxUjjjXb62JrGNPbBqBewrU2PY9ppGgH4bUBfMpzH.Vz6LSr61MU6UwZArRSFe6vH4wnqM63a127g1L5XX9dPuSBYxm.SeyJhIjpbImRpZGNvbW0vdjIiXSwiaWQiOiIjZGlkY29tbSIsInMiOiJodHRwOi8vYWxpY2UtbWVkaWF0b3IuY29tIiwidCI6ImRtIn0".to_string()],
+        &&_recipient_did(),
+        &vec![MEDIATOR_DID.lock().unwrap().clone()],
         &AnonCryptAlg::default(),
         &did_resolver,
     )
     .await
     .expect("Unable wrap_in_forward");
 
-let client = reqwest::Client::new();
-let response = client
+    let client = reqwest::Client::new();
+    
+    let response = client
         .post(MEDIATION_ENDPOINT)
         .header(CONTENT_TYPE, DIDCOMM_CONTENT_TYPE)
         .body(msg)
@@ -122,15 +122,12 @@ let response = client
         .text()
         .await
         .unwrap();
+}
 
-    let (msg, _metadata) = Message::unpack(
-        &response,
-        &did_resolver,
-        &secrets_resolver,
-        &UnpackOptions::default(),
-    )
-    .await
-    .expect("Unable unpack");
-    let unpacked_msg = Message::unpack(&response, &did_resolver, &secrets_resolver, &UnpackOptions::default()).await.unwrap();
+pub fn _sender_did() -> String {
+    "did:key:z6MkwKfDFAK49Lb9D6HchFiCXdcurRUSFrbnwDBk5qFZeHA3".to_string()
+}
 
+pub fn _recipient_did() -> String {
+    "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7".to_string()
 }

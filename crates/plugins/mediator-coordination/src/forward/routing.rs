@@ -1,5 +1,5 @@
 use axum::response::{IntoResponse, Response};
-use didcomm::Message;
+use didcomm::{protocols::routing::try_parse_forward, AttachmentData, Message};
 
 use hyper::StatusCode;
 use mongodb::bson::doc;
@@ -29,7 +29,7 @@ pub async fn mediator_forward_process(
     // Check if the client's did in mediator's keylist
 
     let next = payload.body.get("next").and_then(Value::as_str).unwrap();
-
+            
     let _connection = match connection_repository
         .find_one_by(doc! {"keylist": doc!{ "$elemMatch": { "$eq": &next}}})
         .await
@@ -45,12 +45,16 @@ pub async fn mediator_forward_process(
         }
     };
 
-    let attachments = payload.attachments.as_ref().unwrap();
+    let attachments = payload.attachments.unwrap_or_default();
     for att in attachments {
+        let attached = match att.data {
+            AttachmentData::Json { value: val} => val.json,
+            _ => json!(0)
+        };
         message_repository
             .store(RoutedMessage {
                 id: None,
-                message: json!(att),
+                message: json!(attached),
                 recipient_did: next.to_string(),
             })
             .await
@@ -58,11 +62,11 @@ pub async fn mediator_forward_process(
             .unwrap();
     }
 
-
-    // let _connection = match connection_repository
-    //     .find_one_by(doc! {"keylist": doc!{ "$elemMatch": { "$eq": &client_did}}})
-    //     .await
-    //     .unwrap()
+// let result = try_parse_forward(&payload).unwrap();
+//     let _connection = match connection_repository
+//         .find_one_by(doc! {"keylist": doc!{ "$elemMatch": { "$eq": &result.next}}})
+//         .await
+//         .unwrap()
     // {
     //     Some(connection) => connection,
     //     None => {
@@ -74,14 +78,14 @@ pub async fn mediator_forward_process(
     //     }
     // };
 
-    // // store message attachement with associated recipient did
+    // store message attachement with associated recipient did
 
     // let forward_msg = serde_json::to_string(&result.forwarded_msg).unwrap();
 
     // let messages = RoutedMessage {
     //     id: None,
-    //     message: vec![forward_msg],
-    //     recipient_did: client_did,
+    //     message: forward_msg,
+    //     recipient_did: result.next,
     // };
     // message_repository
     //     .store(messages)
@@ -89,7 +93,7 @@ pub async fn mediator_forward_process(
     //     .map_err(|_| MediationError::PersisenceError)
     //     .unwrap();
     // Ok(result.msg.to_owned())
-    Ok(payload)
+    Ok(Message::build("".to_string(), "".to_string(),json!("")).finalize())
 }
 
 #[cfg(test)]
