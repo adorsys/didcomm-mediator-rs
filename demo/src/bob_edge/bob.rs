@@ -1,17 +1,14 @@
-use did_utils::{crypto::PublicKeyFormat, didcore::Document};
+use did_utils::didcore::Document;
 use didcomm::{
-    algorithms::AnonCryptAlg, did::{resolvers::ExampleDIDResolver, DIDDoc, DIDResolver}, error::{Error, ErrorKind}, protocols::routing::wrap_in_forward, secrets::resolvers::ExampleSecretsResolver, Attachment, AttachmentData, JsonAttachmentData, Message, PackEncryptedOptions, UnpackOptions
+    algorithms::AnonCryptAlg, protocols::routing::wrap_in_forward, secrets::resolvers::ExampleSecretsResolver, Attachment, AttachmentData, JsonAttachmentData, Message, PackEncryptedOptions, UnpackOptions
 };
 use reqwest::header::CONTENT_TYPE;
-use serde_json::{json, Value};
-use uuid::Uuid;
+use serde_json::json;
 use crate::{
-    alice_edge::{constants::MEDIATION_ENDPOINT, secret_data::{MEDIATOR_DID, ROUTING_DID}},
-    bob_edge::{
+    alice_edge::constants::MEDIATION_ENDPOINT, bob_edge::{
         constants::BOB_DID,
-        data::{_sender_secrets_resolver, BOB_DID_DOC, BOB_SECRETS, MEDIATOR_DID_DOC},
-    },
-    ledger::ALICE_DID, DIDCOMM_CONTENT_TYPE,
+        data::{_sender_secrets_resolver, BOB_SECRETS},
+    }, ledger::ALICE_DID, DIDCOMM_CONTENT_TYPE
 };
 
 pub(crate) async fn forward_msg() {
