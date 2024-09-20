@@ -7,7 +7,6 @@ use did_utils::{
     crypto::{Ed25519KeyPair, Generate, ToPublic, X25519KeyPair},
     jwk::Jwk,
 };
-use nix::libc::mremap;
 use std::{
     error::Error,
     fs::File,
@@ -44,52 +43,59 @@ use chacha20poly1305::{
     aead::{Aead, AeadCore, OsRng},
     ChaCha20Poly1305,
 };
+use log::{debug, info, error}; // Import logging macros
 
 struct FileSystemkeystore {
-    key:Vec<u8>,
+    key: Vec<u8>,
     nonce: Vec<u8>,
 }
 
-impl FileSystemkeystore{
+impl FileSystemkeystore {
     fn encrypt(mut self, secret: KeyStore) {
         let cipher = ChaCha20Poly1305::new(GenericArray::from_slice(&self.key));
 
         let nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
         let path = secret.path();
-        let mut keystorefile = File::open(path).unwrap();
+        let mut keystorefile = File::open(path.clone()).unwrap();
         let mut buffer = Vec::new();
         keystorefile.read_to_end(&mut buffer).unwrap();
 
         let encrypted_key = cipher
             .encrypt(GenericArray::from_slice(&self.nonce), buffer.as_slice())
             .unwrap();
-        // overwritting file with encrypted keys
+        // Overwrite the file with encrypted keys
         keystorefile.write_all(&encrypted_key).unwrap();
         self.nonce = nonce.to_vec();
 
         // Overwrite the buffer with zeros to prevent data leakage
         buffer.clear();
         std::mem::forget(buffer);
+
+        // Conditional logging
+        debug!("Encryption successful for keystore file: {}", path);
     }
 
-    fn decrypt( self, secret: KeyStore) -> Result<Vec<u8>, chacha20poly1305::aead::Error> {
+    fn decrypt(self, secret: KeyStore) -> Result<Vec<u8>, chacha20poly1305::aead::Error> {
         let cipher = ChaCha20Poly1305::new(GenericArray::from_slice(&self.key));
         let path = secret.path();
-        let mut keystorefile = File::open(path).unwrap();
+        let mut keystorefile = File::open(path.clone()).unwrap();
         let mut buffer = Vec::new();
         keystorefile.read_to_end(&mut buffer).unwrap();
 
         let decrypted_key = cipher.decrypt(GenericArray::from_slice(&self.nonce), buffer.as_slice())?;
 
+        // Enhanced redaction: Replace all sensitive characters with asterisks
+        let redacted_key = decrypted_key.iter().map(|b| if b.is_ascii_graphic() && !b.is_ascii_whitespace() { '*' as u8 } else { *b }).collect::<Vec<u8>>();
+
+        // Conditional logging with redacted key
+        info!("Decryption successful for keystore file: {}, redacted key: {:?}", &path, redacted_key);
 
         buffer.clear();
         std::mem::forget(buffer);
 
         Ok(decrypted_key)
-
     }
 }
-
 impl<'a> KeyStore<'a> {
     /// Constructs file-based key-value store.
     pub fn new(fs: &'a mut dyn FileSystem, storage_dirpath: &str) -> Self {
@@ -202,6 +208,7 @@ impl<'a> KeyStore<'a> {
         Ok(pub_jwk)
     }
 }
+
 
 #[cfg(test)]
 mod tests {
