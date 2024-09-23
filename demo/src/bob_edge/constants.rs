@@ -1,1 +1,0 @@
-pub const BOB_DID: &str = "did:key:z6MkwKfDFAK49Lb9D6HchFiCXdcurRUSFrbnwDBk5qFZeHA3";

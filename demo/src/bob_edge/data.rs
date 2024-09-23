@@ -3,14 +3,18 @@ use lazy_static::lazy_static;
 use mediator_coordination::didcomm::bridge::LocalSecretsResolver;
 use serde_json::json;
 
-use didcomm::{did::{
-    DIDCommMessagingService, DIDDoc, Service, ServiceKind, VerificationMaterial,
-    VerificationMethod, VerificationMethodType,
-}, secrets::{Secret, SecretMaterial, SecretType, SecretsResolver}};
+use didcomm::{
+    did::{
+        DIDCommMessagingService, DIDDoc, Service, ServiceKind, VerificationMaterial,
+        VerificationMethod, VerificationMethodType,
+    },
+    secrets::{Secret, SecretMaterial, SecretType, SecretsResolver},
+};
 
-use super::constants::BOB_DID;
+use crate::constants::BOB_DID;
 
 lazy_static! {
+
     pub static ref BOB_VERIFICATION_METHOD_KEY_AGREEM_X25519_1: VerificationMethod =
         VerificationMethod {
             id: "did:example:bob#key-x25519-1".into(),
@@ -473,7 +477,7 @@ lazy_static! {
         BOB_SECRET_KEY_AGREEMENT_KEY_P521_1.clone(),
         BOB_SECRET_KEY_AGREEMENT_KEY_P521_2.clone(),
     ];
-    
+
 }
 pub fn _sender_secrets_resolver() -> impl SecretsResolver {
     let secret_id = BOB_DID.to_owned() + "#z6LSiZbfm5L5zR3mrqpHyL7T2b2x3afUMpmGnMrEQznAz5F3";

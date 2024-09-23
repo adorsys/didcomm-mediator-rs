@@ -1,6 +1,9 @@
+
 use did_utils::didcore::Document;
 use didcomm::{
-    did::resolvers::ExampleDIDResolver, secrets::resolvers::ExampleSecretsResolver, AttachmentData, JsonAttachmentData, Message, PackEncryptedOptions, UnpackOptions
+    did::resolvers::ExampleDIDResolver,
+    secrets::resolvers::ExampleSecretsResolver,
+    AttachmentData, Message, PackEncryptedOptions, UnpackOptions,
 };
 use mediator_coordination::didcomm::bridge::LocalDIDResolver;
 use reqwest::{header::CONTENT_TYPE, Client};
@@ -8,13 +11,11 @@ use serde_json::json;
 use uuid::Uuid;
 
 use crate::{
-    alice_edge::{
-        constants::{DID_DOC_ENDPOINT, MEDIATE_REQUEST_2_0, MEDIATE_UPDATE_2_0, MEDIATION_ENDPOINT, PICKUP_DELIVERY_3_0, PICKUP_RECIEVE_3_0, PICKUP_REQUEST_3_0},
-        secret_data::MEDIATOR_DID,
-    }, bob::BOB_DID_DOC, ledger::{ALICE_DID, ALICE_DID_DOC, ALICE_SECRETS, MEDIATOR_DID_DOC}, DIDCOMM_CONTENT_TYPE
+    alice_edge::
+       
+        data::MEDIATOR_DID, constants::{DID_DOC_ENDPOINT, MEDIATE_REQUEST_2_0, MEDIATE_UPDATE_2_0, MEDIATION_ENDPOINT, PICKUP_DELIVERY_3_0, PICKUP_RECIEVE_3_0, PICKUP_REQUEST_3_0}, ledger::{ALICE_DID, ALICE_DID_DOC, ALICE_SECRETS, MEDIATOR_DID_DOC}, DIDCOMM_CONTENT_TYPE
 };
 
-// get
 pub(crate) async fn get_mediator_didoc() {
     let client = reqwest::Client::new();
 
@@ -26,16 +27,14 @@ pub(crate) async fn get_mediator_didoc() {
         .text()
         .await
         .unwrap();
-    let did_doc: did_utils::didcore::Document = serde_json::from_str(&response).unwrap();
-    let mut mediator_did = MEDIATOR_DID.lock().unwrap();
-    *mediator_did = did_doc.clone().id;
+
     println!("\n Mediator DID Document {}\n", response)
 }
 pub(crate) async fn mediate_request() {
-    let did_resolver =
+    let did_resolver: ExampleDIDResolver =
         ExampleDIDResolver::new(vec![ALICE_DID_DOC.clone(), MEDIATOR_DID_DOC.clone()]);
-    let secrets_resolver = ExampleSecretsResolver::new(ALICE_SECRETS.clone());
-
+    let secrets_resolver: ExampleSecretsResolver =
+        ExampleSecretsResolver::new(ALICE_SECRETS.clone());
     // Build message
     let msg = Message::build(
         Uuid::new_v4().to_string(),
@@ -43,14 +42,14 @@ pub(crate) async fn mediate_request() {
         json!({"recipient_did": "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7"}),
     )
     .header("return_route".into(), json!("all"))
-    .to(MEDIATOR_DID.lock().unwrap().clone())
+    .to(MEDIATOR_DID.to_string())
     .from(ALICE_DID.to_string())
     .finalize();
 
     // pack message for mediator
     let (msg, _) = msg
         .pack_encrypted(
-            &MEDIATOR_DID.lock().unwrap(),
+            &MEDIATOR_DID,
             Some(&ALICE_DID),
             None,
             &did_resolver,
@@ -81,7 +80,7 @@ pub(crate) async fn mediate_request() {
     )
     .await
     .unwrap();
-   
+
     println!("\nMediation Request Response{:#?}\n", msg,)
 }
 pub(crate) async fn keylist_update_payload() {
@@ -101,7 +100,7 @@ pub(crate) async fn keylist_update_payload() {
         ]}),
     )
     .header("return_route".into(), json!("all"))
-    .to(MEDIATOR_DID.lock().unwrap().clone())
+    .to(MEDIATOR_DID.to_string())
     .from(ALICE_DID.to_owned())
     .finalize();
 
@@ -112,7 +111,7 @@ pub(crate) async fn keylist_update_payload() {
 
     let (msg, _) = msg
         .pack_encrypted(
-            &MEDIATOR_DID.lock().unwrap(),
+            &MEDIATOR_DID,
             Some(&ALICE_DID),
             None,
             &did_resolver,
@@ -133,7 +132,14 @@ pub(crate) async fn keylist_update_payload() {
         .text()
         .await
         .unwrap();
-    let unpacked_msg = Message::unpack(&response, &did_resolver, &secrets_resolver, &UnpackOptions::default()).await.unwrap();
+    let unpacked_msg = Message::unpack(
+        &response,
+        &did_resolver,
+        &secrets_resolver,
+        &UnpackOptions::default(),
+    )
+    .await
+    .unwrap();
     println!("\nMediation Update Response{:#?}\n", unpacked_msg,)
 }
 
@@ -149,7 +155,7 @@ pub(crate) async fn test_pickup_request() {
         json!({"recipient_did": "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7"}),
     )
     .header("return_route".into(), json!("all"))
-    .to(MEDIATOR_DID.lock().unwrap().clone())
+    .to(MEDIATOR_DID.to_string())
     .from(ALICE_DID.to_string())
     .finalize();
 
@@ -157,7 +163,7 @@ pub(crate) async fn test_pickup_request() {
 
     let (msg, _) = msg
         .pack_encrypted(
-            &MEDIATOR_DID.lock().unwrap(),
+            &MEDIATOR_DID,
             Some(&ALICE_DID),
             None,
             &did_resolver,
@@ -252,13 +258,13 @@ pub(crate) async fn test_pickup_delivery_request() {
         json!({"limit":2,"recipient_did":"did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7"}),
     )
     .header("return_route".into(), json!("all"))
-    .to(MEDIATOR_DID.lock().unwrap().to_string())
+    .to(MEDIATOR_DID.to_string())
     .from(ALICE_DID.to_string())
     .finalize();
 
     let (msg, _) = msg
         .pack_encrypted(
-            &MEDIATOR_DID.lock().unwrap(),
+            &MEDIATOR_DID,
             Some(&ALICE_DID),
             None,
             &did_resolver,
@@ -295,16 +301,17 @@ pub(crate) async fn test_pickup_delivery_request() {
         //     AttachmentData::Json { value: val } => val.json.clone(),
         //     _ => json!(0)
         // };
-        let mes = serde_json::to_string(&match attachemnt.data {
+        let message = serde_json::to_string(&match attachemnt.data {
             AttachmentData::Json { value: val } => val.json.clone(),
             _ => json!(0)
         }).unwrap();
         
-        let message = Message::unpack(&mes, &did_resolver, &secrets_resolver, &UnpackOptions::default()).await.unwrap();
+        let message = Message::unpack(&message, &did_resolver, &secrets_resolver, &UnpackOptions::default()).await.unwrap();
         println!("\nPickup Delivery Message\n{:#?}", message);
     }
 
 }
+
 
 pub(crate) async fn test_pickup_message_received() {
     let did_resolver =
@@ -318,13 +325,13 @@ pub(crate) async fn test_pickup_message_received() {
         json!({"message_id_list": vec!["66ec4d76e8aaed777d76acf9","66ec4d75e8aaed777d76acf8"]}),
     )
     .header("return_route".into(), json!("all"))
-    .to(MEDIATOR_DID.lock().unwrap().to_string())
+    .to(MEDIATOR_DID.to_string())
     .from(ALICE_DID.to_string())
     .finalize();
 
     let (msg, _) = msg
         .pack_encrypted(
-            &MEDIATOR_DID.lock().unwrap(),
+            &MEDIATOR_DID,
             Some(&ALICE_DID),
             None,
             &did_resolver,
@@ -369,7 +376,7 @@ pub(crate) async fn keylist_query_payload() {
         json!({}),
     )
     .header("return_route".into(), json!("all"))
-    .to(MEDIATOR_DID.lock().unwrap().clone())
+    .to(MEDIATOR_DID.to_string())
     .from(ALICE_DID.to_string())
     .finalize();
 
@@ -380,7 +387,7 @@ pub(crate) async fn keylist_query_payload() {
 
     let (message, _) = message
         .pack_encrypted(
-            &MEDIATOR_DID.lock().unwrap(),
+            &MEDIATOR_DID,
             Some(&ALICE_DID),
             None,
             &did_resolver,
@@ -405,7 +412,6 @@ pub(crate) async fn keylist_query_payload() {
         .unwrap();
     println!("packed message from");
 
-
     // --- Unpack the message ---
     let (message, _) = Message::unpack(
         &response,
@@ -415,5 +421,5 @@ pub(crate) async fn keylist_query_payload() {
     )
     .await
     .unwrap();
-print!("{:#?}", message)
+    print!("{:#?}", message)
 }

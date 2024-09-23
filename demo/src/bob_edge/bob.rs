@@ -1,19 +1,16 @@
-use crate::{
-    alice_edge::{constants::MEDIATION_ENDPOINT, secret_data::MEDIATOR_DID}, bob_edge::
-        data::{_sender_secrets_resolver, BOB_DID_DOC, BOB_SECRETS, MEDIATOR_DID_DOC}, ledger::ALICE_DID_DOC, DIDCOMM_CONTENT_TYPE
-};
+
 use did_utils::didcore::Document;
 use didcomm::{
-    algorithms::AnonCryptAlg,
-    did::resolvers::ExampleDIDResolver,
-    protocols::routing::wrap_in_forward,
-    secrets::resolvers::ExampleSecretsResolver,
-    Message, PackEncryptedOptions,
+    algorithms::AnonCryptAlg, protocols::routing::wrap_in_forward, secrets::resolvers::ExampleSecretsResolver, Message, PackEncryptedOptions
 };
 use mediator_coordination::didcomm::bridge::LocalDIDResolver;
 use reqwest::header::CONTENT_TYPE;
 use serde_json::json;
 use uuid::Uuid;
+
+use crate::{constants::{MEDIATION_ENDPOINT, MEDIATOR_DID}, DIDCOMM_CONTENT_TYPE};
+
+use super::data::{_sender_secrets_resolver, BOB_SECRETS};
 
 pub(crate) async fn forward_msg() {
     let doc: Document = serde_json::from_str(
@@ -93,7 +90,7 @@ let did_resolver = LocalDIDResolver::new(&doc);
         &packed_forward_msg,
         None,
         &&_recipient_did(),
-        &vec![MEDIATOR_DID.lock().unwrap().clone()],
+        &vec![MEDIATOR_DID.to_string()],
         &AnonCryptAlg::default(),
         &did_resolver,
     )
@@ -119,5 +116,5 @@ pub fn _sender_did() -> String {
 }
 
 pub fn _recipient_did() -> String {
-    "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7".to_string()
+    "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH6".to_string()
 }
