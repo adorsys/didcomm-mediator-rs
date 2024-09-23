@@ -1,7 +1,7 @@
 
 use did_utils::didcore::Document;
 use didcomm::{
-    algorithms::AnonCryptAlg, protocols::routing::wrap_in_forward, secrets::resolvers::ExampleSecretsResolver, Message, PackEncryptedOptions
+    algorithms::AnonCryptAlg, protocols::routing::wrap_in_forward, secrets::resolvers::ExampleSecretsResolver, Attachment, AttachmentData, JsonAttachmentData, Message, PackEncryptedOptions
 };
 use mediator_coordination::didcomm::bridge::LocalDIDResolver;
 use reqwest::header::CONTENT_TYPE;
@@ -64,14 +64,25 @@ pub(crate) async fn forward_msg() {
     .unwrap();
 let did_resolver = LocalDIDResolver::new(&doc);
     let _secrets_resolver = ExampleSecretsResolver::new(BOB_SECRETS.clone());
+    let attachment = Attachment {
+        id: None,
+        description: Some("A friendly reminder to take a break and enjoy some fresh air!".to_string()),
+        media_type: None,
+        data: AttachmentData::Json { value: JsonAttachmentData{json: json!("Hey there! Just wanted to remind you to step outside for a bit. A little fresh air can do wonders for your mood."), jws: None} },
+        filename: Some("reminder.txt".to_string()),
+        format: Some("mime_type".to_string()),
+        lastmod_time: None,
+        byte_count: None
+    };
 
     let msg = Message::build(
         Uuid::new_v4().to_string(),
         "example/v1".to_owned(),
-        json!("Hey there! Just wanted to remind you to step outside for a bit. A little fresh air can do wonders for your mood."),
+        json!({}),
     )
     .to(_recipient_did())
     .from(_sender_did())
+    .attachments(vec![attachment])
     .finalize();
 
     let (packed_forward_msg, _metadata) = msg
@@ -105,10 +116,8 @@ let did_resolver = LocalDIDResolver::new(&doc);
         .body(msg)
         .send()
         .await
-        .unwrap()
-        .text()
-        .await
         .unwrap();
+    println!("{}", response.status())
 }
 
 pub fn _sender_did() -> String {
@@ -116,5 +125,5 @@ pub fn _sender_did() -> String {
 }
 
 pub fn _recipient_did() -> String {
-    "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH6".to_string()
+    "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7".to_string()
 }

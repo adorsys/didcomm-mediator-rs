@@ -340,7 +340,7 @@ pub(crate) async fn test_pickup_message_received() {
         )
         .await
         .expect("Unable to pack_encrypted");
-    println!("{}", msg);
+ 
     let client = reqwest::Client::new();
     let response = client
         .post("http://localhost:3000/mediate")
@@ -396,9 +396,6 @@ pub(crate) async fn keylist_query_payload() {
         )
         .await
         .expect("Unable to pack_encrypted");
-
-    // --- Sending message by Alice ---
-    println!("Edge agent is sending message \n{}\n", message);
 
     let response = client
         .post("http://localhost:3000/mediate")
