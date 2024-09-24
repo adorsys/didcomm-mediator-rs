@@ -18,7 +18,7 @@ use crate::{
 };
 
 #[axum::debug_handler]
-pub(crate) async fn handle_mediator_requests(
+pub(crate) async fn process_didcomm_message(
     State(state): State<Arc<AppState>>,
     Extension(message): Extension<Message>,
 ) -> Response {
