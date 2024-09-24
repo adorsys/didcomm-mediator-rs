@@ -8,9 +8,9 @@
 //! [`did:peer`]: https://identity.foundation/peer-did-method-spec/
 //!
 //! # Examples
-//! 
+//!
 //! ### Basic did:key resolution example.
-//! 
+//!
 //! ```
 //! use did_utils::methods::{DIDResolver, DidKey};
 //! use did_utils::methods::DIDResolutionOptions;

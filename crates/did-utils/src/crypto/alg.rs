@@ -5,9 +5,9 @@ use crate::{
     jwk::{Bytes, Ec, EcCurves, Jwk, Key, Okp, OkpCurves, Parameters},
 };
 
+use multibase::Base::Base58Btc;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use multibase::Base::Base58Btc;
 
 /// Supported cryptographic algorithms.
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -249,8 +249,8 @@ pub(crate) fn decode_multikey(multikey: &str) -> Result<(Algorithm, Vec<u8>), De
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::Value;
     use multibase::Base::Base64Url;
+    use serde_json::Value;
 
     #[test]
     fn test_can_build_secp256k1_jwk() {

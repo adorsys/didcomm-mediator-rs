@@ -40,6 +40,13 @@ pub(crate) async fn process_didcomm_message(
                 message,
             )
             .await
+        },
+        KEYLIST_QUERY_2_0 => {
+            web::coord::handler::stateful::process_plain_keylist_query_message(
+                Arc::clone(&state),
+                message,
+            )
+            .await
         }
         KEYLIST_QUERY_2_0 => {
             web::coord::handler::stateful::process_plain_keylist_update_message(

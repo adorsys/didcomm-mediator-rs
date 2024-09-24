@@ -2,32 +2,23 @@ use async_trait::async_trait;
 
 use crate::{
     ldmodel::Context,
-    methods::{
-        errors::DIDResolutionError,
-        traits::DIDResolver,
-    },
+    methods::{errors::DIDResolutionError, traits::DIDResolver},
 };
 
-use crate::methods::resolution::{
-    DIDResolutionMetadata,
-    DIDResolutionOptions,
-    MediaType,
-    ResolutionOutput,
-};
+use crate::methods::resolution::{DIDResolutionMetadata, DIDResolutionOptions, MediaType, ResolutionOutput};
 
 use crate::methods::DidKey;
 
 #[async_trait]
 impl DIDResolver for DidKey {
-    
     /// Resolves a DID using the did:key method.
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `did` - The DID address to resolve.
-    /// 
+    ///
     /// # Returns
-    /// 
+    ///
     /// A `ResolutionOutput` struct containing the resolved DID document and metadata.
     async fn resolve(&self, did: &str, _options: &DIDResolutionOptions) -> ResolutionOutput {
         let context = Context::SingleString(String::from("https://w3id.org/did-resolution/v1"));
@@ -66,10 +57,7 @@ impl DIDResolver for DidKey {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        methods::resolution::DereferencingOptions,
-        crypto::PublicKeyFormat,
-    };
+    use crate::{crypto::PublicKeyFormat, methods::resolution::DereferencingOptions};
     use serde_json::Value;
 
     #[async_std::test]

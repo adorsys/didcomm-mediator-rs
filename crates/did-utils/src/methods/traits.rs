@@ -3,7 +3,6 @@ use async_trait::async_trait;
 
 use crate::{ldmodel::Context, methods::errors::DIDResolutionError};
 
-
 /// Abstract contract for DID methods.
 ///
 /// Initially thought to encompass the signatures of different operations
@@ -25,7 +24,6 @@ pub trait DIDMethod: DIDResolver {
         self
     }
 }
-
 
 /// Abstract contract for DID resolution.
 ///

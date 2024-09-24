@@ -4,6 +4,7 @@ mod handler;
 mod midlw;
 
 use axum::{middleware, routing::post, Router};
+use database::Repository;
 use did_utils::{didcore::Document, jwk::Jwk};
 use keystore::KeyStore;
 use std::sync::Arc;
