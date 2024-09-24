@@ -11,9 +11,7 @@ use crate::{
     constant::{
         DIDCOMM_ENCRYPTED_MIME_TYPE, KEYLIST_QUERY_2_0, KEYLIST_UPDATE_2_0, MEDIATE_FORWARD_2_0,
         MEDIATE_REQUEST_2_0,
-    },
-    forward::routing::mediator_forward_process, web::{self, error::MediationError, AppState},
-    
+    }, forward::routing::mediator_forward_process, web::{self, error::MediationError, AppState}
    
 };
 
@@ -48,13 +46,7 @@ pub(crate) async fn process_didcomm_message(
             )
             .await
         }
-        KEYLIST_QUERY_2_0 => {
-            web::coord::handler::stateful::process_plain_keylist_update_message(
-                Arc::clone(&state),
-                message,
-            )
-            .await
-        }
+     
         MEDIATE_REQUEST_2_0 => {
             web::coord::handler::stateful::process_mediate_request(&state, &message).await
         }
@@ -106,7 +98,7 @@ pub mod tests {
     use web::AppStateRepository;
 
     use crate::{
-        didcomm::bridge::LocalSecretsResolver, repository::stateful::coord::tests::{MockConnectionRepository, MockMessagesRepository, MockSecretsRepository}, util::{self, MockFileSystem}
+        didcomm::bridge::LocalSecretsResolver, repository::stateful::tests::{MockConnectionRepository, MockMessagesRepository, MockSecretsRepository}, util::{self, MockFileSystem}
       
     };
 
@@ -213,16 +205,14 @@ pub mod tests {
 mod tests2 {
     use super::{tests as global, *};
     use crate::{
-        constant::{KEYLIST_UPDATE_RESPONSE_2_0, MEDIATE_GRANT_2_0}, repository::stateful::coord::tests::MockConnectionRepository, web::{self, AppStateRepository}
+        constant::{KEYLIST_UPDATE_RESPONSE_2_0, MEDIATE_GRANT_2_0}, repository::stateful::tests::MockConnectionRepository,
+    
     };
-
-    use axum::{
-        body::Body,
-        http::{Method, Request},
-        Router,
-    };
+    use axum::Router;
+    use hyper::{Body, Method, Request};
     use serde_json::{json, Value};
     use tower::ServiceExt;
+    use web::AppStateRepository;
 
     #[allow(clippy::needless_update)]
     pub fn setup() -> (Router, Arc<AppState>) {

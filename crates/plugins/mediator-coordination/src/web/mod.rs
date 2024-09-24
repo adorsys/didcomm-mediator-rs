@@ -10,7 +10,7 @@ use keystore::KeyStore;
 use std::sync::Arc;
 
 use crate::{
-    didcomm::bridge::{LocalDIDResolver, LocalSecretsResolver}, model::stateful::entity::{Connection, RoutedMessage, Secrets}, repository::traits::Repository, util
+    didcomm::bridge::{LocalDIDResolver, LocalSecretsResolver}, model::stateful::entity::{Connection, RoutedMessage, Secrets}, util
 };
 
 pub fn routes(state: Arc<AppState>) -> Router {

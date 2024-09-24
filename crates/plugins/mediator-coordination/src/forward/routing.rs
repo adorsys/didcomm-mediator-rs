@@ -71,7 +71,7 @@ mod test {
     use std::sync::Arc;
 
     use crate::{
-        didcomm::bridge::LocalSecretsResolver, model::stateful::entity::Connection, repository::stateful::coord::tests::{MockConnectionRepository, MockMessagesRepository, MockSecretsRepository}, util::{self, MockFileSystem}, web::AppStateRepository
+        didcomm::bridge::LocalSecretsResolver, model::stateful::entity::Connection, repository::stateful::tests::{MockConnectionRepository, MockMessagesRepository, MockSecretsRepository}, util::{self, MockFileSystem}, web::AppStateRepository
     };
 
     use super::*;
