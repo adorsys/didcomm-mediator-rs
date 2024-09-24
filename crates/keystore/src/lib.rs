@@ -43,46 +43,70 @@ use chacha20poly1305::{
     aead::{Aead, AeadCore, OsRng},
     ChaCha20Poly1305,
 };
-use log::{debug, info, error}; // Import logging macros
 
-struct FileSystemkeystore {
-    key: Vec<u8>,
+use log::{debug, info, error}; // Import logging macros
+use secrecy::{ExposeSecret, SecretString};
+use zeroize::Zeroize;
+
+// Define a custom error type for keystore operations
+#[derive(Debug, thiserror::Error)]
+pub enum KeystoreError {
+    #[error("File error: {0}")]
+    FileError(std::io::Error),
+    #[error("Encryption error: {0}")]
+    EncryptionError(chacha20poly1305::Error),
+    #[error("Decryption error: {0}")]
+    DecryptionError(chacha20poly1305::Error),
+}
+ 
+
+struct FileSystemKeystore {
+    key: SecretString, // Store key securely using secrecy crate
     nonce: Vec<u8>,
 }
 
-impl FileSystemkeystore {
-    fn encrypt(mut self, secret: KeyStore) {
-        let cipher = ChaCha20Poly1305::new(GenericArray::from_slice(&self.key));
+impl FileSystemKeystore {
+    fn encrypt(mut self, secret: KeyStore) -> Result<(), Box<dyn Error>> {
+        let key = self.key.expose_secret(); // Access key securely
+        let cipher = ChaCha20Poly1305::new(GenericArray::from_slice(key.as_bytes()));
 
         let nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
         let path = secret.path();
-        let mut keystorefile = File::open(path.clone()).unwrap();
+        let mut keystorefile = File::open(path.clone())?; // Use Result for error handling
+
         let mut buffer = Vec::new();
-        keystorefile.read_to_end(&mut buffer).unwrap();
+        keystorefile.read_to_end(&mut buffer)?; // Use Result for error handling
 
         let encrypted_key = cipher
             .encrypt(GenericArray::from_slice(&self.nonce), buffer.as_slice())
-            .unwrap();
+            .map_err(|err| err).unwrap();
         // Overwrite the file with encrypted keys
-        keystorefile.write_all(&encrypted_key).unwrap();
+        keystorefile.write_all(&encrypted_key)?; // Use Result for error handling
+
         self.nonce = nonce.to_vec();
 
         // Overwrite the buffer with zeros to prevent data leakage
         buffer.clear();
-        std::mem::forget(buffer);
+        buffer.zeroize();
 
         // Conditional logging
         debug!("Encryption successful for keystore file: {}", path);
+
+        Ok(())
     }
 
-    fn decrypt(self, secret: KeyStore) -> Result<Vec<u8>, chacha20poly1305::aead::Error> {
-        let cipher = ChaCha20Poly1305::new(GenericArray::from_slice(&self.key));
-        let path = secret.path();
-        let mut keystorefile = File::open(path.clone()).unwrap();
-        let mut buffer = Vec::new();
-        keystorefile.read_to_end(&mut buffer).unwrap();
+    fn decrypt(self, secret: KeyStore) -> Result<Vec<u8>, std::io::Error> {
+        let key = self.key.expose_secret(); // Access key securely
+        let cipher = ChaCha20Poly1305::new(GenericArray::from_slice(key.as_bytes()));
 
-        let decrypted_key = cipher.decrypt(GenericArray::from_slice(&self.nonce), buffer.as_slice())?;
+        let path = secret.path();
+        let mut keystorefile = File::open(path.clone())?; // Use Result for error handling
+
+        let mut buffer = Vec::new();
+        keystorefile.read_to_end(&mut buffer)?; // Use Result for error handling
+
+        let decrypted_key = cipher.decrypt(GenericArray::from_slice(&self.nonce), buffer.as_slice())
+            .map_err(|err| err).unwrap();
 
         // Enhanced redaction: Replace all sensitive characters with asterisks
         let redacted_key = decrypted_key.iter().map(|b| if b.is_ascii_graphic() && !b.is_ascii_whitespace() { '*' as u8 } else { *b }).collect::<Vec<u8>>();
@@ -91,11 +115,12 @@ impl FileSystemkeystore {
         info!("Decryption successful for keystore file: {}, redacted key: {:?}", &path, redacted_key);
 
         buffer.clear();
-        std::mem::forget(buffer);
+        buffer.zeroize();
 
         Ok(decrypted_key)
     }
 }
+
 impl<'a> KeyStore<'a> {
     /// Constructs file-based key-value store.
     pub fn new(fs: &'a mut dyn FileSystem, storage_dirpath: &str) -> Self {
