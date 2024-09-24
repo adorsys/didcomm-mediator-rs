@@ -30,7 +30,7 @@ use crate::{
 pub async fn process_mediate_request(
     state: &AppState,
     plain_message: &Message,
-) -> Result<Option<Message>, Response> {
+) -> Result<Message, Response> {
     let mediator_did = &state.diddoc.id;
 
     let sender_did = plain_message
@@ -55,7 +55,7 @@ pub async fn process_mediate_request(
         .unwrap()
     {
         println!("Sending mediate deny.");
-        return Ok(Some(Message::build(
+        return Ok(Message::build(
             format!("urn:uuid:{}", Uuid::new_v4()),
             MEDIATE_DENY_2_0.to_string(),
             json!(MediationDeny {
@@ -66,7 +66,7 @@ pub async fn process_mediate_request(
         )
         .to(sender_did.clone())
         .from(mediator_did.clone())
-        .finalize()));
+        .finalize());
     } else {
         /* Issue mediate grant response */
         println!("Sending mediate grant.");
@@ -137,14 +137,14 @@ pub async fn process_mediate_request(
             Err(error) => eprintln!("Error storing connection: {:?}", error),
         }
 
-        Ok(Some(Message::build(
+        Ok(Message::build(
             format!("urn:uuid:{}", Uuid::new_v4()),
             mediation_grant.message_type.clone(),
             json!(mediation_grant),
         )
         .to(sender_did.clone())
         .from(mediator_did.clone())
-        .finalize()))
+        .finalize())
     }
 }
 
@@ -197,7 +197,7 @@ fn generate_did_peer(service_endpoint: String) -> (String, Ed25519KeyPair, X2551
 pub async fn process_plain_keylist_update_message(
     state: Arc<AppState>,
     message: Message,
-) -> Result<Option<Message>, Response> {
+) -> Result<Message, Response> {
     // Extract message sender
 
     let sender = message
@@ -327,7 +327,7 @@ pub async fn process_plain_keylist_update_message(
 
     let mediator_did = &state.diddoc.id;
 
-    Ok(Some(
+    Ok(
         Message::build(
             format!("urn:uuid:{}", Uuid::new_v4()),
             KEYLIST_UPDATE_RESPONSE_2_0.to_string(),
@@ -338,7 +338,7 @@ pub async fn process_plain_keylist_update_message(
         .to(sender.clone())
         .from(mediator_did.clone())
         .finalize(),
-    ))
+    )
 }
 
 #[cfg(test)]
@@ -400,7 +400,7 @@ mod tests {
         let response = process_plain_keylist_update_message(Arc::clone(&state), message)
             .await
             .unwrap();
-        let response = response.unwrap();
+        let response = response;
 
         // Assert metadata
 
@@ -499,7 +499,7 @@ mod tests {
             .await
             .unwrap();
 
-        let response = response.unwrap();
+        let response = response;
         // Assert updates
 
         assert_eq!(
@@ -563,7 +563,7 @@ mod tests {
         let response = process_plain_keylist_update_message(Arc::clone(&state), message)
             .await
             .unwrap();
-        let response = response.unwrap();
+        let response = response;
         // Assert updates
 
         assert_eq!(
@@ -623,7 +623,7 @@ mod tests {
         let response = process_plain_keylist_update_message(Arc::clone(&state), message)
             .await
             .unwrap();
-        let response = response.unwrap();
+        let response = response;
 
         // Assert updates
 
