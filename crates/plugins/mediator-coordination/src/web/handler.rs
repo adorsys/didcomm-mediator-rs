@@ -9,20 +9,39 @@ use std::sync::Arc;
 
 use crate::{
     constant::{
-        DIDCOMM_ENCRYPTED_MIME_TYPE, KEYLIST_UPDATE_2_0, MEDIATE_FORWARD_2_0, MEDIATE_REQUEST_2_0,
+        DIDCOMM_ENCRYPTED_MIME_TYPE, KEYLIST_QUERY_2_0, KEYLIST_UPDATE_2_0, MEDIATE_FORWARD_2_0,
+        MEDIATE_REQUEST_2_0,
     },
-    forward::routing::mediator_forward_process,
-    web::{self, error::MediationError, AppState},
+    forward::routing::mediator_forward_process, web::{self, error::MediationError, AppState},
+    
+   
 };
 
 #[axum::debug_handler]
-pub async fn process_didcomm_message(
+pub(crate) async fn handle_mediator_requests(
     State(state): State<Arc<AppState>>,
     Extension(message): Extension<Message>,
 ) -> Response {
-    // handle mediation request
-    let delegate_response = match message.type_.as_str() {
+    if message.type_ == MEDIATE_FORWARD_2_0 {
+        let response = mediator_forward_process(&state, message)
+            .await
+            .map(|_| StatusCode::ACCEPTED.into_response())
+            .map_err(|err| err);
+
+        return match response {
+            Ok(_message) => StatusCode::ACCEPTED.into_response(),
+            Err(response) => response,
+        };
+    }
+    let response = match message.type_.as_str() {
         KEYLIST_UPDATE_2_0 => {
+            web::coord::handler::stateful::process_plain_keylist_update_message(
+                Arc::clone(&state),
+                message,
+            )
+            .await
+        }
+        KEYLIST_QUERY_2_0 => {
             web::coord::handler::stateful::process_plain_keylist_update_message(
                 Arc::clone(&state),
                 message,
@@ -32,51 +51,39 @@ pub async fn process_didcomm_message(
         MEDIATE_REQUEST_2_0 => {
             web::coord::handler::stateful::process_mediate_request(&state, &message).await
         }
-        MEDIATE_FORWARD_2_0 => mediator_forward_process(&state, message).await,
+ 
+       
         _ => {
             let response = (
                 StatusCode::BAD_REQUEST,
-                
                 MediationError::UnsupportedOperation.json(),
             );
-
             return response.into_response();
         }
     };
 
-    process_response_from_delegate_handler(state, delegate_response).await
+    process_response(state, response).await
 }
 
-async fn process_response_from_delegate_handler(
-    state: Arc<AppState>,
-    response: Result<Option<Message>, Response>,
-) -> Response {
-    // Extract plain message or early return error response
-    let plain_response_message = match response {
-        Ok(message) => message,
-        Err(response) => return response,
-    };
-
-    // Pack response message
-    let packed_message = match web::midlw::pack_response_message(
-        &plain_response_message.unwrap(),
-        &state.did_resolver,
-        &state.secrets_resolver,
-    )
-    .await
-    {
-        Ok(packed) => packed,
-        Err(response) => return response,
-    };
-
-    // Build final response
-    let response = (
-        StatusCode::ACCEPTED,
-        [(CONTENT_TYPE, DIDCOMM_ENCRYPTED_MIME_TYPE)],
-        Json(packed_message),
-    );
-
-    response.into_response()
+async fn process_response(state: Arc<AppState>, response: Result<Message, Response>) -> Response {
+    match response {
+        Ok(message) => web::midlw::pack_response_message(
+            &message,
+            &state.did_resolver,
+            &state.secrets_resolver,
+        )
+        .await
+        .map(|packed| {
+            (
+                StatusCode::ACCEPTED,
+                [(CONTENT_TYPE, DIDCOMM_ENCRYPTED_MIME_TYPE)],
+                Json(packed),
+            )
+                .into_response()
+        })
+        .unwrap_or_else(|err| err.into_response()),
+        Err(response) => response,
+    }
 }
 
 #[cfg(test)]
@@ -89,14 +96,11 @@ pub mod tests {
         error::Error as DidcommError, secrets::SecretsResolver, Message, PackEncryptedOptions,
         UnpackOptions,
     };
+    use web::AppStateRepository;
 
     use crate::{
-        didcomm::bridge::LocalSecretsResolver,
-        repository::stateful::coord::tests::{
-            MockConnectionRepository, MockMessagesRepository, MockSecretsRepository,
-        },
-        util::{self, MockFileSystem},
-        web::{self, AppStateRepository},
+        didcomm::bridge::LocalSecretsResolver, repository::stateful::coord::tests::{MockConnectionRepository, MockMessagesRepository, MockSecretsRepository}, util::{self, MockFileSystem}
+      
     };
 
     pub fn setup() -> (Router, Arc<AppState>) {
@@ -202,9 +206,7 @@ pub mod tests {
 mod tests2 {
     use super::{tests as global, *};
     use crate::{
-        constant::KEYLIST_UPDATE_RESPONSE_2_0,
-        repository::stateful::coord::tests::MockConnectionRepository,
-        web::{self, AppStateRepository},
+        constant::{KEYLIST_UPDATE_RESPONSE_2_0, MEDIATE_GRANT_2_0}, repository::stateful::coord::tests::MockConnectionRepository, web::{self, AppStateRepository}
     };
 
     use axum::{
@@ -228,7 +230,7 @@ mod tests2 {
             connection_repository: Arc::new(MockConnectionRepository::from(
                 serde_json::from_str(
                     r##"[
-                    {
+                      {
                         "_id": {
                             "$oid": "6580701fd2d92bb3cd291b2a"
                         },
@@ -292,7 +294,7 @@ mod tests2 {
         let response = app
             .oneshot(
                 Request::builder()
-                    .uri(String::from("/"))
+                    .uri(String::from("/mediate"))
                     .method(Method::POST)
                     .header(CONTENT_TYPE, DIDCOMM_ENCRYPTED_MIME_TYPE)
                     .body(Body::from(packed_msg))
@@ -341,5 +343,137 @@ mod tests2 {
                 ]
             })
         );
+    }
+    #[tokio::test]
+    async fn test_mediate_request() {
+        let (app, state) = setup();
+
+        // Build message
+        let msg = Message::build(
+            "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
+            "https://didcomm.org/coordinate-mediation/2.0/mediate-request".to_owned(),
+            json!({}),
+        )
+        .header("return_route".into(), json!("all"))
+        .to(global::_mediator_did(&state))
+        .from(global::_edge_did())
+        .finalize();
+
+        // Encrypt message for mediator
+
+        let packed_msg = global::_edge_pack_message(
+            &state,
+            &msg,
+            Some(global::_edge_did()),
+            global::_mediator_did(&state),
+        )
+        .await
+        .unwrap();
+
+        // Send request
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri(String::from("/mediate"))
+                    .method(Method::POST)
+                    .header(CONTENT_TYPE, DIDCOMM_ENCRYPTED_MIME_TYPE)
+                    .body(Body::from(packed_msg))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        // Assert response's metadata
+        assert_eq!(response.status(), StatusCode::ACCEPTED);
+        assert_eq!(
+            response.headers().get(CONTENT_TYPE).unwrap(),
+            DIDCOMM_ENCRYPTED_MIME_TYPE
+        );
+
+        // Parse response's body
+        let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+        let body: Value = serde_json::from_slice(&body).unwrap();
+        let response = serde_json::to_string(&body).unwrap();
+
+        // Decrypt response
+        let response: Message = global::_edge_unpack_message(&state, &response)
+            .await
+            .unwrap();
+
+        // Assert metadata
+        assert_eq!(response.type_, MEDIATE_GRANT_2_0);
+        assert_eq!(response.from.unwrap(), global::_mediator_did(&state));
+        assert_eq!(response.to.unwrap(), vec![global::_edge_did()]);
+
+        // Assert updates
+        // assert_eq!(
+        //     response.body,
+        //     json!({
+        //         "updated": [
+        //             {
+        //                 "recipient_did": "did:key:alice_identity_pub1@alice_mediator",
+        //                 "action": "remove",
+        //                 "result": "success"
+        //             },
+        //             {
+        //                 "recipient_did":"did:key:alice_identity_pub2@alice_mediator",
+        //                 "action": "add",
+        //                 "result": "success"
+        //             },
+        //         ]
+        //     })
+        // );
+        
+    }
+    #[tokio::test]
+    async fn test_keylist_query_success() {
+        let state = setup();
+
+        // Prepare request
+        let message = Message::build(
+            "id_alice_keylist_query".to_owned(),
+            "https://didcomm.org/coordinate-mediation/2.0/keylist-query".to_owned(),
+            json!({}),
+        )
+        .to(global::_mediator_did(&state.1))
+        .from(global::_edge_did())
+        .finalize();
+
+        // Encrypt message for mediator
+        let packed_msg = global::_edge_pack_message(
+            &state.1,
+            &message,
+            Some(global::_edge_did()),
+            global::_mediator_did(&state.1),
+        )
+        .await
+        .unwrap();
+
+        println!("{}", packed_msg);
+    }
+
+    #[tokio::test]
+    async fn test_pickup_test() {
+        let (_app, state) = setup();
+        // Build message
+        let msg = Message::build(
+            "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
+            "https://didcomm.org/messagepickup/3.0/status-request".to_owned(),
+            json!({"recipient_did": "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7"}),
+        )
+        .header("return_route".into(), json!("all"))
+        .to(global::_mediator_did(&state))
+        .from(global::_edge_did())
+        .finalize();
+
+        let packed_msg = global::_edge_pack_message(
+            &state,
+            &msg,
+            Some(global::_edge_did()),
+            global::_mediator_did(&state),
+        )
+        .await
+        .unwrap();
+        println!("{}", packed_msg);
     }
 }
