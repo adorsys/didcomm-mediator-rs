@@ -38,7 +38,7 @@ impl DIDResolver for LocalDIDResolver {
         }
 
         if did.starts_with("did:peer:") {
-            // Add logic to resolve Peer DIDs here
+            // Adding logic to resolve Peer DIDs
             let method = DidPeer::new_with_format(PublicKeyFormat::Jwk); // Assuming a Peer DID resolver
             match method.expand(did) {
                 Ok(diddoc) => Ok(Some(
@@ -322,29 +322,21 @@ mod tests {
                 "service": []
             }"##;
 
-        // Resolving Peer DID
-        let did = "did:peer:0z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK";
-        let resolved = resolver.resolve(did).await.unwrap().unwrap();
+        
+    // Resolving Peer DID
+    let did = "did:peer:0z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK";
+    let resolved = resolver.resolve(did).await.unwrap().unwrap();
 
-        // Expected DID Document
-        let expected: serde_json::Value = serde_json::from_str(peer_did_doc).unwrap();
+    // Expected DID Document
+    let expected: serde_json::Value = serde_json::from_str(peer_did_doc).unwrap();
 
-        // Debugging: Print both resolved and expected documents
-        println!(
-            "Resolved DID Doc: {}",
-            json_canon::to_string(&resolved).unwrap()
-        );
-        println!(
-            "Expected DID Doc: {}",
-            json_canon::to_string(&expected).unwrap()
-        );
-
-        // Check if resolved DID document matches the expected document
-        assert_eq!(
-            json_canon::to_string(&resolved).unwrap(),
-            json_canon::to_string(&expected).unwrap()
-        );
-    }
+    // Check if resolved DID document matches the expected document
+    assert_eq!(
+        json_canon::to_string(&resolved).unwrap(),
+        json_canon::to_string(&expected).unwrap(),
+        "Resolved DID Document does not match the expected document."
+    );
+}
 
     #[tokio::test]
 async fn test_local_did_resolver_fails_on_malformed_peer_did() {
