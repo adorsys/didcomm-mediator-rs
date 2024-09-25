@@ -816,7 +816,7 @@ mod tests {
         let did = "did:peer:1zQmbEB1EqP7PnNVaHiSpXhkatAA6kNyQK9mWkvrMx2eckgq";
         assert!(matches!(
             did_method.expand(did).unwrap_err(),
-            DIDResolutionError::InvalidDid
+            DIDResolutionError::MethodNotSupported
         ));
     }
 
