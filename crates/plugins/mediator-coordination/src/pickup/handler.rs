@@ -492,8 +492,6 @@ mod tests {
             .await
             .unwrap();
 
-        println!("{:#?}", response);
-
         assert_eq!(
             response.body,
             json!({"message_count": 2, "live_delivery": false})

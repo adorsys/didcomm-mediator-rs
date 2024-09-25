@@ -745,7 +745,9 @@ pub mod tests {
                 .collect::<Vec<_>>();
 
             if let Some(limit) = limit {
-                filtered_messages.truncate(limit as usize);
+                if limit != 0 {
+                    filtered_messages.truncate(limit as usize);
+                }
             }
 
             Ok(filtered_messages)
