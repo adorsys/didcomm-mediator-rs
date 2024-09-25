@@ -112,6 +112,11 @@ pub mod tests {
                             return false;
                         }
                     }
+                    if let Some(client_did) = filter.get("client_did") {
+                        if json!(c.client_did) != json!(client_did) {
+                            return false;
+                        }
+                    }
                     true
                 })
                 .cloned())
