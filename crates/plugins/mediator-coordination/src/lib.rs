@@ -1,5 +1,6 @@
 pub mod client;
 pub mod plugin;
+pub mod rotation;
 
 mod constant;
 mod didcomm;
