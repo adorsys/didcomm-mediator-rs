@@ -11,14 +11,12 @@ use crate::{
     constant::{
         DIDCOMM_ENCRYPTED_MIME_TYPE, KEYLIST_QUERY_2_0, KEYLIST_UPDATE_2_0, MEDIATE_FORWARD_2_0,
         MEDIATE_REQUEST_2_0,
-    },
-    forward::routing::mediator_forward_process,
-    pickup::{
-        self,
-        constants::{DELIVERY_REQUEST_3_0, LIVE_MODE_CHANGE_3_0, MESSAGE_RECEIVED_3_0, STATUS_REQUEST_3_0},
-    }, web::{self, error::MediationError, AppState},
+    }, web::{self, error::MediationError},
+
    
 };
+
+use super::AppState;
 
 #[axum::debug_handler]
 pub(crate) async fn handle_mediator_requests(
@@ -53,19 +51,6 @@ pub(crate) async fn handle_mediator_requests(
         }
         MEDIATE_REQUEST_2_0 => {
             web::coord::handler::stateful::process_mediate_request(&state, &message).await
-        }
-        MEDIATE_FORWARD_2_0 => mediator_forward_process(&state, message).await,
-        STATUS_REQUEST_3_0 => {
-            pickup::handler::handle_status_request(Arc::clone(&state), message).await
-        }
-        DELIVERY_REQUEST_3_0 => {
-            pickup::handler::handle_delivery_request(Arc::clone(&state), message).await
-        }
-        MESSAGE_RECEIVED_3_0 => {
-            pickup::handler::handle_message_acknowledgement(Arc::clone(&state), message).await
-        }
-        LIVE_MODE_CHANGE_3_0 => {
-            pickup::handler::handle_live_delivery_change(Arc::clone(&state), message).await
         }
         _ => {
             let response = (
@@ -117,7 +102,7 @@ pub mod tests {
             MockConnectionRepository, MockMessagesRepository, MockSecretsRepository,
         },
         util::{self, MockFileSystem},
-        web::{self, AppStateRepository},
+        web::{self, AppState, AppStateRepository},
     };
 
     pub fn setup() -> (Router, Arc<AppState>) {
@@ -225,7 +210,7 @@ mod tests2 {
     use crate::{
         constant::{KEYLIST_UPDATE_RESPONSE_2_0, MEDIATE_GRANT_2_0},
         repository::stateful::tests::MockConnectionRepository,
-        web::{self, AppStateRepository},
+        web::{self, AppState, AppStateRepository},
     };
 
     use axum::{
