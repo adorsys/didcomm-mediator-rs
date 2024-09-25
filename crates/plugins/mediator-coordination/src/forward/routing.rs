@@ -1,38 +1,48 @@
+use std::sync::Arc;
+
 use axum::response::{IntoResponse, Response};
 
+use database::Repository;
 use didcomm::{AttachmentData, Message};
 use hyper::StatusCode;
 use mongodb::bson::doc;
 use serde_json::{json, Value};
 
 use crate::{
-
-    model::stateful::entity::RoutedMessage, web::{error::MediationError, AppState, AppStateRepository}
+    model::stateful::entity::{Connection, RoutedMessage},
+    web::{error::MediationError, AppState, AppStateRepository},
 };
 
-/// mediator receives messages of type forward then it unpacks the messages and stores it for pickup
-/// the unpacked message is then repacked for further transmission.
+use super::error::RoutingError;
+
+/// Mediator receives forwarded messages, extract the next field in the message body, and the attachments in the message
+/// then stores the attachment with the next field as key for pickup
 pub async fn mediator_forward_process(
     state: &AppState,
     payload: Message,
 ) -> Result<Message, Response> {
-    let AppStateRepository {
-        message_repository,
-        connection_repository,
-        ..
-    } = state
-        .repository
-        .as_ref()
-        .ok_or_else(|| MediationError::RepostitoryError)
-        .unwrap();
+  
+    let result = handler(state, payload).await.unwrap();
+    Ok(result)
+}
 
+async fn checks(
+    message: &Message,
+    connection_repository: &Arc<dyn Repository<Connection>>,
+) -> Result<String, Response> {
+    let next = message.body.get("next").and_then(Value::as_str);
+    match next {
+        Some(next) => next,
+        None => {
+            let response = (StatusCode::BAD_REQUEST, RoutingError::MalformedBody.json());
+            return Err(response.into_response());
+        }
+    };
     // Check if the client's did in mediator's keylist
-
-    let next = payload.body.get("next").and_then(Value::as_str).unwrap();
-
     let _connection = match connection_repository
         .find_one_by(doc! {"keylist": doc!{ "$elemMatch": { "$eq": &next}}})
         .await
+        .map_err(|_| MediationError::RepostitoryError)
         .unwrap()
     {
         Some(connection) => connection,
@@ -44,34 +54,51 @@ pub async fn mediator_forward_process(
             return Err(response.into_response());
         }
     };
+    Ok(next.unwrap().to_string())
+}
 
-    let attachments = payload.attachments.unwrap_or_default();
-    for att in attachments {
-        let attached = match att.data {
-            AttachmentData::Json { value: val } => val.json,
-            _ => json!(0),
+async fn handler(state: &AppState, message: Message) -> Result<Message, MediationError> {
+    let AppStateRepository {
+        message_repository,
+        connection_repository,
+        ..
+    } = state
+        .repository
+        .as_ref()
+        .ok_or_else(|| MediationError::RepostitoryError)?;
+    let next = checks(&message, connection_repository).await.unwrap();
+
+    let attachments = message.attachments.unwrap_or_default();
+    for attachment in attachments {
+        let attached = match attachment.data {
+            AttachmentData::Json { value: data } => data.json,
+            AttachmentData::Base64 { value: data } => json!(data.base64),
+            AttachmentData::Links { value: data } => json!(data.links),
         };
         message_repository
             .store(RoutedMessage {
                 id: None,
                 message: json!(attached),
-                recipient_did: next.to_string(),
+                recipient_did: next.clone(),
             })
             .await
-            .map_err(|_| MediationError::PersisenceError)
-            .unwrap();
+            .map_err(|_| MediationError::PersisenceError)?;
     }
-
     Ok(Message::build("".to_string(), "".to_string(), json!("")).finalize())
 }
-
 #[cfg(test)]
 mod test {
 
     use std::sync::Arc;
 
     use crate::{
-        didcomm::bridge::LocalSecretsResolver, model::stateful::entity::Connection, repository::stateful::tests::{MockConnectionRepository, MockMessagesRepository, MockSecretsRepository}, util::{self, MockFileSystem}, web::AppStateRepository
+        didcomm::bridge::LocalSecretsResolver,
+        model::stateful::entity::Connection,
+        repository::stateful::tests::{
+            MockConnectionRepository, MockMessagesRepository, MockSecretsRepository,
+        },
+        util::{self, MockFileSystem},
+        web::AppStateRepository,
     };
 
     use super::*;

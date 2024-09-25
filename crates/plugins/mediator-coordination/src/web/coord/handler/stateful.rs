@@ -345,8 +345,8 @@ pub async fn process_plain_keylist_update_message(
                 updated: confirmations
             }),
         )
-        .to(sender.clone())
-        .from(mediator_did.clone())
+        .to(sender)
+        .from(mediator_did.to_owned())
         .finalize(),
     )
 }

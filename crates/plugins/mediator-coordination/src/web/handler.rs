@@ -11,8 +11,9 @@ use crate::{
     constant::{
         DIDCOMM_ENCRYPTED_MIME_TYPE, KEYLIST_QUERY_2_0, KEYLIST_UPDATE_2_0, MEDIATE_FORWARD_2_0,
         MEDIATE_REQUEST_2_0,
-    }, forward::routing::mediator_forward_process, web::{self, error::MediationError, AppState}
-   
+    },
+    forward::routing::mediator_forward_process,
+    web::{self, error::MediationError, AppState},
 };
 
 #[axum::debug_handler]
@@ -21,12 +22,7 @@ pub(crate) async fn process_didcomm_message(
     Extension(message): Extension<Message>,
 ) -> Response {
     if message.type_ == MEDIATE_FORWARD_2_0 {
-        let response = mediator_forward_process(&state, message)
-            .await
-            .map(|_| StatusCode::ACCEPTED.into_response())
-            .map_err(|err| err);
-
-        return match response {
+        return match mediator_forward_process(&state, message).await {
             Ok(_message) => StatusCode::ACCEPTED.into_response(),
             Err(response) => response,
         };
@@ -38,7 +34,7 @@ pub(crate) async fn process_didcomm_message(
                 message,
             )
             .await
-        },
+        }
         KEYLIST_QUERY_2_0 => {
             web::coord::handler::stateful::process_plain_keylist_query_message(
                 Arc::clone(&state),
@@ -46,12 +42,11 @@ pub(crate) async fn process_didcomm_message(
             )
             .await
         }
-     
+
         MEDIATE_REQUEST_2_0 => {
             web::coord::handler::stateful::process_mediate_request(&state, &message).await
         }
- 
-       
+
         _ => {
             let response = (
                 StatusCode::BAD_REQUEST,
@@ -98,8 +93,11 @@ pub mod tests {
     use web::AppStateRepository;
 
     use crate::{
-        didcomm::bridge::LocalSecretsResolver, repository::stateful::tests::{MockConnectionRepository, MockMessagesRepository, MockSecretsRepository}, util::{self, MockFileSystem}
-      
+        didcomm::bridge::LocalSecretsResolver,
+        repository::stateful::tests::{
+            MockConnectionRepository, MockMessagesRepository, MockSecretsRepository,
+        },
+        util::{self, MockFileSystem},
     };
 
     pub fn setup() -> (Router, Arc<AppState>) {
@@ -205,8 +203,8 @@ pub mod tests {
 mod tests2 {
     use super::{tests as global, *};
     use crate::{
-        constant::KEYLIST_UPDATE_RESPONSE_2_0, repository::stateful::tests::MockConnectionRepository,
-    
+        constant::KEYLIST_UPDATE_RESPONSE_2_0,
+        repository::stateful::tests::MockConnectionRepository,
     };
     use axum::Router;
     use hyper::{Body, Method, Request};
@@ -291,7 +289,7 @@ mod tests2 {
         let response = app
             .oneshot(
                 Request::builder()
-                    .uri(String::from("/mediate"))
+                    .uri(String::from("/"))
                     .method(Method::POST)
                     .header(CONTENT_TYPE, DIDCOMM_ENCRYPTED_MIME_TYPE)
                     .body(Body::from(packed_msg))
