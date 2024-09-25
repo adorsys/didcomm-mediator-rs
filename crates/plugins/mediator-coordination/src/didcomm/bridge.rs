@@ -41,35 +41,48 @@ impl DIDResolver for LocalDIDResolver {
             // Adding logic to resolve Peer DIDs
             let method = DidPeer::new_with_format(PublicKeyFormat::Jwk); // Assuming a Peer DID resolver
             match method.expand(did) {
-                Ok(diddoc) => Ok(Some(
-                    serde_json::from_value(json!(Document {
+                Ok(diddoc) => {
+                    // Attempt to convert DID document representation, propagating errors
+                    match serde_json::from_value(json!(Document {
                         service: Some(vec![]),
                         ..diddoc
-                    }))
-                    .expect("Should easily convert between DID document representations."),
-                )),
+                    })) {
+                        Ok(doc) => Ok(Some(doc)),
+                        Err(err) => Err(Error::new(
+                            ErrorKind::DIDNotResolved, 
+                            Box::new(err)
+                        )),
+                    }
+                },
                 Err(err) => Err(Error::new(ErrorKind::DIDNotResolved, Box::new(err))),
             }
         } else if did.starts_with("did:key:") {
             let method = DidKey::new_full(true, PublicKeyFormat::Jwk);
             match method.expand(did) {
-                Ok(diddoc) => Ok(Some(
-                    serde_json::from_value(json!(Document {
+                Ok(diddoc) => {
+                    // Attempt to convert DID document representation, propagating errors
+                    match serde_json::from_value(json!(Document {
                         service: Some(vec![]),
                         ..diddoc
-                    }))
-                    .expect("Should easily convert between DID document representations."),
-                )),
+                    })) {
+                        Ok(doc) => Ok(Some(doc)),
+                        Err(err) => Err(Error::new(
+                            ErrorKind::DIDNotResolved, 
+                            Box::new(err)
+                        )),
+                    }
+                },
                 Err(err) => Err(Error::new(ErrorKind::DIDNotResolved, err)),
             }
         } else {
-            return Err(Error::new(
+            Err(Error::new(
                 ErrorKind::Unsupported,
                 DIDResolutionError::MethodNotSupported,
-            ));
+            ))
         }
     }
 }
+
 
 #[derive(Clone)]
 pub struct LocalSecretsResolver {
