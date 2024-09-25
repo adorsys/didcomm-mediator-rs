@@ -59,6 +59,15 @@ impl Repository<Connection> for MongoConnectionRepository {
         Ok(connections)
     }
 
+    async fn count_by(&self, filter: BsonDocument) -> Result<usize, RepositoryError> {
+        Ok(self
+            .collection
+            .count_documents(filter, None)
+            .await?
+            .try_into()
+            .map_err(|_| RepositoryError::Generic("count overflow".to_owned()))?)
+    }
+
     async fn find_one_by(
         &self,
         filter: BsonDocument,
@@ -200,6 +209,15 @@ impl Repository<RoutedMessage> for MongoMessagesRepository {
         Ok(messages)
     }
 
+    async fn count_by(&self, filter: BsonDocument) -> Result<usize, RepositoryError> {
+        Ok(self
+            .collection
+            .count_documents(filter, None)
+            .await?
+            .try_into()
+            .map_err(|_| RepositoryError::Generic("count overflow".to_owned()))?)
+    }
+
     async fn delete_one(&self, message_id: ObjectId) -> Result<(), RepositoryError> {
         // Delete the connection from the database
         let metadata = self
@@ -270,6 +288,15 @@ impl Repository<Secrets> for MongoSecretsRepository {
         }
 
         Ok(secrets)
+    }
+
+    async fn count_by(&self, filter: BsonDocument) -> Result<usize, RepositoryError> {
+        Ok(self
+            .collection
+            .count_documents(filter, None)
+            .await?
+            .try_into()
+            .map_err(|_| RepositoryError::Generic("count overflow".to_owned()))?)
     }
 
     async fn find_one_by(&self, filter: BsonDocument) -> Result<Option<Secrets>, RepositoryError> {
@@ -420,6 +447,34 @@ pub mod tests {
                 .collect())
         }
 
+        async fn count_by(
+            &self,
+            filter: BsonDocument,
+        ) -> Result<usize, RepositoryError> {
+            let filter: HashMap<String, Bson> = filter.into_iter().collect();
+            Ok(self
+                .connections
+                .read()
+                .unwrap()
+                .iter()
+                .filter(|c| {
+                    if let Some(id) = filter.get("_id") {
+                        if json!(c.id) != json!(id) {
+                            return false;
+                        }
+                    }
+
+                    if let Some(client_did) = filter.get("client_did") {
+                        if json!(c.client_did) != json!(client_did) {
+                            return false;
+                        }
+                    }
+
+                    true
+                })
+                .count())
+        }
+
         async fn store(&self, connection: Connection) -> Result<Connection, RepositoryError> {
             // Generate a new ID for the entity
             let connection = Connection {
@@ -527,6 +582,28 @@ pub mod tests {
                     true
                 })
                 .cloned())
+        }
+
+        async fn count_by(
+            &self,
+            filter: BsonDocument,
+        ) -> Result<usize, RepositoryError> {
+            let filter: HashMap<String, Bson> = filter.into_iter().collect();
+            Ok(self
+                .secrets
+                .read()
+                .unwrap()
+                .iter()
+                .filter(|s| {
+                    if let Some(id) = filter.get("_id") {
+                        if json!(s.id) != json!(id) {
+                            return false;
+                        }
+                    }
+
+                    true
+                })
+                .count())
         }
 
         async fn find_all_by(
@@ -647,23 +724,54 @@ pub mod tests {
                     return Ok(vec![]);
                 }
             }
-            let filter: HashMap<String, Bson> = filter.into_iter().collect();
-            Ok(self
-                .messages
-                .read()
-                .unwrap()
-                .iter()
-                .filter(|s| {
-                    if let Some(id) = filter.get("_id") {
-                        if json!(s.id) != json!(id) {
-                            return false;
-                        }
-                    }
+            let messages = self.messages.read().unwrap();
 
-                    true
-                })
+            // Extract the list of recipient_did values from the filter
+            let recipient_dids = filter.get("recipient_did")
+                .and_then(|value| value.as_document())
+                .and_then(|doc| doc.get("$in"))
+                .and_then(|value| value.as_array())
+                .ok_or(RepositoryError::Generic("invalid filter".to_owned()))?;
+
+            // Convert recipient_dids to a Vec<String>
+            let recipient_dids: Vec<String> = recipient_dids.iter()
+                .filter_map(|value| value.as_str().map(|s| s.to_string()))
+                .collect();
+
+            // filter the messages that match any of the recipient_did values
+            let mut filtered_messages = messages.iter()
+                .filter(|msg| recipient_dids.contains(&msg.recipient_did))
                 .cloned()
-                .collect())
+                .collect::<Vec<_>>();
+
+            if let Some(limit) = limit {
+                filtered_messages.truncate(limit as usize);
+            }
+
+            Ok(filtered_messages)
+        }
+
+        async fn count_by(&self, filter: BsonDocument) -> Result<usize, RepositoryError> {
+            let messages = self.messages.read().unwrap();
+
+            // Extract the list of recipient_did values from the filter
+            let recipient_dids = filter.get("recipient_did")
+                .and_then(|value| value.as_document())
+                .and_then(|doc| doc.get("$in"))
+                .and_then(|value| value.as_array())
+                .ok_or(RepositoryError::Generic("invalid filter".to_owned()))?;
+
+            // Convert recipient_dids to a Vec<String>
+            let recipient_dids: Vec<String> = recipient_dids.iter()
+                .filter_map(|value| value.as_str().map(|s| s.to_string()))
+                .collect();
+
+            // Count the messages that match any of the recipient_did values
+            let count = messages.iter()
+                .filter(|msg| recipient_dids.contains(&msg.recipient_did))
+                .count();
+
+            Ok(count)
         }
 
         async fn store(&self, messages: RoutedMessage) -> Result<RoutedMessage, RepositoryError> {
@@ -702,10 +810,8 @@ pub mod tests {
 
             if let Some(pos) = pos {
                 self.messages.write().unwrap().remove(pos);
-                Ok(())
-            } else {
-                Err(RepositoryError::TargetNotFound)
             }
+            Ok(())
         }
     }
 }

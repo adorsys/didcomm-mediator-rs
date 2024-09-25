@@ -1,8 +1,6 @@
-use serde::Serialize;
-use database::RepositoryError;
-use thiserror::Error;
 use axum::{http::StatusCode, response::IntoResponse, Json};
-
+use serde::Serialize;
+use thiserror::Error;
 
 #[derive(Debug, Serialize, Error)]
 pub enum PickupError {
@@ -15,8 +13,8 @@ pub enum PickupError {
     #[error("No client connection found")]
     MissingClientConnection,
 
-    #[error("Database error: {0}")]
-    RepositoryError(#[from] RepositoryError),
+    #[error("Database error")]
+    DatabaseError,
 
     #[error("Malformed request: {0}")]
     MalformedRequest(String),
@@ -27,8 +25,8 @@ impl IntoResponse for PickupError {
         let status_code = match self {
             PickupError::MissingSenderDID => StatusCode::BAD_REQUEST,
             PickupError::MissingRepository => StatusCode::INTERNAL_SERVER_ERROR,
-            PickupError::MissingClientConnection => StatusCode::INTERNAL_SERVER_ERROR,
-            PickupError::RepositoryError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            PickupError::MissingClientConnection => StatusCode::UNAUTHORIZED,
+            PickupError::DatabaseError => StatusCode::INTERNAL_SERVER_ERROR,
             PickupError::MalformedRequest(_) => StatusCode::BAD_REQUEST,
         };
 

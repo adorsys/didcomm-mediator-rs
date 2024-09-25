@@ -43,6 +43,9 @@ where
         limit: Option<i64>,
     ) -> Result<Vec<Entity>, RepositoryError>;
 
+    /// Counts all entities by filter.
+    async fn count_by(&self, filter: BsonDocument) -> Result<usize, RepositoryError>;
+
     /// Stores a new entity.
     async fn store(&self, entity: Entity) -> Result<Entity, RepositoryError>;
 
