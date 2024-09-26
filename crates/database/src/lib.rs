@@ -7,8 +7,8 @@ use mongodb::{
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tokio::sync::Mutex;
 use thiserror::Error;
+use tokio::sync::Mutex;
 
 /// A trait that ensures the entity has an `id` field.
 pub trait Identifiable {
@@ -33,13 +33,21 @@ pub enum RepositoryError {
 #[async_trait]
 pub trait Repository<Entity>: Sync + Send
 where
-    Entity: Identifiable + Sized + Serialize + Clone + Send + Sync + for<'de> Deserialize<'de> + Unpin + 'static,
+    Entity: Identifiable
+        + Sized
+        + Serialize
+        + Clone
+        + Send
+        + Sync
+        + for<'de> Deserialize<'de>
+        + Unpin
+        + 'static,
 {
-   fn get_collection(&self) -> Arc<Mutex<Collection<Entity>>>;
+    fn get_collection(&self) -> Arc<Mutex<Collection<Entity>>>;
 
     async fn find_all(&self) -> Result<Vec<Entity>, RepositoryError> {
         let mut entities = Vec::new();
-        let collection = self.get_collection(); 
+        let collection = self.get_collection();
 
         // Lock the Mutex and get the Collection
         let mut cursor = collection.lock().await.find(None, None).await?;
@@ -55,7 +63,7 @@ where
     }
 
     async fn find_one_by(&self, filter: BsonDocument) -> Result<Option<Entity>, RepositoryError> {
-        let collection = self.get_collection(); 
+        let collection = self.get_collection();
 
         // Lock the Mutex and get the Collection
         let collection = collection.lock().await;
@@ -63,7 +71,7 @@ where
     }
 
     async fn store(&self, mut entity: Entity) -> Result<Entity, RepositoryError> {
-        let collection = self.get_collection(); 
+        let collection = self.get_collection();
 
         // Lock the Mutex and get the Collection
         let collection = collection.lock().await;
@@ -79,10 +87,14 @@ where
         Ok(entity)
     }
 
-    async fn find_all_by(&self, filter: BsonDocument, limit: Option<i64>) -> Result<Vec<Entity>, RepositoryError> {
+    async fn find_all_by(
+        &self,
+        filter: BsonDocument,
+        limit: Option<i64>,
+    ) -> Result<Vec<Entity>, RepositoryError> {
         let find_options = FindOptions::builder().limit(limit).build();
         let mut entities = Vec::new();
-        let collection = self.get_collection(); 
+        let collection = self.get_collection();
 
         // Lock the Mutex and get the Collection
         let collection = collection.lock().await;
@@ -97,13 +109,15 @@ where
     }
 
     async fn delete_one(&self, message_id: ObjectId) -> Result<(), RepositoryError> {
-        let collection = self.get_collection(); 
+        let collection = self.get_collection();
 
         // Lock the Mutex and get the Collection
         let collection = collection.lock().await;
 
         // Delete the entity from the database
-        collection.delete_one(doc! {"_id": message_id}, None).await?;
+        collection
+            .delete_one(doc! {"_id": message_id}, None)
+            .await?;
 
         Ok(())
     }
@@ -112,7 +126,7 @@ where
         if entity.id().is_none() {
             return Err(RepositoryError::MissingIdentifier);
         }
-        let collection = self.get_collection(); 
+        let collection = self.get_collection();
 
         // Lock the Mutex and get the Collection
         let collection = collection.lock().await;
