@@ -39,7 +39,7 @@ impl DIDResolver for LocalDIDResolver {
 
         if did.starts_with("did:peer:") {
             // Adding logic to resolve Peer DIDs
-            let method = DidPeer::new_with_format(PublicKeyFormat::Jwk); // Assuming a Peer DID resolver
+            let method = DidPeer::new_with_format(PublicKeyFormat::Jwk);
             match method.expand(did) {
                 Ok(diddoc) => {
                     // Attempt to convert DID document representation, propagating errors

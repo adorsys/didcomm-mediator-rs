@@ -227,10 +227,10 @@ impl DidPeer {
         }
 
         match did {
-        s if s.starts_with("did:peer:0") => self.expand_did_peer_0(did).map_err(Into::into),  // Convert DIDPeerMethodError to DIDResolutionError
+        s if s.starts_with("did:peer:0") => self.expand_did_peer_0(did).map_err(Into::into),
         s if s.starts_with("did:peer:2") => self.expand_did_peer_2(did).map_err(Into::into),
         s if s.starts_with("did:peer:4") => self.expand_did_peer_4(did).map_err(Into::into),
-        _ => Err(DIDResolutionError::MethodNotSupported),  // Map UnsupportedPeerDIDAlgorithm to MethodNotSupported
+        _ => Err(DIDResolutionError::MethodNotSupported), 
     }
 }
 
