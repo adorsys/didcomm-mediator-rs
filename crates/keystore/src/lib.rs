@@ -1,37 +1,15 @@
 pub mod filesystem;
-
-use chacha20poly1305::{aead::generic_array::GenericArray, KeyInit};
+pub mod errors;
 
 use chrono::Utc;
 use did_utils::{
     crypto::{Ed25519KeyPair, Generate, ToPublic, X25519KeyPair},
     jwk::Jwk,
 };
-use std::{
-    error::Error,
-    fs::File,
-    io::{Read, Write},
-};
+use std::{error::Error, fs::File, io::{Read, Write}};
 
 use crate::filesystem::FileSystem;
-
-#[derive(Debug, thiserror::Error)]
-pub enum KeyStoreError {
-    #[error("failure to convert to JWK format")]
-    JwkConversionError,
-    #[error("failure to generate key pair")]
-    KeyPairGenerationError,
-    #[error("ioerror: {0}")]
-    IoError(std::io::Error),
-    #[error("non compliant")]
-    NonCompliant,
-    #[error("not found")]
-    NotFound,
-    #[error("parse error")]
-    ParseError(serde_json::Error),
-    #[error("serde error")]
-    SerdeError(serde_json::Error),
-}
+use crate::errors::KeystoreError;
 
 pub struct KeyStore<'a> {
     fs: &'a mut dyn FileSystem,
@@ -39,26 +17,15 @@ pub struct KeyStore<'a> {
     filename: String,
     keys: Vec<Jwk>,
 }
+
 use chacha20poly1305::{
-    aead::{Aead, AeadCore, OsRng},
-    ChaCha20Poly1305,
+    aead::{generic_array::GenericArray, Aead, AeadCore, OsRng},
+    ChaCha20Poly1305, KeyInit,
 };
 
 use log::{debug, info, error}; // Import logging macros
 use secrecy::{ExposeSecret, SecretString};
 use zeroize::Zeroize;
-
-// Define a custom error type for keystore operations
-#[derive(Debug, thiserror::Error)]
-pub enum KeystoreError {
-    #[error("File error: {0}")]
-    FileError(std::io::Error),
-    #[error("Encryption error: {0}")]
-    EncryptionError(chacha20poly1305::Error),
-    #[error("Decryption error: {0}")]
-    DecryptionError(chacha20poly1305::Error),
-}
- 
 
 struct FileSystemKeystore {
     key: SecretString, // Store key securely using secrecy crate
@@ -136,13 +103,13 @@ impl<'a> KeyStore<'a> {
     pub fn latest(
         fs: &'a mut dyn FileSystem,
         storage_dirpath: &str,
-    ) -> Result<Self, KeyStoreError> {
+    ) -> Result<Self, KeystoreError> {
         let dirpath = format!("{storage_dirpath}/keystore");
 
         // Read directory
         let paths = fs
             .read_dir_files(&dirpath)
-            .map_err(KeyStoreError::IoError)?;
+            .map_err(KeystoreError::FileError)?;
 
         // Collect paths and associated timestamps of files inside `dir`
         let mut collected: Vec<(String, i32)> = vec![];
@@ -152,7 +119,7 @@ impl<'a> KeyStore<'a> {
                     .trim_start_matches(&format!("{}/", &dirpath))
                     .trim_end_matches(".json")
                     .parse()
-                    .map_err(|_| KeyStoreError::NonCompliant)?;
+                    .map_err(|_| KeystoreError::NonCompliant)?;
 
                 collected.push((path, stamp));
             }
@@ -164,9 +131,9 @@ impl<'a> KeyStore<'a> {
             .max_by_key(|(_, stamp)| stamp)
             .map(|(path, _)| path);
 
-        let path = file.ok_or(KeyStoreError::NotFound)?;
-        let content = fs.read_to_string(path).map_err(KeyStoreError::IoError)?;
-        let keys = serde_json::from_str::<Vec<Jwk>>(&content).map_err(KeyStoreError::ParseError)?;
+        let path = file.ok_or(KeystoreError::NotFound)?;
+        let content = fs.read_to_string(path).map_err(KeystoreError::FileError)?;
+        let keys = serde_json::from_str::<Vec<Jwk>>(&content).map_err(KeystoreError::ParseError)?;
 
         let filename = path
             .trim_start_matches(&format!("{}/", &dirpath))
@@ -186,16 +153,16 @@ impl<'a> KeyStore<'a> {
     }
 
     /// Persists store on disk
-    fn persist(&mut self) -> Result<(), KeyStoreError> {
+    fn persist(&mut self) -> Result<(), KeystoreError> {
         self.fs
             .create_dir_all(&self.dirpath)
-            .map_err(KeyStoreError::IoError)?;
+            .map_err(KeystoreError::FileError)?;
         self.fs
             .write(
                 &self.path(),
-                &serde_json::to_string_pretty(&self.keys).map_err(KeyStoreError::SerdeError)?,
+                &serde_json::to_string_pretty(&self.keys).map_err(KeystoreError::SerdeError)?,
             )
-            .map_err(KeyStoreError::IoError)
+            .map_err(KeystoreError::FileError)
     }
 
     /// Searches keypair given public key
@@ -206,10 +173,10 @@ impl<'a> KeyStore<'a> {
     /// Generates and persists an ed25519 keypair for digital signatures.
     /// Returns public Jwk for convenience.
     pub fn gen_ed25519_jwk(&mut self) -> Result<Jwk, Box<dyn Error>> {
-        let keypair = Ed25519KeyPair::new().map_err(|_| KeyStoreError::KeyPairGenerationError)?;
+        let keypair = Ed25519KeyPair::new().map_err(|_| KeystoreError::KeyPairGenerationError)?;
         let jwk: Jwk = keypair
             .try_into()
-            .map_err(|_| KeyStoreError::JwkConversionError)?;
+            .map_err(|_| KeystoreError::JwkConversionError)?;
         let pub_jwk = jwk.to_public();
 
         self.keys.push(jwk);
@@ -220,11 +187,11 @@ impl<'a> KeyStore<'a> {
 
     /// Generates and persists an x25519 keypair for digital signatures.
     /// Returns public Jwk for convenience.
-    pub fn gen_x25519_jwk(&mut self) -> Result<Jwk, KeyStoreError> {
-        let keypair = X25519KeyPair::new().map_err(|_| KeyStoreError::KeyPairGenerationError)?;
+    pub fn gen_x25519_jwk(&mut self) -> Result<Jwk, KeystoreError> {
+        let keypair = X25519KeyPair::new().map_err(|_| KeystoreError::KeyPairGenerationError)?;
         let jwk: Jwk = keypair
             .try_into()
-            .map_err(|_| KeyStoreError::JwkConversionError)?;
+            .map_err(|_| KeystoreError::JwkConversionError)?;
         let pub_jwk = jwk.to_public();
 
         self.keys.push(jwk);
@@ -233,7 +200,6 @@ impl<'a> KeyStore<'a> {
         Ok(pub_jwk)
     }
 }
-
 
 #[cfg(test)]
 mod tests {
