@@ -147,7 +147,7 @@ mod test {
 
         let connections = format!(
             r##"[
-               
+               {{
                     "client_did": "{_recipient_did}",
                     "mediator_did": "did:web:alice-mediator.com:alice_mediator_pub",
                     "routing_did": "did:key:generated",
