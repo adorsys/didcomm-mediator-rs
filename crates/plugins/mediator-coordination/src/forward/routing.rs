@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{f64::consts::E, sync::Arc};
 
 use axum::response::{IntoResponse, Response};
 
@@ -30,6 +30,7 @@ async fn checks(
     message: &Message,
     connection_repository: &Arc<dyn Repository<Connection>>,
 ) -> Result<String, Response> {
+    
     let next = message.body.get("next").and_then(Value::as_str);
     match next {
         Some(next) => next,
@@ -38,6 +39,7 @@ async fn checks(
             return Err(response.into_response());
         }
     };
+
     // Check if the client's did in mediator's keylist
     let _connection = match connection_repository
         .find_one_by(doc! {"keylist": doc!{ "$elemMatch": { "$eq": &next}}})
@@ -66,7 +68,11 @@ async fn handler(state: &AppState, message: Message) -> Result<Message, Mediatio
         .repository
         .as_ref()
         .ok_or_else(|| MediationError::RepostitoryError)?;
-    let next = checks(&message, connection_repository).await.unwrap();
+
+    let next = match checks(&message, connection_repository).await.ok() {
+        Some(next) => Ok(next),
+        None => Err(MediationError::RepostitoryError)
+    };
 
     let attachments = message.attachments.unwrap_or_default();
     for attachment in attachments {
@@ -78,8 +84,8 @@ async fn handler(state: &AppState, message: Message) -> Result<Message, Mediatio
         message_repository
             .store(RoutedMessage {
                 id: None,
-                message: json!(attached),
-                recipient_did: next.clone(),
+                message: attached,
+                recipient_did: next.as_ref().unwrap().to_owned(),
             })
             .await
             .map_err(|_| MediationError::PersisenceError)?;
@@ -141,11 +147,7 @@ mod test {
 
         let connections = format!(
             r##"[
-                {{
-                    "_id": {{
-                        "$oid": "6580701fd2d92bb3cd291b2a"
-                    }},
-
+               
                     "client_did": "{_recipient_did}",
                     "mediator_did": "did:web:alice-mediator.com:alice_mediator_pub",
                     "routing_did": "did:key:generated",
