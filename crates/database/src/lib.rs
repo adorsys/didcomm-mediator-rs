@@ -33,15 +33,9 @@ pub enum RepositoryError {
 #[async_trait]
 pub trait Repository<Entity>: Sync + Send
 where
-    Entity: Identifiable
-        + Sized
-        + Serialize
-        + Clone
-        + Send
-        + Sync
-        + for<'de> Deserialize<'de>
-        + Unpin
-        + 'static,
+    Entity: Sized + Clone + Send + Sync + 'static,
+    Entity: Identifiable + Unpin,
+    Entity: Serialize + for<'de> Deserialize<'de>,
 {
     fn get_collection(&self) -> Arc<Mutex<Collection<Entity>>>;
 
