@@ -73,7 +73,7 @@ impl Identifiable for RoutedMessage {
 
 impl Identifiable for Secrets {
     fn id(&self) -> Option<ObjectId> {
-        self.id.clone() 
+        self.id
     }
 
     fn set_id(&mut self, id: ObjectId) {
