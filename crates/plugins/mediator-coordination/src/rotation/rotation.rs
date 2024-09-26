@@ -20,6 +20,16 @@ pub async fn did_rotation(
 
     // Check if from_prior is not none
     if msg.from_prior.is_some() {
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
+=======
+        let did_resolver = LocalDIDResolver::def
+        let from_prior = FromPrior::unpack(msg.from_prior.as_ref(), did_resolver);
+>>>>>>> Stashed changes
+=======
+        let did_resolver = LocalDIDResolver::def
+        let from_prior = FromPrior::unpack(msg.from_prior.as_ref(), did_resolver);
+>>>>>>> Stashed changes
         let from_prior: FromPrior =
             serde_json::from_str(&msg.from_prior.unwrap()).map_err(|e| Errors::Error1(e))?;
         let prev = from_prior.iss;
@@ -34,6 +44,14 @@ pub async fn did_rotation(
 
                 // validate jwt signatures with previous did kid 
             let didresolver = LocalDIDResolver::default();
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
+=======
+            FromPrior::unpack(from_prior_jwt, did_resolver)
+>>>>>>> Stashed changes
+=======
+            FromPrior::unpack(from_prior_jwt, did_resolver)
+>>>>>>> Stashed changes
                 
             }
             None => {
