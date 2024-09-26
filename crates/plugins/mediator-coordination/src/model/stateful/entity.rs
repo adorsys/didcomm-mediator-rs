@@ -1,4 +1,4 @@
-use database::Identifiable; // Ensure this path is correct
+use database::Identifiable;
 /// Resources to map in a database.
 use mongodb::bson::oid::ObjectId;
 use serde::{Deserialize, Serialize};
@@ -73,7 +73,7 @@ impl Identifiable for RoutedMessage {
 
 impl Identifiable for Secrets {
     fn id(&self) -> Option<ObjectId> {
-        self.id.clone() // Adjust if making it optional
+        self.id.clone() 
     }
 
     fn set_id(&mut self, id: ObjectId) {
