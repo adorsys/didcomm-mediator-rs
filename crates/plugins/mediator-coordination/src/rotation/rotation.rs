@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
 use database::Repository;
-use didcomm::{FromPrior, Message};
+use didcomm::{did::DIDResolver, FromPrior, Message};
 use mongodb::bson::doc;
 use serde_json::Error;
 
-use crate::model::stateful::entity::Connection;
+use crate::{didcomm::bridge::LocalDIDResolver, model::stateful::entity::Connection};
 
 use super::errors::RotationError;
 pub enum Errors {
@@ -31,10 +31,13 @@ pub async fn did_rotation(
             .unwrap()
         {
             Some(_connection) => {
+
+                // validate jwt signatures with previous did kid 
+            let didresolver = LocalDIDResolver::default();
                 
             }
             None => {
-                return Err(Errors::Error0(RotationError::RotationError));
+                return Err(Errors::Error0(RotationError::RotationError))?;
             }
         };
     }

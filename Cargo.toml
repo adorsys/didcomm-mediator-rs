@@ -24,7 +24,6 @@ keystore = { path = "./crates/keystore", version = "0.1.0" }
 plugin-api = { path = "./crates/plugin-api", version = "0.1.0" }
 did-endpoint = { path = "./crates/plugins/did-endpoint", version = "0.1.0" }
 oob-messages = { path = "./crates/plugins/oob-messages", version = "0.1.0" }
-mediator-coordination = { path = "./crates/plugins/mediator-coordination", version = "0.1.0" }
 database = { path = "./crates/database", version = "0.1.0" }
 
 # Other common dependencies
@@ -49,7 +48,6 @@ hex = "0.4.3"
 subtle = "2.5.0"
 regex = "1.10.2"
 mongodb = "2.7.1"
-tower = "0.4"
 nix = "0.22.0"
 uuid = "1.4.1"
 axum = "0.6.20"
