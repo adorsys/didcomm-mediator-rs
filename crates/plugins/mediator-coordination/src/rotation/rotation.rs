@@ -1,9 +1,7 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use axum::response::{IntoResponse, Response};
 use database::Repository;
-use didcomm::error::Error as Didcommerr;
 use didcomm::{did::DIDResolver, FromPrior, Message};
 use hmac::{Hmac, Mac};
 use jwt::VerifyWithKey;
@@ -23,6 +21,7 @@ pub async fn did_rotation(
     msg: Message,
     conection_repos: &Arc<dyn Repository<Connection>>,
 ) -> Result<(), Errors> {
+    
     // Check if from_prior is not none
     if msg.from_prior.is_some() {
         let jwt = msg.from_prior.unwrap();
@@ -55,6 +54,21 @@ pub async fn did_rotation(
 }
 #[cfg(test)]
 mod test {
+
+    pub fn _sender_secrets_resolver() -> impl SecretsResolver {
+        let secret_id = _sender_did() + "#z6LSiZbfm5L5zR3mrqpHyL7T2b2x3afUMpmGnMrEQznAz5F3";
+        let secret: Jwk = serde_json::from_str(
+            r#"{
+                "kty": "OKP",
+                "crv": "X25519",
+                "x": "ZlJzHqy2dLrDQNlV15O3zDOIXpWVQnq6VtiVZ78O0hY",
+                "d": "8OK7-1IVMdcM86PZzYKsbIi3kCJ-RxI8XFKe9JEcF2Y"
+            }"#,
+        )
+        .unwrap();
+
+        LocalSecretsResolver::new(&secret_id, &secret)
+    }
     pub fn _recipient_did() -> String {
         "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7".to_string()
     }
@@ -110,8 +124,11 @@ mod test {
     }
     use std::sync::Arc;
 
+    use did_utils::jwk::Jwk;
     use didcomm::{
-        did::{self, DIDResolver}, secrets::resolvers::ExampleSecretsResolver, FromPrior, Message, PackEncryptedOptions, UnpackOptions
+        did::{self, DIDResolver},
+        secrets::{resolvers::ExampleSecretsResolver, SecretsResolver},
+        FromPrior, Message, PackEncryptedOptions, UnpackOptions,
     };
     use jwt::ToBase64;
     use serde_json::json;
@@ -123,6 +140,7 @@ mod test {
         repository::stateful::tests::{
             MockConnectionRepository, MockMessagesRepository, MockSecretsRepository,
         },
+        rotation::rotation::did_rotation,
         util::{self, MockFileSystem},
         web::{AppState, AppStateRepository},
     };
@@ -146,12 +164,24 @@ mod test {
             .await
             .unwrap()
             .unwrap();
-        let kid = diddoc.verification_method.get(0).unwrap().id;
+        let kid = diddoc.verification_method.get(0).unwrap().clone().id;
 
-        let key = jsonwebtoken::EncodingKey::from_secret(&kid.as_bytes());
+        let key = jsonwebtoken::EncodingKey::from_secret(kid.as_bytes());
 
         // encoding from_prior to jwt
-        let header = jsonwebtoken::Header::default();
+        let header = jsonwebtoken::Header {
+            typ: Some("JWT".to_string()),
+            alg: jsonwebtoken::Algorithm::default(),
+            cty: None,
+            jku: None,
+            jwk: None,
+            kid: Some(kid),
+            x5c: None,
+            x5t: None,
+            x5u: None,
+            x5t_s256: None,
+        };
+
         let jwt = jsonwebtoken::encode(&header, &claims, &key).unwrap();
 
         let msg = Message::build(
@@ -159,26 +189,38 @@ mod test {
             "example/v1".to_owned(),
             json!(""),
         )
-        .to(_recipient_did())
+        .to("did:web:alice-mediator.com:alice_mediator_pub".to_string())
         .from(_sender_did())
         .from_prior(jwt)
         .finalize();
-        let msg = msg
+        let (msg, _) = msg
             .pack_encrypted(
-               "did:web:alice-mediator.com:alice_mediator_pub",
+                "did:web:alice-mediator.com:alice_mediator_pub",
                 Some(&_sender_did()),
                 None,
                 &state.did_resolver,
-                &state.secrets_resolver,
+                &_sender_secrets_resolver(),
                 &PackEncryptedOptions::default(),
             )
             .await
             .unwrap();
 
         // Mediator in action
-       let  did_resolver = LocalDIDResolver::default();
-       
-        let msg = Message::unpack(msg.0, &did_resolver, secrets_resolver, options).await.unwrap();
-        did_rotation(msg, conection_repos)
+        let did_resolver = LocalDIDResolver::default();
+        let secrets_resolver = _sender_secrets_resolver();
+
+        let msg = Message::unpack(
+            &msg,
+            &did_resolver,
+            &secrets_resolver,
+            &UnpackOptions::default(),
+        )
+        .await
+        .unwrap();
+        let AppStateRepository {
+            connection_repository,
+            ..
+        } = state.repository.as_ref().unwrap();
+        let _ = did_rotation(msg.0, connection_repository).await;
     }
 }
