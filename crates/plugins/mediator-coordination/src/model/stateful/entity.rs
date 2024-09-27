@@ -1,3 +1,5 @@
+use database::Identifiable;
+
 /// Resources to map in a database.
 use mongodb::bson::oid::ObjectId;
 use serde::{Deserialize, Serialize};
@@ -38,7 +40,8 @@ pub struct RoutedMessage {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Secrets {
     #[serde(rename = "_id")]
-    pub id: ObjectId,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<ObjectId>,
 
     pub kid: String,
     pub type_: i32,
@@ -49,4 +52,34 @@ pub struct Secrets {
 pub struct VerificationMaterial {
     pub format: i32,
     pub value: String,
+}
+
+impl Identifiable for Connection {
+    fn id(&self) -> Option<ObjectId> {
+        self.id
+    }
+
+    fn set_id(&mut self, id: ObjectId) {
+        self.id = Some(id);
+    }
+}
+
+impl Identifiable for RoutedMessage {
+    fn id(&self) -> Option<ObjectId> {
+        self.id
+    }
+
+    fn set_id(&mut self, id: ObjectId) {
+        self.id = Some(id);
+    }
+}
+
+impl Identifiable for Secrets {
+    fn id(&self) -> Option<ObjectId> {
+        self.id
+    }
+
+    fn set_id(&mut self, id: ObjectId) {
+        self.id = Some(id);
+    }
 }
