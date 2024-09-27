@@ -14,7 +14,7 @@ pub enum PickupError<'a> {
     MissingClientConnection,
 
     #[error("Malformed request. {0}")]
-    MalformedRequest(String),
+    MalformedRequest(&'a str),
 }
 
 impl IntoResponse for PickupError<'_> {

@@ -12,7 +12,6 @@ use crate::{
 };
 use axum::response::{IntoResponse, Response};
 use didcomm::{Attachment, Message, MessageBuilder};
-use hyper::StatusCode;
 use mongodb::bson::{doc, oid::ObjectId};
 use serde_json::Value;
 use std::{str::FromStr, sync::Arc};
@@ -30,10 +29,9 @@ pub(crate) async fn handle_status_request(
         .and_then(Value::as_str)
         != Some("all")
     {
-        return Err(PickupError::MalformedRequest(
-            "Invalid \"return_route\" specifier".to_string(),
-        )
-        .into_response());
+        return Err(
+            PickupError::MalformedRequest("Invalid \"return_route\" specifier").into_response(),
+        );
     }
 
     let mediator_did = &state.diddoc.id;
@@ -78,10 +76,9 @@ pub(crate) async fn handle_delivery_request(
         .and_then(Value::as_str)
         != Some("all")
     {
-        return Err(PickupError::MalformedRequest(
-            "Invalid \"return_route\" specifier".to_string(),
-        )
-        .into_response());
+        return Err(
+            PickupError::MalformedRequest("Invalid \"return_route\" specifier").into_response(),
+        );
     }
 
     let mediator_did = &state.diddoc.id;
@@ -94,7 +91,7 @@ pub(crate) async fn handle_delivery_request(
         .get("limit")
         .and_then(Value::as_u64)
         .ok_or_else(|| {
-            PickupError::MalformedRequest("Invalid \"limit\" specifier".to_string()).into_response()
+            PickupError::MalformedRequest("Invalid \"limit\" specifier").into_response()
         })?;
 
     let repository = repository(Arc::clone(&state))?;
@@ -158,10 +155,9 @@ pub(crate) async fn handle_message_acknowledgement(
         .and_then(Value::as_str)
         != Some("all")
     {
-        return Err(PickupError::MalformedRequest(
-            "Invalid \"return_route\" specifier".to_string(),
-        )
-        .into_response());
+        return Err(
+            PickupError::MalformedRequest("Invalid \"return_route\" specifier").into_response(),
+        );
     }
 
     let mediator_did = &state.diddoc.id;
@@ -175,8 +171,7 @@ pub(crate) async fn handle_message_acknowledgement(
         .get("message_id_list")
         .and_then(Value::as_array)
         .ok_or_else(|| {
-            PickupError::MalformedRequest("Invalid \"message_id_list\" specifier".to_string())
-                .into_response()
+            PickupError::MalformedRequest("Invalid \"message_id_list\" specifier").into_response()
         })?
         .iter()
         .map(|value| value.as_str().unwrap_or_default())
@@ -185,9 +180,10 @@ pub(crate) async fn handle_message_acknowledgement(
     for id in message_id_list {
         let msg_id = ObjectId::from_str(id);
         if msg_id.is_err() {
-            return Err(
-                PickupError::MalformedRequest(format!("Invalid message id: {id}")).into_response(),
-            );
+            return Err(PickupError::MalformedRequest(
+                format!("Invalid message id: {id}").as_str(),
+            )
+            .into_response());
         }
         repository
             .message_repository
@@ -233,48 +229,37 @@ pub(crate) async fn handle_live_delivery_change(
         .and_then(Value::as_str)
         != Some("all")
     {
-        return Err(PickupError::MalformedRequest(
-            "Invalid \"return_route\" specifier".to_string(),
-        )
-        .into_response());
+        return Err(
+            PickupError::MalformedRequest("Invalid \"return_route\" specifier").into_response(),
+        );
     }
 
-    // Validate the live_delivery field in the message body
-    let live_delivery = message
-        .body
-        .get("live_delivery")
-        .and_then(Value::as_bool)
-        .ok_or_else(|| {
-            PickupError::MalformedRequest("Missing \"live_delivery\" specifier".to_owned())
-                .into_response()
-        })?;
+    if let Some(_live_delivery) = message.body.get("live_delivery").and_then(Value::as_bool) {
+        let mediator_did = &state.diddoc.id;
+        let sender_did = sender_did(&message)?;
+        let id = Uuid::new_v4().urn().to_string();
+        let pthid = message.thid.as_deref().unwrap_or(id.as_str());
 
-    if !live_delivery {
-        return Err(StatusCode::ACCEPTED.into_response());
+        let response_builder: MessageBuilder = LiveDeliveryChange {
+            id: id.as_str(),
+            pthid,
+            type_: PROBLEM_REPORT_2_0,
+            body: BodyLiveDeliveryChange {
+                code: "e.m.live-mode-not-supported",
+                comment: "Connection does not support Live Delivery",
+            },
+        }
+        .into();
+
+        let response = response_builder
+            .to(sender_did.to_owned())
+            .from(mediator_did.to_owned())
+            .finalize();
+
+        Ok(response)
+    } else {
+        Err(PickupError::MalformedRequest("Missing \"live_delivery\" specifier").into_response())
     }
-
-    let mediator_did = &state.diddoc.id;
-    let sender_did = sender_did(&message)?;
-    let id = Uuid::new_v4().urn().to_string();
-    let pthid = message.thid.as_deref().unwrap_or(id.as_str());
-
-    let response_builder: MessageBuilder = LiveDeliveryChange {
-        id: id.as_str(),
-        pthid,
-        type_: PROBLEM_REPORT_2_0,
-        body: BodyLiveDeliveryChange {
-            code: "e.m.live-mode-not-supported",
-            comment: "Connection does not support Live Delivery",
-        },
-    }
-    .into();
-
-    let response = response_builder
-        .to(sender_did.to_owned())
-        .from(mediator_did.to_owned())
-        .finalize();
-
-    Ok(response)
 }
 
 async fn count_messages(
@@ -368,9 +353,6 @@ async fn client_connection(
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    use serde_json::{json, Value};
-
     use crate::{
         pickup::constants::{
             DELIVERY_REQUEST_3_0, LIVE_MODE_CHANGE_3_0, MESSAGE_DELIVERY_3_0, MESSAGE_RECEIVED_3_0,
@@ -379,6 +361,8 @@ mod tests {
         repository::stateful::tests::{MockConnectionRepository, MockMessagesRepository},
         web::handler::tests as global,
     };
+    use hyper::StatusCode;
+    use serde_json::{json, Value};
 
     #[allow(clippy::needless_update)]
     fn setup(connections: Vec<Connection>, stored_messages: Vec<RoutedMessage>) -> Arc<AppState> {
@@ -769,7 +753,7 @@ mod tests {
         assert_error(
             error,
             StatusCode::BAD_REQUEST,
-            PickupError::MalformedRequest("Missing \"live_delivery\" specifier".to_owned()),
+            PickupError::MalformedRequest("Missing \"live_delivery\" specifier"),
         )
         .await;
     }
