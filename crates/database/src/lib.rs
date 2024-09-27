@@ -1,14 +1,22 @@
 use async_trait::async_trait;
 use mongodb::{
-    bson::{oid::ObjectId, Document as BsonDocument},
+    bson::{self, doc, oid::ObjectId, Bson, Document as BsonDocument},
     error::Error as MongoError,
+    options::FindOptions,
+    Collection,
 };
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 use thiserror::Error;
-/// A trait representing an abstract resource.
-/// Any type implementing this trait should also implement `Serialize`.
+use tokio::sync::Mutex;
 
-/// Definition of custom errors for repository operations
+/// A trait that ensures the entity has an `id` field.
+pub trait Identifiable {
+    fn id(&self) -> Option<ObjectId>;
+    fn set_id(&mut self, id: ObjectId);
+}
+
+/// Definition of custom errors for repository operations.
 #[derive(Debug, Serialize, Deserialize, Error)]
 pub enum RepositoryError {
     #[error("failed to convert to bson format")]
@@ -21,36 +29,116 @@ pub enum RepositoryError {
     TargetNotFound,
 }
 
-/// Definition of a trait for repository operations
+/// Definition of a trait for repository operations.
 #[async_trait]
 pub trait Repository<Entity>: Sync + Send
 where
-    Entity: Sized + Serialize,
+    Entity: Sized + Clone + Send + Sync + 'static,
+    Entity: Identifiable + Unpin,
+    Entity: Serialize + for<'de> Deserialize<'de>,
 {
-    /// Retrieves all entities.
-    async fn find_all(&self) -> Result<Vec<Entity>, RepositoryError>;
+    fn get_collection(&self) -> Arc<Mutex<Collection<Entity>>>;
 
-    /// Retrieves a single entity by its identifier.
-    async fn find_one(&self, entity_id: ObjectId) -> Result<Option<Entity>, RepositoryError>;
+    async fn find_all(&self) -> Result<Vec<Entity>, RepositoryError> {
+        let mut entities = Vec::new();
+        let collection = self.get_collection();
 
-    /// Retrieves a single entity by filter.
-    async fn find_one_by(&self, filter: BsonDocument) -> Result<Option<Entity>, RepositoryError>;
+        // Lock the Mutex and get the Collection
+        let mut cursor = collection.lock().await.find(None, None).await?;
+        while cursor.advance().await? {
+            entities.push(cursor.deserialize_current()?);
+        }
+        Ok(entities)
+    }
 
-    /// Retrieves all entities by filter.
+    async fn find_one(&self, message_id: ObjectId) -> Result<Option<Entity>, RepositoryError> {
+        self.find_one_by(doc! {"_id": message_id}).await
+    }
+
+    async fn find_one_by(&self, filter: BsonDocument) -> Result<Option<Entity>, RepositoryError> {
+        let collection = self.get_collection();
+
+        // Lock the Mutex and get the Collection
+        let collection = collection.lock().await;
+        Ok(collection.find_one(filter, None).await?)
+    }
+
+    async fn store(&self, mut entity: Entity) -> Result<Entity, RepositoryError> {
+        let collection = self.get_collection();
+
+        // Lock the Mutex and get the Collection
+        let collection = collection.lock().await;
+
+        // Insert the new entity into the database
+        let metadata = collection.insert_one(entity.clone(), None).await?;
+
+        // Set the ID if it was inserted and return the updated entity
+        if let Bson::ObjectId(oid) = metadata.inserted_id {
+            entity.set_id(oid);
+        }
+
+        Ok(entity)
+    }
+
     async fn find_all_by(
         &self,
         filter: BsonDocument,
         limit: Option<i64>,
-    ) -> Result<Vec<Entity>, RepositoryError>;
+    ) -> Result<Vec<Entity>, RepositoryError> {
+        let find_options = FindOptions::builder().limit(limit).build();
+        let mut entities = Vec::new();
+        let collection = self.get_collection();
 
-    /// Stores a new entity.
-    async fn store(&self, entity: Entity) -> Result<Entity, RepositoryError>;
+        // Lock the Mutex and get the Collection
+        let collection = collection.lock().await;
 
-    /// Updates an existing entity.
-    async fn update(&self, entity: Entity) -> Result<Entity, RepositoryError>;
+        // Retrieve all entities from the database
+        let mut cursor = collection.find(filter, find_options).await?;
+        while cursor.advance().await? {
+            entities.push(cursor.deserialize_current()?);
+        }
 
-    /// Deletes a single entity by its identifier.
-    async fn delete_one(&self, entity_id: ObjectId) -> Result<(), RepositoryError>;
+        Ok(entities)
+    }
+
+    async fn delete_one(&self, message_id: ObjectId) -> Result<(), RepositoryError> {
+        let collection = self.get_collection();
+
+        // Lock the Mutex and get the Collection
+        let collection = collection.lock().await;
+
+        // Delete the entity from the database
+        collection
+            .delete_one(doc! {"_id": message_id}, None)
+            .await?;
+
+        Ok(())
+    }
+
+    async fn update(&self, entity: Entity) -> Result<Entity, RepositoryError> {
+        if entity.id().is_none() {
+            return Err(RepositoryError::MissingIdentifier);
+        }
+        let collection = self.get_collection();
+
+        // Lock the Mutex and get the Collection
+        let collection = collection.lock().await;
+
+        // Update the entity in the database
+        let metadata = collection
+            .update_one(
+                doc! {"_id": entity.id().unwrap()},
+                doc! {"$set": bson::to_document(&entity).map_err(|_| RepositoryError::BsonConversionError)?},
+                None,
+            )
+            .await?;
+
+        if metadata.matched_count > 0 {
+            Ok(entity)
+        } else {
+            Err(RepositoryError::TargetNotFound)
+        }
+    }
 }
 
 impl From<MongoError> for RepositoryError {
