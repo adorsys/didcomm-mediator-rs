@@ -193,7 +193,10 @@ pub(crate) async fn handle_message_acknowledgement(
             .message_repository
             .delete_one(msg_id.unwrap())
             .await
-            .map_err(|_| PickupError::DatabaseError.into_response())?;
+            .map_err(|_| {
+                PickupError::InternalError("Failed to process the request. Please try again later.")
+                    .into_response()
+            })?;
     }
 
     let message_count = count_messages(repository, None, connection).await?;
@@ -285,7 +288,10 @@ async fn count_messages(
         .message_repository
         .count_by(doc! { "recipient_did": { "$in": recipients } })
         .await
-        .map_err(|_| PickupError::DatabaseError.into_response())?;
+        .map_err(|_| {
+            PickupError::InternalError("Failed to process the request. Please try again later.")
+                .into_response()
+        })?;
 
     Ok(count)
 }
@@ -305,7 +311,10 @@ async fn messages(
             Some(limit as i64),
         )
         .await
-        .map_err(|_| PickupError::DatabaseError.into_response())?;
+        .map_err(|_| {
+            PickupError::InternalError("Failed to process the request. Please try again later.")
+                .into_response()
+        })?;
 
     Ok(routed_messages)
 }
@@ -334,10 +343,10 @@ fn sender_did(message: &Message) -> Result<&str, Response> {
 
 #[inline]
 fn repository(state: Arc<AppState>) -> Result<AppStateRepository, Response> {
-    state
-        .repository
-        .clone()
-        .ok_or(PickupError::MissingRepository.into_response())
+    state.repository.clone().ok_or(
+        PickupError::InternalError("Internal server error. Please try again later.")
+            .into_response(),
+    )
 }
 
 #[inline]
@@ -349,7 +358,10 @@ async fn client_connection(
         .connection_repository
         .find_one_by(doc! { "client_did": client_did })
         .await
-        .map_err(|_| PickupError::DatabaseError.into_response())?
+        .map_err(|_| {
+            PickupError::InternalError("Failed to process the request. Please try again later.")
+                .into_response()
+        })?
         .ok_or(PickupError::MissingClientConnection.into_response())
 }
 
@@ -386,7 +398,7 @@ mod tests {
         Arc::new(state)
     }
 
-    async fn assert_error(response: Response, status: StatusCode, pickup_error: PickupError) {
+    async fn assert_error(response: Response, status: StatusCode, pickup_error: PickupError<'_>) {
         assert_eq!(response.status(), status);
 
         let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
