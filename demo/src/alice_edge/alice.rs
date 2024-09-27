@@ -1,9 +1,7 @@
-
 use did_utils::didcore::Document;
 use didcomm::{
-    did::resolvers::ExampleDIDResolver,
-    secrets::resolvers::ExampleSecretsResolver,
-    AttachmentData, Message, PackEncryptedOptions, UnpackOptions,
+    did::resolvers::ExampleDIDResolver, secrets::resolvers::ExampleSecretsResolver, AttachmentData,
+    Message, PackEncryptedOptions, UnpackOptions,
 };
 use mediator_coordination::didcomm::bridge::LocalDIDResolver;
 use reqwest::{header::CONTENT_TYPE, Client};
@@ -11,9 +9,13 @@ use serde_json::json;
 use uuid::Uuid;
 
 use crate::{
-    alice_edge::
-       
-        data::MEDIATOR_DID, constants::{DID_DOC_ENDPOINT, MEDIATE_REQUEST_2_0, MEDIATE_UPDATE_2_0, MEDIATION_ENDPOINT, PICKUP_DELIVERY_3_0, PICKUP_RECIEVE_3_0, PICKUP_REQUEST_3_0}, ledger::{ALICE_DID, ALICE_DID_DOC, ALICE_SECRETS, MEDIATOR_DID_DOC}, DIDCOMM_CONTENT_TYPE
+    alice_edge::data::MEDIATOR_DID,
+    constants::{
+        DID_DOC_ENDPOINT, LIVE_MODE_CHANGE_3_0, MEDIATE_REQUEST_2_0, MEDIATE_UPDATE_2_0,
+        MEDIATION_ENDPOINT, PICKUP_DELIVERY_3_0, PICKUP_RECIEVE_3_0, PICKUP_REQUEST_3_0,
+    },
+    ledger::{ALICE_DID, ALICE_DID_DOC, ALICE_SECRETS, MEDIATOR_DID_DOC},
+    DIDCOMM_CONTENT_TYPE,
 };
 
 pub(crate) async fn get_mediator_didoc() {
@@ -247,8 +249,7 @@ pub(crate) async fn test_pickup_delivery_request() {
         }"#,
     )
     .unwrap();
-    let did_resolver =
-       LocalDIDResolver::new(&doc);
+    let did_resolver = LocalDIDResolver::new(&doc);
     let secrets_resolver = ExampleSecretsResolver::new(ALICE_SECRETS.clone());
 
     // Build message
@@ -273,7 +274,7 @@ pub(crate) async fn test_pickup_delivery_request() {
         )
         .await
         .expect("Unable to pack_encrypted");
-   
+
     let client = reqwest::Client::new();
     let response = client
         .post(MEDIATION_ENDPOINT)
@@ -303,15 +304,21 @@ pub(crate) async fn test_pickup_delivery_request() {
         // };
         let message = serde_json::to_string(&match attachemnt.data {
             AttachmentData::Json { value: val } => val.json.clone(),
-            _ => json!(0)
-        }).unwrap();
-        
-        let message = Message::unpack(&message, &did_resolver, &secrets_resolver, &UnpackOptions::default()).await.unwrap();
+            _ => json!(0),
+        })
+        .unwrap();
+
+        let message = Message::unpack(
+            &message,
+            &did_resolver,
+            &secrets_resolver,
+            &UnpackOptions::default(),
+        )
+        .await
+        .unwrap();
         println!("\nPickup Delivery Message\n{:#?}", message);
     }
-
 }
-
 
 pub(crate) async fn test_pickup_message_received() {
     let did_resolver =
@@ -340,7 +347,7 @@ pub(crate) async fn test_pickup_message_received() {
         )
         .await
         .expect("Unable to pack_encrypted");
- 
+
     let client = reqwest::Client::new();
     let response = client
         .post("http://localhost:3000/mediate")
@@ -419,4 +426,56 @@ pub(crate) async fn keylist_query_payload() {
     .await
     .unwrap();
     print!("{:#?}", message)
+}
+pub(crate) async fn handle_live_delivery_change() {
+    let did_resolver =
+        ExampleDIDResolver::new(vec![ALICE_DID_DOC.clone(), MEDIATOR_DID_DOC.clone()]);
+    let secrets_resolver = ExampleSecretsResolver::new(ALICE_SECRETS.clone());
+
+    // Build message
+    let msg = Message::build(
+        "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
+        LIVE_MODE_CHANGE_3_0.to_owned(),
+        json!({"message_id_list": vec!["66ec4d76e8aaed777d76acf9","66ec4d75e8aaed777d76acf8"]}),
+    )
+    .header("return_route".into(), json!("all"))
+    .to(MEDIATOR_DID.to_string())
+    .from(ALICE_DID.to_string())
+    .finalize();
+
+    let (msg, _) = msg
+        .pack_encrypted(
+            &MEDIATOR_DID,
+            Some(&ALICE_DID),
+            None,
+            &did_resolver,
+            &secrets_resolver,
+            &PackEncryptedOptions::default(),
+        )
+        .await
+        .expect("Unable to pack_encrypted");
+
+    let client = reqwest::Client::new();
+    let response = client
+        .post("http://localhost:3000/mediate")
+        .header(CONTENT_TYPE, DIDCOMM_CONTENT_TYPE)
+        .body(msg)
+        .send()
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+
+    // unpack response
+    let (msg, _) = Message::unpack(
+        &response,
+        &did_resolver,
+        &secrets_resolver,
+        &UnpackOptions::default(),
+    )
+    .await
+    .unwrap();
+
+    println!("\nMessage Received\n{:#?}", msg);
 }

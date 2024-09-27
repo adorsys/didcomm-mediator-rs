@@ -5,6 +5,7 @@ pub const MEDIATE_UPDATE_2_0: &str = "https://didcomm.org/coordinate-mediation/2
 pub const PICKUP_REQUEST_3_0: &str = "https://didcomm.org/messagepickup/3.0/status-request";
 pub const PICKUP_DELIVERY_3_0: &str = "https://didcomm.org/messagepickup/3.0/delivery-request";
 pub const PICKUP_RECIEVE_3_0: &str = "https://didcomm.org/messagepickup/3.0/messages-received";
+pub(crate) const LIVE_MODE_CHANGE_3_0: &str ="https://didcomm.org/messagepickup/3.0/live-delivery-change";
 
 
 pub const MEDIATOR_DID: &str = "";

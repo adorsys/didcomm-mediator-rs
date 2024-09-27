@@ -1,6 +1,5 @@
 use alice_edge::alice::{
-    get_mediator_didoc, keylist_query_payload, keylist_update_payload, mediate_request,
-    test_pickup_delivery_request, test_pickup_message_received, test_pickup_request,
+    get_mediator_didoc, handle_live_delivery_change, keylist_query_payload, keylist_update_payload, mediate_request, test_pickup_delivery_request, test_pickup_message_received, test_pickup_request
 };
 use bob_edge::bob::forward_msg;
 const DIDCOMM_CONTENT_TYPE: &str = "application/didcomm-encrypted+json";
@@ -32,6 +31,9 @@ async fn main() {
 
     println!("\n=================== MESSAGE RECEIVED ===================\n");
     test_pickup_message_received().await;
+    
+    println!("\n=================== LIVE DILIVERY ===================\n");
+    handle_live_delivery_change().await;
 
     println!("\n=================== KEYLIST QUERY RESPONSE ===================\n");
     keylist_query_payload().await;
