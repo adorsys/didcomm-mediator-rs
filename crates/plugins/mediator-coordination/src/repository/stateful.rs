@@ -1,10 +1,8 @@
 use async_trait::async_trait;
-use database::{Repository, RepositoryError};
-use mongodb::{
-    bson::{self, doc, oid::ObjectId, Bson, Document as BsonDocument},
-    options::FindOptions,
-    Collection, Database,
-};
+use database::Repository;
+use mongodb::{Collection, Database};
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 use crate::model::stateful::entity::{Connection, RoutedMessage, Secrets};
 
@@ -22,122 +20,30 @@ impl MongoConnectionRepository {
 
 #[async_trait]
 impl Repository<Connection> for MongoConnectionRepository {
-    async fn find_all(&self) -> Result<Vec<Connection>, RepositoryError> {
-        let mut connections: Vec<Connection> = vec![];
-
-        // Retrieve all connections from the database
-        let mut cursor = self.collection.find(None, None).await?;
-        while cursor.advance().await? {
-            connections.push(cursor.deserialize_current()?);
-        }
-
-        Ok(connections)
-    }
-
-    async fn find_one(
-        &self,
-        connection_id: ObjectId,
-    ) -> Result<Option<Connection>, RepositoryError> {
-        // Query the database for the specified connection ID
-        self.find_one_by(doc! {"_id": connection_id}).await
-    }
-
-    async fn find_all_by(
-        &self,
-        filter: BsonDocument,
-        limit: Option<i64>,
-    ) -> Result<Vec<Connection>, RepositoryError> {
-        let find_options = FindOptions::builder().limit(limit).build();
-        let mut connections: Vec<Connection> = vec![];
-
-        // Retrieve all connections from the database
-        let mut cursor = self.collection.find(filter, find_options).await?;
-        while cursor.advance().await? {
-            connections.push(cursor.deserialize_current()?);
-        }
-
-        Ok(connections)
-    }
-
-    async fn count_by(&self, filter: BsonDocument) -> Result<usize, RepositoryError> {
-        Ok(self
-            .collection
-            .count_documents(filter, None)
-            .await?
-            .try_into()
-            .map_err(|_| RepositoryError::Generic("count overflow".to_owned()))?)
-    }
-
-    async fn find_one_by(
-        &self,
-        filter: BsonDocument,
-    ) -> Result<Option<Connection>, RepositoryError> {
-        // Query the database for the specified connection ID
-        Ok(self.collection.find_one(filter, None).await?)
-    }
-
-    async fn store(&self, connection: Connection) -> Result<Connection, RepositoryError> {
-        // Insert the new connection into the database
-        let metadata = self.collection.insert_one(connection.clone(), None).await?;
-
-        // Return persisted connection
-        Ok(match metadata.inserted_id {
-            Bson::ObjectId(oid) => Connection {
-                id: Some(oid),
-                ..connection
-            },
-            _ => unreachable!(),
-        })
-    }
-
-    async fn update(&self, connection: Connection) -> Result<Connection, RepositoryError> {
-        if connection.id.is_none() {
-            return Err(RepositoryError::MissingIdentifier);
-        }
-
-        // Update the connection in the database
-        let metadata = self
-            .collection
-            .update_one(
-                doc! {"_id": connection.id.unwrap()},
-                doc! {"$set": bson::to_document(&connection).map_err(|_| RepositoryError::BsonConversionError)?},
-                None,
-            )
-            .await?;
-
-        if metadata.matched_count > 0 {
-            Ok(connection)
-        } else {
-            Err(RepositoryError::TargetNotFound)
-        }
-    }
-
-    async fn delete_one(&self, connection_id: ObjectId) -> Result<(), RepositoryError> {
-        // Delete the connection from the database
-        let metadata = self
-            .collection
-            .delete_one(doc! {"_id": connection_id}, None)
-            .await?;
-
-        if metadata.deleted_count > 0 {
-            Ok(())
-        } else {
-            Err(RepositoryError::TargetNotFound)
-        }
+    fn get_collection(&self) -> Arc<Mutex<Collection<Connection>>> {
+        Arc::new(Mutex::new(self.collection.clone()))
     }
 }
 
 pub struct MongoSecretsRepository {
-    collection: Collection<Secrets>, // Use the Secrets entity for the collection
+    collection: Collection<Secrets>,
 }
 
 impl MongoSecretsRepository {
     pub fn from_db(db: &Database) -> Self {
         Self {
-            collection: db.collection("secrets"), // Use the "secrets" collection
+            collection: db.collection("secrets"),
         }
     }
 }
+
+#[async_trait]
+impl Repository<Secrets> for MongoSecretsRepository {
+    fn get_collection(&self) -> Arc<Mutex<Collection<Secrets>>> {
+        Arc::new(Mutex::new(self.collection.clone()))
+    }
+}
+
 pub struct MongoMessagesRepository {
     collection: Collection<RoutedMessage>,
 }
@@ -150,213 +56,22 @@ impl MongoMessagesRepository {
 }
 #[async_trait]
 impl Repository<RoutedMessage> for MongoMessagesRepository {
-    async fn find_all(&self) -> Result<Vec<RoutedMessage>, RepositoryError> {
-        let mut messages: Vec<RoutedMessage> = vec![];
-
-        // Retrieve all messages from the database
-        let mut cursor = self.collection.find(None, None).await?;
-        while cursor.advance().await? {
-            messages.push(cursor.deserialize_current()?);
-        }
-
-        Ok(messages)
-    }
-
-    async fn find_one(
-        &self,
-        message_id: ObjectId,
-    ) -> Result<Option<RoutedMessage>, RepositoryError> {
-        // Query the database for the specified message ID
-        self.find_one_by(doc! {"_id": message_id}).await
-    }
-
-    async fn find_one_by(
-        &self,
-        filter: BsonDocument,
-    ) -> Result<Option<RoutedMessage>, RepositoryError> {
-        // Query the database for the specified message ID
-        Ok(self.collection.find_one(filter, None).await?)
-    }
-
-    async fn store(&self, message: RoutedMessage) -> Result<RoutedMessage, RepositoryError> {
-        // Insert the new message into the database
-        let metadata = self.collection.insert_one(message.clone(), None).await?;
-
-        // Return persisted message
-        Ok(match metadata.inserted_id {
-            Bson::ObjectId(oid) => RoutedMessage {
-                id: Some(oid),
-                ..message
-            },
-            _ => unreachable!(),
-        })
-    }
-
-    async fn find_all_by(
-        &self,
-        filter: BsonDocument,
-        limit: Option<i64>,
-    ) -> Result<Vec<RoutedMessage>, RepositoryError> {
-        let find_options = FindOptions::builder().limit(limit).build();
-        let mut messages: Vec<RoutedMessage> = vec![];
-
-        // Retrieve all messages from the database
-        let mut cursor = self.collection.find(filter, find_options).await?;
-        while cursor.advance().await? {
-            messages.push(cursor.deserialize_current()?);
-        }
-
-        Ok(messages)
-    }
-
-    async fn count_by(&self, filter: BsonDocument) -> Result<usize, RepositoryError> {
-        Ok(self
-            .collection
-            .count_documents(filter, None)
-            .await?
-            .try_into()
-            .map_err(|_| RepositoryError::Generic("count overflow".to_owned()))?)
-    }
-
-    async fn delete_one(&self, message_id: ObjectId) -> Result<(), RepositoryError> {
-        // Delete the connection from the database
-        let metadata = self
-            .collection
-            .delete_one(doc! {"_id": message_id}, None)
-            .await?;
-
-        if metadata.deleted_count > 0 {
-            Ok(())
-        } else {
-            Err(RepositoryError::TargetNotFound)
-        }
-    }
-
-    async fn update(&self, message: RoutedMessage) -> Result<RoutedMessage, RepositoryError> {
-        if message.id.is_none() {
-            return Err(RepositoryError::MissingIdentifier);
-        }
-
-        // Update the message in the database
-        let metadata = self
-            .collection
-            .update_one(
-                doc! {"_id": message.id.unwrap()},
-                doc! {"$set": bson::to_document(&message).map_err(|_| RepositoryError::BsonConversionError)?},
-                None,
-            )
-            .await?;
-
-        if metadata.matched_count > 0 {
-            Ok(message)
-        } else {
-            Err(RepositoryError::TargetNotFound)
-        }
+    fn get_collection(&self) -> Arc<Mutex<Collection<RoutedMessage>>> {
+        Arc::new(Mutex::new(self.collection.clone()))
     }
 }
-#[async_trait]
-impl Repository<Secrets> for MongoSecretsRepository {
-    async fn find_all(&self) -> Result<Vec<Secrets>, RepositoryError> {
-        let mut secrets: Vec<Secrets> = vec![];
 
-        // Retrieve all secrets from the database
-        let mut cursor = self.collection.find(None, None).await?;
-        while cursor.advance().await? {
-            secrets.push(cursor.deserialize_current()?);
-        }
-
-        Ok(secrets)
-    }
-
-    async fn find_one(&self, secrets_id: ObjectId) -> Result<Option<Secrets>, RepositoryError> {
-        // Query the database for the specified secrets ID
-        self.find_one_by(doc! {"_id": secrets_id}).await
-    }
-
-    async fn find_all_by(
-        &self,
-        filter: BsonDocument,
-        limit: Option<i64>,
-    ) -> Result<Vec<Secrets>, RepositoryError> {
-        let find_options = FindOptions::builder().limit(limit).build();
-        // Query the database for the specified secrets ID
-        let mut cursor = self.collection.find(filter, find_options).await?;
-
-        let mut secrets: Vec<Secrets> = vec![];
-        while cursor.advance().await? {
-            secrets.push(cursor.deserialize_current()?);
-        }
-
-        Ok(secrets)
-    }
-
-    async fn count_by(&self, filter: BsonDocument) -> Result<usize, RepositoryError> {
-        Ok(self
-            .collection
-            .count_documents(filter, None)
-            .await?
-            .try_into()
-            .map_err(|_| RepositoryError::Generic("count overflow".to_owned()))?)
-    }
-
-    async fn find_one_by(&self, filter: BsonDocument) -> Result<Option<Secrets>, RepositoryError> {
-        // Query the database for the specified secrets ID
-        Ok(self.collection.find_one(filter, None).await?)
-    }
-
-    async fn store(&self, secrets: Secrets) -> Result<Secrets, RepositoryError> {
-        // Insert the new secrets into the database
-        let metadata = self.collection.insert_one(secrets.clone(), None).await?;
-
-        // Return persisted secrets
-        Ok(match metadata.inserted_id {
-            Bson::ObjectId(oid) => Secrets { id: oid, ..secrets },
-            _ => unreachable!(),
-        })
-    }
-
-    async fn update(&self, secrets: Secrets) -> Result<Secrets, RepositoryError> {
-        if secrets.id == ObjectId::default() {
-            return Err(RepositoryError::MissingIdentifier);
-        }
-
-        // Update the secrets in the database
-        let metadata = self
-            .collection
-            .update_one(
-                doc! {"_id": &secrets.id},
-                doc! {"$set": bson::to_document(&secrets).map_err(|_| RepositoryError::BsonConversionError)?},
-                None,
-            )
-            .await?;
-
-        if metadata.matched_count > 0 {
-            Ok(secrets)
-        } else {
-            Err(RepositoryError::TargetNotFound)
-        }
-    }
-
-    async fn delete_one(&self, secrets_id: ObjectId) -> Result<(), RepositoryError> {
-        // Delete the secrets from the database
-        let metadata = self
-            .collection
-            .delete_one(doc! {"_id": secrets_id}, None)
-            .await?;
-
-        if metadata.deleted_count > 0 {
-            Ok(())
-        } else {
-            Err(RepositoryError::TargetNotFound)
-        }
-    }
-}
 #[cfg(test)]
 pub mod tests {
     use super::*;
-
+    use database::{Repository, RepositoryError};
+    use mongodb::bson::{doc, oid::ObjectId, Bson, Document as BsonDocument};
     use serde_json::json;
-    use std::{collections::HashMap, sync::RwLock};
+    use std::{
+        collections::HashMap,
+        sync::{Arc, RwLock},
+    };
+    use tokio::sync::Mutex;
 
     pub struct MockConnectionRepository {
         connections: RwLock<Vec<Connection>>,
@@ -372,6 +87,11 @@ pub mod tests {
 
     #[async_trait]
     impl Repository<Connection> for MockConnectionRepository {
+        // Implement a dummy get_collection method
+        fn get_collection(&self) -> Arc<Mutex<Collection<Connection>>> {
+            // In-memory, we don't have an actual collection, but we can create a dummy Arc<Mutex> for compatibility.
+            unimplemented!("This is a mock repository, no real collection exists.")
+        }
         async fn find_all(&self) -> Result<Vec<Connection>, RepositoryError> {
             Ok(self.connections.read().unwrap().clone())
         }
@@ -388,7 +108,6 @@ pub mod tests {
             filter: BsonDocument,
         ) -> Result<Option<Connection>, RepositoryError> {
             let filter: HashMap<String, Bson> = filter.into_iter().collect();
-
             Ok(self
                 .connections
                 .read()
@@ -400,13 +119,11 @@ pub mod tests {
                             return false;
                         }
                     }
-
                     if let Some(client_did) = filter.get("client_did") {
                         if json!(c.client_did) != json!(client_did) {
                             return false;
                         }
                     }
-
                     true
                 })
                 .cloned())
@@ -447,10 +164,7 @@ pub mod tests {
                 .collect())
         }
 
-        async fn count_by(
-            &self,
-            filter: BsonDocument,
-        ) -> Result<usize, RepositoryError> {
+        async fn count_by(&self, filter: BsonDocument) -> Result<usize, RepositoryError> {
             let filter: HashMap<String, Bson> = filter.into_iter().collect();
             Ok(self
                 .connections
@@ -475,17 +189,10 @@ pub mod tests {
                 .count())
         }
 
-        async fn store(&self, connection: Connection) -> Result<Connection, RepositoryError> {
-            // Generate a new ID for the entity
-            let connection = Connection {
-                id: Some(ObjectId::new()),
-                ..connection
-            };
-
-            // Add new connection to collection
+        // Add new connection to collection
+        async fn store(&self, mut connection: Connection) -> Result<Connection, RepositoryError> {
+            connection.id = Some(ObjectId::new());
             self.connections.write().unwrap().push(connection.clone());
-
-            // Return added connection
             Ok(connection)
         }
 
@@ -494,17 +201,9 @@ pub mod tests {
                 return Err(RepositoryError::MissingIdentifier);
             }
 
-            // Find entity to update
-            let pos = self
-                .connections
-                .read()
-                .unwrap()
-                .iter()
-                .position(|c| c.id == connection.id);
-
-            if let Some(pos) = pos {
-                self.connections.write().unwrap()[pos] = connection.clone();
-
+            let mut connections = self.connections.write().unwrap();
+            if let Some(pos) = connections.iter().position(|c| c.id == connection.id) {
+                connections[pos] = connection.clone();
                 Ok(connection)
             } else {
                 Err(RepositoryError::TargetNotFound)
@@ -512,16 +211,9 @@ pub mod tests {
         }
 
         async fn delete_one(&self, connection_id: ObjectId) -> Result<(), RepositoryError> {
-            // Find entity to delete
-            let pos = self
-                .connections
-                .read()
-                .unwrap()
-                .iter()
-                .position(|c| c.id.as_ref().unwrap() == &connection_id);
-
-            if let Some(pos) = pos {
-                self.connections.write().unwrap().remove(pos);
+            let mut connections = self.connections.write().unwrap();
+            if let Some(pos) = connections.iter().position(|c| c.id == Some(connection_id)) {
+                connections.remove(pos);
                 Ok(())
             } else {
                 Err(RepositoryError::TargetNotFound)
@@ -540,19 +232,15 @@ pub mod tests {
             }
         }
     }
-    pub struct MockMessagesRepository {
-        messages: RwLock<Vec<RoutedMessage>>,
-    }
-    impl MockMessagesRepository {
-        pub fn from(messages: Vec<RoutedMessage>) -> Self {
-            Self {
-                messages: RwLock::new(messages),
-            }
-        }
-    }
 
     #[async_trait]
     impl Repository<Secrets> for MockSecretsRepository {
+        // Implement a dummy get_collection method
+        fn get_collection(&self) -> Arc<Mutex<Collection<Secrets>>> {
+            // In-memory, we don't have an actual collection, but we can create a dummy Arc<Mutex> for compatibility.
+            unimplemented!("This is a mock repository, no real collection exists.")
+        }
+
         async fn find_all(&self) -> Result<Vec<Secrets>, RepositoryError> {
             Ok(self.secrets.read().unwrap().clone())
         }
@@ -566,7 +254,6 @@ pub mod tests {
             filter: BsonDocument,
         ) -> Result<Option<Secrets>, RepositoryError> {
             let filter: HashMap<String, Bson> = filter.into_iter().collect();
-
             Ok(self
                 .secrets
                 .read()
@@ -578,82 +265,20 @@ pub mod tests {
                             return false;
                         }
                     }
-
                     true
                 })
                 .cloned())
         }
 
-        async fn count_by(
-            &self,
-            filter: BsonDocument,
-        ) -> Result<usize, RepositoryError> {
-            let filter: HashMap<String, Bson> = filter.into_iter().collect();
-            Ok(self
-                .secrets
-                .read()
-                .unwrap()
-                .iter()
-                .filter(|s| {
-                    if let Some(id) = filter.get("_id") {
-                        if json!(s.id) != json!(id) {
-                            return false;
-                        }
-                    }
-
-                    true
-                })
-                .count())
-        }
-
-        async fn find_all_by(
-            &self,
-            filter: BsonDocument,
-            limit: Option<i64>,
-        ) -> Result<Vec<Secrets>, RepositoryError> {
-            if let Some(l) = limit {
-                if l < 0 {
-                    return Ok(vec![]);
-                }
-            }
-            let filter: HashMap<String, Bson> = filter.into_iter().collect();
-            Ok(self
-                .secrets
-                .read()
-                .unwrap()
-                .iter()
-                .filter(|s| {
-                    if let Some(id) = filter.get("_id") {
-                        if json!(s.id) != json!(id) {
-                            return false;
-                        }
-                    }
-
-                    true
-                })
-                .cloned()
-                .collect())
-        }
-
         async fn store(&self, secrets: Secrets) -> Result<Secrets, RepositoryError> {
-            // Add new entity to collection
             self.secrets.write().unwrap().push(secrets.clone());
-
-            // Return added entity
             Ok(secrets)
         }
 
         async fn update(&self, secrets: Secrets) -> Result<Secrets, RepositoryError> {
-            // Find entity to update
-            let pos = self
-                .secrets
-                .read()
-                .unwrap()
-                .iter()
-                .position(|c| c.id == secrets.id);
-
-            if let Some(pos) = pos {
-                self.secrets.write().unwrap()[pos] = secrets.clone();
+            let mut secrets_list = self.secrets.write().unwrap();
+            if let Some(pos) = secrets_list.iter().position(|s| s.id == secrets.id) {
+                secrets_list[pos] = secrets.clone();
                 Ok(secrets)
             } else {
                 Err(RepositoryError::TargetNotFound)
@@ -661,16 +286,9 @@ pub mod tests {
         }
 
         async fn delete_one(&self, secrets_id: ObjectId) -> Result<(), RepositoryError> {
-            // Find entity to delete
-            let pos = self
-                .secrets
-                .read()
-                .unwrap()
-                .iter()
-                .position(|s| s.id == secrets_id);
-
-            if let Some(pos) = pos {
-                self.secrets.write().unwrap().remove(pos);
+            let mut secrets_list = self.secrets.write().unwrap();
+            if let Some(pos) = secrets_list.iter().position(|s| s.id == Some(secrets_id)) {
+                secrets_list.remove(pos);
                 Ok(())
             } else {
                 Err(RepositoryError::TargetNotFound)
@@ -678,17 +296,35 @@ pub mod tests {
         }
     }
 
+    pub struct MockMessagesRepository {
+        messages: RwLock<Vec<RoutedMessage>>,
+    }
+
+    impl MockMessagesRepository {
+        pub fn from(messages: Vec<RoutedMessage>) -> Self {
+            Self {
+                messages: RwLock::new(messages),
+            }
+        }
+    }
+
     #[async_trait]
     impl Repository<RoutedMessage> for MockMessagesRepository {
+        // Implement a dummy get_collection method
+        fn get_collection(&self) -> Arc<Mutex<Collection<RoutedMessage>>> {
+            // In-memory, we don't have an actual collection, but we can create a dummy Arc<Mutex> for compatibility.
+            unimplemented!("This is a mock repository, no real collection exists.")
+        }
+
         async fn find_all(&self) -> Result<Vec<RoutedMessage>, RepositoryError> {
             Ok(self.messages.read().unwrap().clone())
         }
 
         async fn find_one(
             &self,
-            secrets_id: ObjectId,
+            message_id: ObjectId,
         ) -> Result<Option<RoutedMessage>, RepositoryError> {
-            self.find_one_by(doc! {"_id": secrets_id}).await
+            self.find_one_by(doc! {"_id": message_id}).await
         }
 
         async fn find_one_by(
@@ -696,19 +332,17 @@ pub mod tests {
             filter: BsonDocument,
         ) -> Result<Option<RoutedMessage>, RepositoryError> {
             let filter: HashMap<String, Bson> = filter.into_iter().collect();
-
             Ok(self
                 .messages
                 .read()
                 .unwrap()
                 .iter()
-                .find(|s| {
+                .find(|m| {
                     if let Some(id) = filter.get("_id") {
-                        if json!(s.id) != json!(id) {
+                        if json!(m.id) != json!(id) {
                             return false;
                         }
                     }
-
                     true
                 })
                 .cloned())
@@ -727,19 +361,22 @@ pub mod tests {
             let messages = self.messages.read().unwrap();
 
             // Extract the list of recipient_did values from the filter
-            let recipient_dids = filter.get("recipient_did")
+            let recipient_dids = filter
+                .get("recipient_did")
                 .and_then(|value| value.as_document())
                 .and_then(|doc| doc.get("$in"))
                 .and_then(|value| value.as_array())
                 .ok_or(RepositoryError::Generic("invalid filter".to_owned()))?;
 
             // Convert recipient_dids to a Vec<String>
-            let recipient_dids: Vec<String> = recipient_dids.iter()
+            let recipient_dids: Vec<String> = recipient_dids
+                .iter()
                 .filter_map(|value| value.as_str().map(|s| s.to_string()))
                 .collect();
 
             // filter the messages that match any of the recipient_did values
-            let mut filtered_messages = messages.iter()
+            let mut filtered_messages = messages
+                .iter()
                 .filter(|msg| recipient_dids.contains(&msg.recipient_did))
                 .cloned()
                 .collect::<Vec<_>>();
@@ -757,19 +394,22 @@ pub mod tests {
             let messages = self.messages.read().unwrap();
 
             // Extract the list of recipient_did values from the filter
-            let recipient_dids = filter.get("recipient_did")
+            let recipient_dids = filter
+                .get("recipient_did")
                 .and_then(|value| value.as_document())
                 .and_then(|doc| doc.get("$in"))
                 .and_then(|value| value.as_array())
                 .ok_or(RepositoryError::Generic("invalid filter".to_owned()))?;
 
             // Convert recipient_dids to a Vec<String>
-            let recipient_dids: Vec<String> = recipient_dids.iter()
+            let recipient_dids: Vec<String> = recipient_dids
+                .iter()
                 .filter_map(|value| value.as_str().map(|s| s.to_string()))
                 .collect();
 
             // Count the messages that match any of the recipient_did values
-            let count = messages.iter()
+            let count = messages
+                .iter()
                 .filter(|msg| recipient_dids.contains(&msg.recipient_did))
                 .count();
 
@@ -777,24 +417,14 @@ pub mod tests {
         }
 
         async fn store(&self, messages: RoutedMessage) -> Result<RoutedMessage, RepositoryError> {
-            // Add new entity to collection
             self.messages.write().unwrap().push(messages.clone());
-
-            // Return added entity
             Ok(messages)
         }
 
         async fn update(&self, messages: RoutedMessage) -> Result<RoutedMessage, RepositoryError> {
-            // Find entity to update
-            let pos = self
-                .messages
-                .read()
-                .unwrap()
-                .iter()
-                .position(|c| c.id == messages.id);
-
-            if let Some(pos) = pos {
-                self.messages.write().unwrap()[pos] = messages.clone();
+            let mut messages_list = self.messages.write().unwrap();
+            if let Some(pos) = messages_list.iter().position(|m| m.id == messages.id) {
+                messages_list[pos] = messages.clone();
                 Ok(messages)
             } else {
                 Err(RepositoryError::TargetNotFound)
