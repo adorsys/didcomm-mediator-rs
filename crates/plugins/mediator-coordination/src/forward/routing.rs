@@ -44,13 +44,12 @@ async fn checks(
     let _connection = match connection_repository
         .find_one_by(doc! {"keylist": doc!{ "$elemMatch": { "$eq": &next}}})
         .await
-        .map_err(|_| MediationError::RepostitoryError)
-        .unwrap()
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response())?
     {
         Some(connection) => connection,
         None => {
             let response = (
-                StatusCode::UNAUTHORIZED,
+                StatusCode::UNAUTHORIZED, 
                 MediationError::UncoordinatedSender.json(),
             );
             return Err(response.into_response());
