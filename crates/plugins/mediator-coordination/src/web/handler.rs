@@ -8,7 +8,7 @@ use hyper::{header::CONTENT_TYPE, StatusCode};
 use std::sync::Arc;
 
 use crate::{
-    constant::{DIDCOMM_ENCRYPTED_MIME_TYPE, KEYLIST_UPDATE_2_0, KEYLIST_QUERY_2_0},
+    constant::{DIDCOMM_ENCRYPTED_MIME_TYPE, KEYLIST_QUERY_2_0, KEYLIST_UPDATE_2_0, MEDIATE_REQUEST_2_0},
     web::{self, error::MediationError, AppState},
 };
 
