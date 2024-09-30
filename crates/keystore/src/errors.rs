@@ -21,3 +21,8 @@ pub enum KeystoreError {
     #[error("Decryption error: {0}")]
     DecryptionError(chacha20poly1305::Error),
 }
+impl From<std::io::Error> for KeystoreError {
+    fn from(err: std::io::Error) -> Self {
+        KeystoreError::FileError(err)
+    }
+}
