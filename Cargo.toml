@@ -87,6 +87,7 @@ did-endpoint = { workspace = true, optional = true }
 oob-messages = { workspace = true, optional = true }
 
 
+
 [features]
 default = ["plugin-index", "plugin-did_endpoint", "plugin-oob_messages"]
 

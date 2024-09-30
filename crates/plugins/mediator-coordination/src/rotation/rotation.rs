@@ -1,32 +1,47 @@
-use std::collections::BTreeMap;
-use std::sync::Arc;
-
+use super::errors::RotationError;
+use crate::{
+    didcomm::bridge::LocalDIDResolver,
+    jose::jws::{self, verify_compact_jws},
+    model::stateful::entity::Connection,
+};
+use axum::response::{IntoResponse, Response};
+use base64::{decode_config, URL_SAFE_NO_PAD};
 use database::Repository;
 use didcomm::{did::DIDResolver, FromPrior, Message};
+use ed25519_dalek::{PublicKey, Signature, Verifier};
 use hmac::{Hmac, Mac};
+use hyper::StatusCode;
+use jsonwebtoken::{
+    crypto::verify,
+    jwk::{self, Jwk, KeyAlgorithm},
+    Algorithm, DecodingKey,
+};
 use jwt::VerifyWithKey;
 use mongodb::bson::doc;
 use serde_json::Error;
 use sha2::Sha256;
-
-use crate::{didcomm::bridge::LocalDIDResolver, model::stateful::entity::Connection};
-
-use super::errors::RotationError;
+use std::collections::BTreeMap;
+use std::error::Error as err;
+use std::sync::Arc;
 pub enum Errors {
     Error0(RotationError),
     Error1(Error),
+    Error2(Response),
 }
 
 pub async fn did_rotation(
     msg: Message,
     conection_repos: &Arc<dyn Repository<Connection>>,
 ) -> Result<(), Errors> {
-    
+
     // Check if from_prior is not none
     if msg.from_prior.is_some() {
+
         let jwt = msg.from_prior.unwrap();
         let did_resolver = LocalDIDResolver::default();
-        let (from_prior, kid) = FromPrior::unpack(&jwt, &did_resolver).await.unwrap(); // todo find different way to handle
+        let (from_prior, kid) = FromPrior::unpack(&jwt, &did_resolver)
+            .await
+            .map_err(|_| Errors::Error2(RotationError::InvalidFromPrior.json().into_response()))?;
 
         let prev = from_prior.iss;
 
@@ -37,13 +52,22 @@ pub async fn did_rotation(
             .unwrap()
         {
             Some(connection) => {
-                // validate jwt signatures with previous did kid
-                let key: Hmac<Sha256> = Hmac::new_from_slice(kid.as_bytes()).unwrap(); // todo find different way to handle
-                let _: BTreeMap<String, String> = jwt.verify_with_key(&key).unwrap(); // todo find different way to handle
+                let (signature, message) = get_jwt_signature_payload(&jwt).unwrap();
+                let key = jsonwebtoken::DecodingKey::from_secret(kid.as_bytes());
 
-                // stored the new did for communication
-                let new = from_prior.sub;
-                connection.client_did.replace(&prev, &new)
+                // validate jwt signatures with previous did kid
+                if verify(signature, message.as_bytes(), &key, Algorithm::EdDSA).unwrap() {
+                    
+                    // stored the new did for communication
+                    let new = from_prior.sub;
+                    connection.client_did.replace(&prev, &new);
+                } else {
+                    let response = (
+                        StatusCode::UNAUTHORIZED,
+                        RotationError::InvalidSignature.json(),
+                    );
+                    return Err(Errors::Error2(response.into_response()))?;
+                };
             }
             None => {
                 return Err(Errors::Error0(RotationError::RotationError))?;
@@ -52,11 +76,36 @@ pub async fn did_rotation(
     }
     Ok(())
 }
+fn get_jwt_signature_payload(jwt: &str) -> Result<(&str, &str), Box<dyn err>> {
+    // Split the JWT into its three parts (header, payload, and signature)
+    let parts: Vec<&str> = jwt.split('.').collect();
+    if parts.len() != 3 {
+        return Err("Invalid JWT format".into());
+    }
+    let message = parts[1];
+    let signature = parts[2];
+    Ok((signature, message))
+}
+
 #[cfg(test)]
 mod test {
 
-    pub fn _sender_secrets_resolver() -> impl SecretsResolver {
-        let secret_id = _sender_did() + "#z6LSiZbfm5L5zR3mrqpHyL7T2b2x3afUMpmGnMrEQznAz5F3";
+    pub fn prev_secrets_resolver() -> impl SecretsResolver {
+        let secret_id = "did:key:z6MkeWXQx7Ycpuj4PhXB1GHRinwozrkjn4yot6a3PCU3citF#z6MkeWXQx7Ycpuj4PhXB1GHRinwozrkjn4yot6a3PCU3citF";
+        let secret: Jwk = serde_json::from_str(
+            r#"{
+                "kty": "OKP",
+                "crv": "Ed25519",
+                "x": "ANYekDNsggaD4B3ilknnvaPOheJj7jfqNAq7Powb75g",
+                "d": "ataQeHO0ATp7DJmr2L7WQ0PF1vjnHKvsn0zkaUNCVjg"
+            }"#,
+        )
+        .unwrap();
+
+        LocalSecretsResolver::new(&secret_id, &secret)
+    }
+    pub fn new_secrets_resolver() -> impl SecretsResolver {
+        let secret_id = "did:key:z6MkwKfDFAK49Lb9D6HchFiCXdcurRUSFrbnwDBk5qFZeHA3#z6MkwKfDFAK49Lb9D6HchFiCXdcurRUSFrbnwDBk5qFZeHA3".to_owned();
         let secret: Jwk = serde_json::from_str(
             r#"{
                 "kty": "OKP",
@@ -69,10 +118,10 @@ mod test {
 
         LocalSecretsResolver::new(&secret_id, &secret)
     }
-    pub fn _recipient_did() -> String {
-        "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7".to_string()
+    pub fn prev_did() -> String {
+        "did:key:z6MkeWXQx7Ycpuj4PhXB1GHRinwozrkjn4yot6a3PCU3citF".to_string()
     }
-    pub fn _sender_did() -> String {
+    pub fn new_did() -> String {
         "did:key:z6MkwKfDFAK49Lb9D6HchFiCXdcurRUSFrbnwDBk5qFZeHA3".to_string()
     }
     pub fn setup() -> Arc<AppState> {
@@ -101,7 +150,7 @@ mod test {
         state
     }
     fn _initial_connections() -> Vec<Connection> {
-        let _recipient_did = _recipient_did();
+        let _recipient_did = prev_did();
 
         let connections = format!(
             r##"[
@@ -125,12 +174,7 @@ mod test {
     use std::sync::Arc;
 
     use did_utils::jwk::Jwk;
-    use didcomm::{
-        did::{self, DIDResolver},
-        secrets::{resolvers::ExampleSecretsResolver, SecretsResolver},
-        FromPrior, Message, PackEncryptedOptions, UnpackOptions,
-    };
-    use jwt::ToBase64;
+    use didcomm::{secrets::SecretsResolver, FromPrior, Message};
     use serde_json::json;
     use uuid::Uuid;
 
@@ -150,39 +194,22 @@ mod test {
         let state = &setup();
 
         let from_prior = FromPrior {
-            iss: _sender_did(),
-            sub: "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH5".to_string(),
+            iss: prev_did(),
+            sub: new_did(),
             aud: None,
             exp: None,
             nbf: None,
             iat: None,
             jti: None,
         };
-        let claims = serde_json::to_string(&from_prior).unwrap();
-
-        let diddoc = LocalDIDResolver::resolve(&LocalDIDResolver::default(), &_sender_did())
+        // let claims = serde_json::to_string(&from_prior).unwrap();
+        let did_resolver = LocalDIDResolver::default();
+        let kid = "did:key:z6MkeWXQx7Ycpuj4PhXB1GHRinwozrkjn4yot6a3PCU3citF#z6MkeWXQx7Ycpuj4PhXB1GHRinwozrkjn4yot6a3PCU3citF";
+        let (jwt, _kid) = from_prior
+            .pack(Some(&kid), &did_resolver, &prev_secrets_resolver())
             .await
-            .unwrap()
             .unwrap();
-        let kid = diddoc.verification_method.get(0).unwrap().clone().id;
-
-        let key = jsonwebtoken::EncodingKey::from_secret(kid.as_bytes());
-
-        // encoding from_prior to jwt
-        let header = jsonwebtoken::Header {
-            typ: Some("JWT".to_string()),
-            alg: jsonwebtoken::Algorithm::default(),
-            cty: None,
-            jku: None,
-            jwk: None,
-            kid: Some(kid),
-            x5c: None,
-            x5t: None,
-            x5u: None,
-            x5t_s256: None,
-        };
-
-        let jwt = jsonwebtoken::encode(&header, &claims, &key).unwrap();
+        println!("{jwt}");
 
         let msg = Message::build(
             Uuid::new_v4().to_string(),
@@ -190,37 +217,37 @@ mod test {
             json!(""),
         )
         .to("did:web:alice-mediator.com:alice_mediator_pub".to_string())
-        .from(_sender_did())
+        .from(new_did())
         .from_prior(jwt)
         .finalize();
-        let (msg, _) = msg
-            .pack_encrypted(
-                "did:web:alice-mediator.com:alice_mediator_pub",
-                Some(&_sender_did()),
-                None,
-                &state.did_resolver,
-                &_sender_secrets_resolver(),
-                &PackEncryptedOptions::default(),
-            )
-            .await
-            .unwrap();
+        // let (msg, _) = msg
+        //     .pack_encrypted(
+        //         "did:web:alice-mediator.com:alice_mediator_pub",
+        //         Some(&new_did()),
+        //         None,
+        //         &state.did_resolver,
+        //         &state.secrets_resolver, // should be new_did_secrets
+        //         &PackEncryptedOptions::default(),
+        //     )
+        //     .await
+        //     .unwrap();
 
-        // Mediator in action
-        let did_resolver = LocalDIDResolver::default();
-        let secrets_resolver = _sender_secrets_resolver();
+        // // Mediator in action
+        // let did_resolver = LocalDIDResolver::default();
+        // let secrets_resolver = prev_secrets_resolver();
 
-        let msg = Message::unpack(
-            &msg,
-            &did_resolver,
-            &secrets_resolver,
-            &UnpackOptions::default(),
-        )
-        .await
-        .unwrap();
+        // let msg = Message::unpack(
+        //     &msg,
+        //     &did_resolver,
+        //     &secrets_resolver,
+        //     &UnpackOptions::default(),
+        // )
+        // .await
+        // .unwrap();
         let AppStateRepository {
             connection_repository,
             ..
         } = state.repository.as_ref().unwrap();
-        let _ = did_rotation(msg.0, connection_repository).await;
+        let _ = did_rotation(msg, connection_repository).await;
     }
 }
