@@ -23,7 +23,7 @@ use chacha20poly1305::{
     ChaCha20Poly1305, KeyInit,
 };
 
-use log::{debug, info, error}; // Import logging macros
+use log::{debug, info}; 
 use secrecy::{ExposeSecret, SecretString};
 use zeroize::Zeroize;
 
@@ -33,7 +33,7 @@ struct FileSystemKeystore {
 }
 
 impl FileSystemKeystore {
-    fn encrypt(mut self, secret: KeyStore) -> Result<(), Box<dyn Error>> {
+    fn encrypt(mut self, secret: KeyStore) -> Result<(), KeystoreError> {
         let key = self.key.expose_secret(); // Access key securely
         let cipher = ChaCha20Poly1305::new(GenericArray::from_slice(key.as_bytes()));
 
@@ -45,11 +45,13 @@ impl FileSystemKeystore {
         keystorefile.read_to_end(&mut buffer)?; // Use Result for error handling
 
         let encrypted_key = cipher
-            .encrypt(GenericArray::from_slice(&self.nonce), buffer.as_slice())
-            .map_err(|err| err).unwrap();
+            .encrypt(GenericArray::from_slice(&nonce), buffer.as_slice())
+            .map_err(|err| KeystoreError::EncryptionError(err))?; // Wrap encryption error
+
         // Overwrite the file with encrypted keys
         keystorefile.write_all(&encrypted_key)?; // Use Result for error handling
 
+        // Store the nonce for decryption
         self.nonce = nonce.to_vec();
 
         // Overwrite the buffer with zeros to prevent data leakage
@@ -62,7 +64,7 @@ impl FileSystemKeystore {
         Ok(())
     }
 
-    fn decrypt(self, secret: KeyStore) -> Result<Vec<u8>, std::io::Error> {
+    fn decrypt(self, secret: KeyStore) -> Result<Vec<u8>, KeystoreError> {
         let key = self.key.expose_secret(); // Access key securely
         let cipher = ChaCha20Poly1305::new(GenericArray::from_slice(key.as_bytes()));
 
@@ -72,8 +74,9 @@ impl FileSystemKeystore {
         let mut buffer = Vec::new();
         keystorefile.read_to_end(&mut buffer)?; // Use Result for error handling
 
-        let decrypted_key = cipher.decrypt(GenericArray::from_slice(&self.nonce), buffer.as_slice())
-            .map_err(|err| err).unwrap();
+        let decrypted_key = cipher
+            .decrypt(GenericArray::from_slice(&self.nonce), buffer.as_slice())
+            .map_err(|err| KeystoreError::DecryptionError(err))?; // Wrap decryption error
 
         // Enhanced redaction: Replace all sensitive characters with asterisks
         let redacted_key = decrypted_key.iter().map(|b| if b.is_ascii_graphic() && !b.is_ascii_whitespace() { '*' as u8 } else { *b }).collect::<Vec<u8>>();
@@ -87,6 +90,7 @@ impl FileSystemKeystore {
         Ok(decrypted_key)
     }
 }
+
 
 impl<'a> KeyStore<'a> {
     /// Constructs file-based key-value store.
