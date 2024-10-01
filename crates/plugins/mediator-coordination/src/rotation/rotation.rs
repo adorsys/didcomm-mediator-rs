@@ -174,7 +174,7 @@ mod test {
     use std::sync::Arc;
 
     use did_utils::jwk::Jwk;
-    use didcomm::{secrets::SecretsResolver, FromPrior, Message};
+    use didcomm::{secrets::SecretsResolver, FromPrior, Message, PackEncryptedOptions, UnpackOptions};
     use serde_json::json;
     use uuid::Uuid;
 
@@ -220,34 +220,34 @@ mod test {
         .from(new_did())
         .from_prior(jwt)
         .finalize();
-        // let (msg, _) = msg
-        //     .pack_encrypted(
-        //         "did:web:alice-mediator.com:alice_mediator_pub",
-        //         Some(&new_did()),
-        //         None,
-        //         &state.did_resolver,
-        //         &state.secrets_resolver, // should be new_did_secrets
-        //         &PackEncryptedOptions::default(),
-        //     )
-        //     .await
-        //     .unwrap();
+        let (msg, _) = msg
+            .pack_encrypted(
+                "did:web:alice-mediator.com:alice_mediator_pub",
+                Some(&new_did()),
+                None,
+                &state.did_resolver,
+                &state.secrets_resolver, // should be new_did_secrets
+                &PackEncryptedOptions::default(),
+            )
+            .await
+            .unwrap();
 
-        // // Mediator in action
-        // let did_resolver = LocalDIDResolver::default();
-        // let secrets_resolver = prev_secrets_resolver();
+        // Mediator in action
+        let did_resolver = LocalDIDResolver::default();
+        let secrets_resolver = prev_secrets_resolver();
 
-        // let msg = Message::unpack(
-        //     &msg,
-        //     &did_resolver,
-        //     &secrets_resolver,
-        //     &UnpackOptions::default(),
-        // )
-        // .await
-        // .unwrap();
+        let msg = Message::unpack(
+            &msg,
+            &did_resolver,
+            &secrets_resolver,
+            &UnpackOptions::default(),
+        )
+        .await
+        .unwrap();
         let AppStateRepository {
             connection_repository,
             ..
         } = state.repository.as_ref().unwrap();
-        let _ = did_rotation(msg, connection_repository).await;
+        let _ = did_rotation(msg.0, connection_repository).await;
     }
 }
