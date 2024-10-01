@@ -13,7 +13,7 @@ use crate::{
     web::{error::MediationError, AppState, AppStateRepository},
 };
 
-
+use super::error::RoutingError;
 
 /// Mediator receives forwarded messages, extract the next field in the message body, and the attachments in the message
 /// then stores the attachment with the next field as key for pickup

@@ -43,10 +43,10 @@ pub async fn process_mediate_request(
     midlw::run!(ensure_jwm_type_is_mediation_request(&plain_message));
 
     // This is to Check explicit agreement to HTTP responding
-    // midlw::run!(ensure_transport_return_route_is_decorated_all(
-    //     &plain_message
-    // ));
-
+    midlw::run!(ensure_transport_return_route_is_decorated_all(
+        &plain_message
+    ));
+    
     let mediator_did = &state.diddoc.id;
 
     let sender_did = plain_message
@@ -343,16 +343,18 @@ pub async fn process_plain_keylist_update_message(
 
     let mediator_did = &state.diddoc.id;
 
-    Ok(Message::build(
-        format!("urn:uuid:{}", Uuid::new_v4()),
-        KEYLIST_UPDATE_RESPONSE_2_0.to_string(),
-        json!(KeylistUpdateResponseBody {
-            updated: confirmations
-        }),
+    Ok(
+        Message::build(
+            format!("urn:uuid:{}", Uuid::new_v4()),
+            KEYLIST_UPDATE_RESPONSE_2_0.to_string(),
+            json!(KeylistUpdateResponseBody {
+                updated: confirmations
+            }),
+        )
+        .to(sender)
+        .from(mediator_did.to_owned())
+        .finalize(),
     )
-    .to(sender.clone())
-    .from(mediator_did.clone())
-    .finalize())
 }
 
 pub async fn process_plain_keylist_query_message(

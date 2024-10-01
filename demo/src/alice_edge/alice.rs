@@ -1,9 +1,8 @@
-use did_utils::didcore::Document;
+use did_utils::{didcore::Document, jwk::Jwk};
 use didcomm::{
-    did::resolvers::ExampleDIDResolver, secrets::resolvers::ExampleSecretsResolver, AttachmentData,
-    Message, PackEncryptedOptions, UnpackOptions,
+    did::resolvers::ExampleDIDResolver, secrets::{resolvers::ExampleSecretsResolver, SecretsResolver}, AttachmentData, FromPrior, Message, PackEncryptedOptions, UnpackOptions
 };
-use mediator_coordination::didcomm::bridge::LocalDIDResolver;
+use mediator_coordination::didcomm::bridge::{LocalDIDResolver, LocalSecretsResolver};
 use reqwest::{header::CONTENT_TYPE, Client};
 use serde_json::json;
 use uuid::Uuid;
@@ -17,7 +16,12 @@ use crate::{
     ledger::{ALICE_DID, ALICE_DID_DOC, ALICE_SECRETS, MEDIATOR_DID_DOC},
     DIDCOMM_CONTENT_TYPE,
 };
-
+pub fn prev_did() -> String {
+    "did:key:z6MkeWXQx7Ycpuj4PhXB1GHRinwozrkjn4yot6a3PCU3citF".to_string()
+}
+pub fn new_did() -> String {
+    "did:key:z6MkwKfDFAK49Lb9D6HchFiCXdcurRUSFrbnwDBk5qFZeHA3".to_string()
+}
 pub(crate) async fn get_mediator_didoc() {
     let client = reqwest::Client::new();
 
@@ -84,6 +88,34 @@ pub(crate) async fn mediate_request() {
     .unwrap();
 
     println!("\nMediation Request Response{:#?}\n", msg,)
+}
+pub fn prev_secrets_resolver() -> impl SecretsResolver {
+    let secret_id = "did:key:z6MkeWXQx7Ycpuj4PhXB1GHRinwozrkjn4yot6a3PCU3citF#z6MkeWXQx7Ycpuj4PhXB1GHRinwozrkjn4yot6a3PCU3citF";
+    let secret: Jwk = serde_json::from_str(
+        r#"{
+            "kty": "OKP",
+            "crv": "Ed25519",
+            "x": "ANYekDNsggaD4B3ilknnvaPOheJj7jfqNAq7Powb75g",
+            "d": "ataQeHO0ATp7DJmr2L7WQ0PF1vjnHKvsn0zkaUNCVjg"
+        }"#,
+    )
+    .unwrap();
+
+    LocalSecretsResolver::new(&secret_id, &secret)
+}
+pub fn new_secrets_resolver() -> impl SecretsResolver {
+    let secret_id = "did:key:z6MkwKfDFAK49Lb9D6HchFiCXdcurRUSFrbnwDBk5qFZeHA3#z6MkwKfDFAK49Lb9D6HchFiCXdcurRUSFrbnwDBk5qFZeHA3".to_owned();
+    let secret: Jwk = serde_json::from_str(
+        r#"{
+            "kty": "OKP",
+            "crv": "X25519",
+            "x": "ZlJzHqy2dLrDQNlV15O3zDOIXpWVQnq6VtiVZ78O0hY",
+            "d": "8OK7-1IVMdcM86PZzYKsbIi3kCJ-RxI8XFKe9JEcF2Y"
+        }"#,
+    )
+    .unwrap();
+
+    LocalSecretsResolver::new(&secret_id, &secret)
 }
 pub(crate) async fn keylist_update_payload() {
 
