@@ -17,9 +17,9 @@ use uuid::Uuid;
 use crate::{
     constant::{KEYLIST_2_0, KEYLIST_UPDATE_RESPONSE_2_0, MEDIATE_DENY_2_0, MEDIATE_GRANT_2_0},
     model::stateful::{coord::{
-        Keylist, KeylistBody, KeylistEntry, KeylistUpdateAction, KeylistUpdateBody,
-        KeylistUpdateConfirmation, KeylistUpdateResponseBody, KeylistUpdateResult, MediationDeny,
-        MediationGrant, MediationGrantBody,
+        KeylistBody, KeylistEntry, KeylistUpdateAction, KeylistUpdateBody,
+        KeylistUpdateConfirmation, KeylistUpdateResponseBody, KeylistUpdateResult,
+        MediationGrantBody,
     }, entity::{Connection, Secrets, VerificationMaterial}},
     web::{coord::midlw::{self, ensure_jwm_type_is_mediation_request, ensure_transport_return_route_is_decorated_all}, 
         error::MediationError, AppState, AppStateRepository},
@@ -68,11 +68,7 @@ pub async fn process_mediate_request(
         return Ok(Message::build(
             format!("urn:uuid:{}", Uuid::new_v4()),
             MEDIATE_DENY_2_0.to_string(),
-            json!(MediationDeny {
-                id: format!("urn:uuid:{}", Uuid::new_v4()),
-                message_type: MEDIATE_DENY_2_0.to_string(),
-                ..Default::default()
-            }),
+            json!({}),
         )
         .to(sender_did.clone())
         .from(mediator_did.clone())
@@ -129,14 +125,12 @@ pub async fn process_mediate_request(
             Err(error) => eprintln!("Error storing connection: {:?}", error),
         }
 
-        let mediation_grant = create_mediation_grant(&routing_did);
-
         let new_connection = Connection {
             id: None,
             client_did: sender_did.to_string(),
             mediator_did: mediator_did.to_string(),
-            keylist: vec!["".to_string()],
-            routing_did: routing_did,
+            keylist: vec![],
+            routing_did : routing_did.clone(),
         };
 
         // Use store_one to store the sample connection
@@ -149,23 +143,14 @@ pub async fn process_mediate_request(
 
         Ok(Message::build(
             format!("urn:uuid:{}", Uuid::new_v4()),
-            mediation_grant.message_type.clone(),
-            json!(mediation_grant),
+            MEDIATE_GRANT_2_0.to_string(),
+            json!(MediationGrantBody {
+                routing_did,
+            }),
         )
         .to(sender_did.clone())
         .from(mediator_did.clone())
         .finalize())
-    }
-}
-
-fn create_mediation_grant(routing_did: &str) -> MediationGrant {
-    MediationGrant {
-        id: format!("urn:uuid:{}", Uuid::new_v4()),
-        message_type: MEDIATE_GRANT_2_0.to_string(),
-        body: MediationGrantBody {
-            routing_did: routing_did.to_string(),
-        },
-        ..Default::default()
     }
 }
 
@@ -178,11 +163,11 @@ fn generate_did_peer(service_endpoint: String) -> (String, Ed25519KeyPair, X2551
     let keys = vec![
         PurposedKey {
             purpose: Purpose::Encryption,
-            public_key_multibase: auth_keys.to_multikey(),
+            public_key_multibase: agreem_keys.to_multikey(),
         },
         PurposedKey {
             purpose: Purpose::Verification,
-            public_key_multibase: agreem_keys.to_multikey(),
+            public_key_multibase: auth_keys.to_multikey(),
         },
     ];
 
@@ -392,30 +377,19 @@ pub async fn process_plain_keylist_query_message(
         })
         .collect::<Vec<KeylistEntry>>();
 
-    let body = KeylistBody {
-        keys: keylist_entries,
-        pagination: None,
-    };
-
-    let keylist_object = Keylist {
-        id: format!("urn:uuid:{}", Uuid::new_v4()),
-        message_type: KEYLIST_2_0.to_string(),
-        body: body,
-        additional_properties: None,
-    };
-
     let mediator_did = &state.diddoc.id;
 
     let message = Message::build(
         format!("urn:uuid:{}", Uuid::new_v4()),
         KEYLIST_2_0.to_string(),
-        json!(keylist_object),
+        json!(KeylistBody {
+            keys: keylist_entries,
+            pagination: None,
+        }),
     )
     .to(sender.clone())
     .from(mediator_did.clone())
     .finalize();
-
-    println!("message: {:?}", message);
 
     Ok(message)
 }
