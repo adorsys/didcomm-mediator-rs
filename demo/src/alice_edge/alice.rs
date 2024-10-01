@@ -86,6 +86,24 @@ pub(crate) async fn mediate_request() {
     println!("\nMediation Request Response{:#?}\n", msg,)
 }
 pub(crate) async fn keylist_update_payload() {
+
+    let from_prior = FromPrior {
+        iss: prev_did(),
+        sub: new_did(),
+        aud: None,
+        exp: None,
+        nbf: None,
+        iat: None,
+        jti: None,
+    };
+    // let claims = serde_json::to_string(&from_prior).unwrap();
+    let did_resolver = LocalDIDResolver::default();
+    let kid = "did:key:z6MkeWXQx7Ycpuj4PhXB1GHRinwozrkjn4yot6a3PCU3citF#z6MkeWXQx7Ycpuj4PhXB1GHRinwozrkjn4yot6a3PCU3citF";
+    let (jwt, _kid) = from_prior
+        .pack(Some(&kid), &did_resolver, &prev_secrets_resolver())
+        .await
+        .unwrap();
+
     // --- Building message from ALICE to MEDIATOR ---
     let msg = Message::build(
         "id_alice_keylist_update_request".to_owned(),
@@ -104,6 +122,7 @@ pub(crate) async fn keylist_update_payload() {
     .header("return_route".into(), json!("all"))
     .to(MEDIATOR_DID.to_string())
     .from(ALICE_DID.to_owned())
+    .from_prior(jwt)
     .finalize();
 
     // --- Packing encrypted and authenticated message ---

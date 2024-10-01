@@ -4,6 +4,7 @@ pub mod plugin;
 pub mod didcomm;
 
 pub mod forward;
+pub mod rotation;
 
 mod model;
 mod constant;

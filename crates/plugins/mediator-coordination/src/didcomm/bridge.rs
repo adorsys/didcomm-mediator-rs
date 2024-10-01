@@ -28,6 +28,19 @@ impl LocalDIDResolver {
             .expect("Should easily convert between DID document representations."),
         }
     }
+    pub fn default() -> Self {
+    Self {
+        diddoc: DIDDoc {
+            id: "".to_string(),
+            key_agreement: vec![],
+            authentication: vec![],
+            verification_method: vec![],
+            service: vec![],
+        },
+    }
+    
+    
+    }
 }
 
 #[async_trait]

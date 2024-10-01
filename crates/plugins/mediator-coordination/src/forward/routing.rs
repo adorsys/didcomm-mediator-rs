@@ -1,21 +1,64 @@
-use axum::response::{IntoResponse, Response};
-use didcomm::{protocols::routing::try_parse_forward, AttachmentData, Message};
+use std::{f64::consts::E, sync::Arc};
 
+use axum::response::{IntoResponse, Response};
+
+use database::Repository;
+use didcomm::{AttachmentData, Message};
 use hyper::StatusCode;
 use mongodb::bson::doc;
 use serde_json::{json, Value};
 
 use crate::{
-    model::stateful::entity::RoutedMessage,
+    model::stateful::entity::{Connection, RoutedMessage},
     web::{error::MediationError, AppState, AppStateRepository},
 };
 
-/// mediator receives messages of type forward then it unpacks the messages and stores it for pickup
-/// the unpacked message is then repacked for further transmission.
+
+
+/// Mediator receives forwarded messages, extract the next field in the message body, and the attachments in the message
+/// then stores the attachment with the next field as key for pickup
 pub async fn mediator_forward_process(
     state: &AppState,
     payload: Message,
 ) -> Result<Message, Response> {
+  
+    let result = handler(state, payload).await.unwrap();
+    Ok(result)
+}
+
+async fn checks(
+    message: &Message,
+    connection_repository: &Arc<dyn Repository<Connection>>,
+) -> Result<String, Response> {
+    
+    let next = message.body.get("next").and_then(Value::as_str);
+    match next {
+        Some(next) => next,
+        None => {
+            let response = (StatusCode::BAD_REQUEST, RoutingError::MalformedBody.json());
+            return Err(response.into_response());
+        }
+    };
+
+    // Check if the client's did in mediator's keylist
+    let _connection = match connection_repository
+        .find_one_by(doc! {"keylist": doc!{ "$elemMatch": { "$eq": &next}}})
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response())?
+    {
+        Some(connection) => connection,
+        None => {
+            let response = (
+                StatusCode::UNAUTHORIZED, 
+                MediationError::UncoordinatedSender.json(),
+            );
+            return Err(response.into_response());
+        }
+    };
+    Ok(next.unwrap().to_string())
+}
+
+async fn handler(state: &AppState, message: Message) -> Result<Message, MediationError> {
     let AppStateRepository {
         message_repository,
         connection_repository,
@@ -23,79 +66,31 @@ pub async fn mediator_forward_process(
     } = state
         .repository
         .as_ref()
-        .ok_or_else(|| MediationError::RepostitoryError)
-        .unwrap();
+        .ok_or_else(|| MediationError::RepostitoryError)?;
 
-    // Check if the client's did in mediator's keylist
-
-    let next = payload.body.get("next").and_then(Value::as_str).unwrap();
-            
-    let _connection = match connection_repository
-        .find_one_by(doc! {"keylist": doc!{ "$elemMatch": { "$eq": &next}}})
-        .await
-        .unwrap()
-    {
-        Some(connection) => connection,
-        None => {
-            let response = (
-                StatusCode::UNAUTHORIZED,
-                MediationError::UncoordinatedSender.json(),
-            );
-            return Err(response.into_response());
-        }
+    let next = match checks(&message, connection_repository).await.ok() {
+        Some(next) => Ok(next),
+        None => Err(MediationError::RepostitoryError)
     };
 
-    let attachments = payload.attachments.unwrap_or_default();
-    for att in attachments {
-        let attached = match att.data {
-            AttachmentData::Json { value: val} => val.json,
-            _ => json!(0)
+    let attachments = message.attachments.unwrap_or_default();
+    for attachment in attachments {
+        let attached = match attachment.data {
+            AttachmentData::Json { value: data } => data.json,
+            AttachmentData::Base64 { value: data } => json!(data.base64),
+            AttachmentData::Links { value: data } => json!(data.links),
         };
         message_repository
             .store(RoutedMessage {
                 id: None,
-                message: json!(attached),
-                recipient_did: next.to_string(),
+                message: attached,
+                recipient_did: next.as_ref().unwrap().to_owned(),
             })
             .await
-            .map_err(|_| MediationError::PersisenceError)
-            .unwrap();
+            .map_err(|_| MediationError::PersisenceError)?;
     }
-
-// let result = try_parse_forward(&payload).unwrap();
-//     let _connection = match connection_repository
-//         .find_one_by(doc! {"keylist": doc!{ "$elemMatch": { "$eq": &result.next}}})
-//         .await
-//         .unwrap()
-    // {
-    //     Some(connection) => connection,
-    //     None => {
-    //         let response = (
-    //             StatusCode::UNAUTHORIZED,
-    //             MediationError::UncoordinatedSender.json(),
-    //         );
-    //         return Err(response.into_response());
-    //     }
-    // };
-
-    // store message attachement with associated recipient did
-
-    // let forward_msg = serde_json::to_string(&result.forwarded_msg).unwrap();
-
-    // let messages = RoutedMessage {
-    //     id: None,
-    //     message: forward_msg,
-    //     recipient_did: result.next,
-    // };
-    // message_repository
-    //     .store(messages)
-    //     .await
-    //     .map_err(|_| MediationError::PersisenceError)
-    //     .unwrap();
-    // Ok(result.msg.to_owned())
-    Ok(Message::build("".to_string(), "".to_string(),json!("")).finalize())
+    Ok(Message::build("".to_string(), "".to_string(), json!("")).finalize())
 }
-
 #[cfg(test)]
 mod test {
 
@@ -151,11 +146,7 @@ mod test {
 
         let connections = format!(
             r##"[
-                {{
-                    "_id": {{
-                        "$oid": "6580701fd2d92bb3cd291b2a"
-                    }},
-
+               {{
                     "client_did": "{_recipient_did}",
                     "mediator_did": "did:web:alice-mediator.com:alice_mediator_pub",
                     "routing_did": "did:key:generated",
