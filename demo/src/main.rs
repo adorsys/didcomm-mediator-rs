@@ -15,8 +15,8 @@ async fn main() {
     println!("\n=================== GETTING MEDIATOR DID DOCUMENT ===================\n");
     get_mediator_didoc().await;
 
-    println!("\n=================== MEDIATING REQUEST ===================\n");
-    mediate_request().await;
+    // println!("\n=================== MEDIATING REQUEST ===================\n");
+    // mediate_request().await;
 
     println!("\n=================== GET THE KEYLIST UPDATE PAYLOAD ===================\n");
     keylist_update_payload().await;
