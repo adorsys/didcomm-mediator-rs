@@ -1,4 +1,5 @@
 use axum::Router;
+use database::Repository;
 use keystore::filesystem::StdFileSystem;
 use mongodb::{options::ClientOptions, Client, Database};
 use plugin_api::{Plugin, PluginError};
@@ -92,8 +93,11 @@ impl Plugin for MediatorCoordinationPlugin {
         // Load crypto identity
         let mut fs = StdFileSystem;
         let diddoc = util::read_diddoc(&fs, &env.storage_dirpath).expect(msg);
-        let keystore = util::read_keystore(&mut fs, &env.storage_dirpath).expect(msg);
+        let secret_repository = Arc::new(MongoSecretsRepository::from_db(&db));
 
+        // Fetch the necessary secrets for routing from the database
+        let keystore = secret_repository.get_collection().expect("Failed to retrieve secrets");
+        
         // Load persistence layer
         let repository = AppStateRepository {
             connection_repository: Arc::new(MongoConnectionRepository::from_db(&db)),
