@@ -47,11 +47,11 @@ pub async fn did_rotation(
 
         // validate if did is  known
         let _connection = match conection_repos
-            .find_one_by(doc! {"client_did": &prev})
+        .find_one_by(doc! {"keylist": doc!{ "$elemMatch": { "$eq": &prev}}})
             .await
             .unwrap()
         {
-            Some(connection) => {
+            Some(mut connection) => {
                 let (signature, message) = get_jwt_signature_payload(&jwt).unwrap();
                 let key = jsonwebtoken::DecodingKey::from_secret(kid.as_bytes());
 
@@ -60,7 +60,11 @@ pub async fn did_rotation(
                     
                     // stored the new did for communication
                     let new = from_prior.sub;
-                    connection.client_did.replace(&prev, &new);
+                    if connection.client_did == prev {
+                        let _= connection.client_did.replace(&prev, &new);
+                    };
+                   let did_index = connection.keylist.iter().position(|did| did == &prev).unwrap();
+                   connection.keylist.swap_remove(did_index).push_str(&new);
                 } else {
                     let response = (
                         StatusCode::UNAUTHORIZED,
