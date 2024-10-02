@@ -66,7 +66,7 @@ pub async fn process_mediate_request(
     {
         println!("Sending mediate deny.");
         return Ok(Message::build(
-            format!("urn:uuid:{}", Uuid::new_v4()),
+            Uuid::new_v4().urn().to_string(),
             MEDIATE_DENY_2_0.to_string(),
             json!({}),
         )
@@ -142,7 +142,7 @@ pub async fn process_mediate_request(
         }
 
         Ok(Message::build(
-            format!("urn:uuid:{}", Uuid::new_v4()),
+            Uuid::new_v4().urn().to_string(),
             MEDIATE_GRANT_2_0.to_string(),
             json!(MediationGrantBody {
                 routing_did,
@@ -323,7 +323,7 @@ pub async fn process_plain_keylist_update_message(
     let mediator_did = &state.diddoc.id;
 
     Ok(Message::build(
-        format!("urn:uuid:{}", Uuid::new_v4()),
+        Uuid::new_v4().urn().to_string(),
         KEYLIST_UPDATE_RESPONSE_2_0.to_string(),
         json!(KeylistUpdateResponseBody {
             updated: confirmations
@@ -380,7 +380,7 @@ pub async fn process_plain_keylist_query_message(
     let mediator_did = &state.diddoc.id;
 
     let message = Message::build(
-        format!("urn:uuid:{}", Uuid::new_v4()),
+        Uuid::new_v4().urn().to_string(),
         KEYLIST_2_0.to_string(),
         json!(KeylistBody {
             keys: keylist_entries,
