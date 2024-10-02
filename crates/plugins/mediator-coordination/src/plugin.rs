@@ -93,11 +93,16 @@ impl Plugin for MediatorCoordinationPlugin {
         // Load crypto identity
         let mut fs = StdFileSystem;
         let diddoc = util::read_diddoc(&fs, &env.storage_dirpath).expect(msg);
-        let secret_repository = Arc::new(MongoSecretsRepository::from_db(&db));
 
-        // Fetch the necessary secrets for routing from the database
-        let keystore = secret_repository.get_collection().expect("Failed to retrieve secrets");
-        
+        // Load secrets from the database
+        let secret_repository = MongoSecretsRepository::from_db(&db);
+        let secrets = tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(secret_repository.find_all())
+        }).expect("Failed to load secrets from database");
+
+        // Convert Vec<Secrets> to KeyStore
+        let key_store = util::read_keystore(&mut fs, &env.storage_dirpath).expect(msg);
+
         // Load persistence layer
         let repository = AppStateRepository {
             connection_repository: Arc::new(MongoConnectionRepository::from_db(&db)),
@@ -109,7 +114,7 @@ impl Plugin for MediatorCoordinationPlugin {
         let state = AppState::from(
             env.public_domain.clone(),
             diddoc,
-            keystore,
+            key_store, 
             Some(repository),
         );
 
