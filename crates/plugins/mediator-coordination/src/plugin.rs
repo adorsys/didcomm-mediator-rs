@@ -94,8 +94,8 @@ impl Plugin for MediatorCoordinationPlugin {
         let mut fs = StdFileSystem;
         let diddoc = util::read_diddoc(&fs, &env.storage_dirpath).expect(msg);
 
-        // Load secrets from the database
-        let secret_repository = MongoSecretsRepository::from_db(&db);
+        // Load secrets directly from the database
+        let secret_repository = Arc::new(MongoSecretsRepository::from_db(&db));
         let secrets = tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(secret_repository.find_all())
         }).expect("Failed to load secrets from database");
