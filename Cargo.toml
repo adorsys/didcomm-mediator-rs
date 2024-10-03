@@ -92,7 +92,6 @@ mediator-coordination = {workspace = true, optional = true }
 didcomm.workspace = true
 
 
-
 [features]
 default = ["plugin-index", "plugin-did_endpoint", "plugin-oob_messages", "plugin-mediator-coordination"]
 
