@@ -38,11 +38,10 @@ impl DIDResolver for LocalDIDResolver {
         }
 
         if did.starts_with("did:peer:") {
-            // Corrected method name to `new_with_format`
             let method = DidPeer::new_with_format(PublicKeyFormat::Jwk);
             match method.expand(did) {
                 Ok(diddoc) => {
-                    let document: DIDDoc = diddoc.into(); // Assuming the From<Document> for DIDDoc is implemented
+                    let document: DIDDoc = diddoc.into();
                     Ok(Some(document))
                 },
                 Err(err) => Err(Error::new(ErrorKind::DIDNotResolved, err)),
@@ -51,7 +50,7 @@ impl DIDResolver for LocalDIDResolver {
             let method = DidKey::new_full(true, PublicKeyFormat::Jwk);
             match method.expand(did) {
                 Ok(diddoc) => {
-                    let document: DIDDoc = diddoc.into(); // Assuming the From<Document> for DIDDoc is implemented
+                    let document: DIDDoc = diddoc.into();
                     Ok(Some(document))
                 },
                 Err(err) => Err(Error::new(ErrorKind::DIDNotResolved, err)),
@@ -64,6 +63,7 @@ impl DIDResolver for LocalDIDResolver {
         }
     }
 }
+
 
 
 
