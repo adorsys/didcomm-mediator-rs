@@ -51,6 +51,7 @@ pub(crate) async fn handle_mediator_requests(
             )
             .await
         }
+
         MEDIATE_REQUEST_2_0 => {
             web::coord::handler::stateful::process_mediate_request(&state, &message).await
         }
@@ -110,6 +111,7 @@ pub mod tests {
         error::Error as DidcommError, secrets::SecretsResolver, Message, PackEncryptedOptions,
         UnpackOptions,
     };
+    use web::AppStateRepository;
 
     use crate::{
         didcomm::bridge::LocalSecretsResolver,
@@ -117,7 +119,6 @@ pub mod tests {
             MockConnectionRepository, MockMessagesRepository, MockSecretsRepository,
         },
         util::{self, MockFileSystem},
-        web::{self, AppStateRepository},
     };
 
     pub fn setup() -> (Router, Arc<AppState>) {
@@ -225,16 +226,12 @@ mod tests2 {
     use crate::{
         constant::{KEYLIST_UPDATE_RESPONSE_2_0, MEDIATE_GRANT_2_0},
         repository::stateful::tests::MockConnectionRepository,
-        web::{self, AppStateRepository},
     };
-
-    use axum::{
-        body::Body,
-        http::{Method, Request},
-        Router,
-    };
+    use axum::Router;
+    use hyper::{Body, Method, Request};
     use serde_json::{json, Value};
     use tower::ServiceExt;
+    use web::AppStateRepository;
 
     #[allow(clippy::needless_update)]
     pub fn setup() -> (Router, Arc<AppState>) {

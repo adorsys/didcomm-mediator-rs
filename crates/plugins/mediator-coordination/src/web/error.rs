@@ -41,7 +41,7 @@ pub enum MediationError {
     #[error("Could not deserialize Message")]
     DeserializationError,
     #[error("Repository not set")]
-    RepostitoryError,
+    RepostitoryError
 }
 
 impl MediationError {

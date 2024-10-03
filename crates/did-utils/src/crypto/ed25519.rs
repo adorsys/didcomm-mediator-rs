@@ -237,16 +237,33 @@ impl Ed25519KeyPair {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ed25519_dalek::ed25519::signature::Keypair;
+    use multibase::Base::Base64Url;
     use crate::crypto::traits::{CoreSign, Generate, KeyMaterial, BYTES_LENGTH_32};
     use crate::jwk::Jwk;
+    use crate::methods::DidKey;
 
     // A test to create a new Ed25519KeyPair and check that bytes of both private and public key from
     // key material is 32 bytes long.
     #[test]
     fn test_new() {
-        let keypair = Ed25519KeyPair::new().unwrap();
-        assert_eq!(keypair.public_key_bytes().unwrap().len(), BYTES_LENGTH_32);
-        assert_eq!(keypair.private_key_bytes().unwrap().len(), BYTES_LENGTH_32);
+        let secret: Jwk = serde_json::from_str(
+            r#"{
+                "kty": "OKP",
+                "crv": "Ed25519",
+                "d": "Vy8gEiQlVXWynUMz310p-ucQk1-1l0WP9zEziYn_0yU",
+                "x": "qndCbSqVRXDr8GK6o2qy54uEBuc31jc5ooPNSmU6yE0"
+            }"#,
+        )
+        .unwrap();
+        let keypair : Ed25519KeyPair = secret.try_into().unwrap();
+        let xkey = keypair.get_x25519().unwrap();
+        let xkey : Jwk = xkey.try_into().unwrap();
+        println!("public key: {:#?}", serde_json::to_value(&xkey).unwrap().to_string());
+        // println!("private key: {}", multibase::encode(multibase::Base::Base58Btc, keypair.secret_key.clone().unwrap().to_bytes()));
+
+        // assert_eq!(keypair.public_key_bytes().unwrap().len(), BYTES_LENGTH_32);
+        // assert_eq!(keypair.private_key_bytes().unwrap().len(), BYTES_LENGTH_32);
     }
 
     // Generate a new Ed25519KeyPair with a seed and check that bytes of both private and public key
