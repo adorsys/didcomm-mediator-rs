@@ -6,34 +6,34 @@ use lazy_static::lazy_static;
 use serde_json::json;
 
 lazy_static! {
-    pub static ref ALICE_DID: String = String::from("did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7");
+    pub static ref ALICE_DID: String = String::from("did:key:z6MkrQT3VKYGkbPaYuJeBv31gNgpmVtRWP5yTocLDBgPpayM");
 
     pub static ref ALICE_DID_DOC: DIDDoc = serde_json::from_str(
         r#"{
-            "id": "did:key:z6MkeWXQx7Ycpuj4PhXB1GHRinwozrkjn4yot6a3PCU3citF",
+            "id": "did:key:z6MkrQT3VKYGkbPaYuJeBv31gNgpmVtRWP5yTocLDBgPpayM",
   "verificationMethod": [
     {
-      "id": "did:key:z6MkeWXQx7Ycpuj4PhXB1GHRinwozrkjn4yot6a3PCU3citF#z6MkeWXQx7Ycpuj4PhXB1GHRinwozrkjn4yot6a3PCU3citF",
+      "id": "did:key:z6MkrQT3VKYGkbPaYuJeBv31gNgpmVtRWP5yTocLDBgPpayM#z6MkrQT3VKYGkbPaYuJeBv31gNgpmVtRWP5yTocLDBgPpayM",
       "type": "Ed25519VerificationKey2018",
-      "controller": "did:key:z6MkeWXQx7Ycpuj4PhXB1GHRinwozrkjn4yot6a3PCU3citF",
+      "controller": "did:key:z6MkrQT3VKYGkbPaYuJeBv31gNgpmVtRWP5yTocLDBgPpayM",
       "publicKeyJwk": {
         "kty": "OKP",
         "crv": "Ed25519",
-        "x": "ANYekDNsggaD4B3ilknnvaPOheJj7jfqNAq7Powb75g"
+        "x": "sZPvulKOXCES3D8Eya3LVnlgOpEaBohCqZ7emD8VXAA"
       }
     }
   ],
   "authentication": [
-    "did:key:z6MkeWXQx7Ycpuj4PhXB1GHRinwozrkjn4yot6a3PCU3citF#z6MkeWXQx7Ycpuj4PhXB1GHRinwozrkjn4yot6a3PCU3citF"
+    "did:key:z6MkrQT3VKYGkbPaYuJeBv31gNgpmVtRWP5yTocLDBgPpayM#z6MkrQT3VKYGkbPaYuJeBv31gNgpmVtRWP5yTocLDBgPpayM"
   ],
   "assertionMethod": [
-    "did:key:z6MkeWXQx7Ycpuj4PhXB1GHRinwozrkjn4yot6a3PCU3citF#z6MkeWXQx7Ycpuj4PhXB1GHRinwozrkjn4yot6a3PCU3citF"
+    "did:key:z6MkrQT3VKYGkbPaYuJeBv31gNgpmVtRWP5yTocLDBgPpayM#z6MkrQT3VKYGkbPaYuJeBv31gNgpmVtRWP5yTocLDBgPpayM"
   ],
             "capabilityDelegation": [
-                "did:key:z6MkeWXQx7Ycpuj4PhXB1GHRinwozrkjn4yot6a3PCU3citF#z6MkeWXQx7Ycpuj4PhXB1GHRinwozrkjn4yot6a3PCU3citF"
+                "did:key:z6MkrQT3VKYGkbPaYuJeBv31gNgpmVtRWP5yTocLDBgPpayM#z6MkrQT3VKYGkbPaYuJeBv31gNgpmVtRWP5yTocLDBgPpayM"
             ],
             "capabilityInvocation": [
-                "did:key:z6MkeWXQx7Ycpuj4PhXB1GHRinwozrkjn4yot6a3PCU3citF#z6MkeWXQx7Ycpuj4PhXB1GHRinwozrkjn4yot6a3PCU3citF"
+                "did:key:z6MkrQT3VKYGkbPaYuJeBv31gNgpmVtRWP5yTocLDBgPpayM#z6MkrQT3VKYGkbPaYuJeBv31gNgpmVtRWP5yTocLDBgPpayM"
             ],
             "keyAgreement": [
                 "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7#z6LSbuUXWSgPfpiDBjUK6E7yiCKMN2eKJsXn5b55ZgqGz6Mr"

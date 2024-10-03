@@ -1,6 +1,8 @@
 use did_utils::{didcore::Document, jwk::Jwk};
 use didcomm::{
-    did::resolvers::ExampleDIDResolver, secrets::{resolvers::ExampleSecretsResolver, SecretsResolver}, AttachmentData, FromPrior, Message, PackEncryptedOptions, UnpackOptions
+    did::resolvers::ExampleDIDResolver,
+    secrets::{resolvers::ExampleSecretsResolver, SecretsResolver},
+    AttachmentData, FromPrior, Message, PackEncryptedOptions, UnpackOptions,
 };
 use mediator_coordination::didcomm::bridge::{LocalDIDResolver, LocalSecretsResolver};
 use reqwest::{header::CONTENT_TYPE, Client};
@@ -16,11 +18,39 @@ use crate::{
     ledger::{ALICE_DID, ALICE_DID_DOC, ALICE_SECRETS, MEDIATOR_DID_DOC},
     DIDCOMM_CONTENT_TYPE,
 };
+pub fn prev_secrets_resolver() -> impl SecretsResolver {
+    let secret_id = "did:key:z6MkrQT3VKYGkbPaYuJeBv31gNgpmVtRWP5yTocLDBgPpayM#z6MkrQT3VKYGkbPaYuJeBv31gNgpmVtRWP5yTocLDBgPpayM";
+    let secret: Jwk = serde_json::from_str(
+        r#"{
+            "kty": "OKP",
+            "crv": "Ed25519",
+            "x": "sZPvulKOXCES3D8Eya3LVnlgOpEaBohCqZ7emD8VXAA",
+            "d": "kUKFMD3RCZpk556fG0hx9GUrmdvb8t7k3TktPXCi4CY"
+            }"#,
+    )
+    .unwrap();
+
+    LocalSecretsResolver::new(&secret_id, &secret)
+}
+
+pub fn new_secrets_resolver() -> impl SecretsResolver {
+    let secret_id = "did:key:z6MkqvgpxveKbuygKXnoRcD3jtLTJLgv7g6asLGLsoC4sUEp#z6LSeQmJnBaXhHz81dCGNDeTUUdMcX1a8p5YSVacaZEDdscp";
+    let secret: Jwk = serde_json::from_str(
+        r#"{
+            "kty": "OKP",
+            "crv": "X25519",
+            "d": "EIR1SxQ67uhVaeUd__sJZ_9pLLgtbVTq12Km8FI5TWY",
+            "x": "KKBfakcXdzmJ3hhL0mVDg8OIwhTr9rPg_gvc-kPQpCU"
+        }"#,
+    )
+    .unwrap();
+LocalSecretsResolver::new(&secret_id, &secret)
+}
 pub fn prev_did() -> String {
-    "did:key:z6MkeWXQx7Ycpuj4PhXB1GHRinwozrkjn4yot6a3PCU3citF".to_string()
+    "did:key:z6MkrQT3VKYGkbPaYuJeBv31gNgpmVtRWP5yTocLDBgPpayM".to_string()
 }
 pub fn new_did() -> String {
-    "did:key:z6MkwKfDFAK49Lb9D6HchFiCXdcurRUSFrbnwDBk5qFZeHA3".to_string()
+    "did:key:z6MkqvgpxveKbuygKXnoRcD3jtLTJLgv7g6asLGLsoC4sUEp".to_string()
 }
 pub(crate) async fn get_mediator_didoc() {
     let client = reqwest::Client::new();
@@ -89,35 +119,57 @@ pub(crate) async fn mediate_request() {
 
     println!("\nMediation Request Response{:#?}\n", msg,)
 }
-pub fn prev_secrets_resolver() -> impl SecretsResolver {
-    let secret_id = "did:key:z6MkeWXQx7Ycpuj4PhXB1GHRinwozrkjn4yot6a3PCU3citF#z6MkeWXQx7Ycpuj4PhXB1GHRinwozrkjn4yot6a3PCU3citF";
-    let secret: Jwk = serde_json::from_str(
-        r#"{
-            "kty": "OKP",
-            "crv": "Ed25519",
-            "x": "ANYekDNsggaD4B3ilknnvaPOheJj7jfqNAq7Powb75g",
-            "d": "ataQeHO0ATp7DJmr2L7WQ0PF1vjnHKvsn0zkaUNCVjg"
-        }"#,
-    )
-    .unwrap();
 
-    LocalSecretsResolver::new(&secret_id, &secret)
-}
-pub fn new_secrets_resolver() -> impl SecretsResolver {
-    let secret_id = "did:key:z6MkwKfDFAK49Lb9D6HchFiCXdcurRUSFrbnwDBk5qFZeHA3#z6MkwKfDFAK49Lb9D6HchFiCXdcurRUSFrbnwDBk5qFZeHA3".to_owned();
-    let secret: Jwk = serde_json::from_str(
-        r#"{
-            "kty": "OKP",
-            "crv": "X25519",
-            "x": "ZlJzHqy2dLrDQNlV15O3zDOIXpWVQnq6VtiVZ78O0hY",
-            "d": "8OK7-1IVMdcM86PZzYKsbIi3kCJ-RxI8XFKe9JEcF2Y"
-        }"#,
-    )
-    .unwrap();
-
-    LocalSecretsResolver::new(&secret_id, &secret)
-}
 pub(crate) async fn keylist_update_payload() {
+    let doc: Document = serde_json::from_str(
+        r#"{
+            "@context": [
+                "https://www.w3.org/ns/did/v1",
+                "https://w3id.org/security/suites/jws-2020/v1"
+            ],
+            "id": "did:web:alice-mediator.com:alice_mediator_pub",
+            "verificationMethod": [
+                {
+                    "id": "did:web:alice-mediator.com:alice_mediator_pub#keys-1",
+                    "type": "JsonWebKey2020",
+                    "controller": "did:web:alice-mediator.com:alice_mediator_pub",
+                    "publicKeyJwk": {
+                        "kty": "OKP",
+                        "crv": "Ed25519",
+                        "x": "Z0GqpN71rMcnAkky6_J6Bfknr8B-TBsekG3qdI0EQX4"
+                    }
+                },
+                {
+                    "id": "did:web:alice-mediator.com:alice_mediator_pub#keys-2",
+                    "type": "JsonWebKey2020",
+                    "controller": "did:web:alice-mediator.com:alice_mediator_pub",
+                    "publicKeyJwk": {
+                        "kty": "OKP",
+                        "crv": "Ed25519",
+                        "x": "Z0GqpN71rMcnAkky6_J6Bfknr8B-TBsekG3qdI0EQX4"
+                    }
+                },
+                {
+                    "id": "did:web:alice-mediator.com:alice_mediator_pub#keys-3",
+                    "type": "JsonWebKey2020",
+                    "controller": "did:web:alice-mediator.com:alice_mediator_pub",
+                    "publicKeyJwk": {
+                        "kty": "OKP",
+                        "crv": "X25519",
+                        "x": "SHSUZ6V3x355FqCzIUfgoPzrZB0BQs0JKyag4UfMqHQ"
+                    }
+                }
+            ],
+            "authentication": [
+                "did:web:alice-mediator.com:alice_mediator_pub#keys-1"
+            ],
+            "keyAgreement": [
+                "did:web:alice-mediator.com:alice_mediator_pub#keys-3"
+            ],
+            "service": []
+        }"#,
+    )
+    .unwrap();
 
     let from_prior = FromPrior {
         iss: prev_did(),
@@ -129,12 +181,15 @@ pub(crate) async fn keylist_update_payload() {
         jti: None,
     };
     // let claims = serde_json::to_string(&from_prior).unwrap();
-    let did_resolver = LocalDIDResolver::default();
-    let kid = "did:key:z6MkeWXQx7Ycpuj4PhXB1GHRinwozrkjn4yot6a3PCU3citF#z6MkeWXQx7Ycpuj4PhXB1GHRinwozrkjn4yot6a3PCU3citF";
+    // let did_resolver =
+    //     ExampleDIDResolver::new(vec![ALICE_DID_DOC.clone(), MEDIATOR_DID_DOC.clone()]);
+    let did_resolver = LocalDIDResolver::new(&doc);
+    let kid = "did:key:z6MkrQT3VKYGkbPaYuJeBv31gNgpmVtRWP5yTocLDBgPpayM#z6MkrQT3VKYGkbPaYuJeBv31gNgpmVtRWP5yTocLDBgPpayM";
     let (jwt, _kid) = from_prior
         .pack(Some(&kid), &did_resolver, &prev_secrets_resolver())
         .await
         .unwrap();
+    println!("{}", jwt);
 
     // --- Building message from ALICE to MEDIATOR ---
     let msg = Message::build(
@@ -153,22 +208,21 @@ pub(crate) async fn keylist_update_payload() {
     )
     .header("return_route".into(), json!("all"))
     .to(MEDIATOR_DID.to_string())
-    .from(ALICE_DID.to_owned())
+    .from(new_did())
     .from_prior(jwt)
     .finalize();
 
     // --- Packing encrypted and authenticated message ---
-    let did_resolver =
-        ExampleDIDResolver::new(vec![ALICE_DID_DOC.clone(), MEDIATOR_DID_DOC.clone()]);
     let secrets_resolver = ExampleSecretsResolver::new(ALICE_SECRETS.clone());
 
+let did_resolver = LocalDIDResolver::new(&doc);
     let (msg, _) = msg
         .pack_encrypted(
             &MEDIATOR_DID,
-            Some(&ALICE_DID),
+            Some(&new_did()),
             None,
             &did_resolver,
-            &secrets_resolver,
+            &new_secrets_resolver(),
             &PackEncryptedOptions::default(),
         )
         .await

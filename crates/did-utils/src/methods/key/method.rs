@@ -279,6 +279,8 @@ mod tests {
 
     #[test]
     fn test_did_key_expansion_multikey() {
+        let method = DidKey::new_full(true, PublicKeyFormat::Jwk);
+        println!("{:?}", serde_json::to_string(&method.expand("did:key:z6MkqvgpxveKbuygKXnoRcD3jtLTJLgv7g6asLGLsoC4sUEp").unwrap()).unwrap());
         let did_method = DidKey::new();
 
         let did = "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK";
@@ -313,6 +315,9 @@ mod tests {
 
     #[test]
     fn test_did_key_expansion_jsonwebkey() {
+        let did_method = DidKey::new_full(false, PublicKeyFormat::Jwk);
+        let diddoc = did_method.expand("did:key:z6MkiNCqYsxjSGKCs42cKCrUC2vz3jXPBvczqQs7TSfyV98V");
+        println!("{:?}", serde_json::to_string(&diddoc));
         let did_method = DidKey::new_full(false, PublicKeyFormat::Jwk);
 
         let did = "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK";
