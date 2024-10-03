@@ -33,10 +33,8 @@ pub async fn did_rotation(
     msg: Message,
     conection_repos: &Arc<dyn Repository<Connection>>,
 ) -> Result<(), Errors> {
-
     // Check if from_prior is not none
     if msg.from_prior.is_some() {
-
         let jwt = msg.from_prior.unwrap();
         let did_resolver = LocalDIDResolver::default();
         let (from_prior, kid) = FromPrior::unpack(&jwt, &did_resolver)
@@ -47,7 +45,7 @@ pub async fn did_rotation(
 
         // validate if did is  known
         let _connection = match conection_repos
-        .find_one_by(doc! {"keylist": doc!{ "$elemMatch": { "$eq": &prev}}})
+            .find_one_by(doc! {"keylist": doc!{ "$elemMatch": { "$eq": &prev}}})
             .await
             .unwrap()
         {
@@ -57,14 +55,17 @@ pub async fn did_rotation(
 
                 // validate jwt signatures with previous did kid
                 if verify(signature, message.as_bytes(), &key, Algorithm::EdDSA).unwrap() {
-                    
                     // stored the new did for communication
                     let new = from_prior.sub;
                     if connection.client_did == prev {
-                        let _= connection.client_did.replace(&prev, &new);
+                        let _ = connection.client_did.replace(&prev, &new);
                     };
-                   let did_index = connection.keylist.iter().position(|did| did == &prev).unwrap();
-                   connection.keylist.swap_remove(did_index).push_str(&new);
+                    let did_index = connection
+                        .keylist
+                        .iter()
+                        .position(|did| did == &prev)
+                        .unwrap();
+                    connection.keylist.swap_remove(did_index).push_str(&new);
                 } else {
                     let response = (
                         StatusCode::UNAUTHORIZED,
@@ -93,40 +94,44 @@ fn get_jwt_signature_payload(jwt: &str) -> Result<(&str, &str), Box<dyn err>> {
 
 #[cfg(test)]
 mod test {
+    use did_utils::jwk::Jwk;
+    use didcomm::secrets::SecretsResolver;
+
+    use crate::didcomm::bridge::LocalSecretsResolver;
 
     pub fn prev_secrets_resolver() -> impl SecretsResolver {
-        let secret_id = "did:key:z6MkeWXQx7Ycpuj4PhXB1GHRinwozrkjn4yot6a3PCU3citF#z6MkeWXQx7Ycpuj4PhXB1GHRinwozrkjn4yot6a3PCU3citF";
+        let secret_id = "did:key:z6MkrQT3VKYGkbPaYuJeBv31gNgpmVtRWP5yTocLDBgPpayM#z6MkrQT3VKYGkbPaYuJeBv31gNgpmVtRWP5yTocLDBgPpayM";
         let secret: Jwk = serde_json::from_str(
             r#"{
                 "kty": "OKP",
                 "crv": "Ed25519",
-                "x": "ANYekDNsggaD4B3ilknnvaPOheJj7jfqNAq7Powb75g",
-                "d": "ataQeHO0ATp7DJmr2L7WQ0PF1vjnHKvsn0zkaUNCVjg"
-            }"#,
+                "x": "sZPvulKOXCES3D8Eya3LVnlgOpEaBohCqZ7emD8VXAA",
+                "d": "kUKFMD3RCZpk556fG0hx9GUrmdvb8t7k3TktPXCi4CY"
+                }"#,
         )
         .unwrap();
 
         LocalSecretsResolver::new(&secret_id, &secret)
     }
+
     pub fn new_secrets_resolver() -> impl SecretsResolver {
-        let secret_id = "did:key:z6MkwKfDFAK49Lb9D6HchFiCXdcurRUSFrbnwDBk5qFZeHA3#z6MkwKfDFAK49Lb9D6HchFiCXdcurRUSFrbnwDBk5qFZeHA3".to_owned();
+        let secret_id = "did:key:z6MkqvgpxveKbuygKXnoRcD3jtLTJLgv7g6asLGLsoC4sUEp#z6LSeQmJnBaXhHz81dCGNDeTUUdMcX1a8p5YSVacaZEDdscp";
         let secret: Jwk = serde_json::from_str(
             r#"{
                 "kty": "OKP",
                 "crv": "X25519",
-                "x": "ZlJzHqy2dLrDQNlV15O3zDOIXpWVQnq6VtiVZ78O0hY",
-                "d": "8OK7-1IVMdcM86PZzYKsbIi3kCJ-RxI8XFKe9JEcF2Y"
+                "d": "EIR1SxQ67uhVaeUd__sJZ_9pLLgtbVTq12Km8FI5TWY",
+                "x": "KKBfakcXdzmJ3hhL0mVDg8OIwhTr9rPg_gvc-kPQpCU"
             }"#,
         )
         .unwrap();
-
         LocalSecretsResolver::new(&secret_id, &secret)
     }
     pub fn prev_did() -> String {
-        "did:key:z6MkeWXQx7Ycpuj4PhXB1GHRinwozrkjn4yot6a3PCU3citF".to_string()
+        "did:key:z6MkrQT3VKYGkbPaYuJeBv31gNgpmVtRWP5yTocLDBgPpayM".to_string()
     }
     pub fn new_did() -> String {
-        "did:key:z6MkwKfDFAK49Lb9D6HchFiCXdcurRUSFrbnwDBk5qFZeHA3".to_string()
+        "did:key:z6MkqvgpxveKbuygKXnoRcD3jtLTJLgv7g6asLGLsoC4sUEp".to_string()
     }
     pub fn setup() -> Arc<AppState> {
         let public_domain = String::from("http://alice-mediator.com");
@@ -158,32 +163,31 @@ mod test {
 
         let connections = format!(
             r##"[
-                {{
-                "_id": {{
-                    "$oid": "6580701fd2d92bb3cd291b2a"
-                    }},
-                    
-                    "client_did": "{_recipient_did}",
-                    "mediator_did": "did:web:alice-mediator.com:alice_mediator_pub",
-                    "routing_did": "did:key:generated",
-                    "keylist": [
-                        "{_recipient_did}"
-                        ]
-                    }}
-                    ]"##
+            {{
+            "_id": {{
+                "$oid": "6580701fd2d92bb3cd291b2a"
+                }},
+                
+                "client_did": "{_recipient_did}",
+                "mediator_did": "did:web:alice-mediator.com:alice_mediator_pub",
+                "routing_did": "did:key:generated",
+                "keylist": [
+                    "{_recipient_did}"
+                    ]
+                }}
+                ]"##
         );
 
         serde_json::from_str(&connections).unwrap()
     }
     use std::sync::Arc;
 
-    use did_utils::jwk::Jwk;
-    use didcomm::{secrets::SecretsResolver, FromPrior, Message};
+    use didcomm::{FromPrior, Message};
     use serde_json::json;
     use uuid::Uuid;
 
     use crate::{
-        didcomm::bridge::{LocalDIDResolver, LocalSecretsResolver},
+        didcomm::bridge::LocalDIDResolver,
         model::stateful::entity::Connection,
         repository::stateful::tests::{
             MockConnectionRepository, MockMessagesRepository, MockSecretsRepository,
@@ -195,6 +199,55 @@ mod test {
 
     #[tokio::test]
     async fn test_did_rotation() {
+        let doc: did_utils::didcore::Document = serde_json::from_str(
+            r#"{
+                "@context": [
+                    "https://www.w3.org/ns/did/v1",
+                    "https://w3id.org/security/suites/jws-2020/v1"
+                ],
+                "id": "did:web:alice-mediator.com:alice_mediator_pub",
+                "verificationMethod": [
+                    {
+                        "id": "did:web:alice-mediator.com:alice_mediator_pub#keys-1",
+                        "type": "JsonWebKey2020",
+                        "controller": "did:web:alice-mediator.com:alice_mediator_pub",
+                        "publicKeyJwk": {
+                            "kty": "OKP",
+                            "crv": "Ed25519",
+                            "x": "Z0GqpN71rMcnAkky6_J6Bfknr8B-TBsekG3qdI0EQX4"
+                        }
+                    },
+                    {
+                        "id": "did:web:alice-mediator.com:alice_mediator_pub#keys-2",
+                        "type": "JsonWebKey2020",
+                        "controller": "did:web:alice-mediator.com:alice_mediator_pub",
+                        "publicKeyJwk": {
+                            "kty": "OKP",
+                            "crv": "Ed25519",
+                            "x": "Z0GqpN71rMcnAkky6_J6Bfknr8B-TBsekG3qdI0EQX4"
+                        }
+                    },
+                    {
+                        "id": "did:web:alice-mediator.com:alice_mediator_pub#keys-3",
+                        "type": "JsonWebKey2020",
+                        "controller": "did:web:alice-mediator.com:alice_mediator_pub",
+                        "publicKeyJwk": {
+                            "kty": "OKP",
+                            "crv": "X25519",
+                            "x": "SHSUZ6V3x355FqCzIUfgoPzrZB0BQs0JKyag4UfMqHQ"
+                        }
+                    }
+                ],
+                "authentication": [
+                    "did:web:alice-mediator.com:alice_mediator_pub#keys-1"
+                ],
+                "keyAgreement": [
+                    "did:web:alice-mediator.com:alice_mediator_pub#keys-3"
+                ],
+                "service": []
+            }"#,
+        )
+        .unwrap();
         let state = &setup();
 
         let from_prior = FromPrior {
@@ -207,8 +260,8 @@ mod test {
             jti: None,
         };
         // let claims = serde_json::to_string(&from_prior).unwrap();
-        let did_resolver = LocalDIDResolver::default();
-        let kid = "did:key:z6MkeWXQx7Ycpuj4PhXB1GHRinwozrkjn4yot6a3PCU3citF#z6MkeWXQx7Ycpuj4PhXB1GHRinwozrkjn4yot6a3PCU3citF";
+        let did_resolver = LocalDIDResolver::new(&doc);
+        let kid = "did:key:z6MkrQT3VKYGkbPaYuJeBv31gNgpmVtRWP5yTocLDBgPpayM#z6MkrQT3VKYGkbPaYuJeBv31gNgpmVtRWP5yTocLDBgPpayM";
         let (jwt, _kid) = from_prior
             .pack(Some(&kid), &did_resolver, &prev_secrets_resolver())
             .await
@@ -224,34 +277,43 @@ mod test {
         .from(new_did())
         .from_prior(jwt)
         .finalize();
+    let AppStateRepository {
+        connection_repository,
+        ..
+    } = state.repository.as_ref().unwrap();
+    let _ = did_rotation(msg, connection_repository).await;
         // let (msg, _) = msg
         //     .pack_encrypted(
         //         "did:web:alice-mediator.com:alice_mediator_pub",
         //         Some(&new_did()),
         //         None,
-        //         &state.did_resolver,
-        //         &state.secrets_resolver, // should be new_did_secrets
-        //         &PackEncryptedOptions::default(),
+        //         &did_resolver,
+        //         &new_secrets_resolver(),
+        //         &didcomm::PackEncryptedOptions::default(),
         //     )
         //     .await
         //     .unwrap();
 
         // // Mediator in action
-        // let did_resolver = LocalDIDResolver::default();
-        // let secrets_resolver = prev_secrets_resolver();
-
+        // let secret: Jwk = serde_json::from_str(
+        //     r#"{
+        //         "kty": "OKP",
+        //         "crv": "X25519",
+        //         "d": "EIR1SxQ67uhVaeUd__sJZ_9pLLgtbVTq12Km8FI5TWY",
+        //         "x": "KKBfakcXdzmJ3hhL0mVDg8OIwhTr9rPg_gvc-kPQpCU"
+        //         }"#,
+        //     )
+        //     .unwrap();
+        // let did_resolver = LocalDIDResolver::new(&doc);
+        // let secrets_resolver = LocalSecretsResolver::new("did:key:z6MkqvgpxveKbuygKXnoRcD3jtLTJLgv7g6asLGLsoC4sUEp#z6LSeQmJnBaXhHz81dCGNDeTUUdMcX1a8p5YSVacaZEDdscp", &secret);
+        
         // let msg = Message::unpack(
         //     &msg,
-        //     &did_resolver,
+        //     &state.did_resolver,
         //     &secrets_resolver,
-        //     &UnpackOptions::default(),
+        //     &didcomm::UnpackOptions::default(),
         // )
         // .await
         // .unwrap();
-        let AppStateRepository {
-            connection_repository,
-            ..
-        } = state.repository.as_ref().unwrap();
-        let _ = did_rotation(msg, connection_repository).await;
     }
 }
