@@ -7,6 +7,6 @@ pub const PICKUP_DELIVERY_3_0: &str = "https://didcomm.org/messagepickup/3.0/del
 pub const PICKUP_RECIEVE_3_0: &str = "https://didcomm.org/messagepickup/3.0/messages-received";
 
 
-pub const MEDIATOR_DID: &str = "";
-pub const _ROUTING_DID: &str = "";
+pub const MEDIATOR_DID: &str = "did:web:alice-mediator.com:alice_mediator_pub";
+pub const _ROUTING_DID: &str = "did:peer:2.Ez6LSdC2VpEdX4YreMrBmZdnLLsTwZCSzkFVtkT6uHTtu43D9.Vz6MkqjqbHiQqefgZC6bEYdvW2r8yK5gyaST1Sg5CMa6dgWd9.SeyJhIjpbImRpZGNvbW0vdjIiXSwiaWQiOiIjZGlkY29tbSIsInMiOiJodHRwOi8vYWxpY2UtbWVkaWF0b3IuY29tIiwidCI6ImRtIn0";
 pub const BOB_DID: &str = "did:key:z6MkwKfDFAK49Lb9D6HchFiCXdcurRUSFrbnwDBk5qFZeHA3";
