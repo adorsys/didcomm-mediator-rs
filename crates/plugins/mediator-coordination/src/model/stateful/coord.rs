@@ -21,7 +21,6 @@ use serde_json::Value;
 // "return_route": "all"
 // }
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
-#[serde(rename_all = "camelCase")]
 pub struct MediationRequest {
     // Return route header, specifies how communication is done.
     #[serde(rename = "return_route")]

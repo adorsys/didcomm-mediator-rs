@@ -18,9 +18,9 @@ use crate::{
     constant::{KEYLIST_2_0, KEYLIST_UPDATE_RESPONSE_2_0, MEDIATE_DENY_2_0, MEDIATE_GRANT_2_0},
     model::stateful::{
         coord::{
-            Keylist, KeylistBody, KeylistEntry, KeylistUpdateAction, KeylistUpdateBody,
+            KeylistBody, KeylistEntry, KeylistUpdateAction, KeylistUpdateBody,
             KeylistUpdateConfirmation, KeylistUpdateResponseBody, KeylistUpdateResult,
-            MediationDeny, MediationGrant, MediationGrantBody,
+            MediationGrantBody,
         },
         entity::{Connection, Secrets, VerificationMaterial},
     },
@@ -43,9 +43,9 @@ pub async fn process_mediate_request(
     midlw::run!(ensure_jwm_type_is_mediation_request(&plain_message));
 
     // This is to Check explicit agreement to HTTP responding
-    // midlw::run!(ensure_transport_return_route_is_decorated_all(
-    //     &plain_message
-    // ));
+    midlw::run!(ensure_transport_return_route_is_decorated_all(
+        &plain_message
+    ));
 
     let mediator_did = &state.diddoc.id;
 
@@ -72,13 +72,9 @@ pub async fn process_mediate_request(
     {
         println!("Sending mediate deny.");
         return Ok(Message::build(
-            format!("urn:uuid:{}", Uuid::new_v4()),
+            Uuid::new_v4().urn().to_string(),
             MEDIATE_DENY_2_0.to_string(),
-            json!(MediationDeny {
-                id: format!("urn:uuid:{}", Uuid::new_v4()),
-                message_type: MEDIATE_DENY_2_0.to_string(),
-                ..Default::default()
-            }),
+            json!({}),
         )
         .to(sender_did.clone())
         .from(mediator_did.clone())
@@ -135,14 +131,12 @@ pub async fn process_mediate_request(
             Err(error) => eprintln!("Error storing connection: {:?}", error),
         }
 
-        let mediation_grant = create_mediation_grant(&routing_did);
-
         let new_connection = Connection {
             id: None,
             client_did: sender_did.to_string(),
             mediator_did: mediator_did.to_string(),
             keylist: vec![],
-            routing_did,
+            routing_did: routing_did.clone(),
         };
 
         // Use store_one to store the sample connection
@@ -154,24 +148,13 @@ pub async fn process_mediate_request(
         }
 
         Ok(Message::build(
-            format!("urn:uuid:{}", Uuid::new_v4()),
-            mediation_grant.message_type.clone(),
-            json!(mediation_grant),
+            Uuid::new_v4().urn().to_string(),
+            MEDIATE_GRANT_2_0.to_string(),
+            json!(MediationGrantBody { routing_did }),
         )
         .to(sender_did.clone())
         .from(mediator_did.clone())
         .finalize())
-    }
-}
-
-fn create_mediation_grant(routing_did: &str) -> MediationGrant {
-    MediationGrant {
-        id: format!("urn:uuid:{}", Uuid::new_v4()),
-        message_type: MEDIATE_GRANT_2_0.to_string(),
-        body: MediationGrantBody {
-            routing_did: routing_did.to_string(),
-        },
-        ..Default::default()
     }
 }
 
@@ -344,7 +327,7 @@ pub async fn process_plain_keylist_update_message(
     let mediator_did = &state.diddoc.id;
 
     Ok(Message::build(
-        format!("urn:uuid:{}", Uuid::new_v4()),
+        Uuid::new_v4().urn().to_string(),
         KEYLIST_UPDATE_RESPONSE_2_0.to_string(),
         json!(KeylistUpdateResponseBody {
             updated: confirmations
@@ -398,30 +381,19 @@ pub async fn process_plain_keylist_query_message(
         })
         .collect::<Vec<KeylistEntry>>();
 
-    let body = KeylistBody {
-        keys: keylist_entries,
-        pagination: None,
-    };
-
-    let keylist_object = Keylist {
-        id: format!("urn:uuid:{}", Uuid::new_v4()),
-        message_type: KEYLIST_2_0.to_string(),
-        body: body,
-        additional_properties: None,
-    };
-
     let mediator_did = &state.diddoc.id;
 
     let message = Message::build(
-        format!("urn:uuid:{}", Uuid::new_v4()),
+        Uuid::new_v4().urn().to_string(),
         KEYLIST_2_0.to_string(),
-        json!(keylist_object),
+        json!(KeylistBody {
+            keys: keylist_entries,
+            pagination: None,
+        }),
     )
     .to(sender.clone())
     .from(mediator_did.clone())
     .finalize();
-
-    println!("message: {:?}", message);
 
     Ok(message)
 }
