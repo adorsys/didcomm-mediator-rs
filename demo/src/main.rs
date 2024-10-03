@@ -12,27 +12,27 @@ pub(crate) mod constants;
 mod ledger;
 #[tokio::main]
 async fn main() {
-    println!("\n=================== GETTING MEDIATOR DID DOCUMENT ===================\n");
-    get_mediator_didoc().await;
+    // println!("\n=================== GETTING MEDIATOR DID DOCUMENT ===================\n");
+    // get_mediator_didoc().await;
 
-    println!("\n=================== MEDIATING REQUEST ===================\n");
-    mediate_request().await;
+    // println!("\n=================== MEDIATING REQUEST ===================\n");
+    // mediate_request().await;
 
-    println!("\n=================== GET THE KEYLIST UPDATE PAYLOAD ===================\n");
-    keylist_update_payload().await;
+    // println!("\n=================== GET THE KEYLIST UPDATE PAYLOAD ===================\n");
+    // keylist_update_payload().await;
 
-    println!("\n=================== FORWARDING MESSAGES ===================\n");
-    forward_msg().await;
+    // println!("\n=================== FORWARDING MESSAGES ===================\n");
+    // forward_msg().await;
 
-    println!("\n=================== PICKUP REQUEST ===================\n");
-    test_pickup_request().await;
+    // println!("\n=================== PICKUP REQUEST ===================\n");
+    // test_pickup_request().await;
 
-    println!("\n=================== PICKUP DELIVERY ===================\n");
-    test_pickup_delivery_request().await;
+    // println!("\n=================== PICKUP DELIVERY ===================\n");
+    // test_pickup_delivery_request().await;
 
-    println!("\n=================== MESSAGE RECEIVED ===================\n");
-    test_pickup_message_received().await;
+    // println!("\n=================== MESSAGE RECEIVED ===================\n");
+    // test_pickup_message_received().await;
 
-    println!("\n=================== KEYLIST QUERY RESPONSE ===================\n");
-    keylist_query_payload().await;
+    // println!("\n=================== KEYLIST QUERY RESPONSE ===================\n");
+    // keylist_query_payload().await;
 }

@@ -1,11 +1,7 @@
 use async_trait::async_trait;
 use did_utils::crypto::PublicKeyFormat;
 use did_utils::methods::DidPeer;
-use did_utils::{
-    didcore::Document,
-    jwk::Jwk,
-    methods::{DIDResolutionError, DidKey},
-};
+use did_utils::{didcore::Document, jwk::Jwk, methods::DidKey};
 use didcomm::{
     did::{DIDDoc, DIDResolver},
     error::{Error, ErrorKind, Result},
@@ -38,30 +34,20 @@ impl DIDResolver for LocalDIDResolver {
         }
 
         if did.starts_with("did:key") {
-            let method = DidKey::new_full(true, PublicKeyFormat::Jwk);
-            match method.expand(did) {
-                Ok(diddoc) => {
-                    let document = serde_json::from_value(json!(Document {
-                        service: Some(vec![]),
-                        ..diddoc
-                    }))
-                    .expect("Should easily convert between DID document representations.");
-                    Ok(Some(document))
-                }
-                Err(err) => Err(Error::new(ErrorKind::DIDNotResolved, err)),
-            }
+            Ok(DidKey::new_full(true, PublicKeyFormat::Jwk)
+                .expand(did)
+                .map(|d| Some(d.into()))
+                .map_err(|e| Error::new(ErrorKind::DIDNotResolved, e))?)
         } else if did.starts_with("did:peer") {
-            let method = DidPeer::with_format(PublicKeyFormat::Jwk);
-            match method.expand(did) {
-                Ok(diddoc) => {
-                    let document = diddoc.into();
-                    Ok(Some(document))
-                }
-                Err(err) => Err(Error::new(ErrorKind::DIDNotResolved, err)),
-            }
+            Ok(DidPeer::with_format(PublicKeyFormat::Jwk)
+                .expand(did)
+                .map(|d| Some(d.into()))
+                .map_err(|e| Error::new(ErrorKind::DIDNotResolved, e))?)
         } else {
-            // Handle unsupported DID methods or return a default DIDDoc
-            return Ok(Some(self.diddoc.clone()));
+            Err(Error::msg(
+                ErrorKind::Unsupported,
+                "Unsupported DID".to_string(),
+            ))
         }
     }
 }

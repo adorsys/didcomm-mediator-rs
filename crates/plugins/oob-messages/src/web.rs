@@ -155,7 +155,7 @@ async fn handler_landing_page_oob() -> Response {
                         <h1>&nbsp;didcomm-mediator-rs</h1>
                     </div>
                     <div style="text-align:center">
-                        <p>IDComm v2 mediator</p></p><br />
+                        <p>DIDComm v2 mediator</p></p><br />
                     </div>
                     <div style="text-align:center">
                         <h3>Scan the QR code invitation shown below to start a mediation request:</h3>

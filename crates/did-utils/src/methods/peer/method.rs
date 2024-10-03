@@ -221,16 +221,16 @@ impl DidPeer {
     // ---------------------------------------------------------------------------
 
     /// Expands `did:peer` address into DID document
-    pub fn expand(&self, did: &str) -> Result<DIDDocument, DIDPeerMethodError> {
+    pub fn expand(&self, did: &str) -> Result<DIDDocument, DIDResolutionError> {
         if !did.starts_with("did:peer:") {
-            return Err(DIDPeerMethodError::InvalidPeerDID);
+            return Err(DIDResolutionError::InvalidDid);
         }
 
         match did {
-            s if s.starts_with("did:peer:0") => self.expand_did_peer_0(did),
-            s if s.starts_with("did:peer:2") => self.expand_did_peer_2(did),
-            s if s.starts_with("did:peer:4") => self.expand_did_peer_4(did),
-            _ => Err(DIDPeerMethodError::UnsupportedPeerDIDAlgorithm),
+            s if s.starts_with("did:peer:0") => self.expand_did_peer_0(did).map_err(|e| e.into()),
+            s if s.starts_with("did:peer:2") => self.expand_did_peer_2(did).map_err(|e| e.into()),
+            s if s.starts_with("did:peer:4") => self.expand_did_peer_4(did).map_err(|e| e.into()),
+            _ => Err(DIDResolutionError::MethodNotSupported),
         }
     }
 
@@ -805,7 +805,7 @@ mod tests {
         let did_method = DidPeer::default();
 
         let did = "did:key:z6LSeu9HkTHSfLLeUs2nnzUSNedgDUevfNQgQjQC23ZCit6F";
-        assert!(matches!(did_method.expand(did).unwrap_err(), DIDPeerMethodError::InvalidPeerDID));
+        assert!(matches!(did_method.expand(did).unwrap_err(), DIDResolutionError::InvalidDid));
     }
 
     #[test]
@@ -815,7 +815,7 @@ mod tests {
         let did = "did:peer:1zQmbEB1EqP7PnNVaHiSpXhkatAA6kNyQK9mWkvrMx2eckgq";
         assert!(matches!(
             did_method.expand(did).unwrap_err(),
-            DIDPeerMethodError::UnsupportedPeerDIDAlgorithm
+            DIDResolutionError::MethodNotSupported
         ));
     }
 
@@ -963,7 +963,7 @@ mod tests {
         ];
 
         for did in dids {
-            assert!(matches!(did_method.expand(did).unwrap_err(), DIDPeerMethodError::RegexMismatch));
+            assert!(matches!(did_method.expand(did).unwrap_err(), DIDResolutionError::InvalidDid));
         }
     }
 
@@ -974,7 +974,7 @@ mod tests {
         let dids = ["did:peer:0z6", "did:peer:0z7MkiTBz1ymuepAQ4HEHYSF1H8quG5GLVVQR3djdX3mDooWpd"];
 
         for did in dids {
-            assert!(matches!(did_method.expand(did).unwrap_err(), DIDPeerMethodError::MalformedPeerDID));
+            assert!(matches!(did_method.expand(did).unwrap_err(), DIDResolutionError::InvalidDid));
         }
     }
 
@@ -984,7 +984,7 @@ mod tests {
         let did = "did:peer:0zQebt6zPwbE4Vw5GFAjjARHrNXFALofERVv4q6Z4db8cnDRQm";
         assert!(matches!(
             did_method.expand(did).unwrap_err(),
-            DIDPeerMethodError::DIDResolutionError(DIDResolutionError::InvalidPublicKeyLength)
+            DIDResolutionError::InvalidPublicKeyLength
         ));
     }
 
@@ -1124,7 +1124,7 @@ mod tests {
             ".SeyJzIjoiaHR0cDovL2V4YW1wbGUuY29tL3h5eiIsInQiOiJkbSI",
         );
 
-        assert!(matches!(did_method.expand(did).unwrap_err(), DIDPeerMethodError::SerdeError(_)));
+        assert!(matches!(did_method.expand(did).unwrap_err(), DIDResolutionError::InvalidDid));
     }
 
     #[test]
