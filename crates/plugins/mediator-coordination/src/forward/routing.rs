@@ -13,7 +13,6 @@ use crate::{
     web::{error::MediationError, AppState, AppStateRepository},
 };
 
-
 /// Mediator receives forwarded messages, extract the next field in the message body, and the attachments in the message
 /// then stores the attachment with the next field as key for pickup
 pub async fn mediator_forward_process(
