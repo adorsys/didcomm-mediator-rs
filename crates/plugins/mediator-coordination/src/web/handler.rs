@@ -474,7 +474,7 @@ mod tests2 {
 
     #[tokio::test]
     async fn test_pickup_test() {
-        let (app, state) = setup();
+        let (_app, state) = setup();
         // Build message
         let msg = Message::build(
             "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
