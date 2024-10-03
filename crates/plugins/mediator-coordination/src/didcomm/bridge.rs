@@ -38,39 +38,21 @@ impl DIDResolver for LocalDIDResolver {
         }
 
         if did.starts_with("did:peer:") {
-            // Adding logic to resolve Peer DIDs
+            // Corrected method name to `new_with_format`
             let method = DidPeer::new_with_format(PublicKeyFormat::Jwk);
             match method.expand(did) {
                 Ok(diddoc) => {
-                    // Attempt to convert DID document representation, propagating errors
-                    match serde_json::from_value(json!(Document {
-                        service: Some(vec![]),
-                        ..diddoc
-                    })) {
-                        Ok(doc) => Ok(Some(doc)),
-                        Err(err) => Err(Error::new(
-                            ErrorKind::DIDNotResolved, 
-                            Box::new(err)
-                        )),
-                    }
+                    let document: DIDDoc = diddoc.into(); // Assuming the From<Document> for DIDDoc is implemented
+                    Ok(Some(document))
                 },
-                Err(err) => Err(Error::new(ErrorKind::DIDNotResolved, Box::new(err))),
+                Err(err) => Err(Error::new(ErrorKind::DIDNotResolved, err)),
             }
         } else if did.starts_with("did:key:") {
             let method = DidKey::new_full(true, PublicKeyFormat::Jwk);
             match method.expand(did) {
                 Ok(diddoc) => {
-                    // Attempt to convert DID document representation, propagating errors
-                    match serde_json::from_value(json!(Document {
-                        service: Some(vec![]),
-                        ..diddoc
-                    })) {
-                        Ok(doc) => Ok(Some(doc)),
-                        Err(err) => Err(Error::new(
-                            ErrorKind::DIDNotResolved, 
-                            Box::new(err)
-                        )),
-                    }
+                    let document: DIDDoc = diddoc.into(); // Assuming the From<Document> for DIDDoc is implemented
+                    Ok(Some(document))
                 },
                 Err(err) => Err(Error::new(ErrorKind::DIDNotResolved, err)),
             }
@@ -82,6 +64,8 @@ impl DIDResolver for LocalDIDResolver {
         }
     }
 }
+
+
 
 
 #[derive(Clone)]
