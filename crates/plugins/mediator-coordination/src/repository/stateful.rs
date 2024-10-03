@@ -64,7 +64,7 @@ impl Repository<RoutedMessage> for MongoMessagesRepository {
 #[cfg(test)]
 pub mod tests {
     use super::*;
-    use database::RepositoryError;
+    use database::{Repository, RepositoryError};
     use mongodb::bson::{doc, oid::ObjectId, Bson, Document as BsonDocument};
     use serde_json::json;
     use std::{
@@ -129,6 +129,67 @@ pub mod tests {
                 .cloned())
         }
 
+        async fn find_all_by(
+            &self,
+            filter: BsonDocument,
+            limit: Option<i64>,
+        ) -> Result<Vec<Connection>, RepositoryError> {
+            if let Some(l) = limit {
+                if l < 0 {
+                    return Ok(vec![]);
+                }
+            }
+            let filter: HashMap<String, Bson> = filter.into_iter().collect();
+            Ok(self
+                .connections
+                .read()
+                .unwrap()
+                .iter()
+                .filter(|c| {
+                    if let Some(id) = filter.get("_id") {
+                        if json!(c.id) != json!(id) {
+                            return false;
+                        }
+                    }
+
+                    if let Some(client_did) = filter.get("client_did") {
+                        if json!(c.client_did) != json!(client_did) {
+                            return false;
+                        }
+                    }
+
+                    true
+                })
+                .cloned()
+                .collect())
+        }
+
+        async fn count_by(&self, filter: BsonDocument) -> Result<usize, RepositoryError> {
+            let filter: HashMap<String, Bson> = filter.into_iter().collect();
+            Ok(self
+                .connections
+                .read()
+                .unwrap()
+                .iter()
+                .filter(|c| {
+                    if let Some(id) = filter.get("_id") {
+                        if json!(c.id) != json!(id) {
+                            return false;
+                        }
+                    }
+
+                    if let Some(client_did) = filter.get("client_did") {
+                        if json!(c.client_did) != json!(client_did) {
+                            return false;
+                        }
+                    }
+
+                    true
+                })
+                .count())
+        }
+
+        // Add new connection to collection
         async fn store(&self, mut connection: Connection) -> Result<Connection, RepositoryError> {
             connection.id = Some(ObjectId::new());
             self.connections.write().unwrap().push(connection.clone());
@@ -326,23 +387,62 @@ pub mod tests {
                     return Ok(vec![]);
                 }
             }
-            let filter: HashMap<String, Bson> = filter.into_iter().collect();
-            Ok(self
-                .messages
-                .read()
-                .unwrap()
-                .iter()
-                .filter(|s| {
-                    if let Some(id) = filter.get("_id") {
-                        if json!(s.id) != json!(id) {
-                            return false;
-                        }
-                    }
+            let messages = self.messages.read().unwrap();
 
-                    true
-                })
+            // Extract the list of recipient_did values from the filter
+            let recipient_dids = filter
+                .get("recipient_did")
+                .and_then(|value| value.as_document())
+                .and_then(|doc| doc.get("$in"))
+                .and_then(|value| value.as_array())
+                .ok_or(RepositoryError::Generic("invalid filter".to_owned()))?;
+
+            // Convert recipient_dids to a Vec<String>
+            let recipient_dids: Vec<String> = recipient_dids
+                .iter()
+                .filter_map(|value| value.as_str().map(|s| s.to_string()))
+                .collect();
+
+            // filter the messages that match any of the recipient_did values
+            let mut filtered_messages = messages
+                .iter()
+                .filter(|msg| recipient_dids.contains(&msg.recipient_did))
                 .cloned()
-                .collect())
+                .collect::<Vec<_>>();
+
+            if let Some(limit) = limit {
+                if limit != 0 {
+                    filtered_messages.truncate(limit as usize);
+                }
+            }
+
+            Ok(filtered_messages)
+        }
+
+        async fn count_by(&self, filter: BsonDocument) -> Result<usize, RepositoryError> {
+            let messages = self.messages.read().unwrap();
+
+            // Extract the list of recipient_did values from the filter
+            let recipient_dids = filter
+                .get("recipient_did")
+                .and_then(|value| value.as_document())
+                .and_then(|doc| doc.get("$in"))
+                .and_then(|value| value.as_array())
+                .ok_or(RepositoryError::Generic("invalid filter".to_owned()))?;
+
+            // Convert recipient_dids to a Vec<String>
+            let recipient_dids: Vec<String> = recipient_dids
+                .iter()
+                .filter_map(|value| value.as_str().map(|s| s.to_string()))
+                .collect();
+
+            // Count the messages that match any of the recipient_did values
+            let count = messages
+                .iter()
+                .filter(|msg| recipient_dids.contains(&msg.recipient_did))
+                .count();
+
+            Ok(count)
         }
 
         async fn store(&self, messages: RoutedMessage) -> Result<RoutedMessage, RepositoryError> {
@@ -361,13 +461,18 @@ pub mod tests {
         }
 
         async fn delete_one(&self, message_id: ObjectId) -> Result<(), RepositoryError> {
-            let mut messages_list = self.messages.write().unwrap();
-            if let Some(pos) = messages_list.iter().position(|m| m.id == Some(message_id)) {
-                messages_list.remove(pos);
-                Ok(())
-            } else {
-                Err(RepositoryError::TargetNotFound)
+            // Find entity to delete
+            let pos = self
+                .messages
+                .read()
+                .unwrap()
+                .iter()
+                .position(|s| s.id == Some(message_id));
+
+            if let Some(pos) = pos {
+                self.messages.write().unwrap().remove(pos);
             }
+            Ok(())
         }
     }
 }

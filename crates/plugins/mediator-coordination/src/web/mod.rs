@@ -1,7 +1,7 @@
-mod coord;
+pub(crate) mod coord;
 pub mod error;
-mod handler;
-mod midlw;
+pub(crate) mod handler;
+pub(crate) mod midlw;
 
 pub use self::midlw::{unpack_didcomm_message, pack_response_message};
 
