@@ -38,7 +38,7 @@ pub(crate) async fn handle_status_request(
     let recipient_did = message.body.get("recipient_did").and_then(Value::as_str);
     let sender_did = sender_did(&message)?;
 
-    let repository = repository(Arc::clone(&state))?;
+    let repository = repository(state.clone())?;
     let connection = client_connection(&repository, sender_did).await?;
 
     let message_count = count_messages(repository, recipient_did, connection).await?;
@@ -94,7 +94,7 @@ pub(crate) async fn handle_delivery_request(
             PickupError::MalformedRequest("Invalid \"limit\" specifier").into_response()
         })?;
 
-    let repository = repository(Arc::clone(&state))?;
+    let repository = repository(state.clone())?;
     let connection = client_connection(&repository, sender_did).await?;
 
     let messages = messages(repository, recipient_did, connection, limit as usize).await?;
@@ -119,7 +119,12 @@ pub(crate) async fn handle_delivery_request(
 
         for message in messages {
             let attached = Attachment::json(message.message)
-                .id(message.id.unwrap_or_default().to_string())
+                .id(message.id.map(|id| id.to_string()).ok_or_else(|| {
+                    PickupError::InternalError(
+                        "Failed to load requested messages. Please try again later.",
+                    )
+                    .into_response()
+                })?)
                 .finalize();
 
             attachments.push(attached);
@@ -161,7 +166,7 @@ pub(crate) async fn handle_message_acknowledgement(
     }
 
     let mediator_did = &state.diddoc.id;
-    let repository = repository(Arc::clone(&state))?;
+    let repository = repository(state.clone())?;
     let sender_did = sender_did(&message)?;
     let connection = client_connection(&repository, sender_did).await?;
 
@@ -169,13 +174,11 @@ pub(crate) async fn handle_message_acknowledgement(
     let message_id_list = message
         .body
         .get("message_id_list")
-        .and_then(Value::as_array)
+        .and_then(|v| v.as_array())
+        .map(|a| a.iter().filter_map(|v| v.as_str()).collect::<Vec<_>>())
         .ok_or_else(|| {
             PickupError::MalformedRequest("Invalid \"message_id_list\" specifier").into_response()
-        })?
-        .iter()
-        .map(|value| value.as_str().unwrap_or_default())
-        .collect::<Vec<_>>();
+        })?;
 
     for id in message_id_list {
         let msg_id = ObjectId::from_str(id);
@@ -366,17 +369,12 @@ mod tests {
 
     #[allow(clippy::needless_update)]
     fn setup(connections: Vec<Connection>, stored_messages: Vec<RoutedMessage>) -> Arc<AppState> {
-        let (_, state) = global::setup();
-
-        let mut state = match Arc::try_unwrap(state) {
-            Ok(state) => state,
-            Err(_) => panic!(),
-        };
+        let mut state = Arc::into_inner(global::setup().1).unwrap();
 
         state.repository = Some(AppStateRepository {
             connection_repository: Arc::new(MockConnectionRepository::from(connections)),
             message_repository: Arc::new(MockMessagesRepository::from(stored_messages)),
-            ..state.repository.unwrap()
+            ..state.repository.take().unwrap()
         });
 
         Arc::new(state)
@@ -473,7 +471,7 @@ mod tests {
         );
 
         // Expect to receive 2 message count since the recipient_did is not specified
-        // so it will return the number of messages for all dids in the keylist
+        // so it will return the number of messages for all dids in the keylist for that sender connection
         let request = Message::build(
             "id_alice_message_status_request".to_owned(),
             "https://didcomm.org/messagepickup/3.0/status-request".to_owned(),
