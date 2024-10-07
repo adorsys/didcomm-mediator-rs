@@ -1,28 +1,13 @@
 use super::errors::RotationError;
-use crate::{
-    didcomm::bridge::LocalDIDResolver,
-    jose::jws::{self, verify_compact_jws},
-    model::stateful::entity::Connection,
-};
+use crate::{didcomm::bridge::LocalDIDResolver, model::stateful::entity::Connection};
 use axum::response::{IntoResponse, Response};
-use base64::{decode_config, URL_SAFE_NO_PAD};
 use database::Repository;
-use didcomm::{did::DIDResolver, FromPrior, Message};
-use ed25519_dalek::{PublicKey, Signature, Verifier};
-use hmac::{Hmac, Mac};
-use hyper::StatusCode;
-use jsonwebtoken::{
-    crypto::verify,
-    jwk::{self, Jwk, KeyAlgorithm},
-    Algorithm, DecodingKey,
-};
-use jwt::VerifyWithKey;
+use didcomm::{FromPrior, Message};
 use mongodb::bson::doc;
 use serde_json::Error;
-use sha2::Sha256;
-use std::collections::BTreeMap;
-use std::error::Error as err;
 use std::sync::Arc;
+
+#[derive(Debug)]
 pub enum Errors {
     Error0(RotationError),
     Error1(Error),
@@ -37,7 +22,9 @@ pub async fn did_rotation(
     if msg.from_prior.is_some() {
         let jwt = msg.from_prior.unwrap();
         let did_resolver = LocalDIDResolver::default();
-        let (from_prior, kid) = FromPrior::unpack(&jwt, &did_resolver)
+
+        // decode and valid jwt signature
+        let (from_prior, _kid) = FromPrior::unpack(&jwt, &did_resolver)
             .await
             .map_err(|_| Errors::Error2(RotationError::InvalidFromPrior.json().into_response()))?;
 
@@ -50,29 +37,17 @@ pub async fn did_rotation(
             .unwrap()
         {
             Some(mut connection) => {
-                let (signature, message) = get_jwt_signature_payload(&jwt).unwrap();
-                let key = jsonwebtoken::DecodingKey::from_secret(kid.as_bytes());
-
-                // validate jwt signatures with previous did kid
-                if verify(signature, message.as_bytes(), &key, Algorithm::EdDSA).unwrap() {
-                    // stored the new did for communication
-                    let new = from_prior.sub;
-                    if connection.client_did == prev {
-                        let _ = connection.client_did.replace(&prev, &new);
-                    };
-                    let did_index = connection
-                        .keylist
-                        .iter()
-                        .position(|did| did == &prev)
-                        .unwrap();
-                    connection.keylist.swap_remove(did_index).push_str(&new);
-                } else {
-                    let response = (
-                        StatusCode::UNAUTHORIZED,
-                        RotationError::InvalidSignature.json(),
-                    );
-                    return Err(Errors::Error2(response.into_response()))?;
+                // stored the new did for communication
+                let new = from_prior.sub;
+                if connection.client_did == prev {
+                    let _ = connection.client_did.replace(&prev, &new);
                 };
+                let did_index = connection
+                    .keylist
+                    .iter()
+                    .position(|did| did == &prev)
+                    .unwrap();
+                connection.keylist.swap_remove(did_index).push_str(&new);
             }
             None => {
                 return Err(Errors::Error0(RotationError::RotationError))?;
@@ -80,16 +55,6 @@ pub async fn did_rotation(
         };
     }
     Ok(())
-}
-fn get_jwt_signature_payload(jwt: &str) -> Result<(&str, &str), Box<dyn err>> {
-    // Split the JWT into its three parts (header, payload, and signature)
-    let parts: Vec<&str> = jwt.split('.').collect();
-    if parts.len() != 3 {
-        return Err("Invalid JWT format".into());
-    }
-    let message = parts[1];
-    let signature = parts[2];
-    Ok((signature, message))
 }
 
 #[cfg(test)]
@@ -277,11 +242,11 @@ mod test {
         .from(new_did())
         .from_prior(jwt)
         .finalize();
-    let AppStateRepository {
-        connection_repository,
-        ..
-    } = state.repository.as_ref().unwrap();
-    let _ = did_rotation(msg, connection_repository).await;
+        let AppStateRepository {
+            connection_repository,
+            ..
+        } = state.repository.as_ref().unwrap();
+        println!("{:?}", did_rotation(msg, connection_repository).await);
         // let (msg, _) = msg
         //     .pack_encrypted(
         //         "did:web:alice-mediator.com:alice_mediator_pub",
@@ -306,11 +271,11 @@ mod test {
         //     .unwrap();
         // let did_resolver = LocalDIDResolver::new(&doc);
         // let secrets_resolver = LocalSecretsResolver::new("did:key:z6MkqvgpxveKbuygKXnoRcD3jtLTJLgv7g6asLGLsoC4sUEp#z6LSeQmJnBaXhHz81dCGNDeTUUdMcX1a8p5YSVacaZEDdscp", &secret);
-        
+
         // let msg = Message::unpack(
         //     &msg,
         //     &state.did_resolver,
-        //     &secrets_resolver,
+        //     &secret_resolver,
         //     &didcomm::UnpackOptions::default(),
         // )
         // .await
