@@ -1,0 +1,308 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'did_utils'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=did-utils"
+                ],
+                "filter": {
+                    "name": "did_utils",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'dsa-verify-with-jwk'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=dsa-verify-with-jwk",
+                    "--package=did-utils"
+                ],
+                "filter": {
+                    "name": "dsa-verify-with-jwk",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'dsa-verify-with-jwk'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=dsa-verify-with-jwk",
+                    "--package=did-utils"
+                ],
+                "filter": {
+                    "name": "dsa-verify-with-jwk",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'ed25519-sign'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=ed25519-sign",
+                    "--package=did-utils"
+                ],
+                "filter": {
+                    "name": "ed25519-sign",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'ed25519-sign'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=ed25519-sign",
+                    "--package=did-utils"
+                ],
+                "filter": {
+                    "name": "ed25519-sign",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'multibase'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=multibase",
+                    "--package=did-utils"
+                ],
+                "filter": {
+                    "name": "multibase",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'multibase'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=multibase",
+                    "--package=did-utils"
+                ],
+                "filter": {
+                    "name": "multibase",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'keystore'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=keystore"
+                ],
+                "filter": {
+                    "name": "keystore",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'plugin_api'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=plugin-api"
+                ],
+                "filter": {
+                    "name": "plugin_api",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'did_endpoint'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=did-endpoint"
+                ],
+                "filter": {
+                    "name": "did_endpoint",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'mediator_coordination'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=mediator-coordination"
+                ],
+                "filter": {
+                    "name": "mediator_coordination",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'database'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=database"
+                ],
+                "filter": {
+                    "name": "database",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'oob_messages'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=oob-messages"
+                ],
+                "filter": {
+                    "name": "oob_messages",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'didcomm_mediator'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=didcomm-mediator"
+                ],
+                "filter": {
+                    "name": "didcomm_mediator",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'didcomm-mediator'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=didcomm-mediator",
+                    "--package=didcomm-mediator"
+                ],
+                "filter": {
+                    "name": "didcomm-mediator",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'didcomm-mediator'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=didcomm-mediator",
+                    "--package=didcomm-mediator"
+                ],
+                "filter": {
+                    "name": "didcomm-mediator",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}
