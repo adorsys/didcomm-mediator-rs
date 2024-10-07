@@ -1,5 +1,5 @@
 use crate::{
-    didcore::{AssertionMethod, Authentication, Document, KeyAgreement, Service, VerificationMethod},
+    didcore::{AssertionMethod, Authentication, Controller, Document, KeyAgreement, Service, VerificationMethod},
     ldmodel::Context,
 };
 
@@ -63,17 +63,17 @@ impl Document {
     /// * A new instance of `Document`.
     pub fn new(context: Context, id: String) -> Self {
         Self {
-            id,
+            id: id.clone(),
             context,
             also_known_as: None,
-            controller: None,
-            authentication: None,
-            assertion_method: None,
+            controller: Some(Controller::SingleString(id)),
+            authentication: Some(vec![]),
+            assertion_method: Some(vec![]),
             capability_delegation: None,
             capability_invocation: None,
-            key_agreement: None,
-            verification_method: None,
-            service: None,
+            key_agreement: Some(vec![]),
+            verification_method: Some(vec![]),
+            service: Some(vec![]),
             proof: None,
             additional_properties: None,
         }
