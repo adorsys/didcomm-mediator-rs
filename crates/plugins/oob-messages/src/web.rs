@@ -161,13 +161,14 @@ async fn handler_landing_page_oob() -> Response {
                         <h3>Scan the QR code invitation shown below to start a mediation request:</h3>
                         <img src="data:image/png;base64,{}" alt="QR Code Image">
                         <h3>Or just copy and paste the following Out of Band invitation URL:</h3>
-                        <iframe src="/oob_url" title="OOB URL" height="200" width="500" frameBorder="0"></iframe>
+                        <iframe src="/oob_url{}" title="OOB URL" height="200" width="500" frameBorder="0"></iframe>
                     </div>
             </body>
         </div>
     </html>
         "#,
         &image_data,
+        &oob_inv
     );
 
     (
