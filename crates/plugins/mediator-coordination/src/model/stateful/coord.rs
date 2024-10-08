@@ -23,11 +23,9 @@ use serde_json::Value;
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct MediationRequest {
     // Return route header, specifies how communication is done.
-    #[serde(rename = "return_route")]
     pub return_route: ReturnRouteHeader,
 
     /// Uniquely identifies a mediation request message.
-    #[serde(rename = "id")]
     pub id: String,
 
     /// References the protocol URI of this concept.
@@ -49,7 +47,6 @@ pub struct MediationRequest {
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct MediationDeny {
     /// Uniquely identifies a mediation deny message.
-    #[serde(rename = "id")]
     pub id: String,
 
     /// References the protocol URI of this concept.
@@ -67,7 +64,6 @@ pub struct MediationDeny {
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct MediationGrant {
     /// Uniquely identifies a mediation grant message.
-    #[serde(rename = "id")]
     pub id: String,
 
     /// References the protocol URI of this concept.
@@ -95,10 +91,8 @@ pub enum ReturnRouteHeader {
 
 /// Message to notify the mediator of keys in use by the recipient.
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
-#[serde(rename_all = "snake_case")]
 pub struct KeylistUpdate {
     /// Uniquely identifies a keylist update message.
-    #[serde(rename = "id")]
     pub id: String,
 
     /// References the protocol URI of this concept.
@@ -120,7 +114,6 @@ pub struct KeylistUpdate {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
 pub struct KeylistUpdateBody {
     /// List of commands to update keys in use
     pub updates: Vec<KeylistUpdateCommand>,
@@ -128,7 +121,6 @@ pub struct KeylistUpdateBody {
 
 /// Specifies a command for keylist update
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
 pub struct KeylistUpdateCommand {
     /// DID on which to apply an action
     pub recipient_did: String,
@@ -149,10 +141,8 @@ pub enum KeylistUpdateAction {
 
 /// Response message to confirm requested keylist updates.
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
-#[serde(rename_all = "snake_case")]
 pub struct KeylistUpdateResponse {
     /// Uniquely identifies a keylist update response message.
-    #[serde(rename = "id")]
     pub id: String,
 
     /// References the protocol URI of this concept.
@@ -170,7 +160,6 @@ pub struct KeylistUpdateResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
 pub struct KeylistUpdateResponseBody {
     /// Confirmations to requested keylist updates.
     pub updated: Vec<KeylistUpdateConfirmation>,
@@ -178,7 +167,6 @@ pub struct KeylistUpdateResponseBody {
 
 /// Conveys a result to a requested keylist update.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
 pub struct KeylistUpdateConfirmation {
     /// DID at which an action was directed
     pub recipient_did: String,
@@ -202,10 +190,8 @@ pub enum KeylistUpdateResult {
 
 /// Message to query mediator for a list of keys registered for this connection.
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
-#[serde(rename_all = "snake_case")]
 pub struct KeylistQuery {
     /// Uniquely identifies a keylist query message.
-    #[serde(rename = "id")]
     pub id: String,
 
     /// References the protocol URI of this concept.
@@ -227,7 +213,6 @@ pub struct KeylistQuery {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
 pub struct KeylistQueryBody {
     /// Optional pagination details.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -236,7 +221,6 @@ pub struct KeylistQueryBody {
 
 /// Pagination details for a keylist query.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
 pub struct KeylistQueryPaginate {
     pub limit: i32,
     pub offset: i32,
@@ -244,10 +228,8 @@ pub struct KeylistQueryPaginate {
 
 /// Response to key list query, containing retrieved keys.
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
-#[serde(rename_all = "snake_case")]
 pub struct Keylist {
     /// Uniquely identifies a keylist query response message.
-    #[serde(rename = "id")]
     pub id: String,
 
     /// References the protocol URI of this concept.
@@ -265,7 +247,6 @@ pub struct Keylist {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
 pub struct KeylistBody {
     /// List of retrieved keys.
     pub keys: Vec<KeylistEntry>,
@@ -277,7 +258,6 @@ pub struct KeylistBody {
 
 /// Keylist entry for a specific key.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
 pub struct KeylistEntry {
     /// Registered DID
     pub recipient_did: String,
@@ -285,14 +265,14 @@ pub struct KeylistEntry {
 
 /// Pagination details for a keylist query.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
 pub struct KeylistPagination {
     pub count: i32,
     pub offset: i32,
     pub remaining: i32,
 }
+
+/// Message to grant a routing DID to a mediator.
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
-#[serde(rename_all = "snake_case")]
 pub struct MediationGrantBody {
     pub routing_did: String,
 }
