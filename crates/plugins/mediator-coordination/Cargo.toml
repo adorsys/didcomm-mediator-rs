@@ -24,6 +24,7 @@ tokio = { workspace = true, features = ["full"] }
 axum = { workspace = true, features = ["macros"] }
 uuid = { workspace = true, features = ["v4"] }
 hyper = { workspace = true, features = ["full"] }
+lazy_static.workspace = true
 
 [dev-dependencies]
 dotenv-flow = "0.15.0"
