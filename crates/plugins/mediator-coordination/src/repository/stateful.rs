@@ -1,10 +1,7 @@
-use std::sync::Arc;
 use async_trait::async_trait;
-use database::{Repository, RepositoryError};
-use mongodb::{
-    bson::{doc, oid::ObjectId, Document as BsonDocument},
-    Collection, Database,
-};
+use database::Repository;
+use mongodb::{Collection, Database};
+use std::sync::Arc;
 use tokio::sync::Mutex;
 
 use crate::model::stateful::entity::{Connection, RoutedMessage, Secrets};
@@ -67,9 +64,13 @@ impl Repository<RoutedMessage> for MongoMessagesRepository {
 #[cfg(test)]
 pub mod tests {
     use super::*;
-    use mongodb::bson::Bson;
+    use database::RepositoryError;
+    use mongodb::bson::{doc, oid::ObjectId, Bson, Document as BsonDocument};
     use serde_json::json;
-    use std::{collections::HashMap, sync::{Arc, RwLock}};
+    use std::{
+        collections::HashMap,
+        sync::{Arc, RwLock},
+    };
     use tokio::sync::Mutex;
 
     pub struct MockConnectionRepository {
@@ -95,11 +96,17 @@ pub mod tests {
             Ok(self.connections.read().unwrap().clone())
         }
 
-        async fn find_one(&self, connection_id: ObjectId) -> Result<Option<Connection>, RepositoryError> {
+        async fn find_one(
+            &self,
+            connection_id: ObjectId,
+        ) -> Result<Option<Connection>, RepositoryError> {
             self.find_one_by(doc! {"_id": connection_id}).await
         }
 
-        async fn find_one_by(&self, filter: BsonDocument) -> Result<Option<Connection>, RepositoryError> {
+        async fn find_one_by(
+            &self,
+            filter: BsonDocument,
+        ) -> Result<Option<Connection>, RepositoryError> {
             let filter: HashMap<String, Bson> = filter.into_iter().collect();
             Ok(self
                 .connections
@@ -181,7 +188,10 @@ pub mod tests {
             self.find_one_by(doc! {"_id": secrets_id}).await
         }
 
-        async fn find_one_by(&self, filter: BsonDocument) -> Result<Option<Secrets>, RepositoryError> {
+        async fn find_one_by(
+            &self,
+            filter: BsonDocument,
+        ) -> Result<Option<Secrets>, RepositoryError> {
             let filter: HashMap<String, Bson> = filter.into_iter().collect();
             Ok(self
                 .secrets
@@ -249,11 +259,17 @@ pub mod tests {
             Ok(self.messages.read().unwrap().clone())
         }
 
-        async fn find_one(&self, message_id: ObjectId) -> Result<Option<RoutedMessage>, RepositoryError> {
+        async fn find_one(
+            &self,
+            message_id: ObjectId,
+        ) -> Result<Option<RoutedMessage>, RepositoryError> {
             self.find_one_by(doc! {"_id": message_id}).await
         }
 
-        async fn find_one_by(&self, filter: BsonDocument) -> Result<Option<RoutedMessage>, RepositoryError> {
+        async fn find_one_by(
+            &self,
+            filter: BsonDocument,
+        ) -> Result<Option<RoutedMessage>, RepositoryError> {
             let filter: HashMap<String, Bson> = filter.into_iter().collect();
             Ok(self
                 .messages
