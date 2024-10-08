@@ -1,101 +1,26 @@
 use axum::{
-    http::{header::CONTENT_TYPE, HeaderMap, StatusCode},
+    http::StatusCode,
     response::{IntoResponse, Response},
 };
-use didcomm::{Message, UnpackOptions};
+use didcomm::Message;
 use serde_json::{json, Value};
 
 use crate::{
-    constant::{
-        DIDCOMM_ENCRYPTED_MIME_TYPE, DIDCOMM_ENCRYPTED_SHORT_MIME_TYPE, MEDIATE_REQUEST_2_0,
-        MEDIATE_REQUEST_DIC_1_0,
-    },
-    didcomm::bridge::{LocalDIDResolver, LocalSecretsResolver},
-    model::coord::MediationRequest,
+    constant::{MEDIATE_REQUEST_2_0, MEDIATE_REQUEST_DIC_1_0},
     web::error::MediationError,
 };
-
-pub use crate::web::midlw::pack_response_message;
 
 macro_rules! run {
     ($expression:expr) => {
         match $expression {
             Ok(res) => res,
-            
+
             Err(err) => return Err(err),
         }
     };
 }
 
 pub(crate) use run;
-
-/// Ensure header content-type match `application/didcomm-encrypted+json` or `didcomm-encrypted+json`
-pub fn ensure_content_type_is_didcomm_encrypted(headers: &HeaderMap) -> Result<(), Response> {
-    let content_type = headers.get(CONTENT_TYPE);
-
-    if content_type.is_none()
-        || [
-            DIDCOMM_ENCRYPTED_MIME_TYPE,
-            DIDCOMM_ENCRYPTED_SHORT_MIME_TYPE,
-        ]
-        .iter()
-        .all(|e| e != content_type.unwrap())
-    {
-        let response = (
-            StatusCode::BAD_REQUEST,
-            MediationError::NotDidcommEncryptedPayload.json(),
-        );
-
-        return Err(response.into_response());
-    }
-
-    Ok(())
-}
-
-
-/// Decrypt assumed authcrypt'd didcomm messaged
-pub async fn unpack_request_message(
-    msg: &str,
-    did_resolver: &LocalDIDResolver,
-    secrets_resolver: &LocalSecretsResolver,
-) -> Result<Message, Response> {
-    let res = Message::unpack(
-        msg,
-        did_resolver,
-        secrets_resolver,
-        &UnpackOptions::default(),
-    )
-    .await;
-
-    let (plain_message, metadata) = res.map_err(|_| {
-        let response = (
-            StatusCode::BAD_REQUEST,
-            MediationError::MessageUnpackingFailure.json(),
-        );
-
-        response.into_response()
-    })?;
-
-    if !metadata.encrypted {
-        let response = (
-            StatusCode::BAD_REQUEST,
-            MediationError::MalformedDidcommEncrypted.json(),
-        );
-
-        return Err(response.into_response());
-    }
-
-    if plain_message.from.is_none() || !metadata.authenticated || metadata.anonymous_sender {
-        let response = (
-            StatusCode::BAD_REQUEST,
-            MediationError::AnonymousPacker.json(),
-        );
-
-        return Err(response.into_response());
-    }
-
-    Ok(plain_message)
-}
 
 /// Validate that JWM's indicative body type is a mediation request
 pub fn ensure_jwm_type_is_mediation_request(message: &Message) -> Result<(), Response> {
@@ -114,17 +39,11 @@ pub fn ensure_jwm_type_is_mediation_request(message: &Message) -> Result<(), Res
 /// Validate explicit decoration on message to receive response on same route
 /// See https://github.com/hyperledger/aries-rfcs/tree/main/features/0092-transport-return-route
 pub fn ensure_transport_return_route_is_decorated_all(message: &Message) -> Result<(), Response> {
-    let transport_decoration = message
+    if message
         .extra_headers
-        .get("~transport")
-        .unwrap_or(&Value::Null);
-
-    if !transport_decoration.is_object()
-        || transport_decoration
-            .as_object()
-            .unwrap()
-            .get("return_route")
-            != Some(&json!("all"))
+        .get("return_route")
+        .and_then(Value::as_str)
+        != Some("all")
     {
         let response = (
             StatusCode::BAD_REQUEST,
@@ -135,20 +54,6 @@ pub fn ensure_transport_return_route_is_decorated_all(message: &Message) -> Resu
     }
 
     Ok(())
-}
-
-/// Parse message body into mediation request
-pub fn parse_message_body_into_mediation_request(
-    message: &Message,
-) -> Result<MediationRequest, Response> {
-    serde_json::from_value::<MediationRequest>(message.body.clone()).map_err(|_| {
-        let response = (
-            StatusCode::BAD_REQUEST,
-            MediationError::UnexpectedMessageFormat.json(),
-        );
-
-        response.into_response()
-    })
 }
 
 /// Validate that mediation request's URI type is as expected
@@ -179,229 +84,7 @@ mod tests {
         MediationRequest as StatelessMediationRequest, MediatorService,
     };
 
-    use didcomm::{Message, PackEncryptedOptions};
-
-    #[tokio::test]
-    async fn test_ensure_content_type_is_didcomm_encrypted() {
-        /* Positive cases */
-
-        let headers: HeaderMap = [(CONTENT_TYPE, DIDCOMM_ENCRYPTED_MIME_TYPE.parse().unwrap())]
-            .into_iter()
-            .collect();
-        assert!(ensure_content_type_is_didcomm_encrypted(&headers).is_ok());
-
-        let headers: HeaderMap = [(
-            CONTENT_TYPE,
-            DIDCOMM_ENCRYPTED_SHORT_MIME_TYPE.parse().unwrap(),
-        )]
-        .into_iter()
-        .collect();
-        assert!(ensure_content_type_is_didcomm_encrypted(&headers).is_ok());
-
-        /* Negative cases */
-
-        let headers: HeaderMap = [].into_iter().collect();
-        _assert_midlw_err(
-            ensure_content_type_is_didcomm_encrypted(&headers).unwrap_err(),
-            StatusCode::BAD_REQUEST,
-            MediationError::NotDidcommEncryptedPayload,
-        )
-        .await;
-
-        let headers: HeaderMap = [(CONTENT_TYPE, "application/json".parse().unwrap())]
-            .into_iter()
-            .collect();
-        _assert_midlw_err(
-            ensure_content_type_is_didcomm_encrypted(&headers).unwrap_err(),
-            StatusCode::BAD_REQUEST,
-            MediationError::NotDidcommEncryptedPayload,
-        )
-        .await;
-    }
-
-    #[tokio::test]
-    async fn test_unpack_message_works() {
-        let (_, state) = setup();
-
-        let plain_msg = Message::build(
-            "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
-            MEDIATE_REQUEST_DIC_1_0.to_string(),
-            json!({
-                "@id": "id_alice_mediation_request",
-                "@type": MEDIATE_REQUEST_DIC_1_0,
-                "did": "did:key:alice_identity_pub@alice_mediator",
-                "services": ["inbox", "outbox"]
-            }),
-        )
-        .to(_mediator_did(&state))
-        .from(_edge_did())
-        .finalize();
-
-        let packed_msg =
-            _edge_pack_message(&state, &plain_msg, Some(_edge_did()), _mediator_did(&state))
-                .await
-                .unwrap();
-
-        let unpacked_msg =
-            unpack_request_message(&packed_msg, &state.did_resolver, &state.secrets_resolver)
-                .await
-                .unwrap();
-        assert_eq!(unpacked_msg, plain_msg);
-    }
-
-    #[tokio::test]
-    async fn test_unpack_non_destinated_message() {
-        let (_, state) = setup();
-
-        let plain_msg = Message::build(
-            "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
-            MEDIATE_REQUEST_DIC_1_0.to_string(),
-            json!({
-                "@id": "id_alice_mediation_request",
-                "@type": MEDIATE_REQUEST_DIC_1_0,
-                "did": "did:key:alice_identity_pub@alice_mediator",
-                "services": ["inbox", "outbox"]
-            }),
-        )
-        .to(_edge_did())
-        .from(_edge_did())
-        .finalize();
-
-        let packed_msg = _edge_pack_message(&state, &plain_msg, Some(_edge_did()), _edge_did())
-            .await
-            .unwrap();
-
-        _assert_midlw_err(
-            unpack_request_message(&packed_msg, &state.did_resolver, &state.secrets_resolver)
-                .await
-                .unwrap_err(),
-            StatusCode::BAD_REQUEST,
-            MediationError::MessageUnpackingFailure,
-        )
-        .await;
-    }
-
-    #[tokio::test]
-    async fn test_unpack_non_encrypted_message() {
-        let (_, state) = setup();
-
-        let plain_msg = Message::build(
-            "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
-            MEDIATE_REQUEST_DIC_1_0.to_string(),
-            json!({
-                "@id": "id_alice_mediation_request",
-                "@type": MEDIATE_REQUEST_DIC_1_0,
-                "did": "did:key:alice_identity_pub@alice_mediator",
-                "services": ["inbox", "outbox"]
-            }),
-        )
-        .to(_edge_did())
-        .from(_edge_did())
-        .finalize();
-
-        let msg = plain_msg.pack_plaintext(&state.did_resolver).await.unwrap();
-
-        _assert_midlw_err(
-            unpack_request_message(&msg, &state.did_resolver, &state.secrets_resolver)
-                .await
-                .unwrap_err(),
-            StatusCode::BAD_REQUEST,
-            MediationError::MalformedDidcommEncrypted,
-        )
-        .await;
-
-        let (msg, _) = plain_msg
-            .pack_signed(
-                &_edge_did(),
-                &state.did_resolver,
-                &_edge_signing_secrets_resolver(),
-            )
-            .await
-            .unwrap();
-
-        _assert_midlw_err(
-            unpack_request_message(&msg, &state.did_resolver, &state.secrets_resolver)
-                .await
-                .unwrap_err(),
-            StatusCode::BAD_REQUEST,
-            MediationError::MalformedDidcommEncrypted,
-        )
-        .await;
-    }
-
-    #[tokio::test]
-    async fn test_unpack_anonymously_encrypted_message() {
-        let (_, state) = setup();
-
-        let plain_msg = Message::build(
-            "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
-            MEDIATE_REQUEST_DIC_1_0.to_string(),
-            json!({
-                "@id": "id_alice_mediation_request",
-                "@type": MEDIATE_REQUEST_DIC_1_0,
-                "did": "did:key:alice_identity_pub@alice_mediator",
-                "services": ["inbox", "outbox"]
-            }),
-        )
-        .to(_mediator_did(&state))
-        .from(_edge_did())
-        .finalize();
-
-        // No sender
-        let packed_msg = _edge_pack_message(&state, &plain_msg, None, _mediator_did(&state))
-            .await
-            .unwrap();
-
-        _assert_midlw_err(
-            unpack_request_message(&packed_msg, &state.did_resolver, &state.secrets_resolver)
-                .await
-                .unwrap_err(),
-            StatusCode::BAD_REQUEST,
-            MediationError::AnonymousPacker,
-        )
-        .await;
-    }
-
-    #[tokio::test]
-    async fn test_unpack_anonymously_encrypted_message_but_signed() {
-        let (_, state) = setup();
-
-        let plain_msg = Message::build(
-            "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
-            MEDIATE_REQUEST_DIC_1_0.to_string(),
-            json!({
-                "@id": "id_alice_mediation_request",
-                "@type": MEDIATE_REQUEST_DIC_1_0,
-                "did": "did:key:alice_identity_pub@alice_mediator",
-                "services": ["inbox", "outbox"]
-            }),
-        )
-        .to(_mediator_did(&state))
-        .from(_edge_did())
-        .finalize();
-
-        // No sender but signed
-        let (packed_msg, _) = plain_msg
-            .pack_encrypted(
-                &_mediator_did(&state),
-                None,
-                Some(&_edge_did()), // sign_by
-                &state.did_resolver,
-                &_edge_signing_secrets_resolver(),
-                &PackEncryptedOptions::default(),
-            )
-            .await
-            .unwrap();
-
-        _assert_midlw_err(
-            unpack_request_message(&packed_msg, &state.did_resolver, &state.secrets_resolver)
-                .await
-                .unwrap_err(),
-            StatusCode::BAD_REQUEST,
-            MediationError::AnonymousPacker,
-        )
-        .await;
-    }
+    use didcomm::Message;
 
     #[tokio::test]
     async fn test_ensure_jwm_type_is_mediation_request() {
@@ -489,12 +172,7 @@ mod tests {
         /* Positive cases */
 
         let msg = unfinalized_msg!()
-            .header(
-                "~transport".into(),
-                json!({
-                    "return_route": "all"
-                }),
-            )
+            .header("return_route".into(), Value::String("all".into()))
             .finalize();
 
         assert!(ensure_transport_return_route_is_decorated_all(&msg).is_ok());
@@ -511,12 +189,7 @@ mod tests {
         .await;
 
         let msg = unfinalized_msg!()
-            .header(
-                "~transport".into(),
-                json!({
-                    "return_route": "none"
-                }),
-            )
+            .header("return_route".into(), Value::String("none".into()))
             .finalize();
 
         _assert_midlw_err(
