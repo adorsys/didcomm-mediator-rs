@@ -231,7 +231,6 @@ mod test {
             .pack(Some(&kid), &did_resolver, &prev_secrets_resolver())
             .await
             .unwrap();
-        println!("{jwt}");
 
         let msg = Message::build(
             Uuid::new_v4().to_string(),
@@ -246,18 +245,19 @@ mod test {
             connection_repository,
             ..
         } = state.repository.as_ref().unwrap();
-        println!("{:?}", did_rotation(msg, connection_repository).await);
-        // let (msg, _) = msg
-        //     .pack_encrypted(
-        //         "did:web:alice-mediator.com:alice_mediator_pub",
-        //         Some(&new_did()),
-        //         None,
-        //         &did_resolver,
-        //         &new_secrets_resolver(),
-        //         &didcomm::PackEncryptedOptions::default(),
-        //     )
-        //     .await
-        //     .unwrap();
+
+        let (msg, _) = msg
+        .pack_encrypted(
+            "did:web:alice-mediator.com:alice_mediator_pub",
+            Some(&new_did()),
+            None,
+            &did_resolver,
+            &new_secrets_resolver(),
+            &didcomm::PackEncryptedOptions::default(),
+        )
+        .await
+        .unwrap();
+        println!("{}",msg);
 
         // // Mediator in action
         // let secret: Jwk = serde_json::from_str(

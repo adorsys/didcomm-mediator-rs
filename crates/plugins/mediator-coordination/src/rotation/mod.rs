@@ -1,2 +1,2 @@
 pub mod rotation;
-mod errors;
+pub mod errors;
