@@ -27,13 +27,13 @@ pub struct MediationRequest {
     pub return_route: ReturnRouteHeader,
 
     /// Uniquely identifies a mediation request message.
-    #[serde(rename = "@id")]
+    #[serde(rename = "id")]
     pub id: String,
 
     /// References the protocol URI of this concept.
     ///
     /// Typically `https://didcomm.org/coordinate-mediation/2.0/mediate-request`
-    #[serde(rename = "@type")]
+    #[serde(rename = "type")]
     pub message_type: String,
 }
 
@@ -47,16 +47,15 @@ pub struct MediationRequest {
 // "type": "https://didcomm.org/coordinate-mediation/2.0/mediate-deny",
 // }
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
-#[serde(rename_all = "camelCase")]
 pub struct MediationDeny {
     /// Uniquely identifies a mediation deny message.
-    #[serde(rename = "@id")]
+    #[serde(rename = "id")]
     pub id: String,
 
     /// References the protocol URI of this concept.
     ///
     /// Typically `https://didcomm.org/coordinate-mediation/2.0/mediate-deny`
-    #[serde(rename = "@type")]
+    #[serde(rename = "type")]
     pub message_type: String,
 }
 
@@ -68,13 +67,13 @@ pub struct MediationDeny {
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct MediationGrant {
     /// Uniquely identifies a mediation grant message.
-    #[serde(rename = "@id")]
+    #[serde(rename = "id")]
     pub id: String,
 
     /// References the protocol URI of this concept.
     ///
     /// Typically `https://didcomm.org/coordinate-mediation/2.0/mediate-grant`
-    #[serde(rename = "@type")]
+    #[serde(rename = "type")]
     pub message_type: String,
 
     /// Mediator's endpoint.
@@ -99,13 +98,13 @@ pub enum ReturnRouteHeader {
 #[serde(rename_all = "snake_case")]
 pub struct KeylistUpdate {
     /// Uniquely identifies a keylist update message.
-    #[serde(rename = "@id")]
+    #[serde(rename = "id")]
     pub id: String,
 
     /// References the protocol URI of this concept.
     ///
     /// Typically `https://didcomm.org/coordinate-mediation/2.0/keylist-update`
-    #[serde(rename = "@type")]
+    #[serde(rename = "type")]
     pub message_type: String,
 
     /// Message body
@@ -153,13 +152,13 @@ pub enum KeylistUpdateAction {
 #[serde(rename_all = "snake_case")]
 pub struct KeylistUpdateResponse {
     /// Uniquely identifies a keylist update response message.
-    #[serde(rename = "@id")]
+    #[serde(rename = "id")]
     pub id: String,
 
     /// References the protocol URI of this concept.
     ///
     /// Typically `https://didcomm.org/coordinate-mediation/2.0/keylist-update-response`
-    #[serde(rename = "@type")]
+    #[serde(rename = "type")]
     pub message_type: String,
 
     /// Message body
@@ -206,13 +205,13 @@ pub enum KeylistUpdateResult {
 #[serde(rename_all = "snake_case")]
 pub struct KeylistQuery {
     /// Uniquely identifies a keylist query message.
-    #[serde(rename = "@id")]
+    #[serde(rename = "id")]
     pub id: String,
 
     /// References the protocol URI of this concept.
     ///
     /// Typically `https://didcomm.org/coordinate-mediation/2.0/keylist-query`
-    #[serde(rename = "@type")]
+    #[serde(rename = "type")]
     pub message_type: String,
 
     /// Message body
@@ -248,13 +247,13 @@ pub struct KeylistQueryPaginate {
 #[serde(rename_all = "snake_case")]
 pub struct Keylist {
     /// Uniquely identifies a keylist query response message.
-    #[serde(rename = "@id")]
+    #[serde(rename = "id")]
     pub id: String,
 
     /// References the protocol URI of this concept.
     ///
     /// Typically `https://didcomm.org/coordinate-mediation/2.0/keylist`
-    #[serde(rename = "@type")]
+    #[serde(rename = "type")]
     pub message_type: String,
 
     /// Message body
@@ -382,8 +381,8 @@ mod tests {
         };
 
         let expected = json!({
-            "@id": "id_alice_keylist_update_request",
-            "@type": "https://didcomm.org/coordinate-mediation/2.0/keylist-update",
+            "id": "id_alice_keylist_update_request",
+            "type": "https://didcomm.org/coordinate-mediation/2.0/keylist-update",
             "body": {
                 "updates": [
                     {
@@ -404,8 +403,8 @@ mod tests {
     #[test]
     fn can_deserialize_keylist_update_message() {
         let msg = r#"{
-            "@id": "id_alice_keylist_update_request",
-            "@type": "https://didcomm.org/coordinate-mediation/2.0/keylist-update",
+            "id": "id_alice_keylist_update_request",
+            "type": "https://didcomm.org/coordinate-mediation/2.0/keylist-update",
             "body": {
                 "updates": [
                     {
@@ -459,8 +458,8 @@ mod tests {
         };
 
         let expected = json!({
-            "@id": "id_alice_keylist_update_response",
-            "@type": "https://didcomm.org/coordinate-mediation/2.0/keylist-update-response",
+            "id": "id_alice_keylist_update_response",
+            "type": "https://didcomm.org/coordinate-mediation/2.0/keylist-update-response",
             "body": {
             "updated": [
                 {
@@ -480,8 +479,8 @@ mod tests {
     #[test]
     fn can_deserialize_keylist_update_response_message() {
         let msg = r#"{
-            "@id": "id_alice_keylist_update_response",
-            "@type": "https://didcomm.org/coordinate-mediation/2.0/keylist-update-response",
+            "id": "id_alice_keylist_update_response",
+            "type": "https://didcomm.org/coordinate-mediation/2.0/keylist-update-response",
             "body": {
                 "updated": [
                     {
@@ -541,8 +540,8 @@ mod tests {
         };
 
         let expected = json!({
-            "@id": "id_alice_keylist_query",
-            "@type": "https://didcomm.org/coordinate-mediation/2.0/keylist-query",
+            "id": "id_alice_keylist_query",
+            "type": "https://didcomm.org/coordinate-mediation/2.0/keylist-query",
             "body": {
                 "paginate": {
                     "limit": 30,
@@ -561,8 +560,8 @@ mod tests {
     #[test]
     fn can_deserialize_keylist_query_message() {
         let msg = r#"{
-            "@id": "id_alice_keylist_query",
-            "@type": "https://didcomm.org/coordinate-mediation/2.0/keylist-query",
+            "id": "id_alice_keylist_query",
+            "type": "https://didcomm.org/coordinate-mediation/2.0/keylist-query",
             "body": {
                 "paginate": {
                     "limit": 30,
@@ -617,8 +616,8 @@ mod tests {
         };
 
         let expected = json!({
-            "@id": "id_alice_keylist",
-            "@type": "https://didcomm.org/coordinate-mediation/2.0/keylist",
+            "id": "id_alice_keylist",
+            "type": "https://didcomm.org/coordinate-mediation/2.0/keylist",
             "body": {
                 "keys": [
                     {
@@ -642,8 +641,8 @@ mod tests {
     #[test]
     fn can_deserialize_keylist_message() {
         let msg = r#"{
-            "@id": "id_alice_keylist",
-            "@type": "https://didcomm.org/coordinate-mediation/2.0/keylist",
+            "id": "id_alice_keylist",
+            "type": "https://didcomm.org/coordinate-mediation/2.0/keylist",
             "body": {
                 "keys": [
                     {
@@ -698,8 +697,8 @@ mod tests {
 
         let expected = json!({
             "return_route": "all",
-            "@id": "id_alice_mediation_request",
-            "@type": "https://didcomm.org/coordinate-mediation/2.0/mediate-request"
+            "id": "id_alice_mediation_request",
+            "type": "https://didcomm.org/coordinate-mediation/2.0/mediate-request"
         });
 
         assert_eq!(
@@ -712,8 +711,8 @@ mod tests {
     fn can_deserialize_mediation_request_message() {
         let msg = r#"{ 
             "return_route": "all",
-            "@id": "id_alice_mediation_request",
-            "@type": "https://didcomm.org/coordinate-mediation/2.0/mediate-request"
+            "id": "id_alice_mediation_request",
+            "type": "https://didcomm.org/coordinate-mediation/2.0/mediate-request"
         }"#;
 
         // Assert deserialization
@@ -738,8 +737,8 @@ mod tests {
         };
 
         let expected = json!({
-            "@id": "id_alice_mediation_grant",
-            "@type": "https://didcomm.org/coordinate-mediation/2.0/mediate-grant",
+            "id": "id_alice_mediation_grant",
+            "type": "https://didcomm.org/coordinate-mediation/2.0/mediate-grant",
             "body": {"routing_did": "routing_did"},
         });
 
@@ -752,8 +751,8 @@ mod tests {
     #[test]
     fn can_deserialize_mediation_grant_message() {
         let msg = r#"{
-            "@id": "id_alice_mediation_grant",
-            "@type": "https://didcomm.org/coordinate-mediation/2.0/mediate-grant",
+            "id": "id_alice_mediation_grant",
+            "type": "https://didcomm.org/coordinate-mediation/2.0/mediate-grant",
             "body": { "routing_did": "routing_did"
     }
         }"#;
@@ -781,8 +780,8 @@ mod tests {
         };
 
         let expected = json!({
-            "@id": "id_alice_mediation_deny",
-            "@type": "https://didcomm.org/coordinate-mediation/2.0/mediate-deny"
+            "id": "id_alice_mediation_deny",
+            "type": "https://didcomm.org/coordinate-mediation/2.0/mediate-deny"
         });
 
         assert_eq!(
@@ -794,8 +793,8 @@ mod tests {
     #[test]
     fn can_deserialize_mediation_deny_message() {
         let msg = r#"{
-            "@id": "id_alice_mediation_deny",
-            "@type": "https://didcomm.org/coordinate-mediation/2.0/mediate-deny"
+            "id": "id_alice_mediation_deny",
+            "type": "https://didcomm.org/coordinate-mediation/2.0/mediate-deny"
         }"#;
 
         // Assert deserialization
