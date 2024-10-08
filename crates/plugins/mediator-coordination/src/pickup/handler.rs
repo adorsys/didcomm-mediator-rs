@@ -369,7 +369,8 @@ mod tests {
 
     #[allow(clippy::needless_update)]
     fn setup(connections: Vec<Connection>, stored_messages: Vec<RoutedMessage>) -> Arc<AppState> {
-        let mut state = Arc::into_inner(global::setup().1).unwrap();
+        let (_, state) = global::setup();
+        let mut state = Arc::into_inner(state).unwrap();
 
         state.repository = Some(AppStateRepository {
             connection_repository: Arc::new(MockConnectionRepository::from(connections)),
