@@ -13,7 +13,7 @@ use super::{error::MediationError, AppState, AppStateRepository};
 use crate::{
     constant::{DIDCOMM_ENCRYPTED_MIME_TYPE, DIDCOMM_ENCRYPTED_SHORT_MIME_TYPE},
     didcomm::bridge::{LocalDIDResolver, LocalSecretsResolver},
-    rotation::{errors::RotationError, rotation::did_rotation},
+    rotation::rotation::did_rotation,
 };
 
 /// Middleware to unpack DIDComm messages for unified handler
@@ -67,13 +67,12 @@ pub async fn unpack_didcomm_message(
             } = state.repository.as_ref().unwrap();
             match did_rotation(plain_message.clone(), connection_repository).await {
                 Ok(_) => {}
-                Err(_) => {
-                    // handle better
-                    let response = (StatusCode::BAD_REQUEST, RotationError::RotationError.json());
-
+                Err(err) => {
+                    let response = (StatusCode::BAD_REQUEST, err);
                     return response.into_response();
                 }
             };
+
             let mut request = Request::from_parts(parts, Body::from(bytes));
             request.extensions_mut().insert(plain_message);
 
@@ -117,7 +116,7 @@ async fn unpack_payload(
     )
     .await;
 
-    let (plain_message, metadata) = res.map_err(|_| {
+    let (plain_message, _metadata) = res.map_err(|_| {
         let response = (
             StatusCode::BAD_REQUEST,
             MediationError::MessageUnpackingFailure.json(),
@@ -126,23 +125,23 @@ async fn unpack_payload(
         response.into_response()
     })?;
 
-    if !metadata.encrypted {
-        let response = (
-            StatusCode::BAD_REQUEST,
-            MediationError::MalformedDidcommEncrypted.json(),
-        );
+    // if !metadata.encrypted {
+    //     let response = (
+    //         StatusCode::BAD_REQUEST,
+    //         MediationError::MalformedDidcommEncrypted.json(),
+    //     );
 
-        return Err(response.into_response());
-    }
+    //     return Err(response.into_response());
+    // }
 
-    if plain_message.from.is_none() || !metadata.authenticated || metadata.anonymous_sender {
-        let response = (
-            StatusCode::BAD_REQUEST,
-            MediationError::AnonymousPacker.json(),
-        );
+    // if plain_message.from.is_none() || !metadata.authenticated || metadata.anonymous_sender {
+    //     let response = (
+    //         StatusCode::BAD_REQUEST,
+    //         MediationError::AnonymousPacker.json(),
+    //     );
 
-        return Err(response.into_response());
-    }
+    //     return Err(response.into_response());
+    // }
 
     Ok(plain_message)
 }
@@ -156,7 +155,7 @@ pub async fn pack_response_message(
     let from = msg.from.as_ref();
     let to = msg.to.as_ref().and_then(|v| v.get(0));
 
-    if from.is_none() || to.is_none() {
+    if to.is_none() {
         let response = (
             StatusCode::INTERNAL_SERVER_ERROR,
             MediationError::MessagePackingFailure(DidcommErrorKind::Malformed).json(),

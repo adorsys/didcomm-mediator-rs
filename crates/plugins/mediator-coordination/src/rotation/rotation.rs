@@ -1,23 +1,16 @@
 use super::errors::RotationError;
 use crate::{didcomm::bridge::LocalDIDResolver, model::stateful::entity::Connection};
 use axum::response::{IntoResponse, Response};
-use database::Repository;
+use database::{Repository, RepositoryError};
 use didcomm::{FromPrior, Message};
 use mongodb::bson::doc;
-use serde_json::Error;
 use std::sync::Arc;
-
-#[derive(Debug)]
-pub enum Errors {
-    Error0(RotationError),
-    Error1(Error),
-    Error2(Response),
-}
 
 pub async fn did_rotation(
     msg: Message,
     conection_repos: &Arc<dyn Repository<Connection>>,
-) -> Result<(), Errors> {
+) -> Result<(), Response> {
+
     // Check if from_prior is not none
     if msg.from_prior.is_some() {
         let jwt = msg.from_prior.unwrap();
@@ -26,31 +19,48 @@ pub async fn did_rotation(
         // decode and valid jwt signature
         let (from_prior, _kid) = FromPrior::unpack(&jwt, &did_resolver)
             .await
-            .map_err(|_| Errors::Error2(RotationError::InvalidFromPrior.json().into_response()))?;
-
+            .map_err(|_| RotationError::InvalidFromPrior.json().into_response())?;
         let prev = from_prior.iss;
 
         // validate if did is  known
         let _connection = match conection_repos
-            .find_one_by(doc! {"keylist": doc!{ "$elemMatch": { "$eq": &prev}}})
+            .find_one_by(doc! {"client_did": &prev})
             .await
             .unwrap()
         {
             Some(mut connection) => {
+
                 // stored the new did for communication
                 let new = from_prior.sub;
-                if connection.client_did == prev {
-                    let _ = connection.client_did.replace(&prev, &new);
+
+                let did_index = connection.keylist.iter().position(|did| did == &prev);
+
+                if did_index.is_some() {
+                    connection.keylist.swap_remove(did_index.unwrap());
+
+                    connection.keylist.push(new.clone());
+                } else {
+                    // scenario in which there is rotation prior to keylist update
+                    connection.keylist.push(new.clone());
+                }
+
+                // store updated connection
+                let _confirmations = match conection_repos
+                    .update(Connection {
+                        client_did: new.clone(),
+                        ..connection.clone()
+                    })
+                    .await
+                {
+                    Ok(conn) => Ok(conn),
+                    Err(_) => Err(RepositoryError::Generic(
+                        "could not store updated connection".to_string(),
+                    )),
                 };
-                let did_index = connection
-                    .keylist
-                    .iter()
-                    .position(|did| did == &prev)
-                    .unwrap();
-                connection.keylist.swap_remove(did_index).push_str(&new);
             }
+
             None => {
-                return Err(Errors::Error0(RotationError::RotationError))?;
+                return Err(RotationError::RotationError.json().into_response())?;
             }
         };
     }
@@ -59,25 +69,14 @@ pub async fn did_rotation(
 
 #[cfg(test)]
 mod test {
+    use std::sync::Arc;
+
     use did_utils::jwk::Jwk;
     use didcomm::secrets::SecretsResolver;
+    use hyper::{header::CONTENT_TYPE, Body, Method, Request, StatusCode};
+    use tower::ServiceExt;
 
-    use crate::didcomm::bridge::LocalSecretsResolver;
-
-    pub fn prev_secrets_resolver() -> impl SecretsResolver {
-        let secret_id = "did:key:z6MkrQT3VKYGkbPaYuJeBv31gNgpmVtRWP5yTocLDBgPpayM#z6MkrQT3VKYGkbPaYuJeBv31gNgpmVtRWP5yTocLDBgPpayM";
-        let secret: Jwk = serde_json::from_str(
-            r#"{
-                "kty": "OKP",
-                "crv": "Ed25519",
-                "x": "sZPvulKOXCES3D8Eya3LVnlgOpEaBohCqZ7emD8VXAA",
-                "d": "kUKFMD3RCZpk556fG0hx9GUrmdvb8t7k3TktPXCi4CY"
-                }"#,
-        )
-        .unwrap();
-
-        LocalSecretsResolver::new(&secret_id, &secret)
-    }
+    use crate::{constant::DIDCOMM_ENCRYPTED_MIME_TYPE, didcomm::bridge::LocalSecretsResolver, repository::stateful::tests::{MockConnectionRepository, MockMessagesRepository, MockSecretsRepository}, util::{self, MockFileSystem}, web::{self, AppState, AppStateRepository}};
 
     pub fn new_secrets_resolver() -> impl SecretsResolver {
         let secret_id = "did:key:z6MkqvgpxveKbuygKXnoRcD3jtLTJLgv7g6asLGLsoC4sUEp#z6LSeQmJnBaXhHz81dCGNDeTUUdMcX1a8p5YSVacaZEDdscp";
@@ -92,6 +91,7 @@ mod test {
         .unwrap();
         LocalSecretsResolver::new(&secret_id, &secret)
     }
+
     pub fn prev_did() -> String {
         "did:key:z6MkrQT3VKYGkbPaYuJeBv31gNgpmVtRWP5yTocLDBgPpayM".to_string()
     }
@@ -145,7 +145,6 @@ mod test {
 
         serde_json::from_str(&connections).unwrap()
     }
-    use std::sync::Arc;
 
     use didcomm::{FromPrior, Message};
     use serde_json::json;
@@ -154,12 +153,6 @@ mod test {
     use crate::{
         didcomm::bridge::LocalDIDResolver,
         model::stateful::entity::Connection,
-        repository::stateful::tests::{
-            MockConnectionRepository, MockMessagesRepository, MockSecretsRepository,
-        },
-        rotation::rotation::did_rotation,
-        util::{self, MockFileSystem},
-        web::{AppState, AppStateRepository},
     };
 
     #[tokio::test]
@@ -213,7 +206,21 @@ mod test {
             }"#,
         )
         .unwrap();
-        let state = &setup();
+
+        pub fn prev_secrets_resolver() -> impl SecretsResolver {
+            let secret_id = "did:key:z6MkrQT3VKYGkbPaYuJeBv31gNgpmVtRWP5yTocLDBgPpayM#z6MkrQT3VKYGkbPaYuJeBv31gNgpmVtRWP5yTocLDBgPpayM";
+            let secret: Jwk = serde_json::from_str(
+                r#"{
+                    "kty": "OKP",
+                    "crv": "Ed25519",
+                    "x": "sZPvulKOXCES3D8Eya3LVnlgOpEaBohCqZ7emD8VXAA",
+                    "d": "kUKFMD3RCZpk556fG0hx9GUrmdvb8t7k3TktPXCi4CY"
+                    }"#,
+            )
+            .unwrap();
+
+            LocalSecretsResolver::new(&secret_id, &secret)
+        }
 
         let from_prior = FromPrior {
             iss: prev_did(),
@@ -224,7 +231,7 @@ mod test {
             iat: None,
             jti: None,
         };
-        // let claims = serde_json::to_string(&from_prior).unwrap();
+
         let did_resolver = LocalDIDResolver::new(&doc);
         let kid = "did:key:z6MkrQT3VKYGkbPaYuJeBv31gNgpmVtRWP5yTocLDBgPpayM#z6MkrQT3VKYGkbPaYuJeBv31gNgpmVtRWP5yTocLDBgPpayM";
         let (jwt, _kid) = from_prior
@@ -234,51 +241,56 @@ mod test {
 
         let msg = Message::build(
             Uuid::new_v4().to_string(),
-            "example/v1".to_owned(),
-            json!(""),
+            "https://didcomm.org/coordinate-mediation/2.0/keylist-update".to_owned(),
+            json!({"updates": [
+            {
+                "recipient_did": "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7",
+                "action": "add"
+            },
+            {
+                "recipient_did": "did:key:alice_identity_pub2@alice_mediator",
+                "action": "remove"
+            }
+            ]}),
         )
+        .header("return_route".into(), json!("all"))
         .to("did:web:alice-mediator.com:alice_mediator_pub".to_string())
         .from(new_did())
         .from_prior(jwt)
         .finalize();
-        let AppStateRepository {
-            connection_repository,
-            ..
-        } = state.repository.as_ref().unwrap();
 
         let (msg, _) = msg
-        .pack_encrypted(
-            "did:web:alice-mediator.com:alice_mediator_pub",
-            Some(&new_did()),
-            None,
-            &did_resolver,
-            &new_secrets_resolver(),
-            &didcomm::PackEncryptedOptions::default(),
-        )
-        .await
-        .unwrap();
-        println!("{}",msg);
+            .pack_encrypted(
+                "did:web:alice-mediator.com:alice_mediator_pub",
+                Some(&new_did()),
+                None,
+                &did_resolver,
+                &new_secrets_resolver(),
+                &didcomm::PackEncryptedOptions::default(),
+            )
+            .await
+            .unwrap();
+          // Send request
+          let app = web::routes(Arc::clone(&setup()));
+   
+          let response = app
+          .oneshot(
+              Request::builder()
+                  .uri(String::from("/"))
+                  .method(Method::POST)
+                  .header(CONTENT_TYPE, DIDCOMM_ENCRYPTED_MIME_TYPE)
+                  .body(Body::from(msg))
+                  .unwrap(),
+          )
+          .await
+          .unwrap();
 
-        // // Mediator in action
-        // let secret: Jwk = serde_json::from_str(
-        //     r#"{
-        //         "kty": "OKP",
-        //         "crv": "X25519",
-        //         "d": "EIR1SxQ67uhVaeUd__sJZ_9pLLgtbVTq12Km8FI5TWY",
-        //         "x": "KKBfakcXdzmJ3hhL0mVDg8OIwhTr9rPg_gvc-kPQpCU"
-        //         }"#,
-        //     )
-        //     .unwrap();
-        // let did_resolver = LocalDIDResolver::new(&doc);
-        // let secrets_resolver = LocalSecretsResolver::new("did:key:z6MkqvgpxveKbuygKXnoRcD3jtLTJLgv7g6asLGLsoC4sUEp#z6LSeQmJnBaXhHz81dCGNDeTUUdMcX1a8p5YSVacaZEDdscp", &secret);
+      // Assert response's metadata
+      assert_eq!(response.status(), StatusCode::ACCEPTED);
+      assert_eq!(
+          response.headers().get(CONTENT_TYPE).unwrap(),
+          DIDCOMM_ENCRYPTED_MIME_TYPE
+      );
 
-        // let msg = Message::unpack(
-        //     &msg,
-        //     &state.did_resolver,
-        //     &secret_resolver,
-        //     &didcomm::UnpackOptions::default(),
-        // )
-        // .await
-        // .unwrap();
     }
 }
