@@ -164,7 +164,7 @@ impl<'a> KeyStore<'a> {
         self.fs
             .write(
                 &self.path(),
-                &serde_json::to_string_pretty(&self.keys).map_err(KeystoreError::SerdeError)?,
+                &serde_json::to_string_pretty(&self.keys).map_err(KeystoreError::ParseError)?,
             )
             .map_err(KeystoreError::FileError)
     }

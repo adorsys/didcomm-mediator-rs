@@ -2,27 +2,33 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum KeystoreError {
-    #[error("File error: {0}")]
-    FileError(std::io::Error),
-    #[error("JwkConversionError")] 
+    #[error("File operation failed: {0}")]
+    FileError(#[from] std::io::Error),
+
+    #[error("JWK conversion failed")]
     JwkConversionError,
-    #[error("KeyPairGenerationError")]
+
+    #[error("Key pair generation failed")]
     KeyPairGenerationError,
-    #[error("non compliant")]
+
+    #[error("Non-compliant data")]
     NonCompliant,
-    #[error("not found")]
+
+    #[error("Item not found")]
     NotFound,
-    #[error("parse error")]
+
+    #[error("Failed to parse JSON data: {0}")]
     ParseError(serde_json::Error),
-    #[error("serde error")]
-    SerdeError(serde_json::Error),
-    #[error("Encryption error: {0}")]
+
+    #[error("Serialization error: {0}")]
+    SerializationError(serde_json::Error),
+
+    #[error("Deserialization error: {0}")]
+    DeserializationError(serde_json::Error),
+
+    #[error("Encryption failed: {0}")]
     EncryptionError(chacha20poly1305::Error),
-    #[error("Decryption error: {0}")]
+
+    #[error("Decryption failed: {0}")]
     DecryptionError(chacha20poly1305::Error),
-}
-impl From<std::io::Error> for KeystoreError {
-    fn from(err: std::io::Error) -> Self {
-        KeystoreError::FileError(err)
-    }
 }
