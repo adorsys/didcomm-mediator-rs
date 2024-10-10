@@ -45,8 +45,9 @@ impl FileSystemKeystore {
         keystorefile.read_to_end(&mut buffer)?; // Use Result for error handling
 
         let encrypted_key = cipher
-            .encrypt(GenericArray::from_slice(&nonce), buffer.as_slice())
-            .map_err(|err| KeystoreError::EncryptionError(err))?; // Wrap encryption error
+        .encrypt(GenericArray::from_slice(&self.nonce), buffer.as_slice())
+        .map_err(KeystoreError::EncryptionError)?;
+
 
         // Overwrite the file with encrypted keys
         keystorefile.write_all(&encrypted_key)?; // Use Result for error handling
