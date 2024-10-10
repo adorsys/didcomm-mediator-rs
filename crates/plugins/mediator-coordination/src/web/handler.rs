@@ -8,23 +8,33 @@ use hyper::{header::CONTENT_TYPE, StatusCode};
 use std::sync::Arc;
 
 use crate::{
-    constant::{DIDCOMM_ENCRYPTED_MIME_TYPE, KEYLIST_QUERY_2_0, KEYLIST_UPDATE_2_0, MEDIATE_REQUEST_2_0},
+    constant::{
+        DIDCOMM_ENCRYPTED_MIME_TYPE, KEYLIST_QUERY_2_0, KEYLIST_UPDATE_2_0, MEDIATE_FORWARD_2_0,
+        MEDIATE_REQUEST_2_0,
+    },
+    forward::routing::mediator_forward_process,
     web::{self, error::MediationError, AppState},
 };
 
 #[axum::debug_handler]
-pub async fn process_didcomm_message(
+pub(crate) async fn process_didcomm_message(
     State(state): State<Arc<AppState>>,
     Extension(message): Extension<Message>,
 ) -> Response {
-    let delegate_response = match message.type_.as_str() {
+    if message.type_ == MEDIATE_FORWARD_2_0 {
+        return match mediator_forward_process(&state, message).await {
+            Ok(_message) => StatusCode::ACCEPTED.into_response(),
+            Err(response) => response,
+        };
+    }
+    let response = match message.type_.as_str() {
         KEYLIST_UPDATE_2_0 => {
             web::coord::handler::stateful::process_plain_keylist_update_message(
                 Arc::clone(&state),
                 message,
             )
             .await
-        },
+        }
         KEYLIST_QUERY_2_0 => {
             web::coord::handler::stateful::process_plain_keylist_query_message(
                 Arc::clone(&state),
@@ -32,52 +42,42 @@ pub async fn process_didcomm_message(
             )
             .await
         }
+
         MEDIATE_REQUEST_2_0 => {
             web::coord::handler::stateful::process_mediate_request(&state, &message).await
         }
+
         _ => {
             let response = (
                 StatusCode::BAD_REQUEST,
                 MediationError::UnsupportedOperation.json(),
             );
-
             return response.into_response();
         }
     };
 
-    process_response_from_delegate_handler(state, delegate_response).await
+    process_response(state, response).await
 }
 
-async fn process_response_from_delegate_handler(
-    state: Arc<AppState>,
-    response: Result<Message, Response>,
-) -> Response {
-    // Extract plain message or early return error response
-    let plain_response_message = match response {
-        Ok(message) => message,
-        Err(response) => return response,
-    };
-
-    // Pack response message
-    let packed_message = match web::midlw::pack_response_message(
-        &plain_response_message,
-        &state.did_resolver,
-        &state.secrets_resolver,
-    )
-    .await
-    {
-        Ok(packed) => packed,
-        Err(response) => return response,
-    };
-
-    // Build final response
-    let response = (
-        StatusCode::ACCEPTED,
-        [(CONTENT_TYPE, DIDCOMM_ENCRYPTED_MIME_TYPE)],
-        Json(packed_message),
-    );
-
-    response.into_response()
+async fn process_response(state: Arc<AppState>, response: Result<Message, Response>) -> Response {
+    match response {
+        Ok(message) => web::midlw::pack_response_message(
+            &message,
+            &state.did_resolver,
+            &state.secrets_resolver,
+        )
+        .await
+        .map(|packed| {
+            (
+                StatusCode::ACCEPTED,
+                [(CONTENT_TYPE, DIDCOMM_ENCRYPTED_MIME_TYPE)],
+                Json(packed),
+            )
+                .into_response()
+        })
+        .unwrap_or_else(|err| err.into_response()),
+        Err(response) => response,
+    }
 }
 
 #[cfg(test)]
@@ -90,6 +90,7 @@ pub mod tests {
         error::Error as DidcommError, secrets::SecretsResolver, Message, PackEncryptedOptions,
         UnpackOptions,
     };
+    use web::AppStateRepository;
 
     use crate::{
         didcomm::bridge::LocalSecretsResolver,
@@ -97,7 +98,6 @@ pub mod tests {
             MockConnectionRepository, MockMessagesRepository, MockSecretsRepository,
         },
         util::{self, MockFileSystem},
-        web::{self, AppStateRepository},
     };
 
     pub fn setup() -> (Router, Arc<AppState>) {
@@ -205,16 +205,12 @@ mod tests2 {
     use crate::{
         constant::KEYLIST_UPDATE_RESPONSE_2_0,
         repository::stateful::tests::MockConnectionRepository,
-        web::{self, AppStateRepository},
     };
-
-    use axum::{
-        body::Body,
-        http::{Method, Request},
-        Router,
-    };
+    use axum::Router;
+    use hyper::{Body, Method, Request};
     use serde_json::{json, Value};
     use tower::ServiceExt;
+    use web::AppStateRepository;
 
     #[allow(clippy::needless_update)]
     pub fn setup() -> (Router, Arc<AppState>) {
@@ -229,7 +225,7 @@ mod tests2 {
             connection_repository: Arc::new(MockConnectionRepository::from(
                 serde_json::from_str(
                     r##"[
-                    {
+                      {
                         "_id": {
                             "$oid": "6580701fd2d92bb3cd291b2a"
                         },
