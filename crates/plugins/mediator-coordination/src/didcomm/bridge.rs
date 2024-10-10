@@ -27,7 +27,10 @@ impl LocalDIDResolver {
             .expect("Should easily convert between DID document representations."),
         }
     }
-    pub fn default() -> Self {
+}
+
+impl Default for LocalDIDResolver {
+    fn default() -> Self {
         Self {
             diddoc: DIDDoc {
                 id: "".to_string(),
@@ -39,7 +42,6 @@ impl LocalDIDResolver {
         }
     }
 }
-
 #[async_trait]
 impl DIDResolver for LocalDIDResolver {
     async fn resolve(&self, did: &str) -> Result<Option<DIDDoc>> {
