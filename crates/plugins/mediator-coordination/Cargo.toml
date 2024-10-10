@@ -24,12 +24,8 @@ tokio = { workspace = true, features = ["full"] }
 axum = { workspace = true, features = ["macros"] }
 uuid = { workspace = true, features = ["v4"] }
 hyper = { workspace = true, features = ["full"] }
-jsonwebtoken = "9.3.0"
-jwt = "0.16.0"
-sha2.workspace = true
-hmac = "0.12.1"
-ed25519-dalek = "1.0"
-base64.workspace = true
+lazy_static.workspace = true
+
 
 [dev-dependencies]
 dotenv-flow = "0.15.0"

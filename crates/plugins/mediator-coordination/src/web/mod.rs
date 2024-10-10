@@ -10,9 +10,7 @@ use keystore::KeyStore;
 use std::sync::Arc;
 
 use crate::{
-    didcomm::bridge::{LocalDIDResolver, LocalSecretsResolver},
-    model::stateful::entity::{Connection, RoutedMessage, Secrets},
-    util,
+    didcomm::bridge::{LocalDIDResolver, LocalSecretsResolver}, model::stateful::entity::{Connection, RoutedMessage, Secrets}, util
 };
 
 pub fn routes(state: Arc<AppState>) -> Router {
@@ -33,15 +31,15 @@ pub struct AppState {
     public_domain: String,
 
     // Crypto identity
-    pub diddoc: Document,
+    pub(crate) diddoc: Document,
     assertion_jwk: (String, Jwk),
 
     // DIDComm Resolvers
-    pub did_resolver: LocalDIDResolver,
-    pub secrets_resolver: LocalSecretsResolver,
+    pub(crate) did_resolver: LocalDIDResolver,
+    pub(crate) secrets_resolver: LocalSecretsResolver,
 
     // Persistence layer
-    pub repository: Option<AppStateRepository>,
+    pub(crate) repository: Option<AppStateRepository>,
 }
 
 #[derive(Clone)]
