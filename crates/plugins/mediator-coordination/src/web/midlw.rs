@@ -22,7 +22,6 @@ pub async fn unpack_didcomm_message(
     next: Next<Body>,
 ) -> Response {
     // Enforce request content type to match `didcomm-encrypted+json`
-
     let content_type = request
         .headers()
         .get(header::CONTENT_TYPE)
@@ -33,7 +32,6 @@ pub async fn unpack_didcomm_message(
     }
 
     // Extract request payload
-
     let (parts, body) = request.into_parts();
     let bytes = match hyper::body::to_bytes(body).await {
         Ok(bytes) => bytes,
@@ -50,7 +48,6 @@ pub async fn unpack_didcomm_message(
     let payload = String::from_utf8_lossy(&bytes);
 
     // Attempt to unpack request payload
-
     let AppState {
         did_resolver,
         secrets_resolver,

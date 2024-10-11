@@ -16,23 +16,29 @@ use uuid::Uuid;
 
 use crate::{
     constant::{KEYLIST_2_0, KEYLIST_UPDATE_RESPONSE_2_0, MEDIATE_DENY_2_0, MEDIATE_GRANT_2_0},
-    model::stateful::{coord::{
-        Keylist, KeylistBody, KeylistEntry, KeylistUpdateAction, KeylistUpdateBody,
-        KeylistUpdateConfirmation, KeylistUpdateResponseBody, KeylistUpdateResult, MediationDeny,
-        MediationGrant, MediationGrantBody,
-    }, entity::{Connection, Secrets, VerificationMaterial}},
-    web::{coord::midlw::{self, ensure_jwm_type_is_mediation_request, ensure_transport_return_route_is_decorated_all}, 
-        error::MediationError, AppState, AppStateRepository},
+    model::stateful::{
+        coord::{
+            Keylist, KeylistBody, KeylistEntry, KeylistUpdateAction, KeylistUpdateBody,
+            KeylistUpdateConfirmation, KeylistUpdateResponseBody, KeylistUpdateResult,
+            MediationDeny, MediationGrant, MediationGrantBody,
+        },
+        entity::{Connection, Secrets, VerificationMaterial},
+    },
+    web::{
+        coord::midlw::{
+            self, ensure_jwm_type_is_mediation_request,
+            ensure_transport_return_route_is_decorated_all,
+        },
+        error::MediationError,
+        AppState, AppStateRepository,
+    },
 };
-
 
 /// Process a DIDComm mediate request
 pub async fn process_mediate_request(
     state: &AppState,
     plain_message: &Message,
 ) -> Result<Message, Response> {
-
-    
     // This is to Check message type compliance
     midlw::run!(ensure_jwm_type_is_mediation_request(&plain_message));
 
@@ -40,7 +46,7 @@ pub async fn process_mediate_request(
     midlw::run!(ensure_transport_return_route_is_decorated_all(
         &plain_message
     ));
-    
+
     let mediator_did = &state.diddoc.id;
 
     let sender_did = plain_message
@@ -337,18 +343,16 @@ pub async fn process_plain_keylist_update_message(
 
     let mediator_did = &state.diddoc.id;
 
-    Ok(
-        Message::build(
-            format!("urn:uuid:{}", Uuid::new_v4()),
-            KEYLIST_UPDATE_RESPONSE_2_0.to_string(),
-            json!(KeylistUpdateResponseBody {
-                updated: confirmations
-            }),
-        )
-        .to(sender)
-        .from(mediator_did.to_owned())
-        .finalize(),
+    Ok(Message::build(
+        format!("urn:uuid:{}", Uuid::new_v4()),
+        KEYLIST_UPDATE_RESPONSE_2_0.to_string(),
+        json!(KeylistUpdateResponseBody {
+            updated: confirmations
+        }),
     )
+    .to(sender)
+    .from(mediator_did.to_owned())
+    .finalize())
 }
 
 pub async fn process_plain_keylist_query_message(
@@ -471,20 +475,19 @@ mod tests {
         assert_eq!(response.type_, KEYLIST_2_0);
         assert_eq!(response.from.unwrap(), global::_mediator_did(&state));
         assert_eq!(response.to.unwrap(), vec![global::_edge_did()]);
-
     }
     #[tokio::test]
     async fn test_keylist_query_malformed_request() {
         let state = setup(_initial_connections());
 
-        // Prepare request with a sender that is not in the system 
+        // Prepare request with a sender that is not in the system
         let message = Message::build(
             "id_alice_keylist_query".to_owned(),
             "https://didcomm.org/coordinate-mediation/2.0/keylist-query".to_owned(),
             json!({}),
         )
         .to(global::_mediator_did(&state))
-        .from("did:example:uncoordinated_sender".to_string()) 
+        .from("did:example:uncoordinated_sender".to_string())
         .finalize();
 
         // Process request
@@ -498,7 +501,7 @@ mod tests {
             MediationError::UncoordinatedSender,
         )
         .await;
-    }    
+    }
     #[tokio::test]
     async fn test_keylist_update() {
         let state = setup(_initial_connections());

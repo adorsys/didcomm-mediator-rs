@@ -23,7 +23,7 @@ macro_rules! run {
 pub(crate) use run;
 
 /// Validate that JWM's indicative body type is a mediation request
-pub fn ensure_jwm_type_is_mediation_request(message: &Message) -> Result<(), Response> {
+pub(crate) fn ensure_jwm_type_is_mediation_request(message: &Message) -> Result<(), Response> {
     if ![MEDIATE_REQUEST_2_0, MEDIATE_REQUEST_DIC_1_0].contains(&message.type_.as_str()) {
         let response = (
             StatusCode::BAD_REQUEST,

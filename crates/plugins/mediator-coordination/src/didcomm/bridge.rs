@@ -1,11 +1,7 @@
 use async_trait::async_trait;
 use did_utils::crypto::PublicKeyFormat;
 use did_utils::methods::DidPeer;
-use did_utils::{
-    didcore::Document,
-    jwk::Jwk,
-    methods::{DIDResolutionError, DidKey},
-};
+use did_utils::{didcore::Document, jwk::Jwk, methods::DidKey};
 use didcomm::{
     did::{DIDDoc, DIDResolver},
     error::{Error, ErrorKind, Result},
@@ -21,11 +17,7 @@ pub struct LocalDIDResolver {
 impl LocalDIDResolver {
     pub fn new(server_diddoc: &Document) -> Self {
         Self {
-            diddoc: serde_json::from_value(json!(Document {
-                service: Some(vec![]),
-                ..server_diddoc.clone()
-            }))
-            .expect("Should easily convert between DID document representations."),
+            diddoc: server_diddoc.to_owned().into(),
         }
     }
 }
@@ -37,46 +29,20 @@ impl DIDResolver for LocalDIDResolver {
             return Ok(Some(self.diddoc.clone()));
         }
 
-        if did.starts_with("did:peer:") {
-            let method = DidPeer::new_with_format(PublicKeyFormat::Jwk);
-            match method.expand(did) {
-                Ok(diddoc) => {
-                    // Attempt to convert DID document representation, propagating errors
-                    match serde_json::from_value(json!(Document {
-                        service: Some(vec![]),
-                        ..diddoc
-                    })) {
-                        Ok(doc) => Ok(Some(doc)),
-                        Err(err) => Err(Error::new(
-                            ErrorKind::DIDNotResolved, 
-                            Box::new(err)
-                        )),
-                    }
-                },
-                Err(err) => Err(Error::new(ErrorKind::DIDNotResolved, Box::new(err))),
-            }
-        } else if did.starts_with("did:key:") {
-            let method = DidKey::new_full(true, PublicKeyFormat::Jwk);
-            match method.expand(did) {
-                Ok(diddoc) => {
-                    // Attempt to convert DID document representation, propagating errors
-                    match serde_json::from_value(json!(Document {
-                        service: Some(vec![]),
-                        ..diddoc
-                    })) {
-                        Ok(doc) => Ok(Some(doc)),
-                        Err(err) => Err(Error::new(
-                            ErrorKind::DIDNotResolved, 
-                            Box::new(err)
-                        )),
-                    }
-                },
-                Err(err) => Err(Error::new(ErrorKind::DIDNotResolved, err)),
-            }
+        if did.starts_with("did:key") {
+            Ok(DidKey::new_full(true, PublicKeyFormat::Jwk)
+                .expand(did)
+                .map(|d| Some(d.into()))
+                .map_err(|e| Error::new(ErrorKind::DIDNotResolved, e))?)
+        } else if did.starts_with("did:peer") {
+            Ok(DidPeer::new_with_format(PublicKeyFormat::Jwk)
+                .expand(did)
+                .map(|d| Some(d.into()))
+                .map_err(|e| Error::new(ErrorKind::DIDNotResolved, e))?)
         } else {
-            Err(Error::new(
+            Err(Error::msg(
                 ErrorKind::Unsupported,
-                DIDResolutionError::MethodNotSupported,
+                "Unsupported DID".to_string(),
             ))
         }
     }
@@ -131,6 +97,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_local_did_resolver_works() {
+        let _doc = LocalDIDResolver::new(&Document::default());
         let diddoc = setup();
         let resolver = LocalDIDResolver::new(&diddoc);
 
