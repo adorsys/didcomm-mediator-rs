@@ -337,16 +337,18 @@ pub async fn process_plain_keylist_update_message(
 
     let mediator_did = &state.diddoc.id;
 
-    Ok(Message::build(
-        format!("urn:uuid:{}", Uuid::new_v4()),
-        KEYLIST_UPDATE_RESPONSE_2_0.to_string(),
-        json!(KeylistUpdateResponseBody {
-            updated: confirmations
-        }),
+    Ok(
+        Message::build(
+            format!("urn:uuid:{}", Uuid::new_v4()),
+            KEYLIST_UPDATE_RESPONSE_2_0.to_string(),
+            json!(KeylistUpdateResponseBody {
+                updated: confirmations
+            }),
+        )
+        .to(sender)
+        .from(mediator_did.to_owned())
+        .finalize(),
     )
-    .to(sender.clone())
-    .from(mediator_did.clone())
-    .finalize())
 }
 
 pub async fn process_plain_keylist_query_message(
@@ -529,6 +531,7 @@ mod tests {
         let response = process_plain_keylist_update_message(Arc::clone(&state), message)
             .await
             .unwrap();
+        let response = response;
 
         // Assert metadata
 
@@ -627,6 +630,7 @@ mod tests {
             .await
             .unwrap();
 
+        let response = response;
         // Assert updates
 
         assert_eq!(
@@ -690,7 +694,7 @@ mod tests {
         let response = process_plain_keylist_update_message(Arc::clone(&state), message)
             .await
             .unwrap();
-
+        let response = response;
         // Assert updates
 
         assert_eq!(
@@ -750,6 +754,7 @@ mod tests {
         let response = process_plain_keylist_update_message(Arc::clone(&state), message)
             .await
             .unwrap();
+        let response = response;
 
         // Assert updates
 
