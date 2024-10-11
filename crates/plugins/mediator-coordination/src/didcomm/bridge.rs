@@ -38,7 +38,7 @@ impl DIDResolver for LocalDIDResolver {
         }
 
         if did.starts_with("did:peer:") {
-            let method = DidPeer::new_with_format(PublicKeyFormat::Jwk);
+            let method = DidPeer::with_format(PublicKeyFormat::Jwk);
             match method.expand(did) {
                 Ok(diddoc) => {
                     // Attempt to convert DID document representation, propagating errors
@@ -53,7 +53,7 @@ impl DIDResolver for LocalDIDResolver {
                         )),
                     }
                 },
-                Err(err) => Err(Error::new(ErrorKind::DIDNotResolved, Box::new(err))),
+                Err(err) => Err(Error::new(ErrorKind::DIDNotResolved, err)),
             }
         } else if did.starts_with("did:key:") {
             let method = DidKey::new_full(true, PublicKeyFormat::Jwk);
