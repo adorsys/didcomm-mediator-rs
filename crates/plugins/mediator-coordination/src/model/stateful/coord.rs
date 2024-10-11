@@ -271,7 +271,7 @@ pub struct KeylistPagination {
     pub remaining: i32,
 }
 
-/// Message to grant a routing DID to a mediator.
+/// Body of the mediate grant message.
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct MediationGrantBody {
     pub routing_did: String,
