@@ -12,7 +12,7 @@ members = [
     "crates/keystore",
     "crates/plugin-api",
     "crates/plugins/did-endpoint",
-    "crates/plugins/mediator-coordination",
+    "crates/plugins/didcomm-messaging",
     "crates/plugins/oob-messages",
     "crates/database",
 ]
