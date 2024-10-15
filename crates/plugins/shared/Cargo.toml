@@ -1,0 +1,25 @@
+[package]
+name = "shared"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+did-utils.workspace = true
+database.workspace = true
+
+thiserror.workspace = true
+serde.workspace = true
+nix.workspace = true
+serde_json.workspace = true
+async-trait.workspace = true
+didcomm.workspace = true
+mongodb.workspace = true
+tokio = { workspace = true, features = ["full"] }
+axum = { workspace = true, features = ["macros"] }
+
+[dev-dependencies]
+tokio = { version = "1.27.0", default-features = false, features = [
+    "macros",
+    "rt",
+] }
+json-canon = "0.1.3"

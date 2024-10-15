@@ -1,2 +1,2 @@
-pub mod coord;
-pub mod entity;
+pub(crate) mod coord;
+pub(crate) mod entity;

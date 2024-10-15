@@ -1,13 +1,9 @@
-pub mod filesystem;
-
 use chrono::Utc;
 use did_utils::{
     crypto::{Ed25519KeyPair, Generate, ToPublic, X25519KeyPair},
     jwk::Jwk,
 };
 use std::error::Error;
-
-use crate::filesystem::FileSystem;
 
 #[derive(Debug, thiserror::Error)]
 pub enum KeyStoreError {

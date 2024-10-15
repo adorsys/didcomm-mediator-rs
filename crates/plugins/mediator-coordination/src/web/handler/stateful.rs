@@ -25,7 +25,7 @@ use crate::{
         entity::{Connection, Secrets, VerificationMaterial},
     },
     web::{
-        coord::midlw::{
+        handler::midlw::{
             self, ensure_jwm_type_is_mediation_request,
             ensure_transport_return_route_is_decorated_all,
         },

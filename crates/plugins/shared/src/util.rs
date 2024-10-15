@@ -1,10 +1,8 @@
-#![allow(unused)]
-
+use crate::filesystem::FileSystem;
 use did_utils::{
     didcore::{AssertionMethod, Document, KeyAgreement, KeyFormat, VerificationMethod},
     jwk::Jwk,
 };
-use keystore::{filesystem::FileSystem, KeyStore, KeyStoreError};
 use serde_json::Error as SerdeError;
 use std::io;
 
@@ -37,14 +35,6 @@ pub fn read_diddoc(fs: &dyn FileSystem, storage_dirpath: &str) -> Result<Documen
     let didpath = format!("{storage_dirpath}/did.json");
     let content = fs.read_to_string(&didpath)?;
     serde_json::from_str(&content).map_err(Into::into)
-}
-
-/// Parse key store expected to exist on filesystem.
-pub fn read_keystore<'a>(
-    fs: &'a mut dyn FileSystem,
-    storage_dirpath: &str,
-) -> Result<KeyStore<'a>, KeyStoreError> {
-    KeyStore::latest(fs, storage_dirpath)
 }
 
 /// Generic macro function to look for a key in a DID document.
@@ -100,13 +90,6 @@ mod tests {
     use super::*;
 
     use serde_json::Value;
-
-    #[test]
-    fn can_read_persisted_entities() {
-        let mut mock_fs = MockFileSystem;
-        assert!(read_diddoc(&mock_fs, "").is_ok());
-        assert!(read_keystore(&mut mock_fs, "").is_ok());
-    }
 
     #[test]
     fn can_extract_assertion_key() {
@@ -168,16 +151,16 @@ impl FileSystem for MockFileSystem {
     fn read_to_string(&self, path: &str) -> IoResult<String> {
         match path {
             p if p.ends_with("did.json") => {
-                Ok(include_str!("../../test/storage/did.json").to_string())
+                Ok(include_str!("../test/storage/did.json").to_string())
             }
             p if p.contains("keystore") => {
-                Ok(include_str!("../../test/storage/keystore/1697624245.json").to_string())
+                Ok(include_str!("../test/storage/keystore/1697624245.json").to_string())
             }
             _ => Err(IoError::new(ErrorKind::NotFound, "NotFound")),
         }
     }
 
-    fn write(&mut self, path: &str, content: &str) -> IoResult<()> {
+    fn write(&mut self, _path: &str, _content: &str) -> IoResult<()> {
         Ok(())
     }
 

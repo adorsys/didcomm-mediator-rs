@@ -9,10 +9,10 @@ use didcomm::{error::ErrorKind as DidcommErrorKind, Message, PackEncryptedOption
 use serde_json::Value;
 use std::sync::Arc;
 
-use super::{error::MediationError, AppState};
-use crate::{
-    constant::{DIDCOMM_ENCRYPTED_MIME_TYPE, DIDCOMM_ENCRYPTED_SHORT_MIME_TYPE},
-    didcomm::bridge::{LocalDIDResolver, LocalSecretsResolver},
+// use super::{error::MediationError, AppState};
+use shared::{
+    constants::{DIDCOMM_ENCRYPTED_MIME_TYPE, DIDCOMM_ENCRYPTED_SHORT_MIME_TYPE},
+    resolvers::{LocalDIDResolver, LocalSecretsResolver},
 };
 
 /// Middleware to unpack DIDComm messages for unified handler

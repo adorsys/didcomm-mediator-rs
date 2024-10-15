@@ -13,6 +13,3 @@ pub const MEDIATE_FORWARD_2_0: &str = "https://didcomm.org/routing/2.0/forward";
 pub const MEDIATE_REQUEST_DIC_1_0: &str = "https://didcomm.org/coordinate-mediation/dic/1.0/mediate-request";
 pub const MEDIATE_DENY_DIC_1_0: &str = "https://didcomm.org/coordinate-mediation/dic/1.0/mediate-deny";
 pub const MEDIATE_GRANT_DIC_1_0: &str = "https://didcomm.org/coordinate-mediation/dic/1.0/mediate-grant";
-
-pub const DIDCOMM_ENCRYPTED_MIME_TYPE: &str = "application/didcomm-encrypted+json";
-pub const DIDCOMM_ENCRYPTED_SHORT_MIME_TYPE: &str = "didcomm-encrypted+json";

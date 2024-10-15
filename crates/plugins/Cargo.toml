@@ -1,0 +1,12 @@
+[package]
+name = "plugins"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+shared.workspace = true
+
+didcomm.workspace = true
+serde_json.workspace = true
+hyper = { workspace = true, features = ["full"] }
+axum = { workspace = true, features = ["macros"] }

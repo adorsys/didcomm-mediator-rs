@@ -1,13 +1,18 @@
+use crate::repository::entity::Secrets;
 use async_trait::async_trait;
-use did_utils::crypto::PublicKeyFormat;
-use did_utils::methods::DidPeer;
-use did_utils::{didcore::Document, jwk::Jwk, methods::DidKey};
+use database::Repository;
+use did_utils::{
+    crypto::PublicKeyFormat,
+    didcore::Document,
+    methods::{DidKey, DidPeer},
+};
 use didcomm::{
     did::{DIDDoc, DIDResolver},
     error::{Error, ErrorKind, Result},
-    secrets::{Secret, SecretMaterial, SecretType, SecretsResolver},
+    secrets::{Secret, SecretsResolver},
 };
-use serde_json::json;
+use mongodb::bson::doc;
+use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct LocalDIDResolver {
@@ -50,45 +55,61 @@ impl DIDResolver for LocalDIDResolver {
 
 #[derive(Clone)]
 pub struct LocalSecretsResolver {
-    secrets: Vec<Secret>,
+    secrets_repository: Arc<dyn Repository<Secrets>>,
 }
 
 impl LocalSecretsResolver {
-    pub fn new(secret_id: &str, secret: &Jwk) -> Self {
-        Self {
-            secrets: vec![Secret {
-                id: secret_id.to_string(),
-                type_: SecretType::JsonWebKey2020,
-                secret_material: SecretMaterial::JWK {
-                    private_key_jwk: json!(secret),
-                },
-            }],
-        }
+    pub fn new(secrets_repository: Arc<dyn Repository<Secrets>>) -> Self {
+        Self { secrets_repository }
     }
 }
 
 #[async_trait]
 impl SecretsResolver for LocalSecretsResolver {
     async fn get_secret(&self, secret_id: &str) -> Result<Option<Secret>> {
-        Ok(self.secrets.iter().find(|s| s.id == secret_id).cloned())
+        let secret = self
+            .secrets_repository
+            .clone()
+            .find_one_by(doc! {"kid": secret_id})
+            .await
+            .map(|s| {
+                s.map(|s| Secret {
+                    id: s.kid,
+                    type_: s.type_,
+                    secret_material: s.secret_material,
+                })
+            })
+            .map_err(|e| Error::new(ErrorKind::IoError, e))?;
+
+        Ok(secret)
     }
 
     async fn find_secrets<'a>(&self, secret_ids: &'a [&'a str]) -> Result<Vec<&'a str>> {
-        Ok(secret_ids
-            .iter()
-            .filter(|&&sid| self.secrets.iter().any(|s| s.id == sid))
-            .copied()
-            .collect())
+        let mut found_secret_ids = Vec::new();
+
+        for secret_id in secret_ids.iter() {
+            if self
+                .secrets_repository
+                .clone()
+                .find_one_by(doc! {"kid": *secret_id})
+                .await
+                .map_err(|e| Error::new(ErrorKind::IoError, e))?
+                .is_some()
+            {
+                found_secret_ids.push(*secret_id);
+            }
+        }
+
+        Ok(found_secret_ids)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    use serde_json::Value;
-
-    use crate::util::{self, MockFileSystem};
+    use crate::{repository::tests::MockSecretsRepository, util::{self, MockFileSystem}};
+    use didcomm::secrets::{SecretMaterial, SecretType};
+    use serde_json::{json, Value};
 
     fn setup() -> Document {
         let mock_fs = MockFileSystem;
@@ -228,17 +249,27 @@ mod tests {
     #[tokio::test]
     async fn test_local_secrets_resolver_works() {
         let secret_id = "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7#z6LSbuUXWSgPfpiDBjUK6E7yiCKMN2eKJsXn5b55ZgqGz6Mr";
-        let jwk: Jwk = serde_json::from_str(
-            r#"{
+        let secret: Value = json!(
+            {
                 "kty": "OKP",
                 "crv": "X25519",
                 "x": "A2gufB762KKDkbTX0usDbekRJ-_PPBeVhc2gNgjpswU",
                 "d": "oItI6Jx-anGyhiDJIXtVAhzugOha05s-7_a5_CTs_V4"
-            }"#,
-        )
-        .unwrap();
+            }
+        );
+    
+        let test_secret = Secrets {
+            id: None,
+            kid: secret_id.to_string(),
+            type_: SecretType::JsonWebKey2020,
+            secret_material: SecretMaterial::JWK {
+                private_key_jwk: secret,
+            },
+        };
 
-        let resolver = LocalSecretsResolver::new(secret_id, &jwk);
+        let secrets_repository = Arc::new(MockSecretsRepository::from(vec![test_secret]));
+
+        let resolver = LocalSecretsResolver::new(secrets_repository);
         let resolved = resolver.get_secret(secret_id).await.unwrap().unwrap();
         let expected = serde_json::from_str::<Value>(
             r#"{
@@ -264,4 +295,3 @@ mod tests {
         assert!(resolved.is_none());
     }
 }
-
