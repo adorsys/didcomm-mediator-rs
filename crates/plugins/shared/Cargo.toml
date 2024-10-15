@@ -12,10 +12,10 @@ serde.workspace = true
 nix.workspace = true
 serde_json.workspace = true
 async-trait.workspace = true
-didcomm.workspace = true
 mongodb.workspace = true
 tokio = { workspace = true, features = ["full"] }
 axum = { workspace = true, features = ["macros"] }
+didcomm = { workspace = true, features = ["uniffi"] }
 
 [dev-dependencies]
 tokio = { version = "1.27.0", default-features = false, features = [

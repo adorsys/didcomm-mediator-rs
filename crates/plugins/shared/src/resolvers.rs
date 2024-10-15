@@ -118,7 +118,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_local_did_resolver_works() {
-        let _doc = LocalDIDResolver::new(&Document::default());
         let diddoc = setup();
         let resolver = LocalDIDResolver::new(&diddoc);
 
