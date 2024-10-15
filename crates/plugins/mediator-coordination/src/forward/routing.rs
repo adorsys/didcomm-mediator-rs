@@ -1,17 +1,15 @@
-use std::{f64::consts::E, sync::Arc};
-
 use axum::response::{IntoResponse, Response};
-
 use database::Repository;
 use didcomm::{AttachmentData, Message};
 use hyper::StatusCode;
 use mongodb::bson::doc;
 use serde_json::{json, Value};
-
-use crate::{
-    model::stateful::entity::{Connection, RoutedMessage},
-    web::{error::MediationError, AppState, AppStateRepository},
+use shared::{
+    errors::MediationError,
+    repository::entity::{Connection, RoutedMessage},
+    state::{AppState, AppStateRepository},
 };
+use std::sync::Arc;
 
 use super::error::RoutingError;
 
@@ -21,7 +19,6 @@ pub async fn mediator_forward_process(
     state: &AppState,
     payload: Message,
 ) -> Result<Message, Response> {
-  
     let result = handler(state, payload).await.unwrap();
     Ok(result)
 }
@@ -30,7 +27,6 @@ async fn checks(
     message: &Message,
     connection_repository: &Arc<dyn Repository<Connection>>,
 ) -> Result<String, Response> {
-    
     let next = message.body.get("next").and_then(Value::as_str);
     match next {
         Some(next) => next,
@@ -49,7 +45,7 @@ async fn checks(
         Some(connection) => connection,
         None => {
             let response = (
-                StatusCode::UNAUTHORIZED, 
+                StatusCode::UNAUTHORIZED,
                 MediationError::UncoordinatedSender.json(),
             );
             return Err(response.into_response());
@@ -70,7 +66,7 @@ async fn handler(state: &AppState, message: Message) -> Result<Message, Mediatio
 
     let next = match checks(&message, connection_repository).await.ok() {
         Some(next) => Ok(next),
-        None => Err(MediationError::RepostitoryError)
+        None => Err(MediationError::RepostitoryError),
     };
 
     let attachments = message.attachments.unwrap_or_default();
@@ -93,29 +89,24 @@ async fn handler(state: &AppState, message: Message) -> Result<Message, Mediatio
 }
 #[cfg(test)]
 mod test {
-
-    use std::sync::Arc;
-
-    use crate::{
-        didcomm::bridge::LocalSecretsResolver,
-        model::stateful::entity::Connection,
-        repository::stateful::tests::{
-            MockConnectionRepository, MockMessagesRepository, MockSecretsRepository,
-        },
-        util::{self, MockFileSystem},
-        web::AppStateRepository,
-    };
-
     use super::*;
-
+    use std::sync::Arc;
+    use shared::{
+        resolvers::LocalSecretsResolver,
+        repository::{tests::{
+            MockConnectionRepository, MockMessagesRepository, MockSecretsRepository,
+        }, entity::Connection},
+        util::{self, MockFileSystem},
+        state::AppStateRepository,
+    };
     use did_utils::jwk::Jwk;
     use didcomm::{
         algorithms::AnonCryptAlg, protocols::routing::wrap_in_forward, secrets::SecretsResolver,
         Message, PackEncryptedOptions, UnpackOptions,
     };
     use serde_json::json;
-
     use uuid::Uuid;
+
     pub fn setup() -> Arc<AppState> {
         let public_domain = String::from("http://alice-mediator.com");
 
@@ -248,6 +239,17 @@ mod test {
         )
         .unwrap();
 
-        LocalSecretsResolver::new(&secret_id, &secret)
+        let test_secret = Secrets {
+            id: None,
+            kid: secret_id.to_string(),
+            type_: SecretType::JsonWebKey2020,
+            secret_material: SecretMaterial::JWK {
+                private_key_jwk: json!(secret),
+            },
+        };
+
+        let secrets_repository = Arc::new(MockSecretsRepository::from(vec![test_secret]));
+
+        LocalSecretsResolver::new(secrets_repository)
     }
 }

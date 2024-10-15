@@ -88,7 +88,6 @@ fn extract_public_jwk_from_vm(vm: &VerificationMethod) -> Option<(String, Jwk)> 
 #[cfg(test)]
 mod tests {
     use super::*;
-
     use serde_json::Value;
 
     #[test]

@@ -4,12 +4,12 @@ use mongodb::{options::ClientOptions, Client, Database};
 use plugin_api::{Plugin, PluginError};
 use std::sync::Arc;
 
-use crate::{
-    repository::stateful::{
+use shared::{
+    repository::{
         MongoConnectionRepository, MongoMessagesRepository, MongoSecretsRepository,
     },
     util,
-    web::{self, AppState, AppStateRepository},
+    state::{self, AppState, AppStateRepository},
 };
 #[derive(Default)]
 pub struct MediatorCoordinationPlugin {
@@ -92,7 +92,6 @@ impl Plugin for MediatorCoordinationPlugin {
         // Load crypto identity
         let mut fs = StdFileSystem;
         let diddoc = util::read_diddoc(&fs, &env.storage_dirpath).expect(msg);
-        let keystore = util::read_keystore(&mut fs, &env.storage_dirpath).expect(msg);
 
         // Load persistence layer
         let repository = AppStateRepository {
@@ -105,7 +104,6 @@ impl Plugin for MediatorCoordinationPlugin {
         let state = AppState::from(
             env.public_domain.clone(),
             diddoc,
-            keystore,
             Some(repository),
         );
 

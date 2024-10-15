@@ -5,9 +5,9 @@ use axum::{
 use didcomm::Message;
 use serde_json::{json, Value};
 
-use crate::{
-    constant::{MEDIATE_REQUEST_2_0, MEDIATE_REQUEST_DIC_1_0},
-    web::error::MediationError,
+use shared::{
+    constants::{MEDIATE_REQUEST_2_0, MEDIATE_REQUEST_DIC_1_0},
+    errors::MediationError,
 };
 
 macro_rules! run {
@@ -77,7 +77,7 @@ pub fn ensure_mediation_request_type(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::web::handler::tests::*;
+    use shared::test_utils::tests::*;
 
     #[cfg(feature = "stateless")]
     use crate::model::stateless::coord::{
@@ -88,10 +88,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_ensure_jwm_type_is_mediation_request() {
-        let (_, state) = setup();
+        let state = setup();
 
         /* Positive cases */
-
         let msg = Message::build(
             "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
             MEDIATE_REQUEST_2_0.to_string(),
@@ -150,7 +149,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_ensure_transport_return_route_is_decorated_all() {
-        let (_, state) = setup();
+        let state = setup();
 
         macro_rules! unfinalized_msg {
             () => {

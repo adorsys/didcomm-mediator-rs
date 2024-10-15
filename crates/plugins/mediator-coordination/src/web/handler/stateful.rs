@@ -4,34 +4,32 @@ use axum::{
 };
 use did_utils::{
     crypto::{Ed25519KeyPair, Generate, ToMultikey, X25519KeyPair},
-    didcore::Service,
+    didcore::{Document, Service},
     jwk::Jwk,
     methods::{DidPeer, Purpose, PurposedKey},
 };
-use didcomm::Message;
-use mongodb::bson::{doc, oid::ObjectId};
+use didcomm::{did::DIDResolver, secrets::{SecretMaterial, SecretType}, Message};
+use mongodb::bson::doc;
 use serde_json::json;
 use std::{collections::HashMap, sync::Arc};
 use uuid::Uuid;
 
 use crate::{
-    constant::{KEYLIST_2_0, KEYLIST_UPDATE_RESPONSE_2_0, MEDIATE_DENY_2_0, MEDIATE_GRANT_2_0},
-    model::stateful::{
-        coord::{
-            Keylist, KeylistBody, KeylistEntry, KeylistUpdateAction, KeylistUpdateBody,
-            KeylistUpdateConfirmation, KeylistUpdateResponseBody, KeylistUpdateResult,
-            MediationDeny, MediationGrant, MediationGrantBody,
-        },
-        entity::{Connection, Secrets, VerificationMaterial},
+    model::stateful::coord::{
+        Keylist, KeylistBody, KeylistEntry, KeylistUpdateAction, KeylistUpdateBody,
+        KeylistUpdateConfirmation, KeylistUpdateResponseBody, KeylistUpdateResult, MediationDeny,
+        MediationGrant, MediationGrantBody,
     },
-    web::{
-        handler::midlw::{
-            self, ensure_jwm_type_is_mediation_request,
-            ensure_transport_return_route_is_decorated_all,
-        },
-        error::MediationError,
-        AppState, AppStateRepository,
+    web::handler::midlw::{
+        self, ensure_jwm_type_is_mediation_request, ensure_transport_return_route_is_decorated_all,
     },
+};
+
+use shared::{
+    constants::{KEYLIST_2_0, KEYLIST_UPDATE_RESPONSE_2_0, MEDIATE_DENY_2_0, MEDIATE_GRANT_2_0},
+    errors::MediationError,
+    repository::entity::{Connection, Secrets},
+    state::{AppState, AppStateRepository},
 };
 
 /// Process a DIDComm mediate request
@@ -97,16 +95,22 @@ pub async fn process_mediate_request(
             .as_ref()
             .expect("missing persistence layer");
 
+        let diddoc = state
+            .did_resolver
+            .resolve(&routing_did)
+            .await
+            .map(|doc| doc.unwrap_or(Document::default().into()))
+            .expect("Could not resolve DID");
+
         let agreem_keys_jwk: Jwk = agreem_keys.try_into().expect("MediateRequestError");
 
         let agreem_keys_secret = Secrets {
-            id: Some(ObjectId::new()),
-            kid: routing_did.clone(),
-            type_: 1,
-            verification_material: VerificationMaterial {
-                format: 1,
-                value: serde_json::to_value(agreem_keys_jwk).unwrap().to_string(),
-            },
+            id: None,
+            kid: diddoc.key_agreement.get(0).unwrap().clone(),
+            type_: SecretType::JsonWebKey2020,
+            secret_material : SecretMaterial::JWK {
+                private_key_jwk : json!(agreem_keys_jwk)
+            }
         };
 
         match secret_repository.store(agreem_keys_secret).await {
@@ -119,13 +123,12 @@ pub async fn process_mediate_request(
         let auth_keys_jwk: Jwk = auth_keys.try_into().expect("MediateRequestError");
 
         let auth_keys_secret = Secrets {
-            id: Some(ObjectId::new()),
-            kid: routing_did.clone(),
-            type_: 1,
-            verification_material: VerificationMaterial {
-                format: 1,
-                value: serde_json::to_value(auth_keys_jwk).unwrap().to_string(),
-            },
+            id: None,
+            kid: diddoc.authentication.get(0).unwrap().clone(),
+            type_: SecretType::JsonWebKey2020,
+            secret_material : SecretMaterial::JWK {
+                private_key_jwk : json!(auth_keys_jwk)
+            }
         };
 
         match secret_repository.store(auth_keys_secret).await {
@@ -432,13 +435,11 @@ mod tests {
 
     use super::*;
 
-    use crate::{
-        repository::stateful::tests::MockConnectionRepository, web::handler::tests as global,
-    };
+    use shared::{repository::tests::MockConnectionRepository, test_utils::tests as global};
 
     #[allow(clippy::needless_update)]
     fn setup(initial_connections: Vec<Connection>) -> Arc<AppState> {
-        let (_, state) = global::setup();
+        let state = global::setup();
 
         let mut state = match Arc::try_unwrap(state) {
             Ok(state) => state,
