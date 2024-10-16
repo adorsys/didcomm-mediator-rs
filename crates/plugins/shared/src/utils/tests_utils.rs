@@ -1,13 +1,12 @@
-#[cfg(test)]
+#[cfg(any(test, feature = "test-utils"))]
 pub mod tests {
     use crate::{
         repository::{
             entity::Secrets,
             tests::{MockConnectionRepository, MockMessagesRepository, MockSecretsRepository},
         },
-        resolvers::LocalSecretsResolver,
         state::{AppState, AppStateRepository},
-        util::{self, MockFileSystem},
+        utils::{self, filesystem::MockFileSystem, resolvers::LocalSecretsResolver},
     };
     use didcomm::{
         error::Error as DidcommError,
@@ -21,11 +20,30 @@ pub mod tests {
         let public_domain = String::from("http://alice-mediator.com");
 
         let mock_fs = MockFileSystem;
-        let diddoc = util::read_diddoc(&mock_fs, "").unwrap();
+        let diddoc = utils::read_diddoc(&mock_fs, "").unwrap();
+
+        let secret_id = "did:web:alice-mediator.com:alice_mediator_pub#keys-3";
+        let secret: Value = json!(
+            {
+                "kty": "OKP",
+                "crv": "X25519",
+                "x": "SHSUZ6V3x355FqCzIUfgoPzrZB0BQs0JKyag4UfMqHQ",
+                "d": "0A8SSFkGHg3N9gmVDRnl63ih5fcwtEvnQu9912SVplY"
+            }
+        );
+
+        let mediator_secret = Secrets {
+            id: None,
+            kid: secret_id.to_string(),
+            type_: SecretType::JsonWebKey2020,
+            secret_material: SecretMaterial::JWK {
+                private_key_jwk: secret,
+            },
+        };
 
         let repository = AppStateRepository {
             connection_repository: Arc::new(MockConnectionRepository::from(vec![])),
-            secret_repository: Arc::new(MockSecretsRepository::from(vec![])),
+            secret_repository: Arc::new(MockSecretsRepository::from(vec![mediator_secret])),
             message_repository: Arc::new(MockMessagesRepository::from(vec![])),
         };
 

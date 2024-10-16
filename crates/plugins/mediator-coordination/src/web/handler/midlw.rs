@@ -77,7 +77,7 @@ pub fn ensure_mediation_request_type(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use shared::test_utils::tests::*;
+    use shared::tests::tests::*;
 
     #[cfg(feature = "stateless")]
     use crate::model::stateless::coord::{

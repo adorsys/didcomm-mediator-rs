@@ -13,16 +13,19 @@ members = [
     "crates/plugins/shared",
     "crates/plugins/did-endpoint",
     "crates/plugins/oob-messages",
+    "crates/plugins/pickup",
+    "crates/plugins/forward",
     "crates/plugins/mediator-coordination",
 ]
 
 
 [workspace.dependencies]
 did-utils = { path = "./crates/did-utils", version = "0.1.0" }
-keystore = { path = "./crates/keystore", version = "0.1.0" }
 plugin-api = { path = "./crates/plugin-api", version = "0.1.0" }
 plugins = { path = "./crates/plugins", version = "0.1.0" }
 shared = { path = "./crates/plugins/shared", version = "0.1.0" }
+pickup = { path = "./crates/plugins/pickup", version = "0.1.0" }
+forward = { path = "./crates/plugins/forward", version = "0.1.0" }
 did-endpoint = { path = "./crates/plugins/did-endpoint", version = "0.1.0" }
 oob-messages = { path = "./crates/plugins/oob-messages", version = "0.1.0" }
 mediator-coordination = { path = "./crates/plugins/mediator-coordination", version = "0.1.0" }

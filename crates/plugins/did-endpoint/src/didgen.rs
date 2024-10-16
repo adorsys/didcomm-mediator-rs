@@ -1,13 +1,15 @@
-use crate::util::didweb;
 use did_utils::{
+    crypto::{Ed25519KeyPair, Generate, ToMultikey, X25519KeyPair},
     didcore::{
         AssertionMethod, Authentication, Document, KeyAgreement, KeyFormat, Service,
         VerificationMethod,
     },
     jwk::Jwk,
     ldmodel::Context,
+    methods::{DidPeer, Purpose, PurposedKey},
 };
-use keystore::{filesystem::StdFileSystem, KeyStore};
+use serde_json::json;
+use shared::{state::AppState, utils::filesystem::StdFileSystem};
 use std::path::Path;
 
 #[allow(dead_code)]
@@ -26,10 +28,35 @@ pub enum Error {
 }
 
 /// Generates keys and forward them for DID generation
-///
-/// All persistence is handled at `storage_dirpath`.
-pub fn didgen(storage_dirpath: &str, server_public_domain: &str) -> Result<Document, Error> {
-    // Create a new store, which is timestamp-aware
+pub fn didgen<P>(storage_dirpath: P, server_public_domain: &str) -> Result<Document, Error>
+where
+    P: AsRef<Path>,
+{
+    // Generate keys for did:peer generation
+    let auth_keys = Ed25519KeyPair::new().unwrap();
+    let agreem_keys = X25519KeyPair::new().unwrap();
+
+    let keys = vec![
+        PurposedKey {
+            purpose: Purpose::Encryption,
+            public_key_multibase: agreem_keys.to_multikey(),
+        },
+        PurposedKey {
+            purpose: Purpose::Verification,
+            public_key_multibase: auth_keys.to_multikey(),
+        },
+    ];
+
+    let services = vec![Service {
+        id: String::from("#didcomm"),
+        service_type: String::from("DIDCommMessaging"),
+        service_endpoint: json!({"uri": server_public_domain, "accept": vec!["didcomm/v2"], "routingKeys": vec![]}),
+        ..Default::default()
+    }];
+
+    let did = DidPeer::create_did_peer_2(&keys, &services).unwrap();
+
+    // Create a new store
     let mut fs = StdFileSystem;
     let mut store = KeyStore::new(&mut fs, storage_dirpath);
     tracing::info!("keystore: {}", store.path());

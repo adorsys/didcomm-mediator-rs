@@ -8,7 +8,11 @@ use did_utils::{
     jwk::Jwk,
     methods::{DidPeer, Purpose, PurposedKey},
 };
-use didcomm::{did::DIDResolver, secrets::{SecretMaterial, SecretType}, Message};
+use didcomm::{
+    did::DIDResolver,
+    secrets::{SecretMaterial, SecretType},
+    Message,
+};
 use mongodb::bson::doc;
 use serde_json::json;
 use std::{collections::HashMap, sync::Arc};
@@ -108,9 +112,9 @@ pub async fn process_mediate_request(
             id: None,
             kid: diddoc.key_agreement.get(0).unwrap().clone(),
             type_: SecretType::JsonWebKey2020,
-            secret_material : SecretMaterial::JWK {
-                private_key_jwk : json!(agreem_keys_jwk)
-            }
+            secret_material: SecretMaterial::JWK {
+                private_key_jwk: json!(agreem_keys_jwk),
+            },
         };
 
         match secret_repository.store(agreem_keys_secret).await {
@@ -126,9 +130,9 @@ pub async fn process_mediate_request(
             id: None,
             kid: diddoc.authentication.get(0).unwrap().clone(),
             type_: SecretType::JsonWebKey2020,
-            secret_material : SecretMaterial::JWK {
-                private_key_jwk : json!(auth_keys_jwk)
-            }
+            secret_material: SecretMaterial::JWK {
+                private_key_jwk: json!(auth_keys_jwk),
+            },
         };
 
         match secret_repository.store(auth_keys_secret).await {
@@ -196,14 +200,11 @@ fn generate_did_peer(service_endpoint: String) -> (String, Ed25519KeyPair, X2551
     ];
 
     // Generate service
-    let mut additional_properties = HashMap::new();
-    additional_properties.insert("accept".to_string(), json!(["didcomm/v2"]));
-
     let services = vec![Service {
         id: String::from("#didcomm"),
         service_type: String::from("DIDCommMessaging"),
-        service_endpoint: service_endpoint,
-        additional_properties: Some(additional_properties),
+        service_endpoint: json!({"uri": service_endpoint, "accept": vec!["didcomm/v2"], "routingKeys": vec![]}),
+        ..Default::default()
     }];
 
     (
@@ -435,7 +436,7 @@ mod tests {
 
     use super::*;
 
-    use shared::{repository::tests::MockConnectionRepository, test_utils::tests as global};
+    use shared::{repository::tests::MockConnectionRepository, tests::tests as global};
 
     #[allow(clippy::needless_update)]
     fn setup(initial_connections: Vec<Connection>) -> Arc<AppState> {

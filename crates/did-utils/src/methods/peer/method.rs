@@ -88,7 +88,7 @@ impl DidPeer {
     }
 
     /// Creates new instance of DidPeer with given key format.
-    pub fn new_with_format(key_format: PublicKeyFormat) -> Self {
+    pub fn with_format(key_format: PublicKeyFormat) -> Self {
         Self { key_format }
     }
 
@@ -596,7 +596,7 @@ mod tests {
         let services = vec![Service {
             id: String::from("#didcomm"),
             service_type: String::from("DIDCommMessaging"),
-            service_endpoint: String::from("http://example.com/didcomm"),
+            service_endpoint: Value::String(String::from("http://example.com/didcomm")),
             additional_properties: None,
         }];
 
@@ -621,13 +621,13 @@ mod tests {
             Service {
                 id: String::from("#didcomm-1"),
                 service_type: String::from("DIDCommMessaging"),
-                service_endpoint: String::from("http://example.com/didcomm-1"),
+                service_endpoint: Value::String(String::from("http://example.com/didcomm-1")),
                 additional_properties: None,
             },
             Service {
                 id: String::from("#didcomm-2"),
                 service_type: String::from("DIDCommMessaging"),
-                service_endpoint: String::from("http://example.com/didcomm-2"),
+                service_endpoint: Value::String(String::from("http://example.com/didcomm-2")),
                 additional_properties: None,
             },
         ];

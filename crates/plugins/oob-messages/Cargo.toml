@@ -6,7 +6,6 @@ edition = "2021"
 [dependencies]
 did-endpoint.workspace = true
 plugin-api.workspace = true
-keystore.workspace = true
 
 uuid = { workspace = true, features = ["fast-rng", "v4"] }
 multibase.workspace = true

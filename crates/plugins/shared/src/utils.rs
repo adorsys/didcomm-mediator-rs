@@ -1,13 +1,14 @@
-use crate::filesystem::FileSystem;
+pub mod filesystem;
+pub mod resolvers;
+pub mod tests_utils;
+
 use did_utils::{
     didcore::{AssertionMethod, Document, KeyAgreement, KeyFormat, VerificationMethod},
     jwk::Jwk,
 };
+use filesystem::FileSystem;
 use serde_json::Error as SerdeError;
 use std::io;
-
-#[cfg(test)]
-use std::io::{Error as IoError, ErrorKind, Result as IoResult};
 
 /// Custom error type that wraps different kinds of errors that could occur.
 #[derive(Debug)]
@@ -88,6 +89,7 @@ fn extract_public_jwk_from_vm(vm: &VerificationMethod) -> Option<(String, Jwk)> 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::utils::filesystem::MockFileSystem;
     use serde_json::Value;
 
     #[test]
@@ -138,40 +140,5 @@ mod tests {
             json_canon::to_string(&jwk).unwrap(),
             json_canon::to_string(&expected_jwk).unwrap()
         );
-    }
-}
-
-#[cfg(test)]
-#[derive(Default)]
-pub struct MockFileSystem;
-
-#[cfg(test)]
-impl FileSystem for MockFileSystem {
-    fn read_to_string(&self, path: &str) -> IoResult<String> {
-        match path {
-            p if p.ends_with("did.json") => {
-                Ok(include_str!("../test/storage/did.json").to_string())
-            }
-            p if p.contains("keystore") => {
-                Ok(include_str!("../test/storage/keystore/1697624245.json").to_string())
-            }
-            _ => Err(IoError::new(ErrorKind::NotFound, "NotFound")),
-        }
-    }
-
-    fn write(&mut self, _path: &str, _content: &str) -> IoResult<()> {
-        Ok(())
-    }
-
-    fn read_dir_files(&self, _path: &str) -> IoResult<Vec<String>> {
-        Ok(vec!["/keystore/1697624245.json".to_string()])
-    }
-
-    fn create_dir_all(&mut self, _path: &str) -> IoResult<()> {
-        Ok(())
-    }
-
-    fn write_with_lock(&self, _path: &str, _content: &str) -> IoResult<()> {
-        Ok(())
     }
 }

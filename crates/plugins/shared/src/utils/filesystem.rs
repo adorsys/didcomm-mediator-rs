@@ -70,6 +70,42 @@ impl FileSystem for StdFileSystem {
     // Implement other file system operations as needed
 }
 
+#[cfg(any(test, feature = "test-utils"))]
+#[derive(Default)]
+pub struct MockFileSystem;
+
+#[cfg(any(test, feature = "test-utils"))]
+impl FileSystem for MockFileSystem {
+    fn read_to_string(&self, path: &str) -> IoResult<String> {
+        match path {
+            p if p.ends_with("did.json") => {
+                Ok(include_str!("../../test/storage/did.json").to_string())
+            }
+            p if p.contains("keystore") => {
+                Ok(include_str!("../../test/storage/keystore/1697624245.json").to_string())
+            }
+            _ => Err(IoError::new(ErrorKind::NotFound, "NotFound")),
+        }
+    }
+
+    fn write(&mut self, _path: &str, _content: &str) -> IoResult<()> {
+        Ok(())
+    }
+
+    fn read_dir_files(&self, _path: &str) -> IoResult<Vec<String>> {
+        Ok(vec!["/keystore/1697624245.json".to_string()])
+    }
+
+    fn create_dir_all(&mut self, _path: &str) -> IoResult<()> {
+        Ok(())
+    }
+
+    fn write_with_lock(&self, _path: &str, _content: &str) -> IoResult<()> {
+        Ok(())
+    }
+}
+
+
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;

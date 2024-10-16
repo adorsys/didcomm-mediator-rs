@@ -12,6 +12,7 @@ use didcomm::{
     secrets::{Secret, SecretsResolver},
 };
 use mongodb::bson::doc;
+use serde_json::json;
 use std::sync::Arc;
 
 #[derive(Clone)]
@@ -22,7 +23,8 @@ pub struct LocalDIDResolver {
 impl LocalDIDResolver {
     pub fn new(server_diddoc: &Document) -> Self {
         Self {
-            diddoc: server_diddoc.to_owned().into(),
+            diddoc: serde_json::from_value(json!(server_diddoc))
+                .expect("Should easily convert between documents representations"),
         }
     }
 }
@@ -37,12 +39,22 @@ impl DIDResolver for LocalDIDResolver {
         if did.starts_with("did:key") {
             Ok(DidKey::new_full(true, PublicKeyFormat::Jwk)
                 .expand(did)
-                .map(|d| Some(d.into()))
+                .map(|d| {
+                    Some(
+                        serde_json::from_value(json!(d))
+                            .expect("Should easily convert between documents representations"),
+                    )
+                })
                 .map_err(|e| Error::new(ErrorKind::DIDNotResolved, e))?)
         } else if did.starts_with("did:peer") {
-            Ok(DidPeer::new_with_format(PublicKeyFormat::Jwk)
+            Ok(DidPeer::with_format(PublicKeyFormat::Jwk)
                 .expand(did)
-                .map(|d| Some(d.into()))
+                .map(|d| {
+                    Some(
+                        serde_json::from_value(json!(d))
+                            .expect("Should easily convert between documents representations"),
+                    )
+                })
                 .map_err(|e| Error::new(ErrorKind::DIDNotResolved, e))?)
         } else {
             Err(Error::msg(
@@ -107,13 +119,16 @@ impl SecretsResolver for LocalSecretsResolver {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{repository::tests::MockSecretsRepository, util::{self, MockFileSystem}};
+    use crate::{
+        repository::tests::MockSecretsRepository,
+        utils::{self, filesystem::MockFileSystem},
+    };
     use didcomm::secrets::{SecretMaterial, SecretType};
     use serde_json::{json, Value};
 
     fn setup() -> Document {
         let mock_fs = MockFileSystem;
-        util::read_diddoc(&mock_fs, "").unwrap()
+        utils::read_diddoc(&mock_fs, "").unwrap()
     }
 
     #[tokio::test]
@@ -256,7 +271,7 @@ mod tests {
                 "d": "oItI6Jx-anGyhiDJIXtVAhzugOha05s-7_a5_CTs_V4"
             }
         );
-    
+
         let test_secret = Secrets {
             id: None,
             kid: secret_id.to_string(),

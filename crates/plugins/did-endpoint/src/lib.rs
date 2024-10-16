@@ -1,6 +1,5 @@
 mod didgen;
 pub mod plugin;
-mod util;
 mod web;
 
 // Re-exports

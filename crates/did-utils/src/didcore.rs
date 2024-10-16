@@ -6,7 +6,6 @@
 //! [did-core]: https://www.w3.org/TR/did-core/
 
 use std::collections::HashMap;
-use didcomm::did::{self, DIDDoc, VerificationMethodType, VerificationMaterial, ServiceKind, DIDCommMessagingService};
 
 use chrono::{DateTime, Utc};
 use serde::{ser::SerializeMap, Deserialize, Deserializer, Serialize, Serializer};
@@ -110,7 +109,7 @@ pub struct Service {
     #[serde(rename = "type")]
     pub service_type: String,
 
-    pub service_endpoint: String,
+    pub service_endpoint: Value,
 
     // === Additional properties ===
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -318,99 +317,6 @@ impl VerificationMethod {
 pub enum Proofs {
     SingleProof(Box<Proof>),
     SetOfProofs(Vec<Proof>),
-}
-
-impl From<Document> for DIDDoc {
-    fn from(doc: Document) -> Self {
-        // Convert embedded or referenced authentication methods into DID URLs (strings)
-        let authentication: Vec<String> = doc
-            .authentication
-            .unwrap_or_default()
-            .into_iter()
-            .map(|auth| match auth {
-                Authentication::Reference(url) => url,
-                Authentication::Embedded(vm) => vm.id,
-            })
-            .collect();
-
-        // Convert embedded or referenced key agreement methods into DID URLs (strings)
-        let key_agreement: Vec<String> = doc
-            .key_agreement
-            .unwrap_or_default()
-            .into_iter()
-            .map(|ka| match ka {
-                KeyAgreement::Reference(url) => url,
-                KeyAgreement::Embedded(vm) => vm.id,
-            })
-            .collect();
-
-        // Convert embedded verification methods into the new structure
-        let verification_method: Vec<did::VerificationMethod> = doc
-            .verification_method
-            .unwrap_or_default()
-            .into_iter()
-            .map(|vm| did::VerificationMethod {
-                id: vm.id,
-                type_: match vm.key_type.as_str() {
-                    "JsonWebKey2020" => VerificationMethodType::JsonWebKey2020,
-                    "X25519KeyAgreementKey2019" => VerificationMethodType::X25519KeyAgreementKey2019,
-                    "Ed25519VerificationKey2018" => VerificationMethodType::Ed25519VerificationKey2018,
-                    "EcdsaSecp256k1VerificationKey2019" => VerificationMethodType::EcdsaSecp256k1VerificationKey2019,
-                    "X25519KeyAgreementKey2020" => VerificationMethodType::X25519KeyAgreementKey2020,
-                    "Ed25519VerificationKey2020" => VerificationMethodType::Ed25519VerificationKey2020,
-                    _ => VerificationMethodType::Other,
-                },
-                controller: vm.controller,
-                verification_material: match vm.public_key {
-                    Some(KeyFormat::Base58(value)) => VerificationMaterial::Base58 {
-                        public_key_base58: value,
-                    },
-                    Some(KeyFormat::Multibase(value)) => VerificationMaterial::Multibase {
-                        public_key_multibase: value,
-                    },
-                    Some(KeyFormat::Jwk(jwk)) => VerificationMaterial::JWK {
-                        public_key_jwk: serde_json::to_value(jwk).unwrap(),
-                    },
-                    None => VerificationMaterial::JWK { public_key_jwk: serde_json::Value::Null },
-                },
-            })
-            .collect();
-
-        // Convert services
-        let service: Vec<did::Service> = doc.service.unwrap_or_default().into_iter().map(|srv| {
-            did::Service {
-                id: srv.id,
-                service_endpoint: match srv.service_type.as_str() {
-                    "DIDCommMessaging" => ServiceKind::DIDCommMessaging {
-                        value: DIDCommMessagingService {
-                            uri: srv.service_endpoint.clone(),
-                            accept: srv.additional_properties.as_ref().and_then(|props| {
-                                props.get("accept").and_then(|val| val.as_array().map(|v| {
-                                    v.iter().filter_map(|s| s.as_str().map(String::from)).collect()
-                                }))
-                            }),
-                            routing_keys: srv.additional_properties.as_ref().and_then(|props| {
-                                props.get("routingKeys").and_then(|val| val.as_array().map(|v| {
-                                    v.iter().filter_map(|s| s.as_str().map(String::from)).collect()
-                                }))
-                            }).unwrap_or_default(),
-                        },
-                    },
-                    _ => ServiceKind::Other {
-                        value: serde_json::to_value(srv.additional_properties.unwrap_or_default()).unwrap(),
-                    },
-                },
-            }
-        }).collect();
-
-        DIDDoc {
-            id: doc.id,
-            key_agreement,
-            authentication,
-            verification_method,
-            service,
-        }
-    }
 }
 
 #[cfg(test)]

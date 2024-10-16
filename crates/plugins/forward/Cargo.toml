@@ -1,0 +1,21 @@
+[package]
+name = "forward"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+shared.workspace = true
+database.workspace = true
+
+mongodb.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+didcomm = { workspace = true, features = ["uniffi"] }
+hyper = { workspace = true, features = ["full"] }
+axum = { workspace = true, features = ["macros"] }
+
+[dev-dependencies]
+shared = { workspace = true, features = ["test-utils"] }
+did-utils.workspace = true
+uuid = { workspace = true, features = ["v4"] }
+tokio = { version = "1.27.0", default-features = false, features = ["macros", "rt"] }

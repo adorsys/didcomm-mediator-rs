@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use crate::{
     repository::entity::{Connection, RoutedMessage, Secrets},
-    resolvers::{LocalDIDResolver, LocalSecretsResolver},
+    utils::resolvers::{LocalDIDResolver, LocalSecretsResolver},
 };
 
 #[derive(Clone)]

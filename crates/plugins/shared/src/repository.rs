@@ -63,7 +63,7 @@ impl Repository<RoutedMessage> for MongoMessagesRepository {
     }
 }
 
-#[cfg(test)]
+#[cfg(any(test, feature = "test-utils"))]
 pub mod tests {
     use super::*;
     use database::RepositoryError;

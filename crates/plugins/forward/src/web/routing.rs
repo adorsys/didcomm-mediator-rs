@@ -10,18 +10,7 @@ use shared::{
     state::{AppState, AppStateRepository},
 };
 use std::sync::Arc;
-
-use super::error::RoutingError;
-
-/// Mediator receives forwarded messages, extract the next field in the message body, and the attachments in the message
-/// then stores the attachment with the next field as key for pickup
-pub async fn mediator_forward_process(
-    state: &AppState,
-    payload: Message,
-) -> Result<Message, Response> {
-    let result = handler(state, payload).await.unwrap();
-    Ok(result)
-}
+use crate::error::RoutingError;
 
 async fn checks(
     message: &Message,
@@ -54,7 +43,7 @@ async fn checks(
     Ok(next.unwrap().to_string())
 }
 
-async fn handler(state: &AppState, message: Message) -> Result<Message, MediationError> {
+pub(crate) async fn handler(state: &AppState, message: Message) -> Result<Message, MediationError> {
     let AppStateRepository {
         message_repository,
         connection_repository,
@@ -87,47 +76,65 @@ async fn handler(state: &AppState, message: Message) -> Result<Message, Mediatio
     }
     Ok(Message::build("".to_string(), "".to_string(), json!("")).finalize())
 }
+
 #[cfg(test)]
 mod test {
+    use crate::web::handler::mediator_forward_process;
+
     use super::*;
-    use std::sync::Arc;
-    use shared::{
-        resolvers::LocalSecretsResolver,
-        repository::{tests::{
-            MockConnectionRepository, MockMessagesRepository, MockSecretsRepository,
-        }, entity::Connection},
-        util::{self, MockFileSystem},
-        state::AppStateRepository,
-    };
     use did_utils::jwk::Jwk;
     use didcomm::{
-        algorithms::AnonCryptAlg, protocols::routing::wrap_in_forward, secrets::SecretsResolver,
+        algorithms::AnonCryptAlg,
+        protocols::routing::wrap_in_forward,
+        secrets::{SecretMaterial, SecretType, SecretsResolver},
         Message, PackEncryptedOptions, UnpackOptions,
     };
     use serde_json::json;
+    use shared::{
+        repository::{
+            entity::{Connection, Secrets},
+            tests::{MockConnectionRepository, MockMessagesRepository, MockSecretsRepository},
+        },
+        state::AppStateRepository,
+        utils::{self, filesystem::MockFileSystem, resolvers::LocalSecretsResolver},
+    };
+    use std::sync::Arc;
     use uuid::Uuid;
 
     pub fn setup() -> Arc<AppState> {
         let public_domain = String::from("http://alice-mediator.com");
 
-        let mut mock_fs = MockFileSystem;
+        let mock_fs = MockFileSystem;
         let storage_dirpath = std::env::var("STORAGE_DIRPATH").unwrap_or_else(|_| "/".to_owned());
         let diddoc: did_utils::didcore::Document =
-            util::read_diddoc(&mock_fs, &storage_dirpath).unwrap();
-        let keystore = util::read_keystore(&mut mock_fs, "").unwrap();
+            utils::read_diddoc(&mock_fs, &storage_dirpath).unwrap();
+
+        let secret_id = "did:web:alice-mediator.com:alice_mediator_pub#keys-3";
+        let secret: Value = json!(
+            {
+                "kty": "OKP",
+                "crv": "X25519",
+                "x": "SHSUZ6V3x355FqCzIUfgoPzrZB0BQs0JKyag4UfMqHQ",
+                "d": "0A8SSFkGHg3N9gmVDRnl63ih5fcwtEvnQu9912SVplY"
+            }
+        );
+
+        let mediator_secret = Secrets {
+            id: None,
+            kid: secret_id.to_string(),
+            type_: SecretType::JsonWebKey2020,
+            secret_material: SecretMaterial::JWK {
+                private_key_jwk: secret,
+            },
+        };
 
         let repository = AppStateRepository {
             connection_repository: Arc::new(MockConnectionRepository::from(_initial_connections())),
-            secret_repository: Arc::new(MockSecretsRepository::from(vec![])),
+            secret_repository: Arc::new(MockSecretsRepository::from(vec![mediator_secret])),
             message_repository: Arc::new(MockMessagesRepository::from(vec![])),
         };
 
-        let state = Arc::new(AppState::from(
-            public_domain,
-            diddoc,
-            keystore,
-            Some(repository),
-        ));
+        let state = Arc::new(AppState::from(public_domain, diddoc, Some(repository)));
 
         state
     }

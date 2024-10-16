@@ -8,7 +8,7 @@ use shared::{
     repository::{
         MongoConnectionRepository, MongoMessagesRepository, MongoSecretsRepository,
     },
-    util,
+    utils,
     state::{self, AppState, AppStateRepository},
 };
 #[derive(Default)]
@@ -91,7 +91,7 @@ impl Plugin for MediatorCoordinationPlugin {
 
         // Load crypto identity
         let mut fs = StdFileSystem;
-        let diddoc = util::read_diddoc(&fs, &env.storage_dirpath).expect(msg);
+        let diddoc = utils::read_diddoc(&fs, &env.storage_dirpath).expect(msg);
 
         // Load persistence layer
         let repository = AppStateRepository {

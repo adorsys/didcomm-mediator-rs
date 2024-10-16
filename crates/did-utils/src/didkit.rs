@@ -1,3 +1,5 @@
+use serde_json::Value;
+
 use crate::{
     didcore::{AssertionMethod, Authentication, Document, KeyAgreement, Service, VerificationMethod},
     ldmodel::Context,
@@ -40,7 +42,7 @@ impl Service {
     /// # Returns
     ///
     /// * A new instance of `Service`.
-    pub fn new(id: String, service_type: String, service_endpoint: String) -> Self {
+    pub fn new(id: String, service_type: String, service_endpoint: Value) -> Self {
         Self {
             id,
             service_type,
@@ -67,13 +69,13 @@ impl Document {
             context,
             also_known_as: None,
             controller: None,
-            authentication: None,
+            authentication: Some(vec![]),
             assertion_method: None,
             capability_delegation: None,
             capability_invocation: None,
-            key_agreement: None,
-            verification_method: None,
-            service: None,
+            key_agreement: Some(vec![]),
+            verification_method: Some(vec![]),
+            service: Some(vec![]),
             proof: None,
             additional_properties: None,
         }
@@ -189,7 +191,7 @@ pub mod tests {
         let srv = Service::new(
             "did:example:123456789abcdefghi#keys-1".to_string(),
             "did-communication".to_string(),
-            "https://example.com".to_string(),
+            Value::String("https://example.com".to_string()),
         );
         let service = Some(vec![srv]);
 
