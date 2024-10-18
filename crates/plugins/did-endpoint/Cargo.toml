@@ -4,12 +4,12 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-shared.workspace = true
+database.workspace = true
+keystore.workspace = true
 plugin-api.workspace = true
 did-utils.workspace = true
 
 mongodb.workspace = true
-didcomm.workspace = true
 chrono.workspace = true
 thiserror.workspace = true
 serde_json.workspace = true

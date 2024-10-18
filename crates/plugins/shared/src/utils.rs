@@ -1,4 +1,5 @@
 pub mod filesystem;
+pub mod plugins_utils;
 pub mod resolvers;
 pub mod tests_utils;
 

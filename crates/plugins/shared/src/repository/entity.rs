@@ -2,7 +2,6 @@ use database::Identifiable;
 use mongodb::bson::oid::ObjectId;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use didcomm::secrets::{SecretMaterial, SecretType};
 
 /// Record of a mediation relationship between an edge agent (client) and a mediator.
 #[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq)]
@@ -34,21 +33,6 @@ pub struct RoutedMessage {
     pub recipient_did: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Secrets {
-    #[serde(rename = "_id")]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub id: Option<ObjectId>,
-
-    pub kid: String,
-    
-    #[serde(rename = "type")]
-    pub type_: SecretType,
-
-    #[serde(flatten)]
-    pub secret_material: SecretMaterial,
-}
-
 impl Identifiable for Connection {
     fn id(&self) -> Option<ObjectId> {
         self.id
@@ -60,16 +44,6 @@ impl Identifiable for Connection {
 }
 
 impl Identifiable for RoutedMessage {
-    fn id(&self) -> Option<ObjectId> {
-        self.id
-    }
-
-    fn set_id(&mut self, id: ObjectId) {
-        self.id = Some(id);
-    }
-}
-
-impl Identifiable for Secrets {
     fn id(&self) -> Option<ObjectId> {
         self.id
     }

@@ -6,7 +6,7 @@ use mongodb::{Collection, Database};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-use entity::{Connection, RoutedMessage, Secrets};
+use entity::{Connection, RoutedMessage};
 
 pub struct MongoConnectionRepository {
     collection: Collection<Connection>,
@@ -23,25 +23,6 @@ impl MongoConnectionRepository {
 #[async_trait]
 impl Repository<Connection> for MongoConnectionRepository {
     fn get_collection(&self) -> Arc<Mutex<Collection<Connection>>> {
-        Arc::new(Mutex::new(self.collection.clone()))
-    }
-}
-
-pub struct MongoSecretsRepository {
-    collection: Collection<Secrets>,
-}
-
-impl MongoSecretsRepository {
-    pub fn from_db(db: &Database) -> Self {
-        Self {
-            collection: db.collection("secrets"),
-        }
-    }
-}
-
-#[async_trait]
-impl Repository<Secrets> for MongoSecretsRepository {
-    fn get_collection(&self) -> Arc<Mutex<Collection<Secrets>>> {
         Arc::new(Mutex::new(self.collection.clone()))
     }
 }
@@ -67,6 +48,7 @@ impl Repository<RoutedMessage> for MongoMessagesRepository {
 pub mod tests {
     use super::*;
     use database::RepositoryError;
+    use keystore::Secrets;
     use mongodb::bson::{doc, oid::ObjectId, Bson, Document as BsonDocument};
     use serde_json::json;
     use std::{
@@ -162,12 +144,13 @@ pub mod tests {
         }
     }
 
-    pub struct MockSecretsRepository {
+    #[derive(Default)]
+    pub struct MockKeyStore {
         secrets: RwLock<Vec<Secrets>>,
     }
 
-    impl MockSecretsRepository {
-        pub fn from(secrets: Vec<Secrets>) -> Self {
+    impl MockKeyStore {
+        pub fn new(secrets: Vec<Secrets>) -> Self {
             Self {
                 secrets: RwLock::new(secrets),
             }
@@ -175,7 +158,7 @@ pub mod tests {
     }
 
     #[async_trait]
-    impl Repository<Secrets> for MockSecretsRepository {
+    impl Repository<Secrets> for MockKeyStore {
         // Implement a dummy get_collection method
         fn get_collection(&self) -> Arc<Mutex<Collection<Secrets>>> {
             // In-memory, we don't have an actual collection, but we can create a dummy Arc<Mutex> for compatibility.

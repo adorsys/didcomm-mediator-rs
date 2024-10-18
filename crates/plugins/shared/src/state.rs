@@ -1,9 +1,10 @@
 use database::Repository;
 use did_utils::didcore::Document;
+use keystore::Secrets;
 use std::sync::Arc;
 
 use crate::{
-    repository::entity::{Connection, RoutedMessage, Secrets},
+    repository::entity::{Connection, RoutedMessage},
     utils::resolvers::{LocalDIDResolver, LocalSecretsResolver},
 };
 
@@ -14,6 +15,9 @@ pub struct AppState {
 
     // Crypto identity
     pub diddoc: Document,
+
+    // KeyStore
+    pub keystore: Arc<dyn Repository<Secrets>>,
 
     // DIDComm Resolvers
     pub did_resolver: LocalDIDResolver,
@@ -26,7 +30,6 @@ pub struct AppState {
 #[derive(Clone)]
 pub struct AppStateRepository {
     pub connection_repository: Arc<dyn Repository<Connection>>,
-    pub secret_repository: Arc<dyn Repository<Secrets>>,
     pub message_repository: Arc<dyn Repository<RoutedMessage>>,
 }
 
@@ -34,17 +37,16 @@ impl AppState {
     pub fn from(
         public_domain: String,
         diddoc: Document,
+        keystore: Arc<dyn Repository<Secrets>>,
         repository: Option<AppStateRepository>,
     ) -> Self {
         let did_resolver = LocalDIDResolver::new(&diddoc);
-        let secrets_resolver = {
-            let repository = repository.as_ref().expect("Missing persistence layer");
-            LocalSecretsResolver::new(repository.secret_repository.clone())
-        };
+        let secrets_resolver = LocalSecretsResolver::new(keystore.clone());
 
         Self {
             public_domain,
             diddoc,
+            keystore,
             did_resolver,
             secrets_resolver,
             repository,

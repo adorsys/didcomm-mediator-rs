@@ -2,13 +2,14 @@ use async_trait::async_trait;
 use mongodb::{
     bson::{self, doc, oid::ObjectId, Bson, Document as BsonDocument},
     error::Error as MongoError,
-    options::FindOptions,
-    Collection,
+    options::{ClientOptions, FindOptions},
+    Client, Collection, Database,
 };
+use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use thiserror::Error;
-use tokio::sync::Mutex;
+use tokio::{runtime::Runtime, sync::Mutex};
 
 /// A trait that ensures the entity has an `id` field.
 pub trait Identifiable {
@@ -27,6 +28,37 @@ pub enum RepositoryError {
     MissingIdentifier,
     #[error("target not found")]
     TargetNotFound,
+}
+
+static MONGO_DB: OnceCell<Arc<Mutex<Database>>> = OnceCell::new();
+
+/// Get a handle to a database.
+/// 
+/// Many threads may call this function concurrently with different initializing functions,
+/// but it is guaranteed that only one function will be executed.
+pub fn get_or_init_database() -> Arc<Mutex<Database>> {
+    MONGO_DB
+        .get_or_init(|| {
+            let mongo_uri = std::env::var("MONGO_URI").expect("MONGO_URI env variable required");
+            let mongo_dbn = std::env::var("MONGO_DBN").expect("MONGO_DBN env variable required");
+
+            // Create a runtime to run the async MongoDB initialization synchronously
+            let rt = Runtime::new().unwrap();
+
+            let db = rt.block_on(async {
+                let client_options = ClientOptions::parse(mongo_uri)
+                    .await
+                    .expect("Failed to parse Mongo URI");
+                let client =
+                    Client::with_options(client_options).expect("Failed to create MongoDB client");
+
+                client.database(&mongo_dbn)
+            });
+
+            // Get a handle to a database.
+            Arc::new(Mutex::new(db))
+        })
+        .clone()
 }
 
 /// Definition of a trait for repository operations.
@@ -52,8 +84,8 @@ where
         Ok(entities)
     }
 
-    async fn find_one(&self, message_id: ObjectId) -> Result<Option<Entity>, RepositoryError> {
-        self.find_one_by(doc! {"_id": message_id}).await
+    async fn find_one(&self, id: ObjectId) -> Result<Option<Entity>, RepositoryError> {
+        self.find_one_by(doc! {"_id": id}).await
     }
 
     async fn find_one_by(&self, filter: BsonDocument) -> Result<Option<Entity>, RepositoryError> {
@@ -102,7 +134,7 @@ where
         Ok(entities)
     }
 
-    async fn delete_one(&self, message_id: ObjectId) -> Result<(), RepositoryError> {
+    async fn delete_one(&self, id: ObjectId) -> Result<(), RepositoryError> {
         let collection = self.get_collection();
 
         // Lock the Mutex and get the Collection
@@ -110,7 +142,7 @@ where
 
         // Delete the entity from the database
         collection
-            .delete_one(doc! {"_id": message_id}, None)
+            .delete_one(doc! {"_id": id}, None)
             .await?;
 
         Ok(())

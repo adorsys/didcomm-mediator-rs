@@ -1,17 +1,14 @@
+use database::Repository;
 use did_utils::{
     crypto::{Ed25519KeyPair, Generate, PublicKeyFormat, ToMultikey, X25519KeyPair},
     didcore::{Authentication, Document, KeyAgreement, KeyFormat, Service},
     jwk::Jwk,
     methods::{DidPeer, Purpose, PurposedKey},
 };
-use didcomm::secrets::{SecretMaterial, SecretType};
+use keystore::{KeyStore, Secrets};
 use mongodb::bson::doc;
 use serde_json::json;
-use shared::{
-    repository::entity::Secrets,
-    state::{AppState, AppStateRepository},
-};
-use std::{fmt::Display, path::Path, sync::Arc};
+use std::{fmt::Display, path::Path};
 
 #[allow(dead_code)]
 #[derive(Debug, thiserror::Error)]
@@ -29,7 +26,7 @@ pub enum Error {
 }
 
 /// Generates keys and forward them for DID generation
-pub fn didgen<P>(storage_dirpath: P, state: Arc<AppState>) -> Result<Document, Error>
+pub fn didgen<P>(storage_dirpath: P, server_public_domain: &str) -> Result<Document, Error>
 where
     P: AsRef<Path> + Display,
 {
@@ -52,20 +49,12 @@ where
     let services = vec![Service {
         id: String::from("#didcomm"),
         service_type: String::from("DIDCommMessaging"),
-        service_endpoint: json!({"uri": state.public_domain, "accept": vec!["didcomm/v2"], "routingKeys": Vec::<String>::new()}),
+        service_endpoint: json!({"uri": server_public_domain, "accept": vec!["didcomm/v2"], "routingKeys": Vec::<String>::new()}),
         ..Default::default()
     }];
 
     // Generate did:peer address
     let did = DidPeer::create_did_peer_2(&keys, &services).unwrap();
-
-    // Store the generated keys
-    let AppStateRepository {
-        secret_repository, ..
-    } = state
-        .repository
-        .as_ref()
-        .expect("missing persistence layer");
 
     // Generate DID Document
     let diddoc = {
@@ -88,15 +77,15 @@ where
             KeyAgreement::Reference(kid) => kid,
             _ => unreachable!(),
         },
-        type_: SecretType::JsonWebKey2020,
-        secret_material: SecretMaterial::JWK {
-            private_key_jwk: json!(agreem_keys_jwk),
-        },
+        secret_material: agreem_keys_jwk,
     };
+
+    // Create a new KeyStore
+    let keystore = KeyStore::new();
 
     // Store the agreement key in the screts store
     tokio::runtime::Runtime::new().unwrap().block_on(async {
-        match secret_repository.store(agreem_keys_secret).await {
+        match keystore.store(agreem_keys_secret).await {
             Ok(_) => {
                 tracing::info!("Successfully stored agreement key.")
             }
@@ -119,15 +108,12 @@ where
             Authentication::Reference(kid) => kid,
             _ => unreachable!(),
         },
-        type_: SecretType::JsonWebKey2020,
-        secret_material: SecretMaterial::JWK {
-            private_key_jwk: json!(auth_keys_jwk),
-        },
+        secret_material: auth_keys_jwk,
     };
 
     // Store the authentication key in the screts store
     tokio::runtime::Runtime::new().unwrap().block_on(async {
-        match secret_repository.store(auth_keys_secret).await {
+        match keystore.store(auth_keys_secret).await {
             Ok(_) => {
                 tracing::info!("Successfully stored authentication key.")
             }
@@ -148,7 +134,7 @@ where
 }
 
 /// Validates the integrity of the persisted diddoc
-pub fn validate_diddoc<P>(storage_dirpath: P, state: Arc<AppState>) -> Result<(), String>
+pub fn validate_diddoc<P>(storage_dirpath: P) -> Result<(), String>
 where
     P: AsRef<Path> + Display,
 {
@@ -173,19 +159,12 @@ where
             _ => return Err(String::from("Unsupported key format")),
         };
 
-        // Lookup keypair from secret store
-        let AppStateRepository {
-            secret_repository, ..
-        } = state
-            .repository
-            .as_ref()
-            .expect("missing persistence layer");
+        // Create a new KeyStore
+        let keystore = KeyStore::get();
 
-        let secret = tokio::runtime::Runtime::new().unwrap().block_on(async {
-            secret_repository
-                .find_one_by(doc! { "kid": method.id })
-                .await
-        });
+        let secret = tokio::runtime::Runtime::new()
+            .unwrap()
+            .block_on(async { keystore.find_one_by(doc! { "kid": method.id }).await });
 
         secret
             .map_err(|_| String::from("Error fetching secret"))?
@@ -199,16 +178,15 @@ where
 mod tests {
     use super::*;
     use crate::util::dotenv_flow_read;
-    use shared::utils::tests_utils::tests;
 
-    fn setup() -> (String, Arc<AppState>) {
+    fn setup() -> (String, String) {
         let storage_dirpath = dotenv_flow_read("STORAGE_DIRPATH")
             .map(|p| format!("{}/{}", p, uuid::Uuid::new_v4()))
             .unwrap();
 
-        let state = tests::setup();
+        let server_public_domain = dotenv_flow_read("SERVER_PUBLIC_DOMAIN").unwrap();
 
-        (storage_dirpath, state)
+        (storage_dirpath, server_public_domain)
     }
 
     fn cleanup(storage_dirpath: &str) {
@@ -219,9 +197,9 @@ mod tests {
     // Does not validate the DID document.
     #[test]
     fn test_didgen() {
-        let (storage_dirpath, state) = setup();
+        let (storage_dirpath, server_public_domain) = setup();
 
-        let diddoc = didgen(&storage_dirpath, state).unwrap();
+        let diddoc = didgen(&storage_dirpath, &server_public_domain).unwrap();
         assert_eq!(diddoc.id, "did:web:example.com");
 
         cleanup(&storage_dirpath);
@@ -229,10 +207,10 @@ mod tests {
 
     #[test]
     fn test_validate_diddoc() {
-        let (storage_dirpath, state) = setup();
+        let (storage_dirpath, server_public_domain) = setup();
 
-        didgen(&storage_dirpath, state.clone()).unwrap();
-        assert!(validate_diddoc(&storage_dirpath, state).is_ok());
+        didgen(&storage_dirpath, &server_public_domain).unwrap();
+        assert!(validate_diddoc(&storage_dirpath).is_ok());
 
         cleanup(&storage_dirpath);
     }

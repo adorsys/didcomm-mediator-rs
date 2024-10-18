@@ -1,19 +1,16 @@
 #[cfg(any(test, feature = "test-utils"))]
 pub mod tests {
     use crate::{
-        repository::{
-            entity::Secrets,
-            tests::{MockConnectionRepository, MockMessagesRepository, MockSecretsRepository},
-        },
+        repository::tests::{MockConnectionRepository, MockKeyStore, MockMessagesRepository},
         state::{AppState, AppStateRepository},
         utils::{self, filesystem::MockFileSystem, resolvers::LocalSecretsResolver},
     };
+    use did_utils::jwk::Jwk;
     use didcomm::{
-        error::Error as DidcommError,
-        secrets::{SecretMaterial, SecretType, SecretsResolver},
-        Message, PackEncryptedOptions, UnpackOptions,
+        error::Error as DidcommError, secrets::SecretsResolver, Message, PackEncryptedOptions,
+        UnpackOptions,
     };
-    use serde_json::{json, Value};
+    use keystore::Secrets;
     use std::sync::Arc;
 
     pub fn setup() -> Arc<AppState> {
@@ -23,31 +20,34 @@ pub mod tests {
         let diddoc = utils::read_diddoc(&mock_fs, "").unwrap();
 
         let secret_id = "did:web:alice-mediator.com:alice_mediator_pub#keys-3";
-        let secret: Value = json!(
-            {
+        let secret: Jwk = serde_json::from_str(
+            r#"{
                 "kty": "OKP",
                 "crv": "X25519",
                 "x": "SHSUZ6V3x355FqCzIUfgoPzrZB0BQs0JKyag4UfMqHQ",
                 "d": "0A8SSFkGHg3N9gmVDRnl63ih5fcwtEvnQu9912SVplY"
-            }
-        );
+            }"#,
+        )
+        .unwrap();
 
         let mediator_secret = Secrets {
             id: None,
             kid: secret_id.to_string(),
-            type_: SecretType::JsonWebKey2020,
-            secret_material: SecretMaterial::JWK {
-                private_key_jwk: secret,
-            },
+            secret_material: secret,
         };
 
         let repository = AppStateRepository {
             connection_repository: Arc::new(MockConnectionRepository::from(vec![])),
-            secret_repository: Arc::new(MockSecretsRepository::from(vec![mediator_secret])),
             message_repository: Arc::new(MockMessagesRepository::from(vec![])),
         };
+        let keystore = Arc::new(MockKeyStore::new(vec![mediator_secret]));
 
-        let state = Arc::new(AppState::from(public_domain, diddoc, Some(repository)));
+        let state = Arc::new(AppState::from(
+            public_domain,
+            diddoc,
+            keystore,
+            Some(repository),
+        ));
 
         state
     }
@@ -62,52 +62,46 @@ pub mod tests {
 
     pub fn _edge_signing_secrets_resolver() -> impl SecretsResolver {
         let secret_id = "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7#z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7";
-        let secret: Value = json!(
-            {
+        let secret: Jwk = serde_json::from_str(
+            r#"{
                 "kty": "OKP",
                 "crv": "Ed25519",
                 "d": "UXBdR4u4bnHHEaDK-dqE04DIMvegx9_ZOjm--eGqHiI",
                 "x": "Fpf4juyZWYUNmC8Bv87MmFLDWApxqOYYZUhWyiD7lSo",
-            }
-        );
+            }"#,
+        )
+        .unwrap();
 
         let test_secret = Secrets {
             id: None,
             kid: secret_id.to_string(),
-            type_: SecretType::JsonWebKey2020,
-            secret_material: SecretMaterial::JWK {
-                private_key_jwk: secret,
-            },
+            secret_material: secret,
         };
+        let keystore = Arc::new(MockKeyStore::new(vec![test_secret]));
 
-        let secrets_repository = Arc::new(MockSecretsRepository::from(vec![test_secret]));
-
-        LocalSecretsResolver::new(secrets_repository)
+        LocalSecretsResolver::new(keystore)
     }
 
     pub fn _edge_secrets_resolver() -> impl SecretsResolver {
         let secret_id = "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7#z6LSbuUXWSgPfpiDBjUK6E7yiCKMN2eKJsXn5b55ZgqGz6Mr";
-        let secret: Value = json!(
-            {
+        let secret: Jwk = serde_json::from_str(
+            r#"{
                 "kty": "OKP",
                 "crv": "X25519",
                 "x": "A2gufB762KKDkbTX0usDbekRJ-_PPBeVhc2gNgjpswU",
                 "d": "oItI6Jx-anGyhiDJIXtVAhzugOha05s-7_a5_CTs_V4"
-            }
-        );
+            }"#,
+        )
+        .unwrap();
 
         let test_secret = Secrets {
             id: None,
             kid: secret_id.to_string(),
-            type_: SecretType::JsonWebKey2020,
-            secret_material: SecretMaterial::JWK {
-                private_key_jwk: secret,
-            },
+            secret_material: secret,
         };
+        let keystore = Arc::new(MockKeyStore::new(vec![test_secret]));
 
-        let secrets_repository = Arc::new(MockSecretsRepository::from(vec![test_secret]));
-
-        LocalSecretsResolver::new(secrets_repository)
+        LocalSecretsResolver::new(keystore)
     }
 
     pub async fn _edge_pack_message(
