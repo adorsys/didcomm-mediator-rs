@@ -3,7 +3,7 @@ pub mod tests {
     use crate::{
         repository::tests::{MockConnectionRepository, MockKeyStore, MockMessagesRepository},
         state::{AppState, AppStateRepository},
-        utils::{self, filesystem::MockFileSystem, resolvers::LocalSecretsResolver},
+        utils::{self, resolvers::LocalSecretsResolver},
     };
     use did_utils::jwk::Jwk;
     use didcomm::{
@@ -16,7 +16,7 @@ pub mod tests {
     pub fn setup() -> Arc<AppState> {
         let public_domain = String::from("http://alice-mediator.com");
 
-        let mock_fs = MockFileSystem;
+        let mock_fs = filesystem::MockFileSystem;
         let diddoc = utils::read_diddoc(&mock_fs, "").unwrap();
 
         let secret_id = "did:web:alice-mediator.com:alice_mediator_pub#keys-3";
@@ -39,13 +39,12 @@ pub mod tests {
         let repository = AppStateRepository {
             connection_repository: Arc::new(MockConnectionRepository::from(vec![])),
             message_repository: Arc::new(MockMessagesRepository::from(vec![])),
+            keystore: Arc::new(MockKeyStore::new(vec![mediator_secret])),
         };
-        let keystore = Arc::new(MockKeyStore::new(vec![mediator_secret]));
 
         let state = Arc::new(AppState::from(
             public_domain,
             diddoc,
-            keystore,
             Some(repository),
         ));
 

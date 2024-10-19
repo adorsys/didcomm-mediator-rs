@@ -67,7 +67,8 @@ mod tests {
     use did_utils::crypto::ToPublic;
     use multibase::Base::Base64Url;
     use serde_json::Value;
-    use shared::utils::{self, MockFileSystem};
+    use shared::utils;
+    use filesystem::MockFileSystem;
 
     fn setup() -> Jwk {
         let mut mock_fs = MockFileSystem;

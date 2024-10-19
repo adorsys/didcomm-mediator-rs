@@ -1,3 +1,4 @@
+use crate::error::RoutingError;
 use axum::response::{IntoResponse, Response};
 use database::Repository;
 use didcomm::{AttachmentData, Message};
@@ -10,7 +11,6 @@ use shared::{
     state::{AppState, AppStateRepository},
 };
 use std::sync::Arc;
-use crate::error::RoutingError;
 
 async fn checks(
     message: &Message,
@@ -84,19 +84,19 @@ mod test {
     use super::*;
     use did_utils::jwk::Jwk;
     use didcomm::{
-        algorithms::AnonCryptAlg,
-        protocols::routing::wrap_in_forward,
-        secrets::{SecretMaterial, SecretType, SecretsResolver},
+        algorithms::AnonCryptAlg, protocols::routing::wrap_in_forward, secrets::SecretsResolver,
         Message, PackEncryptedOptions, UnpackOptions,
     };
+    use filesystem::MockFileSystem;
+    use keystore::Secrets;
     use serde_json::json;
     use shared::{
         repository::{
-            entity::{Connection, Secrets},
-            tests::{MockConnectionRepository, MockMessagesRepository, MockSecretsRepository},
+            entity::Connection,
+            tests::{MockConnectionRepository, MockKeyStore, MockMessagesRepository},
         },
         state::AppStateRepository,
-        utils::{self, filesystem::MockFileSystem, resolvers::LocalSecretsResolver},
+        utils::{self, resolvers::LocalSecretsResolver},
     };
     use std::sync::Arc;
     use uuid::Uuid;
@@ -110,27 +110,25 @@ mod test {
             utils::read_diddoc(&mock_fs, &storage_dirpath).unwrap();
 
         let secret_id = "did:web:alice-mediator.com:alice_mediator_pub#keys-3";
-        let secret: Value = json!(
-            {
+        let secret: Jwk = serde_json::from_str(
+            r#"{
                 "kty": "OKP",
                 "crv": "X25519",
                 "x": "SHSUZ6V3x355FqCzIUfgoPzrZB0BQs0JKyag4UfMqHQ",
                 "d": "0A8SSFkGHg3N9gmVDRnl63ih5fcwtEvnQu9912SVplY"
-            }
-        );
+            }"#,
+        )
+        .unwrap();
 
         let mediator_secret = Secrets {
             id: None,
             kid: secret_id.to_string(),
-            type_: SecretType::JsonWebKey2020,
-            secret_material: SecretMaterial::JWK {
-                private_key_jwk: secret,
-            },
+            secret_material: secret,
         };
 
         let repository = AppStateRepository {
             connection_repository: Arc::new(MockConnectionRepository::from(_initial_connections())),
-            secret_repository: Arc::new(MockSecretsRepository::from(vec![mediator_secret])),
+            keystore: Arc::new(MockKeyStore::new(vec![mediator_secret])),
             message_repository: Arc::new(MockMessagesRepository::from(vec![])),
         };
 
@@ -249,14 +247,11 @@ mod test {
         let test_secret = Secrets {
             id: None,
             kid: secret_id.to_string(),
-            type_: SecretType::JsonWebKey2020,
-            secret_material: SecretMaterial::JWK {
-                private_key_jwk: json!(secret),
-            },
+            secret_material: secret,
         };
 
-        let secrets_repository = Arc::new(MockSecretsRepository::from(vec![test_secret]));
+        let keystore = Arc::new(MockKeyStore::new(vec![test_secret]));
 
-        LocalSecretsResolver::new(secrets_repository)
+        LocalSecretsResolver::new(keystore)
     }
 }

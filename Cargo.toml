@@ -22,6 +22,7 @@ members = [
 [workspace.dependencies]
 did-utils = { path = "./crates/did-utils", version = "0.1.0" }
 keystore = { path = "./crates/keystore", version = "0.1.0" }
+filesystem = { path = "./crates/filesystem", version = "0.1.0" }
 plugin-api = { path = "./crates/plugin-api", version = "0.1.0" }
 plugins = { path = "./crates/plugins", version = "0.1.0" }
 shared = { path = "./crates/plugins/shared", version = "0.1.0" }

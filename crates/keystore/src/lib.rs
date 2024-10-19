@@ -42,6 +42,8 @@ where
 
 impl KeyStore<Secrets> {
     /// Create a new keystore with default Secrets type.
+    /// 
+    /// Calling this method many times will return the same keystore instance.
     pub fn new() -> KeyStore<Secrets> {
         let collection = SECRETS_COLLECTION.get_or_init(|| {
             // Initialize runtime to run the async MongoDB initialization
@@ -59,7 +61,7 @@ impl KeyStore<Secrets> {
 
     /// Retrieve the keystore instance.
     /// 
-    /// Uses `new` to ensure the collection is initialized once.
+    /// If there is no keystore instance, a new one will be created only once.
     pub fn get() -> KeyStore<Secrets> {
         Self::new()
     }

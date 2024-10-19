@@ -123,8 +123,9 @@ mod tests {
     use super::*;
     use crate::{
         repository::tests::MockKeyStore,
-        utils::{self, filesystem::MockFileSystem},
+        utils::{self},
     };
+    use filesystem::MockFileSystem;
     use did_utils::jwk::Jwk;
     use serde_json::Value;
 

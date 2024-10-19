@@ -1,4 +1,3 @@
-pub mod filesystem;
 pub mod plugins_utils;
 pub mod resolvers;
 pub mod tests_utils;
@@ -90,7 +89,7 @@ fn extract_public_jwk_from_vm(vm: &VerificationMethod) -> Option<(String, Jwk)> 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::utils::filesystem::MockFileSystem;
+    use filesystem::MockFileSystem;
     use serde_json::Value;
 
     #[test]

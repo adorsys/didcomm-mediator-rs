@@ -1,7 +1,7 @@
 use crate::constants::OOB_INVITATION_2_0;
 use base64::{encode_config, STANDARD};
 use image::{DynamicImage, Luma};
-use keystore::filesystem::FileSystem;
+use filesystem::FileSystem;
 use lazy_static::lazy_static;
 use multibase::Base::Base64Url;
 use qrcode::QrCode;

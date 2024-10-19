@@ -5,7 +5,7 @@ use axum::{
     routing::get,
     Router,
 };
-use keystore::filesystem::StdFileSystem;
+use filesystem::StdFileSystem;
 use std::error::Error;
 
 pub(crate) fn routes() -> Router {

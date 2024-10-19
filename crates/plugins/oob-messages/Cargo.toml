@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+filesystem.workspace = true
 did-endpoint.workspace = true
 plugin-api.workspace = true
 

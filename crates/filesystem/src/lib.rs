@@ -79,10 +79,10 @@ impl FileSystem for MockFileSystem {
     fn read_to_string(&self, path: &str) -> IoResult<String> {
         match path {
             p if p.ends_with("did.json") => {
-                Ok(include_str!("../../test/storage/did.json").to_string())
+                Ok(include_str!("../test/storage/did.json").to_string())
             }
             p if p.contains("keystore") => {
-                Ok(include_str!("../../test/storage/keystore/1697624245.json").to_string())
+                Ok(include_str!("../test/storage/keystore/1697624245.json").to_string())
             }
             _ => Err(IoError::new(ErrorKind::NotFound, "NotFound")),
         }

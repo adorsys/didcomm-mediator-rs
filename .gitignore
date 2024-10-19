@@ -25,8 +25,9 @@ Cargo.lock
 # Jetbrains RustRover config folder
 .idea
 
-# Environment variables file 
+# Environment variables files 
 .env.example
+.env.test
 
 # Reference crate
 mediator-server

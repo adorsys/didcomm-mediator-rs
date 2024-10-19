@@ -16,9 +16,6 @@ pub struct AppState {
     // Crypto identity
     pub diddoc: Document,
 
-    // KeyStore
-    pub keystore: Arc<dyn Repository<Secrets>>,
-
     // DIDComm Resolvers
     pub did_resolver: LocalDIDResolver,
     pub secrets_resolver: LocalSecretsResolver,
@@ -31,22 +28,26 @@ pub struct AppState {
 pub struct AppStateRepository {
     pub connection_repository: Arc<dyn Repository<Connection>>,
     pub message_repository: Arc<dyn Repository<RoutedMessage>>,
+    pub keystore: Arc<dyn Repository<Secrets>>,
 }
 
 impl AppState {
     pub fn from(
         public_domain: String,
         diddoc: Document,
-        keystore: Arc<dyn Repository<Secrets>>,
         repository: Option<AppStateRepository>,
     ) -> Self {
         let did_resolver = LocalDIDResolver::new(&diddoc);
-        let secrets_resolver = LocalSecretsResolver::new(keystore.clone());
+        let keystore = repository
+            .as_ref()
+            .expect("Missing persistence layer")
+            .keystore
+            .clone();
+        let secrets_resolver = LocalSecretsResolver::new(keystore);
 
         Self {
             public_domain,
             diddoc,
-            keystore,
             did_resolver,
             secrets_resolver,
             repository,
