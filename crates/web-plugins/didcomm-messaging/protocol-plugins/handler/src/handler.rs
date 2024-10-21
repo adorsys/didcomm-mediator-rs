@@ -134,20 +134,8 @@ impl<'a> PluginContainer<'a> {
         }
     }
 
-    /// Return the route associated with a given name.
-    pub fn get_route(&self, name: &str) -> Result<Router, PluginContainerError> {
-        if self.loaded {
-            self.collected_routes
-                .get(name)
-                .cloned()
-                .ok_or(PluginContainerError::Unloaded)
-        } else {
-            Err(PluginContainerError::Unloaded)
-        }
-    }
-
     /// Merge collected routes from all plugins successfully initialized.
-    pub fn all_routes(&self) -> Result<Router, PluginContainerError> {
+    pub fn routes(&self) -> Result<Router, PluginContainerError> {
         if self.loaded {
             Ok(self
                 .collected_routes
@@ -255,8 +243,7 @@ mod tests {
 
         // Test loading plugins
         assert!(container.load().is_ok());
-        assert!(container.get_route("first").is_ok()); 
-        assert!(container.get_route("second").is_ok()); 
+        assert!(container.routes().is_ok());
 
         // Verify find_plugin method
         assert!(container.find_plugin("first").is_some());
@@ -361,10 +348,9 @@ mod tests {
 
         // Test route extraction without loading
         assert_eq!(
-            container.get_route("first").unwrap_err(),
+            container.routes().unwrap_err(),
             PluginContainerError::Unloaded
-        );        
-        
+        );
     }
 
     #[test]

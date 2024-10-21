@@ -14,7 +14,7 @@ lazy_static! {
         // Arc::new(Mutex::new(index::IndexPlugin {})),
         #[cfg(feature = "protocol-pickup")]
         // Arc::new(Mutex::new(did_endpoint::plugin::DidEndpoint {})),
-        #[cfg(feature = "protocole-mediator-coordination")]
+        #[cfg(feature = "protocol-mediator-coordination")]
         Arc::new(Mutex::new(oob_messages::plugin::OOBMessages {})),
     ];
 }
