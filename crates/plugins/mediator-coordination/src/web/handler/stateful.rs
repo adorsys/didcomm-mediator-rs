@@ -4,18 +4,14 @@ use axum::{
 };
 use did_utils::{
     crypto::{Ed25519KeyPair, Generate, ToMultikey, X25519KeyPair},
-    didcore::{Document, Service},
+    didcore::Service,
     jwk::Jwk,
     methods::{DidPeer, Purpose, PurposedKey},
 };
-use didcomm::{
-    did::DIDResolver,
-    secrets::{SecretMaterial, SecretType},
-    Message,
-};
+use didcomm::{did::DIDResolver, Message};
 use mongodb::bson::doc;
 use serde_json::json;
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::{
@@ -29,10 +25,11 @@ use crate::{
     },
 };
 
+use keystore::Secrets;
 use shared::{
     constants::{KEYLIST_2_0, KEYLIST_UPDATE_RESPONSE_2_0, MEDIATE_DENY_2_0, MEDIATE_GRANT_2_0},
     errors::MediationError,
-    repository::entity::{Connection, Secrets},
+    repository::entity::Connection,
     state::{AppState, AppStateRepository},
 };
 
@@ -92,9 +89,7 @@ pub async fn process_mediate_request(
         let (routing_did, auth_keys, agreem_keys) =
             generate_did_peer(state.public_domain.to_string());
 
-        let AppStateRepository {
-            secret_repository, ..
-        } = state
+        let AppStateRepository { keystore, .. } = state
             .repository
             .as_ref()
             .expect("missing persistence layer");
@@ -103,7 +98,7 @@ pub async fn process_mediate_request(
             .did_resolver
             .resolve(&routing_did)
             .await
-            .map(|doc| doc.unwrap_or(Document::default().into()))
+            .unwrap()
             .expect("Could not resolve DID");
 
         let agreem_keys_jwk: Jwk = agreem_keys.try_into().expect("MediateRequestError");
@@ -111,13 +106,10 @@ pub async fn process_mediate_request(
         let agreem_keys_secret = Secrets {
             id: None,
             kid: diddoc.key_agreement.get(0).unwrap().clone(),
-            type_: SecretType::JsonWebKey2020,
-            secret_material: SecretMaterial::JWK {
-                private_key_jwk: json!(agreem_keys_jwk),
-            },
+            secret_material: agreem_keys_jwk,
         };
 
-        match secret_repository.store(agreem_keys_secret).await {
+        match keystore.store(agreem_keys_secret).await {
             Ok(_stored_connection) => {
                 println!("Successfully stored connection.")
             }
@@ -129,13 +121,10 @@ pub async fn process_mediate_request(
         let auth_keys_secret = Secrets {
             id: None,
             kid: diddoc.authentication.get(0).unwrap().clone(),
-            type_: SecretType::JsonWebKey2020,
-            secret_material: SecretMaterial::JWK {
-                private_key_jwk: json!(auth_keys_jwk),
-            },
+            secret_material: auth_keys_jwk,
         };
 
-        match secret_repository.store(auth_keys_secret).await {
+        match keystore.store(auth_keys_secret).await {
             Ok(_stored_connection) => {
                 println!("Successfully stored connection.")
             }
@@ -203,7 +192,7 @@ fn generate_did_peer(service_endpoint: String) -> (String, Ed25519KeyPair, X2551
     let services = vec![Service {
         id: String::from("#didcomm"),
         service_type: String::from("DIDCommMessaging"),
-        service_endpoint: json!({"uri": service_endpoint, "accept": vec!["didcomm/v2"], "routingKeys": vec![]}),
+        service_endpoint: json!({"uri": service_endpoint, "accept": vec!["didcomm/v2"], "routingKeys": Vec::<String>::new()}),
         ..Default::default()
     }];
 
@@ -436,7 +425,9 @@ mod tests {
 
     use super::*;
 
-    use shared::{repository::tests::MockConnectionRepository, tests::tests as global};
+    use shared::{
+        repository::tests::MockConnectionRepository, utils::tests_utils::tests as global,
+    };
 
     #[allow(clippy::needless_update)]
     fn setup(initial_connections: Vec<Connection>) -> Arc<AppState> {
@@ -936,6 +927,7 @@ mod tests {
         // Generate a did:peer address with a service endpoint
         let service_endpoint = "http://example.com/didcomm";
         let (did, _, _) = generate_did_peer(service_endpoint.to_string());
+        let expected_service_endpoint = json!({"uri": service_endpoint, "accept": vec!["didcomm/v2"], "routingKeys": Vec::<String>::new()});
 
         // Expand the generated did:peer address to a DID document
         let did_method = DidPeer::default();
@@ -948,7 +940,7 @@ mod tests {
                 .unwrap()
                 .first()
                 .map(|s| &s.service_endpoint),
-            Some(service_endpoint.to_string()).as_ref()
+            Some(&expected_service_endpoint)
         );
     }
 }

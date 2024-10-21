@@ -1,18 +1,17 @@
+use crate::web;
 use axum::Router;
-use keystore::filesystem::StdFileSystem;
-use mongodb::{options::ClientOptions, Client, Database};
+use filesystem::StdFileSystem;
+use mongodb::Database;
 use plugin_api::{Plugin, PluginError};
+use shared::{
+    repository::{MongoConnectionRepository, MongoMessagesRepository},
+    state::{AppState, AppStateRepository},
+    utils,
+};
 use std::sync::Arc;
 
-use shared::{
-    repository::{
-        MongoConnectionRepository, MongoMessagesRepository, MongoSecretsRepository,
-    },
-    utils,
-    state::{self, AppState, AppStateRepository},
-};
 #[derive(Default)]
-pub struct MediatorCoordinationPlugin {
+pub struct MediatorCoordination {
     env: Option<MediatorCoordinationPluginEnv>,
     db: Option<Database>,
 }
@@ -20,8 +19,6 @@ pub struct MediatorCoordinationPlugin {
 struct MediatorCoordinationPluginEnv {
     public_domain: String,
     storage_dirpath: String,
-    mongo_uri: String,
-    mongo_dbn: String,
 }
 
 /// Loads environment variables required for this plugin
@@ -36,25 +33,13 @@ fn load_plugin_env() -> Result<MediatorCoordinationPluginEnv, PluginError> {
         PluginError::InitError
     })?;
 
-    let mongo_uri = std::env::var("MONGO_URI").map_err(|_| {
-        tracing::error!("MONGO_URI env variable required");
-        PluginError::InitError
-    })?;
-
-    let mongo_dbn = std::env::var("MONGO_DBN").map_err(|_| {
-        tracing::error!("MONGO_DBN env variable required");
-        PluginError::InitError
-    })?;
-
     Ok(MediatorCoordinationPluginEnv {
         public_domain,
         storage_dirpath,
-        mongo_uri,
-        mongo_dbn,
     })
 }
 
-impl Plugin for MediatorCoordinationPlugin {
+impl Plugin for MediatorCoordination {
     fn name(&self) -> &'static str {
         "mediator_coordination"
     }
@@ -69,7 +54,14 @@ impl Plugin for MediatorCoordinationPlugin {
         }
 
         // Check connectivity to database
-        let db = load_mongo_connector(&env.mongo_uri, &env.mongo_dbn)?;
+        let db = tokio::task::block_in_place(|| {
+            let rt = tokio::runtime::Handle::current();
+            rt.block_on(async {
+                let db_instance = database::get_or_init_database();
+                let db_lock = db_instance.lock().await;
+                db_lock.clone()
+            })
+        });
 
         // Save the environment and MongoDB connection in the struct
         self.env = Some(env);
@@ -90,45 +82,20 @@ impl Plugin for MediatorCoordinationPlugin {
         let msg = "This should not occur following successful mounting.";
 
         // Load crypto identity
-        let mut fs = StdFileSystem;
+        let fs = StdFileSystem;
         let diddoc = utils::read_diddoc(&fs, &env.storage_dirpath).expect(msg);
 
         // Load persistence layer
         let repository = AppStateRepository {
             connection_repository: Arc::new(MongoConnectionRepository::from_db(&db)),
-            secret_repository: Arc::new(MongoSecretsRepository::from_db(&db)),
+            keystore: Arc::new(keystore::KeyStore::get()),
             message_repository: Arc::new(MongoMessagesRepository::from_db(&db)),
         };
 
         // Compile state
-        let state = AppState::from(
-            env.public_domain.clone(),
-            diddoc,
-            Some(repository),
-        );
+        let state = AppState::from(env.public_domain.clone(), diddoc, Some(repository));
 
         // Build router
         web::routes(Arc::new(state))
     }
-}
-
-fn load_mongo_connector(mongo_uri: &str, mongo_dbn: &str) -> Result<Database, PluginError> {
-    let task = async {
-        // Parse a connection string into an options struct.
-        let client_options = ClientOptions::parse(mongo_uri).await.map_err(|_| {
-            tracing::error!("Failed to parse Mongo URI");
-            PluginError::InitError
-        })?;
-
-        // Get a handle to the deployment.
-        let client = Client::with_options(client_options).map_err(|_| {
-            tracing::error!("Failed to create MongoDB client");
-            PluginError::InitError
-        })?;
-
-        // Get a handle to a database.
-        Ok(client.database(mongo_dbn))
-    };
-
-    tokio::task::block_in_place(|| tokio::runtime::Handle::current().block_on(task))
 }

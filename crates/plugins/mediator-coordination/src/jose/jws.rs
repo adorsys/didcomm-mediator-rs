@@ -182,16 +182,17 @@ mod tests {
     use did_utils::{crypto::ToPublic, jwk::Secret};
     use multibase::Base::Base64Url;
     use serde_json::json;
-    use shared::utils::{self, MockFileSystem};
 
     fn setup() -> Jwk {
-        let mut mock_fs = MockFileSystem;
-
-        let diddoc = utils::read_diddoc(&mock_fs, "").unwrap();
-        let (_, pubkey) = utils::extract_assertion_key(&diddoc).unwrap();
-
-        let keystore = utils::read_keystore(&mut mock_fs, "").unwrap();
-        keystore.find_keypair(&pubkey).unwrap()
+        serde_json::from_str(
+            r#"{
+                "kty": "OKP",
+                "crv": "Ed25519",
+                "x": "Z0GqpN71rMcnAkky6_J6Bfknr8B-TBsekG3qdI0EQX4",
+                "d": "fI1u4riKKd99eox08GlThknq-vEJXcKBI28aiUqArLo"
+            }"#,
+        )
+        .unwrap()
     }
 
     #[test]

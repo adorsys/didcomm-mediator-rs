@@ -5,7 +5,7 @@ use mongodb::{bson::oid::ObjectId, Collection};
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tokio::{sync::Mutex, runtime::Runtime};
+use tokio::sync::Mutex;
 
 static SECRETS_COLLECTION: OnceCell<Collection<Secrets>> = OnceCell::new();
 
@@ -42,25 +42,26 @@ where
 
 impl KeyStore<Secrets> {
     /// Create a new keystore with default Secrets type.
-    /// 
+    ///
     /// Calling this method many times will return the same keystore instance.
     pub fn new() -> KeyStore<Secrets> {
-        let collection = SECRETS_COLLECTION.get_or_init(|| {
-            // Initialize runtime to run the async MongoDB initialization
-            let rt = Runtime::new().expect("Failed to create tokio runtime");
-            let db = database::get_or_init_database();
-
-            rt.block_on(async {
-                let db_lock = db.lock().await;
-                db_lock.collection::<Secrets>("secrets").clone()
+        let collection = SECRETS_COLLECTION
+            .get_or_init(|| {
+                let db = database::get_or_init_database();
+                let task = async move {
+                    let db_lock = db.lock().await;
+                    db_lock.collection::<Secrets>("secrets").clone()
+                };
+                let collection = tokio::task::block_in_place(|| tokio::runtime::Handle::current().block_on(task));
+                collection
             })
-        }).clone();
+            .clone();
 
         KeyStore { collection }
     }
 
     /// Retrieve the keystore instance.
-    /// 
+    ///
     /// If there is no keystore instance, a new one will be created only once.
     pub fn get() -> KeyStore<Secrets> {
         Self::new()

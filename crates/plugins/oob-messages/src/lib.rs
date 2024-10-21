@@ -1,5 +1,6 @@
 mod constants;
 mod models;
-pub mod plugin;
 mod util;
 mod web;
+
+pub mod plugin;

@@ -1,6 +1,7 @@
 pub(crate) mod dispatcher;
 
 use axum::{middleware, routing::post, Router};
+use shared::state::AppState;
 use std::sync::Arc;
 
 use crate::midlw;

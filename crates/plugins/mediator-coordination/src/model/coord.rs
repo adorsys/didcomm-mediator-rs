@@ -1,6 +1,6 @@
 use serde::{de::Error, Deserialize, Deserializer, Serialize};
 
-use crate::constant::MEDIATE_REQUEST_2_0;
+use shared::constants::MEDIATE_REQUEST_2_0;
 
 #[cfg(feature = "stateless")]
 use super::stateless::coord::MediationRequest as StatelessMediationRequest;

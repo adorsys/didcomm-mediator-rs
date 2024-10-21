@@ -1,6 +1,6 @@
 #[cfg(test)]
 pub(crate) fn dotenv_flow_read(key: &str) -> Option<String> {
-    dotenv_flow::from_filename_iter(".env.example")
+    dotenv_flow::from_filename_iter("../../../.env")
         .unwrap()
         .find_map(|item| {
             let (k, v) = item.unwrap();

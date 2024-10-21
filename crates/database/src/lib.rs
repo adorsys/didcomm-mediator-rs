@@ -9,7 +9,7 @@ use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use thiserror::Error;
-use tokio::{runtime::Runtime, sync::Mutex};
+use tokio::sync::Mutex;
 
 /// A trait that ensures the entity has an `id` field.
 pub trait Identifiable {
@@ -33,7 +33,7 @@ pub enum RepositoryError {
 static MONGO_DB: OnceCell<Arc<Mutex<Database>>> = OnceCell::new();
 
 /// Get a handle to a database.
-/// 
+///
 /// Many threads may call this function concurrently with different initializing functions,
 /// but it is guaranteed that only one function will be executed.
 pub fn get_or_init_database() -> Arc<Mutex<Database>> {
@@ -42,17 +42,17 @@ pub fn get_or_init_database() -> Arc<Mutex<Database>> {
             let mongo_uri = std::env::var("MONGO_URI").expect("MONGO_URI env variable required");
             let mongo_dbn = std::env::var("MONGO_DBN").expect("MONGO_DBN env variable required");
 
-            // Create a runtime to run the async MongoDB initialization synchronously
-            let rt = Runtime::new().unwrap();
+            // Create a handle to a database.
+            let db = tokio::task::block_in_place(|| {
+                tokio::runtime::Handle::current().block_on(async move {
+                    let client_options = ClientOptions::parse(mongo_uri)
+                        .await
+                        .expect("Failed to parse Mongo URI");
+                    let client = Client::with_options(client_options)
+                        .expect("Failed to create MongoDB client");
 
-            let db = rt.block_on(async {
-                let client_options = ClientOptions::parse(mongo_uri)
-                    .await
-                    .expect("Failed to parse Mongo URI");
-                let client =
-                    Client::with_options(client_options).expect("Failed to create MongoDB client");
-
-                client.database(&mongo_dbn)
+                    client.database(&mongo_dbn)
+                })
             });
 
             // Get a handle to a database.
@@ -141,9 +141,7 @@ where
         let collection = collection.lock().await;
 
         // Delete the entity from the database
-        collection
-            .delete_one(doc! {"_id": id}, None)
-            .await?;
+        collection.delete_one(doc! {"_id": id}, None).await?;
 
         Ok(())
     }

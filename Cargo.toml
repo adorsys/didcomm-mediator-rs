@@ -93,16 +93,23 @@ tower-http = { workspace = true, features = ["catch-panic", "trace"] }
 
 # optional dependencies
 chrono = { workspace = true, optional = true }
+plugins = { workspace = true, optional = true }
 did-endpoint = { workspace = true, optional = true }
 oob-messages = { workspace = true, optional = true }
 
 
 [features]
-default = ["plugin-index", "plugin-did_endpoint", "plugin-oob_messages"]
+default = [
+    "plugin-index",
+    "plugin-did_endpoint",
+    "plugin-oob_messages",
+    "plugin-plugins",
+]
 
 plugin-index = ["dep:chrono"]
 plugin-did_endpoint = ["dep:did-endpoint"]
 plugin-oob_messages = ["dep:oob-messages"]
+plugin-plugins = ["dep:plugins"]
 
 
 [dev-dependencies]

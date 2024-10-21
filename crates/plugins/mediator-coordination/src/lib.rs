@@ -1,6 +1,5 @@
 pub mod client;
-pub mod plugin;
+pub mod web;
 
 mod jose;
 mod model;
-mod web;

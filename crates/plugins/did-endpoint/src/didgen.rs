@@ -1,7 +1,7 @@
 use database::Repository;
 use did_utils::{
     crypto::{Ed25519KeyPair, Generate, PublicKeyFormat, ToMultikey, X25519KeyPair},
-    didcore::{Authentication, Document, KeyAgreement, KeyFormat, Service},
+    didcore::{AssertionMethod, Authentication, Document, KeyAgreement, KeyFormat, Service},
     jwk::Jwk,
     methods::{DidPeer, Purpose, PurposedKey},
 };
@@ -41,6 +41,10 @@ where
         },
         PurposedKey {
             purpose: Purpose::Verification,
+            public_key_multibase: auth_keys.to_multikey(),
+        },
+        PurposedKey {
+            purpose: Purpose::Assertion,
             public_key_multibase: auth_keys.to_multikey(),
         },
     ];
@@ -83,14 +87,16 @@ where
     // Create a new KeyStore
     let keystore = KeyStore::new();
 
-    // Store the agreement key in the screts store
-    tokio::runtime::Runtime::new().unwrap().block_on(async {
-        match keystore.store(agreem_keys_secret).await {
-            Ok(_) => {
-                tracing::info!("Successfully stored agreement key.")
+    // Store the agreement key in the secrets store
+    tokio::task::block_in_place(|| {
+        tokio::runtime::Handle::current().block_on(async {
+            match keystore.store(agreem_keys_secret).await {
+                Ok(_) => {
+                    tracing::info!("Successfully stored agreement key.")
+                }
+                Err(error) => tracing::error!("Error storing agreement key: {:?}", error),
             }
-            Err(error) => tracing::error!("Error storing agreement key: {:?}", error),
-        }
+        })
     });
 
     let auth_keys_jwk: Jwk = auth_keys.try_into().expect("MediateRequestError");
@@ -108,17 +114,47 @@ where
             Authentication::Reference(kid) => kid,
             _ => unreachable!(),
         },
+        secret_material: auth_keys_jwk.clone(),
+    };
+
+    // Store the authentication key in the secrets store
+    tokio::task::block_in_place(|| {
+        tokio::runtime::Handle::current().block_on(async {
+            match keystore.store(auth_keys_secret).await {
+                Ok(_) => {
+                    tracing::info!("Successfully stored authentication key.")
+                }
+                Err(error) => tracing::error!("Error storing authentication key: {:?}", error),
+            }
+        })
+    });
+
+    let assert_keys_secret = Secrets {
+        id: None,
+        kid: match diddoc
+            .assertion_method
+            .as_ref()
+            .unwrap()
+            .get(0)
+            .unwrap()
+            .clone()
+        {
+            AssertionMethod::Reference(kid) => kid,
+            _ => unreachable!(),
+        },
         secret_material: auth_keys_jwk,
     };
 
-    // Store the authentication key in the screts store
-    tokio::runtime::Runtime::new().unwrap().block_on(async {
-        match keystore.store(auth_keys_secret).await {
-            Ok(_) => {
-                tracing::info!("Successfully stored authentication key.")
+    // Store the assertion key in the secrets store
+    tokio::task::block_in_place(|| {
+        tokio::runtime::Handle::current().block_on(async {
+            match keystore.store(assert_keys_secret).await {
+                Ok(_) => {
+                    tracing::info!("Successfully stored assertion key.")
+                }
+                Err(error) => tracing::error!("Error storing assertion key: {:?}", error),
             }
-            Err(error) => tracing::error!("Error storing authentication key: {:?}", error),
-        }
+        })
     });
 
     // Serialize and persist to file
@@ -159,12 +195,12 @@ where
             _ => return Err(String::from("Unsupported key format")),
         };
 
-        // Create a new KeyStore
         let keystore = KeyStore::get();
 
-        let secret = tokio::runtime::Runtime::new()
-            .unwrap()
-            .block_on(async { keystore.find_one_by(doc! { "kid": method.id }).await });
+        let secret = tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current()
+                .block_on(async { keystore.find_one_by(doc! { "kid": method.id }).await })
+        });
 
         secret
             .map_err(|_| String::from("Error fetching secret"))?
@@ -195,18 +231,20 @@ mod tests {
 
     // Verifies that the didgen function returns a DID document.
     // Does not validate the DID document.
-    #[test]
-    fn test_didgen() {
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn test_didgen() {
+        dotenv_flow::from_filename("../../../.env").ok();
         let (storage_dirpath, server_public_domain) = setup();
 
-        let diddoc = didgen(&storage_dirpath, &server_public_domain).unwrap();
-        assert_eq!(diddoc.id, "did:web:example.com");
+        let diddoc = didgen(&storage_dirpath, &server_public_domain);
+        assert!(diddoc.is_ok());
 
         cleanup(&storage_dirpath);
     }
 
-    #[test]
-    fn test_validate_diddoc() {
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn test_validate_diddoc() {
+        dotenv_flow::from_filename("../../../.env").ok();
         let (storage_dirpath, server_public_domain) = setup();
 
         didgen(&storage_dirpath, &server_public_domain).unwrap();

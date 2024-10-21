@@ -70,7 +70,7 @@ impl Document {
             also_known_as: None,
             controller: None,
             authentication: Some(vec![]),
-            assertion_method: None,
+            assertion_method: Some(vec![]),
             capability_delegation: None,
             capability_invocation: None,
             key_agreement: Some(vec![]),

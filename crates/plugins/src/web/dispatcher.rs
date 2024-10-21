@@ -4,17 +4,14 @@ use axum::{
     Extension, Json,
 };
 use didcomm::Message;
+use forward::web::handler::mediator_forward_process;
 use hyper::{header::CONTENT_TYPE, StatusCode};
+use shared::{constants::{
+    DIDCOMM_ENCRYPTED_MIME_TYPE, KEYLIST_QUERY_2_0, KEYLIST_UPDATE_2_0, MEDIATE_FORWARD_2_0,
+    MEDIATE_REQUEST_2_0,
+}, errors::MediationError, state::AppState};
 use std::sync::Arc;
-
-use crate::{
-    constant::{
-        DIDCOMM_ENCRYPTED_MIME_TYPE, KEYLIST_QUERY_2_0, KEYLIST_UPDATE_2_0, MEDIATE_FORWARD_2_0,
-        MEDIATE_REQUEST_2_0,
-    },
-    forward::routing::mediator_forward_process,
-    web::{self, error::MediationError, AppState},
-};
+use mediator_coordination::web;
 
 #[axum::debug_handler]
 pub(crate) async fn process_didcomm_message(
@@ -29,14 +26,14 @@ pub(crate) async fn process_didcomm_message(
     }
     let response = match message.type_.as_str() {
         KEYLIST_UPDATE_2_0 => {
-            web::coord::handler::stateful::process_plain_keylist_update_message(
+            web::handler::stateful::process_plain_keylist_update_message(
                 Arc::clone(&state),
                 message,
             )
             .await
         }
         KEYLIST_QUERY_2_0 => {
-            web::coord::handler::stateful::process_plain_keylist_query_message(
+            web::handler::stateful::process_plain_keylist_query_message(
                 Arc::clone(&state),
                 message,
             )
@@ -44,7 +41,7 @@ pub(crate) async fn process_didcomm_message(
         }
 
         MEDIATE_REQUEST_2_0 => {
-            web::coord::handler::stateful::process_mediate_request(&state, &message).await
+            web::handler::stateful::process_mediate_request(&state, &message).await
         }
 
         _ => {
@@ -61,7 +58,7 @@ pub(crate) async fn process_didcomm_message(
 
 async fn process_response(state: Arc<AppState>, response: Result<Message, Response>) -> Response {
     match response {
-        Ok(message) => web::midlw::pack_response_message(
+        Ok(message) => crate::midlw::pack_response_message(
             &message,
             &state.did_resolver,
             &state.secrets_resolver,
@@ -80,23 +77,23 @@ async fn process_response(state: Arc<AppState>, response: Result<Message, Respon
     }
 }
 
-
 #[cfg(test)]
 mod tests {
-    use super::{tests as global, *};
-    use crate::{
-        constant::KEYLIST_UPDATE_RESPONSE_2_0,
-        repository::stateful::tests::MockConnectionRepository,
+    use super::*;
+    use shared::{
+        constants::KEYLIST_UPDATE_RESPONSE_2_0,
+        repository::tests::MockConnectionRepository,
+        state::AppStateRepository,
+        utils::tests_utils::tests as global
     };
     use axum::Router;
     use hyper::{Body, Method, Request};
     use serde_json::{json, Value};
     use tower::ServiceExt;
-    use web::AppStateRepository;
 
     #[allow(clippy::needless_update)]
     pub fn setup() -> (Router, Arc<AppState>) {
-        let (_, state) = global::setup();
+        let state = global::setup();
 
         let mut state = match Arc::try_unwrap(state) {
             Ok(state) => state,
@@ -126,7 +123,7 @@ mod tests {
         });
 
         let state = Arc::new(state);
-        let app = web::routes(Arc::clone(&state));
+        let app = crate::web::routes(Arc::clone(&state));
 
         (app, state)
     }

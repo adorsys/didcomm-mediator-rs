@@ -12,7 +12,9 @@ use std::sync::Arc;
 // use super::{error::MediationError, AppState};
 use shared::{
     constants::{DIDCOMM_ENCRYPTED_MIME_TYPE, DIDCOMM_ENCRYPTED_SHORT_MIME_TYPE},
-    resolvers::{LocalDIDResolver, LocalSecretsResolver},
+    errors::MediationError,
+    state::AppState,
+    utils::resolvers::{LocalDIDResolver, LocalSecretsResolver},
 };
 
 /// Middleware to unpack DIDComm messages for unified handler
@@ -170,13 +172,13 @@ pub async fn pack_response_message(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::web::handler::tests::*;
+    use shared::utils::tests_utils::tests::*;
 
     use serde_json::json;
 
     #[tokio::test]
     async fn test_pack_response_message_works() {
-        let (_, state) = setup();
+        let state = setup();
 
         let msg = Message::build(
             "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
@@ -198,7 +200,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_pack_response_message_fails_on_any_end_missing() {
-        let (_, state) = setup();
+        let state = setup();
 
         macro_rules! unfinalized_msg {
             () => {
@@ -232,7 +234,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_pack_response_message_on_unsupported_receiving_did() {
-        let (_, state) = setup();
+        let state = setup();
 
         let msg = Message::build(
             "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),

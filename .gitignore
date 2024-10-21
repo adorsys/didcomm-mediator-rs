@@ -27,7 +27,10 @@ Cargo.lock
 
 # Environment variables files 
 .env.example
-.env.test
+.env
 
 # Reference crate
 mediator-server
+
+# Test directory
+test/
