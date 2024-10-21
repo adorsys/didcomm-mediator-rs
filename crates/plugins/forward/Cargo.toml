@@ -17,6 +17,7 @@ hyper = { workspace = true, features = ["full"] }
 axum = { workspace = true, features = ["macros"] }
 
 [dev-dependencies]
+keystore = { workspace = true, features = ["test-utils"] }
 shared = { workspace = true, features = ["test-utils"] }
 did-utils.workspace = true
 uuid = { workspace = true, features = ["v4"] }

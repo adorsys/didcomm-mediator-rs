@@ -1,7 +1,7 @@
 #[cfg(any(test, feature = "test-utils"))]
 pub mod tests {
     use crate::{
-        repository::tests::{MockConnectionRepository, MockKeyStore, MockMessagesRepository},
+        repository::tests::{MockConnectionRepository, MockMessagesRepository},
         state::{AppState, AppStateRepository},
         utils::{self, resolvers::LocalSecretsResolver},
     };
@@ -10,7 +10,7 @@ pub mod tests {
         error::Error as DidcommError, secrets::SecretsResolver, Message, PackEncryptedOptions,
         UnpackOptions,
     };
-    use keystore::Secrets;
+    use keystore::{Secrets, tests::MockKeyStore};
     use std::sync::Arc;
 
     pub fn setup() -> Arc<AppState> {

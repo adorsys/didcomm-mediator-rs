@@ -81,8 +81,8 @@ impl FileSystem for MockFileSystem {
             p if p.ends_with("did.json") => {
                 Ok(include_str!("../test/storage/did.json").to_string())
             }
-            p if p.contains("keystore") => {
-                Ok(include_str!("../test/storage/keystore/1697624245.json").to_string())
+            p if p.contains("secrets.json") => {
+                Ok(include_str!("../test/storage/secrets.json").to_string())
             }
             _ => Err(IoError::new(ErrorKind::NotFound, "NotFound")),
         }
@@ -93,7 +93,7 @@ impl FileSystem for MockFileSystem {
     }
 
     fn read_dir_files(&self, _path: &str) -> IoResult<Vec<String>> {
-        Ok(vec!["/keystore/1697624245.json".to_string()])
+        Ok(vec!["/secrets.json".to_string()])
     }
 
     fn create_dir_all(&mut self, _path: &str) -> IoResult<()> {
@@ -104,7 +104,6 @@ impl FileSystem for MockFileSystem {
         Ok(())
     }
 }
-
 
 #[cfg(test)]
 mod tests {

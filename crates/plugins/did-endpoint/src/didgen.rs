@@ -1,10 +1,11 @@
 use database::Repository;
 use did_utils::{
     crypto::{Ed25519KeyPair, Generate, PublicKeyFormat, ToMultikey, X25519KeyPair},
-    didcore::{AssertionMethod, Authentication, Document, KeyAgreement, KeyFormat, Service},
+    didcore::{Document, KeyFormat, Service, VerificationMethodType},
     jwk::Jwk,
     methods::{DidPeer, Purpose, PurposedKey},
 };
+use filesystem::FileSystem;
 use keystore::{KeyStore, Secrets};
 use mongodb::bson::doc;
 use serde_json::json;
@@ -13,12 +14,12 @@ use std::{fmt::Display, path::Path};
 #[allow(dead_code)]
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("KeyGenerationError")]
+    #[error("Key Generation Error")]
     KeyGenerationError,
-    #[error("MissingServerPublicDomain")]
-    MissingServerPublicDomain,
-    #[error("DidAddressDerivationError")]
-    DidAddressDerivationError,
+    #[error("Key Conversion Error")]
+    KeyConversionError,
+    #[error("DID Generation Error")]
+    DidGenerationError,
     #[error("PersistenceError")]
     PersistenceError,
     #[error("Generic: {0}")]
@@ -26,26 +27,27 @@ pub enum Error {
 }
 
 /// Generates keys and forward them for DID generation
-pub fn didgen<P>(storage_dirpath: P, server_public_domain: &str) -> Result<Document, Error>
+pub fn didgen<K, F>(
+    storage_dirpath: &str,
+    server_public_domain: &str,
+    keystore: &K,
+    filesystem: &mut F,
+) -> Result<Document, Error>
 where
-    P: AsRef<Path> + Display,
+    K: Repository<Secrets>,
+    F: FileSystem,
 {
     // Generate keys for did:peer generation
-    let auth_keys = Ed25519KeyPair::new().unwrap();
-    let agreem_keys = X25519KeyPair::new().unwrap();
+    let (auth_keys, agreem_keys) = generate_keys()?;
 
     let keys = vec![
-        PurposedKey {
-            purpose: Purpose::Encryption,
-            public_key_multibase: agreem_keys.to_multikey(),
-        },
         PurposedKey {
             purpose: Purpose::Verification,
             public_key_multibase: auth_keys.to_multikey(),
         },
         PurposedKey {
-            purpose: Purpose::Assertion,
-            public_key_multibase: auth_keys.to_multikey(),
+            purpose: Purpose::Encryption,
+            public_key_multibase: agreem_keys.to_multikey(),
         },
     ];
 
@@ -53,44 +55,75 @@ where
     let services = vec![Service {
         id: String::from("#didcomm"),
         service_type: String::from("DIDCommMessaging"),
-        service_endpoint: json!({"uri": server_public_domain, "accept": vec!["didcomm/v2"], "routingKeys": Vec::<String>::new()}),
+        service_endpoint: json!({
+            "uri": server_public_domain,
+            "accept": vec!["didcomm/v2"],
+            "routingKeys": Vec::<String>::new()}),
         ..Default::default()
     }];
 
-    // Generate did:peer address
-    let did = DidPeer::create_did_peer_2(&keys, &services).unwrap();
-
     // Generate DID Document
-    let diddoc = {
-        let resolver = DidPeer::with_format(PublicKeyFormat::Jwk);
-        resolver.expand(&did).expect("Could not resolve DID")
+    let diddoc = generate_did_document(&keys, &services)?;
+
+    // Convert keys to JWK format
+    let auth_keys_jwk: Jwk = auth_keys
+        .try_into()
+        .map_err(|_| Error::KeyConversionError)?;
+    let agreem_keys_jwk: Jwk = agreem_keys
+        .try_into()
+        .map_err(|_| Error::KeyConversionError)?;
+
+    // Store authentication and agreement keys
+    store_key(auth_keys_jwk, &diddoc.authentication, keystore)?;
+    store_key(agreem_keys_jwk, &diddoc.key_agreement, keystore)?;
+
+    // Step 5: Serialize DID document and persist to file
+    persist_did_document(storage_dirpath, &diddoc, filesystem)?;
+
+    tracing::info!("DID generation and persistence successful");
+    Ok(diddoc)
+}
+
+fn generate_keys() -> Result<(Ed25519KeyPair, X25519KeyPair), Error> {
+    let auth_keys = Ed25519KeyPair::new().map_err(|_| Error::KeyGenerationError)?;
+    let agreem_keys = X25519KeyPair::new().map_err(|_| Error::KeyGenerationError)?;
+    Ok((auth_keys, agreem_keys))
+}
+
+fn generate_did_document(
+    keys: &Vec<PurposedKey>,
+    services: &Vec<Service>,
+) -> Result<Document, Error> {
+    let did = DidPeer::create_did_peer_2(keys, services).map_err(|_| Error::DidGenerationError)?;
+    let resolver = DidPeer::with_format(PublicKeyFormat::Jwk);
+    resolver.expand(&did).map_err(|_| Error::DidGenerationError)
+}
+
+fn store_key<S>(
+    key: Jwk,
+    field: &Option<Vec<VerificationMethodType>>,
+    keystore: &S,
+) -> Result<(), Error>
+where
+    S: Repository<Secrets>,
+{
+    // Extract key ID from the DID document
+    let kid = match field.as_ref().unwrap().get(0).unwrap().clone() {
+        VerificationMethodType::Reference(kid) => kid,
+        _ => return Err(Error::Generic("Unable to extract key ID".to_owned())),
     };
 
-    let agreem_keys_jwk: Jwk = agreem_keys.try_into().expect("MediateRequestError");
-
-    let agreem_keys_secret = Secrets {
+    // Create Secrets for the key
+    let secret = Secrets {
         id: None,
-        kid: match diddoc
-            .key_agreement
-            .as_ref()
-            .unwrap()
-            .get(0)
-            .unwrap()
-            .clone()
-        {
-            KeyAgreement::Reference(kid) => kid,
-            _ => unreachable!(),
-        },
-        secret_material: agreem_keys_jwk,
+        kid,
+        secret_material: key,
     };
 
-    // Create a new KeyStore
-    let keystore = KeyStore::new();
-
-    // Store the agreement key in the secrets store
+    // Store the secret in the keystore
     tokio::task::block_in_place(|| {
         tokio::runtime::Handle::current().block_on(async {
-            match keystore.store(agreem_keys_secret).await {
+            match keystore.store(secret).await {
                 Ok(_) => {
                     tracing::info!("Successfully stored agreement key.")
                 }
@@ -99,84 +132,39 @@ where
         })
     });
 
-    let auth_keys_jwk: Jwk = auth_keys.try_into().expect("MediateRequestError");
+    Ok(())
+}
 
-    let auth_keys_secret = Secrets {
-        id: None,
-        kid: match diddoc
-            .authentication
-            .as_ref()
-            .unwrap()
-            .get(0)
-            .unwrap()
-            .clone()
-        {
-            Authentication::Reference(kid) => kid,
-            _ => unreachable!(),
-        },
-        secret_material: auth_keys_jwk.clone(),
-    };
-
-    // Store the authentication key in the secrets store
-    tokio::task::block_in_place(|| {
-        tokio::runtime::Handle::current().block_on(async {
-            match keystore.store(auth_keys_secret).await {
-                Ok(_) => {
-                    tracing::info!("Successfully stored authentication key.")
-                }
-                Err(error) => tracing::error!("Error storing authentication key: {:?}", error),
-            }
-        })
-    });
-
-    let assert_keys_secret = Secrets {
-        id: None,
-        kid: match diddoc
-            .assertion_method
-            .as_ref()
-            .unwrap()
-            .get(0)
-            .unwrap()
-            .clone()
-        {
-            AssertionMethod::Reference(kid) => kid,
-            _ => unreachable!(),
-        },
-        secret_material: auth_keys_jwk,
-    };
-
-    // Store the assertion key in the secrets store
-    tokio::task::block_in_place(|| {
-        tokio::runtime::Handle::current().block_on(async {
-            match keystore.store(assert_keys_secret).await {
-                Ok(_) => {
-                    tracing::info!("Successfully stored assertion key.")
-                }
-                Err(error) => tracing::error!("Error storing assertion key: {:?}", error),
-            }
-        })
-    });
-
-    // Serialize and persist to file
+fn persist_did_document<F>(
+    storage_dirpath: &str,
+    diddoc: &Document,
+    filesystem: &mut F,
+) -> Result<(), Error>
+where
+    F: FileSystem,
+{
+    // Serialize DID document
     let pretty_diddoc = serde_json::to_string_pretty(&diddoc).unwrap();
 
-    std::fs::create_dir_all(&storage_dirpath).map_err(|_| Error::PersistenceError)?;
-    std::fs::write(format!("{storage_dirpath}/did.json"), pretty_diddoc)
+    // Create directory and write the DID document
+    filesystem
+        .create_dir_all(storage_dirpath)
+        .map_err(|_| Error::PersistenceError)?;
+    filesystem
+        .write(&format!("{}/did.json", storage_dirpath), &pretty_diddoc)
         .map_err(|_| Error::PersistenceError)?;
 
-    tracing::info!("persisted DID document to disk");
-    tracing::debug!("successful completion");
-    Ok(diddoc)
+    Ok(())
 }
 
 /// Validates the integrity of the persisted diddoc
 pub fn validate_diddoc<P>(storage_dirpath: P) -> Result<(), String>
 where
-    P: AsRef<Path> + Display,
+    P: AsRef<Path>,
 {
     // Validate that did.json exists
-    let didpath = format!("{storage_dirpath}/did.json");
-    if !Path::new(&didpath).exists() {
+    let didpath = storage_dirpath.as_ref().join("did.json");
+    if !didpath.exists() {
         return Err(String::from("Missing did.json"));
     };
 

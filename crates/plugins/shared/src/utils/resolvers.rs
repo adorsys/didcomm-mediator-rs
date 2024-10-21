@@ -39,9 +39,12 @@ impl DIDResolver for LocalDIDResolver {
         if did.starts_with("did:key") {
             Ok(DidKey::new_full(true, PublicKeyFormat::Jwk)
                 .expand(did)
-                .map(|d| {
+                .map(|doc| {
                     Some(
-                        serde_json::from_value(json!(d))
+                        serde_json::from_value(json!(Document {
+                            service: Some(vec![]),
+                            ..doc
+                        }))
                             .expect("Should easily convert between documents representations"),
                     )
                 })
@@ -49,9 +52,9 @@ impl DIDResolver for LocalDIDResolver {
         } else if did.starts_with("did:peer") {
             Ok(DidPeer::with_format(PublicKeyFormat::Jwk)
                 .expand(did)
-                .map(|d| {
+                .map(|doc| {
                     Some(
-                        serde_json::from_value(json!(d))
+                        serde_json::from_value(json!(doc))
                             .expect("Should easily convert between documents representations"),
                     )
                 })
@@ -121,12 +124,10 @@ impl SecretsResolver for LocalSecretsResolver {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        repository::tests::MockKeyStore,
-        utils::{self},
-    };
-    use filesystem::MockFileSystem;
+    use crate::utils;
     use did_utils::jwk::Jwk;
+    use filesystem::MockFileSystem;
+    use keystore::tests::MockKeyStore;
     use serde_json::Value;
 
     fn setup() -> Document {

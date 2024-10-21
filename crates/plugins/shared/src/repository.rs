@@ -48,7 +48,6 @@ impl Repository<RoutedMessage> for MongoMessagesRepository {
 pub mod tests {
     use super::*;
     use database::RepositoryError;
-    use keystore::Secrets;
     use mongodb::bson::{doc, oid::ObjectId, Bson, Document as BsonDocument};
     use serde_json::json;
     use std::{
@@ -137,82 +136,6 @@ pub mod tests {
             let mut connections = self.connections.write().unwrap();
             if let Some(pos) = connections.iter().position(|c| c.id == Some(connection_id)) {
                 connections.remove(pos);
-                Ok(())
-            } else {
-                Err(RepositoryError::TargetNotFound)
-            }
-        }
-    }
-
-    #[derive(Default)]
-    pub struct MockKeyStore {
-        secrets: RwLock<Vec<Secrets>>,
-    }
-
-    impl MockKeyStore {
-        pub fn new(secrets: Vec<Secrets>) -> Self {
-            Self {
-                secrets: RwLock::new(secrets),
-            }
-        }
-    }
-
-    #[async_trait]
-    impl Repository<Secrets> for MockKeyStore {
-        // Implement a dummy get_collection method
-        fn get_collection(&self) -> Arc<Mutex<Collection<Secrets>>> {
-            // In-memory, we don't have an actual collection, but we can create a dummy Arc<Mutex> for compatibility.
-            unimplemented!("This is a mock repository, no real collection exists.")
-        }
-
-        async fn find_all(&self) -> Result<Vec<Secrets>, RepositoryError> {
-            Ok(self.secrets.read().unwrap().clone())
-        }
-
-        async fn find_one(&self, secrets_id: ObjectId) -> Result<Option<Secrets>, RepositoryError> {
-            self.find_one_by(doc! {"_id": secrets_id}).await
-        }
-
-        async fn find_one_by(
-            &self,
-            filter: BsonDocument,
-        ) -> Result<Option<Secrets>, RepositoryError> {
-            let filter: HashMap<String, Bson> = filter.into_iter().collect();
-            Ok(self
-                .secrets
-                .read()
-                .unwrap()
-                .iter()
-                .find(|s| {
-                    if let Some(kid) = filter.get("kid") {
-                        if json!(s.kid) != json!(kid) {
-                            return false;
-                        }
-                    }
-                    true
-                })
-                .cloned())
-        }
-
-        async fn store(&self, secrets: Secrets) -> Result<Secrets, RepositoryError> {
-            self.secrets.write().unwrap().push(secrets.clone());
-            Ok(secrets)
-        }
-
-        async fn update(&self, secrets: Secrets) -> Result<Secrets, RepositoryError> {
-            let mut secrets_list = self.secrets.write().unwrap();
-            if let Some(pos) = secrets_list.iter().position(|s| s.id == secrets.id) {
-                secrets_list[pos] = secrets.clone();
-                Ok(secrets)
-            } else {
-                Err(RepositoryError::TargetNotFound)
-            }
-        }
-
-        async fn delete_one(&self, secrets_id: ObjectId) -> Result<(), RepositoryError> {
-            let mut secrets_list = self.secrets.write().unwrap();
-            if let Some(pos) = secrets_list.iter().position(|s| s.id == Some(secrets_id)) {
-                secrets_list.remove(pos);
                 Ok(())
             } else {
                 Err(RepositoryError::TargetNotFound)

@@ -15,3 +15,9 @@ serde_json.workspace = true
 thiserror.workspace = true
 nix.workspace = true
 tokio = { workspace = true, features = ["full"] }
+
+[dev-dependencies]
+filesystem = { workspace = true, features = ["test-utils"] }
+
+[features]
+test-utils = []

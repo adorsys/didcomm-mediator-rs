@@ -8,6 +8,7 @@ database.workspace = true
 keystore.workspace = true
 plugin-api.workspace = true
 did-utils.workspace = true
+filesystem.workspace = true
 
 mongodb.workspace = true
 chrono.workspace = true

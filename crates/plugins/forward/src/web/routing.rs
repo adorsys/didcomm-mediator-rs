@@ -93,13 +93,14 @@ mod test {
     use shared::{
         repository::{
             entity::Connection,
-            tests::{MockConnectionRepository, MockKeyStore, MockMessagesRepository},
+            tests::{MockConnectionRepository, MockMessagesRepository},
         },
         state::AppStateRepository,
         utils::{self, resolvers::LocalSecretsResolver},
     };
     use std::sync::Arc;
     use uuid::Uuid;
+    use keystore::tests::MockKeyStore;
 
     pub fn setup() -> Arc<AppState> {
         let public_domain = String::from("http://alice-mediator.com");

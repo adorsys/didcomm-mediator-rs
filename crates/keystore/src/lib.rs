@@ -52,7 +52,9 @@ impl KeyStore<Secrets> {
                     let db_lock = db.lock().await;
                     db_lock.collection::<Secrets>("secrets").clone()
                 };
-                let collection = tokio::task::block_in_place(|| tokio::runtime::Handle::current().block_on(task));
+                let collection = tokio::task::block_in_place(|| {
+                    tokio::runtime::Handle::current().block_on(task)
+                });
                 collection
             })
             .clone();
@@ -100,8 +102,8 @@ where
     }
 }
 
-#[cfg(test)]
-mod tests {
+#[cfg(any(test, feature = "test-utils"))]
+pub mod tests {
     use super::*;
     use database::{Repository, RepositoryError};
     use mongodb::bson::{doc, Bson, Document};
@@ -109,7 +111,7 @@ mod tests {
     use std::{collections::HashMap, sync::RwLock};
 
     #[derive(Default)]
-    struct MockKeyStore {
+    pub struct MockKeyStore {
         secrets: RwLock<Vec<Secrets>>,
     }
 
