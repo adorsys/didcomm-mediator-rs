@@ -1,6 +1,6 @@
 use super::errors::DIDPeerMethodError;
 use crate::didcore::Document as DIDDocument;
-use crate::didcore::{AssertionMethod, Authentication, CapabilityDelegation, CapabilityInvocation, KeyAgreement, Service};
+use crate::didcore::{VerificationMethodType, Service};
 use serde_json::{json, Map, Value};
 
 pub(super) fn abbreviate_service_for_did_peer_2(service: &Service) -> Result<String, DIDPeerMethodError> {
@@ -121,24 +121,24 @@ fn are_all_ids_and_references_relative(diddoc: &DIDDocument) -> bool {
 
     check_methods(&diddoc.verification_method, |method| is_relative(&method.id))
         && check_methods(&diddoc.authentication, |auth| match auth {
-            Authentication::Reference(reference) => is_relative(reference),
-            Authentication::Embedded(method) => is_relative(&method.id),
+            VerificationMethodType::Reference(reference) => is_relative(reference),
+            VerificationMethodType::Embedded(method) => is_relative(&method.id),
         })
         && check_methods(&diddoc.assertion_method, |assert| match assert {
-            AssertionMethod::Reference(reference) => is_relative(reference),
-            AssertionMethod::Embedded(method) => is_relative(&method.id),
+            VerificationMethodType::Reference(reference) => is_relative(reference),
+            VerificationMethodType::Embedded(method) => is_relative(&method.id),
         })
         && check_methods(&diddoc.key_agreement, |key| match key {
-            KeyAgreement::Reference(reference) => is_relative(reference),
-            KeyAgreement::Embedded(method) => is_relative(&method.id),
+            VerificationMethodType::Reference(reference) => is_relative(reference),
+            VerificationMethodType::Embedded(method) => is_relative(&method.id),
         })
         && check_methods(&diddoc.capability_delegation, |delegation| match delegation {
-            CapabilityDelegation::Reference(reference) => is_relative(reference),
-            CapabilityDelegation::Embedded(method) => is_relative(&method.id),
+            VerificationMethodType::Reference(reference) => is_relative(reference),
+            VerificationMethodType::Embedded(method) => is_relative(&method.id),
         })
         && check_methods(&diddoc.capability_invocation, |invocation| match invocation {
-            CapabilityInvocation::Reference(reference) => is_relative(reference),
-            CapabilityInvocation::Embedded(method) => is_relative(&method.id),
+            VerificationMethodType::Reference(reference) => is_relative(reference),
+            VerificationMethodType::Embedded(method) => is_relative(&method.id),
         })
         && check_methods(&diddoc.service, |service| is_relative(&service.id))
 }
@@ -270,11 +270,11 @@ mod tests {
                     ..Default::default()
                 },
             ]),
-            authentication: Some(vec![Authentication::Reference("#key-0".to_string())]),
-            assertion_method: Some(vec![AssertionMethod::Reference("#key-0".to_string())]),
-            key_agreement: Some(vec![KeyAgreement::Reference("#key-1".to_string())]),
-            capability_delegation: Some(vec![CapabilityDelegation::Reference("#key-0".to_string())]),
-            capability_invocation: Some(vec![CapabilityInvocation::Reference("#key-0".to_string())]),
+            authentication: Some(vec![VerificationMethodType::Reference("#key-0".to_string())]),
+            assertion_method: Some(vec![VerificationMethodType::Reference("#key-0".to_string())]),
+            key_agreement: Some(vec![VerificationMethodType::Reference("#key-1".to_string())]),
+            capability_delegation: Some(vec![VerificationMethodType::Reference("#key-0".to_string())]),
+            capability_invocation: Some(vec![VerificationMethodType::Reference("#key-0".to_string())]),
             service: Some(vec![
                 Service {
                     id: "#service-0".to_string(),
@@ -298,7 +298,7 @@ mod tests {
                 id: "did:peer:123#key-0".to_string(),
                 ..Default::default()
             }]),
-            authentication: Some(vec![Authentication::Reference("#key-0".to_string())]),
+            authentication: Some(vec![VerificationMethodType::Reference("#key-0".to_string())]),
             ..Default::default()
         };
 
@@ -308,7 +308,7 @@ mod tests {
     #[test]
     fn test_non_relative_references() {
         let diddoc = DIDDocument {
-            authentication: Some(vec![Authentication::Reference("did:example:123#key-0".to_string())]),
+            authentication: Some(vec![VerificationMethodType::Reference("did:example:123#key-0".to_string())]),
             ..Default::default()
         };
 
@@ -328,7 +328,7 @@ mod tests {
                     ..Default::default()
                 },
             ]),
-            authentication: Some(vec![Authentication::Reference("#key-0".to_string())]),
+            authentication: Some(vec![VerificationMethodType::Reference("#key-0".to_string())]),
             ..Default::default()
         };
 

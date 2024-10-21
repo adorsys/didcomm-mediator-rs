@@ -1,7 +1,7 @@
 use serde_json::Value;
 
 use crate::{
-    didcore::{AssertionMethod, Authentication, Document, KeyAgreement, Service, VerificationMethod},
+    didcore::{VerificationMethodType, Document, Service, VerificationMethod},
     ldmodel::Context,
 };
 
@@ -99,9 +99,9 @@ impl Document {
     pub fn new_full(
         context: Context,
         id: String,
-        authentication: Option<Vec<Authentication>>,
-        assertion_method: Option<Vec<AssertionMethod>>,
-        key_agreement: Option<Vec<KeyAgreement>>,
+        authentication: Option<Vec<VerificationMethodType>>,
+        assertion_method: Option<Vec<VerificationMethodType>>,
+        key_agreement: Option<Vec<VerificationMethodType>>,
         verification_method: Option<Vec<VerificationMethod>>,
         service: Option<Vec<Service>>,
     ) -> Self {
@@ -184,9 +184,9 @@ pub mod tests {
         let private_verification_method = Some(vec![private_eddsa_vm, private_ecdh_vm]);
         let public_verification_method = Some(vec![public_eddsa_vm, public_ecdh_vm]);
 
-        let authentication = Some(vec![Authentication::Reference("did:example:123456789abcdefghi#keys-1".to_string())]);
-        let assertion_method = Some(vec![AssertionMethod::Reference("did:example:123456789abcdefghi#keys-1".to_string())]);
-        let key_agreement = Some(vec![KeyAgreement::Reference("did:example:123456789abcdefghi#keys-2".to_string())]);
+        let authentication = Some(vec![VerificationMethodType::Reference("did:example:123456789abcdefghi#keys-1".to_string())]);
+        let assertion_method = Some(vec![VerificationMethodType::Reference("did:example:123456789abcdefghi#keys-1".to_string())]);
+        let key_agreement = Some(vec![VerificationMethodType::Reference("did:example:123456789abcdefghi#keys-2".to_string())]);
 
         let srv = Service::new(
             "did:example:123456789abcdefghi#keys-1".to_string(),

@@ -50,19 +50,19 @@ pub struct Document {
 
     // === Verification Relationships ===
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub authentication: Option<Vec<Authentication>>,
+    pub authentication: Option<Vec<VerificationMethodType>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub assertion_method: Option<Vec<AssertionMethod>>,
+    pub assertion_method: Option<Vec<VerificationMethodType>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub capability_delegation: Option<Vec<CapabilityDelegation>>,
+    pub capability_delegation: Option<Vec<VerificationMethodType>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub capability_invocation: Option<Vec<CapabilityInvocation>>,
+    pub capability_invocation: Option<Vec<VerificationMethodType>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub key_agreement: Option<Vec<KeyAgreement>>,
+    pub key_agreement: Option<Vec<VerificationMethodType>>,
 
     // === Services ===
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -159,42 +159,10 @@ pub enum KeyFormat {
     Jwk(Jwk),
 }
 
-/// Represents the authentication methods in a DID Document.
+/// Represents a method in a DID Document (authentication, assertion, key agreement, etc.).
 #[derive(Serialize, Debug, Clone, PartialEq, Deserialize)]
 #[serde(untagged)]
-pub enum Authentication {
-    Reference(String),
-    Embedded(Box<VerificationMethod>),
-}
-
-/// Represents the assertion methods in a DID Document.
-#[derive(Serialize, Debug, Clone, PartialEq, Deserialize)]
-#[serde(untagged)]
-pub enum AssertionMethod {
-    Reference(String),
-    Embedded(Box<VerificationMethod>),
-}
-
-/// Represents the capability delegation methods in a DID Document.
-#[derive(Serialize, Debug, Clone, PartialEq, Deserialize)]
-#[serde(untagged)]
-pub enum CapabilityDelegation {
-    Reference(String),
-    Embedded(Box<VerificationMethod>),
-}
-
-/// Represents the capability invocation methods in a DID Document.
-#[derive(Serialize, Debug, Clone, PartialEq, Deserialize)]
-#[serde(untagged)]
-pub enum CapabilityInvocation {
-    Reference(String),
-    Embedded(Box<VerificationMethod>),
-}
-
-/// Represents the key agreement methods in a DID Document.
-#[derive(Serialize, Debug, Clone, PartialEq, Deserialize)]
-#[serde(untagged)]
-pub enum KeyAgreement {
+pub enum VerificationMethodType {
     Reference(String),
     Embedded(Box<VerificationMethod>),
 }

@@ -90,16 +90,16 @@ impl DidKey {
             controller: None,
             also_known_as: None,
             verification_method: Some(vec![signature_verification_method.clone()]),
-            authentication: Some(vec![didcore::Authentication::Reference(
+            authentication: Some(vec![didcore::VerificationMethodType::Reference(
                 signature_verification_method.id.clone(), //
             )]),
-            assertion_method: Some(vec![didcore::AssertionMethod::Reference(
+            assertion_method: Some(vec![didcore::VerificationMethodType::Reference(
                 signature_verification_method.id.clone(), //
             )]),
-            capability_delegation: Some(vec![didcore::CapabilityDelegation::Reference(
+            capability_delegation: Some(vec![didcore::VerificationMethodType::Reference(
                 signature_verification_method.id.clone(), //
             )]),
-            capability_invocation: Some(vec![didcore::CapabilityInvocation::Reference(
+            capability_invocation: Some(vec![didcore::VerificationMethodType::Reference(
                 signature_verification_method.id.clone(), //
             )]),
             key_agreement: None,
@@ -115,7 +115,7 @@ impl DidKey {
             // Amend DID document accordingly
             let verification_method = diddoc.verification_method.as_mut().unwrap();
             verification_method.push(encryption_verification_method.clone());
-            diddoc.key_agreement = Some(vec![didcore::KeyAgreement::Reference(
+            diddoc.key_agreement = Some(vec![didcore::VerificationMethodType::Reference(
                 encryption_verification_method.id.clone(), //
             )]);
         }
