@@ -7,13 +7,17 @@ pub enum RotationError {
     #[error("Could not deserialize from prior")]
     DeserializationError,
     #[error("Could not rotate did unknown issuer")]
-    RotationError,
+    UnknownIssuer,
     #[error("Invalid jwt signature on FromPrior value")]
     InvalidSignature,
     #[error("could not unpack fromprior")]
-    InvalidFromPrior
-
+    InvalidFromPrior,
+    #[error("Could not end relationship")]
+    TargetNotFound,
+    #[error("Could not update connecton")]
+    RepositoryError
 }
+
 impl RotationError {
     /// Converts the error to an axum JSON representation.
     pub fn json(&self) -> Json<Value> {
