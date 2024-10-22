@@ -15,13 +15,9 @@ members = [
     "crates/web-plugins/didcomm-messaging",
     "crates/web-plugins/oob-messages",
     "crates/web-plugins/didcomm-messaging/database",
-    "crates/web-plugins/didcomm-messaging/protocol-plugins/forward",
-    "crates/web-plugins/didcomm-messaging/protocol-plugins/handler",
-    "crates/web-plugins/didcomm-messaging/protocol-plugins/mediator-coordination",
-    "crates/web-plugins/didcomm-messaging/protocol-plugins/pickup",
+    "crates/web-plugins/didcomm-messaging/protocol-plugins/*",
 
 ]
-
 
 [workspace.dependencies]
 did-utils = { path = "./crates/web-plugins/didcomm-messaging/did-utils", version = "0.1.0" }
