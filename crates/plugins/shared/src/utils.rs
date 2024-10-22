@@ -3,7 +3,7 @@ pub mod resolvers;
 pub mod tests_utils;
 
 use did_utils::{
-    didcore::{AssertionMethod, Document, KeyAgreement, KeyFormat, VerificationMethod},
+    didcore::{VerificationMethodType, Document, KeyFormat, VerificationMethod},
     jwk::Jwk,
 };
 use filesystem::FileSystem;
@@ -34,7 +34,7 @@ impl From<SerdeError> for DidDocError {
 /// Parse DID document expected to exist on filesystem.
 pub fn read_diddoc(fs: &dyn FileSystem, storage_dirpath: &str) -> Result<Document, DidDocError> {
     let didpath = format!("{storage_dirpath}/did.json");
-    let content = fs.read_to_string(&didpath)?;
+    let content = fs.read_to_string(didpath.as_ref())?;
     serde_json::from_str(&content).map_err(Into::into)
 }
 
@@ -65,7 +65,7 @@ macro_rules! extract_key_from_diddoc {
 /// if present, return its verification method ID and JWK representation.
 pub fn extract_assertion_key(diddoc: &Document) -> Option<(String, Jwk)> {
     let method = diddoc.assertion_method.as_ref()?.get(0)?;
-    extract_key_from_diddoc!(AssertionMethod)(diddoc, method)
+    extract_key_from_diddoc!(VerificationMethodType)(diddoc, method)
 }
 
 /// Search an agreement key in a DID document.
@@ -73,7 +73,7 @@ pub fn extract_assertion_key(diddoc: &Document) -> Option<(String, Jwk)> {
 /// if present, return its verification method ID and JWK representation.
 pub fn extract_agreement_key(diddoc: &Document) -> Option<(String, Jwk)> {
     let method = diddoc.key_agreement.as_ref()?.get(0)?;
-    extract_key_from_diddoc!(KeyAgreement)(diddoc, method)
+    extract_key_from_diddoc!(VerificationMethodType)(diddoc, method)
 }
 
 /// Reads public JWK from verification method.

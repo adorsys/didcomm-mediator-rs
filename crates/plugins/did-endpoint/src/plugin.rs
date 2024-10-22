@@ -16,7 +16,10 @@ impl Plugin for DidEndpoint {
             PluginError::InitError
         })?;
 
-        if didgen::validate_diddoc(&storage_dirpath).is_err() {
+        let mut filesystem = filesystem::StdFileSystem;
+        let keystore = keystore::KeyStore::get();
+
+        if didgen::validate_diddoc(storage_dirpath.as_ref(), &keystore, &mut filesystem).is_err() {
             tracing::debug!("diddoc validation failed, will generate one");
 
             let server_public_domain = std::env::var("SERVER_PUBLIC_DOMAIN").map_err(|_| {
@@ -24,7 +27,13 @@ impl Plugin for DidEndpoint {
                 PluginError::InitError
             })?;
 
-            didgen::didgen(&storage_dirpath, &server_public_domain).map_err(|_| {
+            didgen::didgen(
+                storage_dirpath.as_ref(),
+                &server_public_domain,
+                &keystore,
+                &mut filesystem,
+            )
+            .map_err(|_| {
                 tracing::error!("failed to generate an initial keystore and its DID document");
                 PluginError::InitError
             })?;

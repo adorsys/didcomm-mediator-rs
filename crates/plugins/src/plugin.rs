@@ -47,8 +47,13 @@ impl Plugin for MediatorCoordination {
     fn mount(&mut self) -> Result<(), PluginError> {
         let env = load_plugin_env()?;
 
+        let mut filesystem = filesystem::StdFileSystem;
+        let keystore = keystore::KeyStore::get();
+
         // Expect DID document from file system
-        if did_endpoint::validate_diddoc(&env.storage_dirpath).is_err() {
+        if did_endpoint::validate_diddoc(env.storage_dirpath.as_ref(), &keystore, &mut filesystem)
+            .is_err()
+        {
             tracing::error!("diddoc validation failed; is plugin did-endpoint mounted?");
             return Err(PluginError::InitError);
         }

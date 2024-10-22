@@ -3,16 +3,17 @@ use std::{
     fs::OpenOptions,
     io::{Error as IoError, ErrorKind, Result as IoResult},
     os::unix::io::AsRawFd,
+    path::Path,
 };
 
 #[doc(hidden)]
 // Define a trait for file system operations
 pub trait FileSystem: Send + 'static {
-    fn read_to_string(&self, path: &str) -> IoResult<String>;
-    fn write(&mut self, path: &str, content: &str) -> IoResult<()>;
-    fn read_dir_files(&self, path: &str) -> IoResult<Vec<String>>;
-    fn create_dir_all(&mut self, path: &str) -> IoResult<()>;
-    fn write_with_lock(&self, path: &str, content: &str) -> IoResult<()>;
+    fn read_to_string(&self, path: &Path) -> IoResult<String>;
+    fn write(&mut self, path: &Path, content: &str) -> IoResult<()>;
+    fn read_dir_files(&self, path: &Path) -> IoResult<Vec<String>>;
+    fn create_dir_all(&mut self, path: &Path) -> IoResult<()>;
+    fn write_with_lock(&self, path: &Path, content: &str) -> IoResult<()>;
     // Add other file system operations as needed
 }
 
@@ -21,15 +22,15 @@ pub trait FileSystem: Send + 'static {
 pub struct StdFileSystem;
 
 impl FileSystem for StdFileSystem {
-    fn read_to_string(&self, path: &str) -> IoResult<String> {
+    fn read_to_string(&self, path: &Path) -> IoResult<String> {
         std::fs::read_to_string(path)
     }
 
-    fn write(&mut self, path: &str, content: &str) -> IoResult<()> {
+    fn write(&mut self, path: &Path, content: &str) -> IoResult<()> {
         std::fs::write(path, content)
     }
 
-    fn read_dir_files(&self, path: &str) -> IoResult<Vec<String>> {
+    fn read_dir_files(&self, path: &Path) -> IoResult<Vec<String>> {
         let mut files = vec![];
         for entry in std::fs::read_dir(path)? {
             let path = entry?.path();
@@ -45,22 +46,22 @@ impl FileSystem for StdFileSystem {
         Ok(files)
     }
 
-    fn create_dir_all(&mut self, path: &str) -> IoResult<()> {
+    fn create_dir_all(&mut self, path: &Path) -> IoResult<()> {
         std::fs::create_dir_all(path)
     }
 
-    fn write_with_lock(&self, path: &str, content: &str) -> IoResult<()> {
+    fn write_with_lock(&self, path: &Path, content: &str) -> IoResult<()> {
         let file = OpenOptions::new()
             .read(true)
             .write(true)
             .create(true)
-            .open(path)?;
+            .open(&path)?;
 
         // Acquire an exclusive lock before writing to the file
         flock(file.as_raw_fd(), FlockArg::LockExclusive)
             .map_err(|_| IoError::new(ErrorKind::Other, "Error acquiring file lock"))?;
 
-        std::fs::write(&path, &content).expect("Error saving base64-encoded image to file");
+        std::fs::write(path, &content).expect("Error saving base64-encoded image to file");
 
         // Release the lock after writing to the file
         flock(file.as_raw_fd(), FlockArg::Unlock).expect("Error releasing file lock");
@@ -76,31 +77,31 @@ pub struct MockFileSystem;
 
 #[cfg(any(test, feature = "test-utils"))]
 impl FileSystem for MockFileSystem {
-    fn read_to_string(&self, path: &str) -> IoResult<String> {
+    fn read_to_string(&self, path: &Path) -> IoResult<String> {
         match path {
             p if p.ends_with("did.json") => {
                 Ok(include_str!("../test/storage/did.json").to_string())
             }
-            p if p.contains("secrets.json") => {
+            p if p.ends_with("secrets.json") => {
                 Ok(include_str!("../test/storage/secrets.json").to_string())
             }
             _ => Err(IoError::new(ErrorKind::NotFound, "NotFound")),
         }
     }
 
-    fn write(&mut self, _path: &str, _content: &str) -> IoResult<()> {
+    fn write(&mut self, _path: &Path, _content: &str) -> IoResult<()> {
         Ok(())
     }
 
-    fn read_dir_files(&self, _path: &str) -> IoResult<Vec<String>> {
+    fn read_dir_files(&self, _path: &Path) -> IoResult<Vec<String>> {
         Ok(vec!["/secrets.json".to_string()])
     }
 
-    fn create_dir_all(&mut self, _path: &str) -> IoResult<()> {
+    fn create_dir_all(&mut self, _path: &Path) -> IoResult<()> {
         Ok(())
     }
 
-    fn write_with_lock(&self, _path: &str, _content: &str) -> IoResult<()> {
+    fn write_with_lock(&self, _path: &Path, _content: &str) -> IoResult<()> {
         Ok(())
     }
 }
@@ -118,24 +119,24 @@ mod tests {
     }
 
     impl FileSystem for MockFileSystem {
-        fn read_to_string(&self, path: &str) -> IoResult<String> {
-            Ok(self.map.get(path).cloned().unwrap_or_default())
+        fn read_to_string(&self, path: &Path) -> IoResult<String> {
+            Ok(self.map.get(path.to_str().unwrap()).cloned().unwrap_or_default())
         }
 
-        fn write(&mut self, path: &str, content: &str) -> IoResult<()> {
-            self.map.insert(path.to_string(), content.to_string());
+        fn write(&mut self, path: &Path, content: &str) -> IoResult<()> {
+            self.map.insert(path.to_str().unwrap().to_string(), content.to_string());
             Ok(())
         }
 
-        fn read_dir_files(&self, _path: &str) -> IoResult<Vec<String>> {
+        fn read_dir_files(&self, _path: &Path) -> IoResult<Vec<String>> {
             Ok(vec![])
         }
 
-        fn create_dir_all(&mut self, _path: &str) -> IoResult<()> {
+        fn create_dir_all(&mut self, _path: &Path) -> IoResult<()> {
             Ok(())
         }
 
-        fn write_with_lock(&self, _path: &str, _content: &str) -> IoResult<()> {
+        fn write_with_lock(&self, _path: &Path, _content: &str) -> IoResult<()> {
             Ok(())
         }
     }
@@ -144,10 +145,10 @@ mod tests {
     fn can_mock_fs_operations() {
         let mut mock_fs = MockFileSystem::default();
 
-        let res = mock_fs.write("/file.txt", "2456535e-a316-4d9e-8ab4-74a33d75d1fa");
+        let res = mock_fs.write("/file.txt".as_ref(), "2456535e-a316-4d9e-8ab4-74a33d75d1fa");
         assert!(res.is_ok());
 
-        let content = mock_fs.read_to_string("/file.txt").unwrap();
+        let content = mock_fs.read_to_string("/file.txt".as_ref()).unwrap();
         assert_eq!(&content, "2456535e-a316-4d9e-8ab4-74a33d75d1fa");
     }
 }

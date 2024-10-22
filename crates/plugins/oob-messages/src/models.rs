@@ -93,7 +93,7 @@ pub(crate) fn retrieve_or_generate_oob_inv<'a>(
     let file_path = format!("{}/oob_invitation.txt", storage_dirpath);
 
     // Attempt to read the file directly
-    if let Ok(content) = fs.read_to_string(&file_path) {
+    if let Ok(content) = fs.read_to_string(file_path.as_ref()) {
         // If successful, return the content
         println!("OOB Invitation successfully retrieved from file");
         return Ok(content);
@@ -134,7 +134,7 @@ pub(crate) fn retrieve_or_generate_qr_image(
     }
 
     // Check if the file exists in the specified path, otherwise create it
-    if let Ok(existing_image) = fs.read_to_string(&path) {
+    if let Ok(existing_image) = fs.read_to_string(path.as_ref()) {
         // Update the cache with the retrieved data
         CACHE
             .lock()
@@ -160,7 +160,7 @@ pub(crate) fn retrieve_or_generate_qr_image(
     let base64_string = encode_config(&buffer, STANDARD);
 
     // Save to file
-    fs.write_with_lock(&path, &base64_string)
+    fs.write_with_lock(path.as_ref(), &base64_string)
         .map_err(|e| format!("Error writing: {}", e))?;
     CACHE
         .lock()
@@ -172,7 +172,7 @@ pub(crate) fn retrieve_or_generate_qr_image(
 
 fn to_local_storage(fs: &mut dyn FileSystem, oob_url: &str, storage_dirpath: &str) {
     // Ensure the parent directory ('storage') exists
-    if let Err(e) = fs.create_dir_all(storage_dirpath) {
+    if let Err(e) = fs.create_dir_all(storage_dirpath.as_ref()) {
         eprintln!("Error creating directory: {}", e);
         return;
     }
@@ -180,7 +180,7 @@ fn to_local_storage(fs: &mut dyn FileSystem, oob_url: &str, storage_dirpath: &st
     let file_path = format!("{}/oob_invitation.txt", storage_dirpath);
 
     // Attempt to write the string directly to the file
-    if let Err(e) = fs.write(&file_path, oob_url) {
+    if let Err(e) = fs.write(file_path.as_ref(), oob_url) {
         eprintln!("Error writing to file: {}", e);
     } else {
         println!("String successfully written to file.");
@@ -212,36 +212,38 @@ fn url_to_did_web_id(url: &str) -> Result<String, Box<dyn Error>> {
 }
 
 #[cfg(test)]
+use std::path::Path;
+#[cfg(test)]
 #[derive(Default)]
 pub struct MockFileSystem;
 
 #[cfg(test)]
 impl FileSystem for MockFileSystem {
-    fn read_to_string(&self, path: &str) -> IoResult<String> {
-        match path {
-            p if p.ends_with("oob_invitation.txt") => {
+    fn read_to_string(&self, path: &Path) -> IoResult<String> {
+        match path.to_str() {
+            Some(p) if p.ends_with("oob_invitation.txt") => {
                 Ok(include_str!("../test/storage/oob_invitation.txt").to_string())
             }
-            p if p.contains("qrcode.txt") => {
+            Some(p) if p.contains("qrcode.txt") => {
                 Ok(include_str!("../test/storage/qrcode.txt").to_string())
             }
             _ => Err(IoError::new(ErrorKind::NotFound, "NotFound")),
         }
     }
 
-    fn write(&mut self, _path: &str, _content: &str) -> IoResult<()> {
+    fn write(&mut self, _path: &Path, _content: &str) -> IoResult<()> {
         Ok(())
     }
 
-    fn read_dir_files(&self, _path: &str) -> IoResult<Vec<String>> {
+    fn read_dir_files(&self, _path: &Path) -> IoResult<Vec<String>> {
         Ok(vec![])
     }
 
-    fn create_dir_all(&mut self, _path: &str) -> IoResult<()> {
+    fn create_dir_all(&mut self, _path: &Path) -> IoResult<()> {
         Ok(())
     }
 
-    fn write_with_lock(&self, _path: &str, _content: &str) -> IoResult<()> {
+    fn write_with_lock(&self, _path: &Path, _content: &str) -> IoResult<()> {
         Ok(())
     }
 }
@@ -307,7 +309,7 @@ mod tests {
         assert!(result.is_ok());
 
         let didpath = format!("{storage_dirpath}/oob_invitation.txt");
-        let file_content = mock_fs.read_to_string(&didpath).unwrap();
+        let file_content = mock_fs.read_to_string(didpath.as_ref()).unwrap();
 
         assert_eq!(result.unwrap(), file_content);
     }
@@ -324,7 +326,7 @@ mod tests {
         let image_data = result.unwrap();
 
         let expected_result = mock_fs
-            .read_to_string(&format!("{}/qrcode.txt", storage_dirpath))
+            .read_to_string(format!("{}/qrcode.txt", storage_dirpath).as_ref())
             .unwrap();
 
         assert_eq!(image_data, expected_result);

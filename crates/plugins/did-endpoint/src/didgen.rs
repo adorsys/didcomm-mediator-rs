@@ -6,10 +6,11 @@ use did_utils::{
     methods::{DidPeer, Purpose, PurposedKey},
 };
 use filesystem::FileSystem;
-use keystore::{KeyStore, Secrets};
+use keystore::Secrets;
 use mongodb::bson::doc;
 use serde_json::json;
-use std::{fmt::Display, path::Path};
+use std::path::Path;
+use tokio::{runtime::Handle, task};
 
 #[allow(dead_code)]
 #[derive(Debug, thiserror::Error)]
@@ -28,7 +29,7 @@ pub enum Error {
 
 /// Generates keys and forward them for DID generation
 pub fn didgen<K, F>(
-    storage_dirpath: &str,
+    storage_dirpath: &Path,
     server_public_domain: &str,
     keystore: &K,
     filesystem: &mut F,
@@ -63,7 +64,7 @@ where
     }];
 
     // Generate DID Document
-    let diddoc = generate_did_document(&keys, &services)?;
+    let diddoc = generate_did_document(keys, services)?;
 
     // Convert keys to JWK format
     let auth_keys_jwk: Jwk = auth_keys
@@ -73,11 +74,11 @@ where
         .try_into()
         .map_err(|_| Error::KeyConversionError)?;
 
-    // Store authentication and agreement keys
+    // Store authentication and agreement keys in the keystore.
     store_key(auth_keys_jwk, &diddoc.authentication, keystore)?;
     store_key(agreem_keys_jwk, &diddoc.key_agreement, keystore)?;
 
-    // Step 5: Serialize DID document and persist to file
+    // Serialize DID document and persist to filesystem
     persist_did_document(storage_dirpath, &diddoc, filesystem)?;
 
     tracing::info!("DID generation and persistence successful");
@@ -91,10 +92,11 @@ fn generate_keys() -> Result<(Ed25519KeyPair, X25519KeyPair), Error> {
 }
 
 fn generate_did_document(
-    keys: &Vec<PurposedKey>,
-    services: &Vec<Service>,
+    keys: Vec<PurposedKey>,
+    services: Vec<Service>,
 ) -> Result<Document, Error> {
-    let did = DidPeer::create_did_peer_2(keys, services).map_err(|_| Error::DidGenerationError)?;
+    let did =
+        DidPeer::create_did_peer_2(&keys, &services).map_err(|_| Error::DidGenerationError)?;
     let resolver = DidPeer::with_format(PublicKeyFormat::Jwk);
     resolver.expand(&did).map_err(|_| Error::DidGenerationError)
 }
@@ -110,7 +112,7 @@ where
     // Extract key ID from the DID document
     let kid = match field.as_ref().unwrap().get(0).unwrap().clone() {
         VerificationMethodType::Reference(kid) => kid,
-        _ => return Err(Error::Generic("Unable to extract key ID".to_owned())),
+        VerificationMethodType::Embedded(method) => method.id,
     };
 
     // Create Secrets for the key
@@ -121,13 +123,13 @@ where
     };
 
     // Store the secret in the keystore
-    tokio::task::block_in_place(|| {
-        tokio::runtime::Handle::current().block_on(async {
+    task::block_in_place(move || {
+        Handle::current().block_on(async move {
             match keystore.store(secret).await {
                 Ok(_) => {
-                    tracing::info!("Successfully stored agreement key.")
+                    tracing::info!("Successfully stored secret.")
                 }
-                Err(error) => tracing::error!("Error storing agreement key: {:?}", error),
+                Err(error) => tracing::error!("Error storing secret: {:?}", error),
             }
         })
     });
@@ -136,7 +138,7 @@ where
 }
 
 fn persist_did_document<F>(
-    storage_dirpath: &str,
+    storage_dirpath: &Path,
     diddoc: &Document,
     filesystem: &mut F,
 ) -> Result<(), Error>
@@ -148,52 +150,61 @@ where
 
     // Create directory and write the DID document
     filesystem
-        .create_dir_all(storage_dirpath)
+        .create_dir_all(&storage_dirpath)
         .map_err(|_| Error::PersistenceError)?;
     filesystem
-        .write(&format!("{}/did.json", storage_dirpath), &pretty_diddoc)
+        .write(&storage_dirpath.join("did.json"), &pretty_diddoc)
         .map_err(|_| Error::PersistenceError)?;
 
     Ok(())
 }
 
 /// Validates the integrity of the persisted diddoc
-pub fn validate_diddoc<P>(storage_dirpath: P) -> Result<(), String>
+pub fn validate_diddoc<K, F>(
+    storage_dirpath: &Path,
+    keystore: &K,
+    filesystem: &mut F,
+) -> Result<(), String>
 where
-    P: AsRef<Path>,
+    K: Repository<Secrets>,
+    F: FileSystem,
 {
     // Validate that did.json exists
-    let didpath = storage_dirpath.as_ref().join("did.json");
+    let didpath = storage_dirpath.join("did.json");
     if !didpath.exists() {
         return Err(String::from("Missing did.json"));
     };
 
-    // Ensure the validity of the persisted diddoc
-    let diddoc: Document = match std::fs::read_to_string(didpath) {
-        Ok(content) => {
-            serde_json::from_str(&content).map_err(|_| String::from("Unparseable did.json"))?
-        }
-        Err(_) => return Err(String::from("Unreadable did.json")),
-    };
+    // Load the DID document
+    let diddoc: Document = filesystem
+        .read_to_string(&didpath)
+        .map_err(|_| String::from("Unreadable did.json"))
+        .and_then(|content| {
+            serde_json::from_str(&content).map_err(|_| String::from("Unparseable did.json"))
+        })?;
 
+    // Validate the keys in the DID document
     for method in diddoc.verification_method.unwrap_or(vec![]) {
         let pubkey = method.public_key.ok_or(String::from("Missing key"))?;
-        let _ = match pubkey {
-            KeyFormat::Jwk(jwk) => jwk,
+        match pubkey {
+            KeyFormat::Jwk(_) => validate_key(&method.id, keystore)?,
             _ => return Err(String::from("Unsupported key format")),
         };
-
-        let keystore = KeyStore::get();
-
-        let secret = tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current()
-                .block_on(async { keystore.find_one_by(doc! { "kid": method.id }).await })
-        });
-
-        secret
-            .map_err(|_| String::from("Error fetching secret"))?
-            .ok_or_else(|| String::from("Mismatch or missing secret"))?;
     }
+
+    Ok(())
+}
+
+fn validate_key<K>(kid: &str, keystore: &K) -> Result<(), String>
+where
+    K: Repository<Secrets>,
+{
+    // Validate that the key exists
+    task::block_in_place(|| {
+        Handle::current().block_on(async move { keystore.find_one_by(doc! { "kid": kid }).await })
+    })
+    .map_err(|_| String::from("Error fetching secret"))?
+    .ok_or_else(|| String::from("Mismatch or missing secret"))?;
 
     Ok(())
 }
@@ -202,42 +213,29 @@ where
 mod tests {
     use super::*;
     use crate::util::dotenv_flow_read;
+    use filesystem::MockFileSystem;
+    use keystore::tests::MockKeyStore;
 
     fn setup() -> (String, String) {
-        let storage_dirpath = dotenv_flow_read("STORAGE_DIRPATH")
-            .map(|p| format!("{}/{}", p, uuid::Uuid::new_v4()))
-            .unwrap();
+        let storage_dirpath = "../../filesystem/test/storage".to_string();
 
         let server_public_domain = dotenv_flow_read("SERVER_PUBLIC_DOMAIN").unwrap();
 
         (storage_dirpath, server_public_domain)
     }
 
-    fn cleanup(storage_dirpath: &str) {
-        std::fs::remove_dir_all(storage_dirpath).unwrap();
-    }
-
     // Verifies that the didgen function returns a DID document.
     // Does not validate the DID document.
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-    async fn test_didgen() {
+    async fn test_didgen_creation_and_validation() {
         dotenv_flow::from_filename("../../../.env").ok();
         let (storage_dirpath, server_public_domain) = setup();
+        let mut filesystem = MockFileSystem;
+        let keystore = MockKeyStore::new(vec![]);
 
-        let diddoc = didgen(&storage_dirpath, &server_public_domain);
+        let diddoc = didgen(storage_dirpath.as_ref(), &server_public_domain, &keystore, &mut filesystem);
         assert!(diddoc.is_ok());
 
-        cleanup(&storage_dirpath);
-    }
-
-    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-    async fn test_validate_diddoc() {
-        dotenv_flow::from_filename("../../../.env").ok();
-        let (storage_dirpath, server_public_domain) = setup();
-
-        didgen(&storage_dirpath, &server_public_domain).unwrap();
-        assert!(validate_diddoc(&storage_dirpath).is_ok());
-
-        cleanup(&storage_dirpath);
+        assert!(validate_diddoc(&storage_dirpath.as_ref(), &keystore, &mut filesystem).is_ok());
     }
 }

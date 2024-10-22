@@ -45,7 +45,7 @@ impl DIDResolver for LocalDIDResolver {
                             service: Some(vec![]),
                             ..doc
                         }))
-                            .expect("Should easily convert between documents representations"),
+                        .expect("Should easily convert between documents representations"),
                     )
                 })
                 .map_err(|e| Error::new(ErrorKind::DIDNotResolved, e))?)

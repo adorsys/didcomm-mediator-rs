@@ -190,25 +190,33 @@ mod tests {
             .unwrap();
 
         let server_public_domain = dotenv_flow_read("SERVER_PUBLIC_DOMAIN").unwrap();
+        let mut filesystem = filesystem::MockFileSystem;
+        let keystore = keystore::tests::MockKeyStore::default();
 
         // Run didgen logic
-        let diddoc = didgen::didgen(&storage_dirpath, &server_public_domain).unwrap();
+        let diddoc = didgen::didgen(
+            storage_dirpath.as_ref(),
+            &server_public_domain,
+            &keystore,
+            &mut filesystem,
+        )
+        .unwrap();
 
         // TODO! Find a race-free way to accomodate this. Maybe a test mutex?
-        std::env::set_var("STORAGE_DIRPATH", &storage_dirpath);
+        // std::env::set_var("STORAGE_DIRPATH", &storage_dirpath);
 
         (storage_dirpath, diddoc)
     }
 
-    fn cleanup(storage_dirpath: &str) {
-        std::env::remove_var("STORAGE_DIRPATH");
-        std::fs::remove_dir_all(storage_dirpath).unwrap();
-    }
+    // fn cleanup(storage_dirpath: &str) {
+    //     std::env::remove_var("STORAGE_DIRPATH");
+    //     std::fs::remove_dir_all(storage_dirpath).unwrap();
+    // }
 
     #[tokio::test]
     async fn verify_didpop() {
         // Generate test-restricted did.json
-        let (storage_dirpath, expected_diddoc) = setup_ephemeral_diddoc();
+        let (_, expected_diddoc) = setup_ephemeral_diddoc();
 
         let app = routes();
         let response = app
@@ -254,8 +262,6 @@ mod tests {
 
             assert!(verifier.verify(json!(vp)).is_ok());
         }
-
-        cleanup(&storage_dirpath);
     }
 
     fn resolve_vm_for_public_key(diddoc: &Document, vm_id: &str) -> Option<Jwk> {
