@@ -1,5 +1,5 @@
 [package]
-name = "handler"
+name = "protocole-handler"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,6 +7,5 @@ edition = "2021"
 axum.workspace = true
 
 plugin-api.workspace = true
-dotenv-flow.workspace = true
 tracing.workspace = true
 lazy_static.workspace = true

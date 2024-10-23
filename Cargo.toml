@@ -16,7 +16,6 @@ members = [
     "crates/web-plugins/oob-messages",
     "crates/database",
     "crates/web-plugins/didcomm-messaging/protocol-plugins/*",
-
 ]
 
 [workspace.dependencies]

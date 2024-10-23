@@ -70,10 +70,8 @@ impl<'a> PluginContainer<'a> {
                 seen_names.insert(name.clone()); 
     
                 tracing::info!("mounted plugin {}", name);
-                self.message_type_handlers.insert(
-                    format!("message.{}", name.clone()), 
-                    Box::new(move |msg: &str| format!("Handled by {}: {}", name, msg)) as Box<dyn Fn(&str) -> String + Send + Sync>
-                );
+                // Collect the routes from the plugin and store them
+                self.message_type_handlers.insert(name.clone(), Box::new(move |msg| format!("Handled by {}: {}", name, msg)));
             }
         }
     
