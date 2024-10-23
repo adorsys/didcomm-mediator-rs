@@ -198,16 +198,16 @@ mod tests {
             plugins: &plugins,
         };
 
-        // Test loading plugins
+        // Load the plugins
         assert!(container.load().is_ok());
-        assert!(container.get_handler("message.first").is_ok());
-        assert!(container.get_handler("message.second").is_ok());
-
+        assert!(container.get_handler("first").is_ok()); 
+        assert!(container.get_handler("second").is_ok()); 
+    
         // Verify find_plugin method
         assert!(container.find_plugin("first").is_some());
         assert!(container.find_plugin("second").is_some());
         assert!(container.find_plugin("non-existent").is_none());
-
+    
         assert_eq!(container.message_type_handlers.len(), 2);
     }
     
@@ -267,21 +267,21 @@ mod tests {
             Arc::new(Mutex::new(FirstPlugin {})),
             Arc::new(Mutex::new(SecondPlugin {})),
         ];
-
+    
         let mut container = PluginContainer {
             loaded: false,
             message_type_handlers: HashMap::new(),
             plugins: &plugins,
         };
-
+    
         // Load the plugins
-        container.load().unwrap();
-
+        assert!(container.load().is_ok());
+    
         // Test the handler retrieval
-        let first_handler = container.get_handler("message.first").unwrap();
+        let first_handler = container.get_handler("first").unwrap(); 
         assert_eq!(first_handler("test"), "Handled by first: test");
-
-        let second_handler = container.get_handler("message.second").unwrap();
+    
+        let second_handler = container.get_handler("second").unwrap(); 
         assert_eq!(second_handler("test"), "Handled by second: test");
     }
 }
