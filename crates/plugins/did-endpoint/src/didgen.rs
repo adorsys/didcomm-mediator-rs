@@ -75,8 +75,8 @@ where
         .map_err(|_| Error::KeyConversionError)?;
 
     // Store authentication and agreement keys in the keystore.
-    store_key(auth_keys_jwk, &diddoc.authentication, keystore)?;
-    store_key(agreem_keys_jwk, &diddoc.key_agreement, keystore)?;
+    store_key(auth_keys_jwk, &diddoc, &diddoc.authentication, keystore)?;
+    store_key(agreem_keys_jwk, &diddoc, &diddoc.key_agreement, keystore)?;
 
     // Serialize DID document and persist to filesystem
     persist_did_document(storage_dirpath, &diddoc, filesystem)?;
@@ -103,6 +103,7 @@ fn generate_did_document(
 
 fn store_key<S>(
     key: Jwk,
+    diddoc: &Document,
     field: &Option<Vec<VerificationMethodType>>,
     keystore: &S,
 ) -> Result<(), Error>
@@ -114,6 +115,11 @@ where
         VerificationMethodType::Reference(kid) => kid,
         VerificationMethodType::Embedded(method) => method.id,
     };
+    let kid = format!(
+        "{}{}",
+        diddoc.also_known_as.as_ref().unwrap().get(0).unwrap(),
+        kid
+    );
 
     // Create Secrets for the key
     let secret = Secrets {
@@ -186,8 +192,13 @@ where
     // Validate the keys in the DID document
     for method in diddoc.verification_method.unwrap_or(vec![]) {
         let pubkey = method.public_key.ok_or(String::from("Missing key"))?;
+        let kid = format!(
+            "{}{}",
+            diddoc.also_known_as.as_ref().unwrap()[0],
+            &method.id
+        );
         match pubkey {
-            KeyFormat::Jwk(_) => validate_key(&method.id, keystore)?,
+            KeyFormat::Jwk(_) => validate_key(&kid, keystore)?,
             _ => return Err(String::from("Unsupported key format")),
         };
     }
@@ -226,14 +237,18 @@ mod tests {
 
     // Verifies that the didgen function returns a DID document.
     // Does not validate the DID document.
-    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_didgen_creation_and_validation() {
-        dotenv_flow::from_filename("../../../.env").ok();
         let (storage_dirpath, server_public_domain) = setup();
         let mut filesystem = MockFileSystem;
         let keystore = MockKeyStore::new(vec![]);
 
-        let diddoc = didgen(storage_dirpath.as_ref(), &server_public_domain, &keystore, &mut filesystem);
+        let diddoc = didgen(
+            storage_dirpath.as_ref(),
+            &server_public_domain,
+            &keystore,
+            &mut filesystem,
+        );
         assert!(diddoc.is_ok());
 
         assert!(validate_diddoc(&storage_dirpath.as_ref(), &keystore, &mut filesystem).is_ok());

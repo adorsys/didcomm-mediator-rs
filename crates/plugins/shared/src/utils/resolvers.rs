@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use database::Repository;
 use did_utils::{
     crypto::PublicKeyFormat,
-    didcore::Document,
+    didcore::{Document, VerificationMethodType},
     methods::{DidKey, DidPeer},
 };
 use didcomm::{
@@ -52,7 +52,8 @@ impl DIDResolver for LocalDIDResolver {
         } else if did.starts_with("did:peer") {
             Ok(DidPeer::with_format(PublicKeyFormat::Jwk)
                 .expand(did)
-                .map(|doc| {
+                .map(|mut doc| {
+                    prepend_alsoknownas_to_ids(&mut doc);
                     Some(
                         serde_json::from_value(json!(doc))
                             .expect("Should easily convert between documents representations"),
@@ -64,6 +65,32 @@ impl DIDResolver for LocalDIDResolver {
                 ErrorKind::Unsupported,
                 "Unsupported DID".to_string(),
             ))
+        }
+    }
+}
+
+fn prepend_alsoknownas_to_ids(diddoc: &mut Document) {
+    if let Some(also_known_as) = diddoc.also_known_as.as_ref().and_then(|v| v.first()) {
+        if let Some(verification_methods) = diddoc.verification_method.as_mut() {
+            for vm in verification_methods.iter_mut() {
+                vm.id = format!("{}{}", also_known_as, vm.id);
+            }
+        }
+
+        if let Some(authentication) = diddoc.authentication.as_mut() {
+            for auth in authentication.iter_mut() {
+                if let VerificationMethodType::Reference(ref mut id) = auth {
+                    *id = format!("{}{}", also_known_as, id);
+                }
+            }
+        }
+
+        if let Some(key_agreements) = diddoc.key_agreement.as_mut() {
+            for agreem in key_agreements.iter_mut() {
+                if let VerificationMethodType::Reference(ref mut id) = agreem {
+                    *id = format!("{}{}", also_known_as, id);
+                }
+            }
         }
     }
 }
@@ -309,5 +336,123 @@ mod tests {
         let secret_id = "did:key:unregistered";
         let resolved = resolver.get_secret(secret_id).await.unwrap();
         assert!(resolved.is_none());
+    }
+
+    #[test]
+    fn test_prepend_alsoknownas_to_ids_works() {
+        let mut diddoc: Document = serde_json::from_str(
+            r##"{
+                "@context": [
+                    "https://www.w3.org/ns/did/v1",
+                    "https://w3id.org/security/suites/jws-2020/v1"
+                ],
+                "id": "did:peer:2.Ez6LSbhKnZ7tsrvScZBR5mRSnVDa7S7km1aCpkHoWS1pkLhkj.Vz6MktvegL6Tx3fPrNhhYbtxmzq6nsjnQKoecKLARJVZ7catQ.Az6MktvegL6Tx3fPrNhhYbtxmzq6nsjnQKoecKLARJVZ7catQ.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0",
+                "alsoKnownAs": [
+                    "did:peer:3zQmSBPjNZR15mNMUBKpTqk8Z4icxkv91zAG5GsnsGqZj6yY"
+                ],
+                "verificationMethod": [
+                    {
+                    "id": "#key-1",
+                    "type": "JsonWebKey2020",
+                    "controller": "did:peer:2.Ez6LSbhKnZ7tsrvScZBR5mRSnVDa7S7km1aCpkHoWS1pkLhkj.Vz6MktvegL6Tx3fPrNhhYbtxmzq6nsjnQKoecKLARJVZ7catQ.Az6MktvegL6Tx3fPrNhhYbtxmzq6nsjnQKoecKLARJVZ7catQ.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0",
+                    "publicKeyJwk": {
+                        "kty": "OKP",
+                        "crv": "X25519",
+                        "x": "AEtUMFyAEQte9YlqvsqiKK9uD_PFe1lXNZ_CiMRpahA"
+                    }
+                    },
+                    {
+                    "id": "#key-2",
+                    "type": "JsonWebKey2020",
+                    "controller": "did:peer:2.Ez6LSbhKnZ7tsrvScZBR5mRSnVDa7S7km1aCpkHoWS1pkLhkj.Vz6MktvegL6Tx3fPrNhhYbtxmzq6nsjnQKoecKLARJVZ7catQ.Az6MktvegL6Tx3fPrNhhYbtxmzq6nsjnQKoecKLARJVZ7catQ.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0",
+                    "publicKeyJwk": {
+                        "kty": "OKP",
+                        "crv": "Ed25519",
+                        "x": "1wfj-I-3zHB86RPIje5i6_jb0TeC67KF_mz8kdcyYqE"
+                    }
+                    }
+                ],
+                "authentication": [
+                    "#key-2"
+                ],
+                "keyAgreement": [
+                    "#key-1"
+                ],
+                "service": [
+                    {
+                    "id": "#didcomm",
+                    "type": "DIDCommMessaging",
+                    "serviceEndpoint": {
+                        "accept": [
+                        "didcomm/v2"
+                        ],
+                        "routingKeys": [],
+                        "uri": "http://alice-mediator.com"
+                    }
+                    }
+                ]
+            }"##
+        ).unwrap();
+
+        prepend_alsoknownas_to_ids(&mut diddoc);
+
+        let expected = serde_json::from_str::<Value>(
+            r##"{
+                "@context": [
+                    "https://www.w3.org/ns/did/v1",
+                    "https://w3id.org/security/suites/jws-2020/v1"
+                ],
+                "id": "did:peer:2.Ez6LSbhKnZ7tsrvScZBR5mRSnVDa7S7km1aCpkHoWS1pkLhkj.Vz6MktvegL6Tx3fPrNhhYbtxmzq6nsjnQKoecKLARJVZ7catQ.Az6MktvegL6Tx3fPrNhhYbtxmzq6nsjnQKoecKLARJVZ7catQ.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0",
+                "alsoKnownAs": [
+                    "did:peer:3zQmSBPjNZR15mNMUBKpTqk8Z4icxkv91zAG5GsnsGqZj6yY"
+                ],
+                "verificationMethod": [
+                    {
+                    "id": "did:peer:3zQmSBPjNZR15mNMUBKpTqk8Z4icxkv91zAG5GsnsGqZj6yY#key-1",
+                    "type": "JsonWebKey2020",
+                    "controller": "did:peer:2.Ez6LSbhKnZ7tsrvScZBR5mRSnVDa7S7km1aCpkHoWS1pkLhkj.Vz6MktvegL6Tx3fPrNhhYbtxmzq6nsjnQKoecKLARJVZ7catQ.Az6MktvegL6Tx3fPrNhhYbtxmzq6nsjnQKoecKLARJVZ7catQ.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0",
+                    "publicKeyJwk": {
+                        "kty": "OKP",
+                        "crv": "X25519",
+                        "x": "AEtUMFyAEQte9YlqvsqiKK9uD_PFe1lXNZ_CiMRpahA"
+                    }
+                    },
+                    {
+                    "id": "did:peer:3zQmSBPjNZR15mNMUBKpTqk8Z4icxkv91zAG5GsnsGqZj6yY#key-2",
+                    "type": "JsonWebKey2020",
+                    "controller": "did:peer:2.Ez6LSbhKnZ7tsrvScZBR5mRSnVDa7S7km1aCpkHoWS1pkLhkj.Vz6MktvegL6Tx3fPrNhhYbtxmzq6nsjnQKoecKLARJVZ7catQ.Az6MktvegL6Tx3fPrNhhYbtxmzq6nsjnQKoecKLARJVZ7catQ.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0",
+                    "publicKeyJwk": {
+                        "kty": "OKP",
+                        "crv": "Ed25519",
+                        "x": "1wfj-I-3zHB86RPIje5i6_jb0TeC67KF_mz8kdcyYqE"
+                    }
+                    }
+                ],
+                "authentication": [
+                    "did:peer:3zQmSBPjNZR15mNMUBKpTqk8Z4icxkv91zAG5GsnsGqZj6yY#key-2"
+                ],
+                "keyAgreement": [
+                    "did:peer:3zQmSBPjNZR15mNMUBKpTqk8Z4icxkv91zAG5GsnsGqZj6yY#key-1"
+                ],
+                "service": [
+                    {
+                    "id": "#didcomm",
+                    "type": "DIDCommMessaging",
+                    "serviceEndpoint": {
+                        "accept": [
+                        "didcomm/v2"
+                        ],
+                        "routingKeys": [],
+                        "uri": "http://alice-mediator.com"
+                    }
+                    }
+                ]
+            }"##
+        ).unwrap();
+
+        assert_eq!(
+            json_canon::to_string(&diddoc).unwrap(),
+            json_canon::to_string(&expected).unwrap()
+        );
     }
 }
