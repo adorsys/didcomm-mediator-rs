@@ -8,25 +8,25 @@ authors = ["adorsys GmbH Co. KG"]
 
 [workspace]
 members = [
-    "crates/web-plugins/didcomm-messaging/keystore",
+    "crates/keystore",
     "crates/web-plugins/didcomm-messaging/did-utils",
     "crates/plugin-api",
     "crates/web-plugins/did-endpoint",
     "crates/web-plugins/didcomm-messaging",
     "crates/web-plugins/oob-messages",
-    "crates/web-plugins/didcomm-messaging/database",
+    "crates/database",
     "crates/web-plugins/didcomm-messaging/protocol-plugins/*",
 
 ]
 
 [workspace.dependencies]
 did-utils = { path = "./crates/web-plugins/didcomm-messaging/did-utils", version = "0.1.0" }
-keystore = { path = "./crates/web-plugins/didcomm-messaging/keystore", version = "0.1.0" }
+keystore = { path = "./crates/keystore", version = "0.1.0" }
 plugin-api = { path = "./crates/plugin-api", version = "0.1.0" }
 did-endpoint = { path = "./crates/web-plugins/did-endpoint", version = "0.1.0" }
 oob-messages = { path = "./crates/web-plugins/oob-messages", version = "0.1.0" }
 mediator-coordination = { path = "./crates/web-plugins/didcomm-messaging", version = "0.1.0" }
-database = { path = "./crates/web-plugins/didcomm-messaging/database", version = "0.1.0" }
+database = { path = "./crates/database", version = "0.1.0" }
 
 # Other common dependencies
 serde = "1.0"
