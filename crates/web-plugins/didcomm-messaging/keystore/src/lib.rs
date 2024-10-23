@@ -65,31 +65,6 @@ impl FileSystemKeystore {
         Ok(())
     }
 
-    fn decrypt(self, secret: KeyStore) -> Result<Vec<u8>, KeystoreError> {
-        let key = self.key.expose_secret(); // Access key securely
-        let cipher = ChaCha20Poly1305::new(GenericArray::from_slice(key.as_bytes()));
-
-        let path = secret.path();
-        let mut keystorefile = File::open(path.clone())?; // Use Result for error handling
-
-        let mut buffer = Vec::new();
-        keystorefile.read_to_end(&mut buffer)?; // Use Result for error handling
-
-        let decrypted_key = cipher
-            .decrypt(GenericArray::from_slice(&self.nonce), buffer.as_slice())
-            .map_err(|err| KeystoreError::DecryptionError(err))?; // Wrap decryption error
-
-        // Enhanced redaction: Replace all sensitive characters with asterisks
-        let redacted_key = decrypted_key.iter().map(|b| if b.is_ascii_graphic() && !b.is_ascii_whitespace() { '*' as u8 } else { *b }).collect::<Vec<u8>>();
-
-        // Conditional logging with redacted key
-        info!("Decryption successful for keystore file: {}, redacted key: {:?}", &path, redacted_key);
-
-        buffer.clear();
-        buffer.zeroize();
-
-        Ok(decrypted_key)
-    }
 }
 
 
