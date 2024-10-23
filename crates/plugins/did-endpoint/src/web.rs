@@ -1,4 +1,10 @@
-use axum::{extract::Query, response::Json, routing::get, Router};
+use crate::plugin::DidEndPointState;
+use axum::{
+    extract::{Query, State},
+    response::Json,
+    routing::get,
+    Router,
+};
 use chrono::Utc;
 use database::Repository;
 use did_utils::{
@@ -11,14 +17,16 @@ use keystore::KeyStore;
 use mongodb::bson::doc;
 use multibase::Base;
 use serde_json::{json, Value};
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
+use tokio::{runtime::Handle, task};
 
 const DEFAULT_CONTEXT_V2: &str = "https://www.w3.org/ns/credentials/v2";
 
-pub(crate) fn routes() -> Router {
+pub(crate) fn routes(state: Arc<DidEndPointState>) -> Router {
     Router::new() //
         .route("/.well-known/did.json", get(diddoc))
         .route("/.well-known/did/pop.json", get(didpop))
+        .with_state(state)
 }
 
 async fn diddoc() -> Result<Json<Value>, StatusCode> {
@@ -34,7 +42,10 @@ async fn diddoc() -> Result<Json<Value>, StatusCode> {
 }
 
 #[axum::debug_handler]
-async fn didpop(Query(params): Query<HashMap<String, String>>) -> Result<Json<Value>, StatusCode> {
+async fn didpop(
+    Query(params): Query<HashMap<String, String>>,
+    State(state): State<Arc<DidEndPointState>>,
+) -> Result<Json<Value>, StatusCode> {
     let challenge = params.get("challenge").ok_or(StatusCode::BAD_REQUEST)?;
 
     // Load DID document and its verification methods
@@ -87,15 +98,17 @@ async fn didpop(Query(params): Query<HashMap<String, String>>) -> Result<Json<Va
             _ => panic!("Unexpected key format"),
         };
 
-        let keystore = KeyStore::get();
+        let keystore = state.keystore.clone();
 
         let jwk = {
-            let secret = tokio::runtime::Runtime::new().unwrap().block_on(async {
-                keystore
-                    .find_one_by(doc! { "kid": method.id.clone() })
-                    .await
-                    .expect("Error fetching secret")
-                    .expect("Missing key")
+            let secret = task::block_in_place(|| {
+                Handle::current().block_on(async {
+                    keystore
+                        .find_one_by(doc! { "kid": method.id.clone() })
+                        .await
+                        .expect("Error fetching secret")
+                        .expect("Missing key")
+                })
             });
             secret.secret_material
         };
@@ -181,13 +194,12 @@ mod tests {
         proof::{CryptoProof, EdDsaJcs2022},
         vc::VerifiablePresentation,
     };
+    use keystore::tests::MockKeyStore;
     use serde_json::json;
     use tower::util::ServiceExt;
 
-    fn setup_ephemeral_diddoc() -> (String, Document) {
-        let storage_dirpath = dotenv_flow_read("STORAGE_DIRPATH")
-            .map(|p| format!("{}/{}", p, uuid::Uuid::new_v4()))
-            .unwrap();
+    fn setup_ephemeral_diddoc() -> (MockKeyStore, Document) {
+        let storage_dirpath = "../../filesystem/test/storage".to_string();
 
         let server_public_domain = dotenv_flow_read("SERVER_PUBLIC_DOMAIN").unwrap();
         let mut filesystem = filesystem::MockFileSystem;
@@ -205,7 +217,7 @@ mod tests {
         // TODO! Find a race-free way to accomodate this. Maybe a test mutex?
         // std::env::set_var("STORAGE_DIRPATH", &storage_dirpath);
 
-        (storage_dirpath, diddoc)
+        (keystore, diddoc)
     }
 
     // fn cleanup(storage_dirpath: &str) {
@@ -213,12 +225,14 @@ mod tests {
     //     std::fs::remove_dir_all(storage_dirpath).unwrap();
     // }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn verify_didpop() {
         // Generate test-restricted did.json
-        let (_, expected_diddoc) = setup_ephemeral_diddoc();
+        let (keystore, expected_diddoc) = setup_ephemeral_diddoc();
+        let state = DidEndPointState{
+            keystore: Arc::new(keystore)};
 
-        let app = routes();
+        let app = routes(Arc::new(state));
         let response = app
             .oneshot(
                 Request::builder()

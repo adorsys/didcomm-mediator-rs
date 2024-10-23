@@ -17,7 +17,7 @@ use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct LocalDIDResolver {
-    diddoc: DIDDoc,
+    diddoc: Document,
 }
 
 impl LocalDIDResolver {
@@ -33,7 +33,11 @@ impl LocalDIDResolver {
 impl DIDResolver for LocalDIDResolver {
     async fn resolve(&self, did: &str) -> Result<Option<DIDDoc>> {
         if did == self.diddoc.id {
-            return Ok(Some(self.diddoc.clone()));
+            let mut diddoc = self.diddoc.clone();
+            prepend_alsoknownas_to_ids(&mut diddoc);
+            return Ok(Some(serde_json::from_value(json!(diddoc)).expect(
+                "Should easily convert between documents representations",
+            )));
         }
 
         if did.starts_with("did:key") {

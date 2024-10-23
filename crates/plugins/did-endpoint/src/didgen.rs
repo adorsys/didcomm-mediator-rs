@@ -195,7 +195,7 @@ where
         let kid = format!(
             "{}{}",
             diddoc.also_known_as.as_ref().unwrap()[0],
-            &method.id
+            method.id
         );
         match pubkey {
             KeyFormat::Jwk(_) => validate_key(&kid, keystore)?,
