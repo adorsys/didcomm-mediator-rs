@@ -10,6 +10,7 @@ plugin-api.workspace = true
 did-utils.workspace = true
 filesystem.workspace = true
 
+cfg-if.workspace = true
 url.workspace = true
 mongodb.workspace = true
 chrono.workspace = true
@@ -26,6 +27,8 @@ tokio = { workspace = true, features = ["full"] }
 axum = { workspace = true, features = ["macros"] }
 
 [dev-dependencies]
+async-trait.workspace = true
+mockall = "0.13.0"
 json-canon = "0.1.3"
 filesystem = { workspace = true, features = ["test-utils"] }
 keystore = { workspace = true, features = ["test-utils"] }

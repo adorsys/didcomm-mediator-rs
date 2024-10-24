@@ -3,7 +3,8 @@ use axum::Router;
 use database::Repository;
 use keystore::Secrets;
 use plugin_api::{Plugin, PluginError};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
+use filesystem::FileSystem;
 
 #[derive(Default)]
 pub struct DidEndpoint {
@@ -18,7 +19,8 @@ struct DidEndpointEnv {
 
 #[derive(Clone)]
 pub(crate) struct DidEndPointState {
-    pub keystore: Arc<dyn Repository<Secrets>>,
+    pub(crate) keystore: Arc<dyn Repository<Secrets>>,
+    pub(crate) filesystem: Arc<Mutex<dyn FileSystem>>,
 }
 
 fn get_env() -> Result<DidEndpointEnv, PluginError> {
@@ -68,6 +70,7 @@ impl Plugin for DidEndpoint {
         self.env = Some(env);
         self.state = Some(DidEndPointState {
             keystore: Arc::new(keystore),
+            filesystem: Arc::new(Mutex::new(filesystem)),
         });
 
         Ok(())
