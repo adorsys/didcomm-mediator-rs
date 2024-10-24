@@ -1,7 +1,9 @@
-mod coord;
+pub(crate) mod coord;
 pub mod error;
-mod handler;
-mod midlw;
+pub(crate) mod handler;
+pub(crate) mod midlw;
+
+pub use self::midlw::{unpack_didcomm_message, pack_response_message};
 
 use axum::{middleware, routing::post, Router};
 use database::Repository;
@@ -28,11 +30,11 @@ pub fn routes(state: Arc<AppState>) -> Router {
 #[allow(unused)]
 pub struct AppState {
     // Metadata
-    public_domain: String,
+    pub public_domain: String,
 
     // Crypto identity
-    pub(crate) diddoc: Document,
-    assertion_jwk: (String, Jwk),
+    pub diddoc: Document,
+    pub assertion_jwk: (String, Jwk),
 
     // DIDComm Resolvers
     pub(crate) did_resolver: LocalDIDResolver,
