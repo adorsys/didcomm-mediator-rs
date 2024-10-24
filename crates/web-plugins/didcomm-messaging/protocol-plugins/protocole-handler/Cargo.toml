@@ -1,0 +1,11 @@
+[package]
+name = "protocole-handler"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+axum.workspace = true
+
+plugin-api.workspace = true
+tracing.workspace = true
+lazy_static.workspace = true
