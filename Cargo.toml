@@ -24,7 +24,7 @@ keystore = { path = "./crates/keystore", version = "0.1.0" }
 plugin-api = { path = "./crates/plugin-api", version = "0.1.0" }
 did-endpoint = { path = "./crates/web-plugins/did-endpoint", version = "0.1.0" }
 oob-messages = { path = "./crates/web-plugins/oob-messages", version = "0.1.0" }
-mediator-coordination = { path = "./crates/web-plugins/didcomm-messaging", version = "0.1.0" }
+didcomm-messaging = { path = "./crates/web-plugins/didcomm-messaging", version = "0.1.0" }
 database = { path = "./crates/database", version = "0.1.0" }
 
 # Other common dependencies
