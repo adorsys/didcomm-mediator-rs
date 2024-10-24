@@ -130,9 +130,7 @@ where
     task::block_in_place(move || {
         Handle::current().block_on(async move {
             match keystore.store(secret).await {
-                Ok(_) => {
-                    tracing::info!("Successfully stored secret.")
-                }
+                Ok(_) => tracing::info!("Successfully stored secret."),
                 Err(error) => tracing::error!("Error storing secret: {:?}", error),
             }
         })

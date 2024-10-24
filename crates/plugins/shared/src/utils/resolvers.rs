@@ -130,7 +130,7 @@ impl SecretsResolver for LocalSecretsResolver {
     }
 
     async fn find_secrets<'a>(&self, secret_ids: &'a [&'a str]) -> Result<Vec<&'a str>> {
-        let mut found_secret_ids = Vec::new();
+        let mut found_secret_ids = Vec::with_capacity(secret_ids.len());
 
         for secret_id in secret_ids.iter() {
             if self
@@ -385,7 +385,7 @@ mod tests {
                         "type": "DIDCommMessaging",
                         "serviceEndpoint": {
                             "accept": [
-                            "didcomm/v2"
+                                "didcomm/v2"
                             ],
                             "routingKeys": [],
                             "uri": "http://alice-mediator.com"
@@ -441,7 +441,7 @@ mod tests {
                         "type": "DIDCommMessaging",
                         "serviceEndpoint": {
                             "accept": [
-                            "didcomm/v2"
+                                "didcomm/v2"
                             ],
                             "routingKeys": [],
                             "uri": "http://alice-mediator.com"

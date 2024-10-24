@@ -8,15 +8,12 @@ authors = ["adorsys GmbH Co. KG"]
 
 [workspace]
 members = [
-    "crates/*",
-    "crates/plugins",
-    "crates/plugins/shared",
-    "crates/plugins/did-endpoint",
-    "crates/plugins/oob-messages",
-    "crates/plugins/protocol-manager",
-    "crates/plugins/pickup",
-    "crates/plugins/forward",
-    "crates/plugins/mediator-coordination",
+    "crates/did-utils",
+    "crates/keystore",
+    "crates/database",
+    "crates/filesystem",
+    "crates/plugin-api",
+    "crates/plugins/*",
 ]
 
 
@@ -26,14 +23,13 @@ keystore = { path = "./crates/keystore", version = "0.1.0" }
 database = { path = "./crates/database", version = "0.1.0" }
 filesystem = { path = "./crates/filesystem", version = "0.1.0" }
 plugin-api = { path = "./crates/plugin-api", version = "0.1.0" }
-plugins = { path = "./crates/plugins", version = "0.1.0" }
 shared = { path = "./crates/plugins/shared", version = "0.1.0" }
 pickup = { path = "./crates/plugins/pickup", version = "0.1.0" }
 forward = { path = "./crates/plugins/forward", version = "0.1.0" }
 did-endpoint = { path = "./crates/plugins/did-endpoint", version = "0.1.0" }
 oob-messages = { path = "./crates/plugins/oob-messages", version = "0.1.0" }
-protocol-manager = { path = "./crates/plugins/protocol-manager", version = "0.1.0" }
 mediator-coordination = { path = "./crates/plugins/mediator-coordination", version = "0.1.0" }
+protocol-manager = { path = "./crates/plugins/protocol-manager", version = "0.1.0" }
 
 # Other common dependencies
 serde = "1.0"
@@ -96,9 +92,9 @@ tower-http = { workspace = true, features = ["catch-panic", "trace"] }
 
 # optional dependencies
 chrono = { workspace = true, optional = true }
-plugins = { workspace = true, optional = true }
 did-endpoint = { workspace = true, optional = true }
 oob-messages = { workspace = true, optional = true }
+protocol-manager = { workspace = true, optional = true }
 
 
 [features]
@@ -106,13 +102,13 @@ default = [
     "plugin-index",
     "plugin-did_endpoint",
     "plugin-oob_messages",
-    "plugin-plugins",
+    "plugin-didcomm_messaging",
 ]
 
 plugin-index = ["dep:chrono"]
 plugin-did_endpoint = ["dep:did-endpoint"]
 plugin-oob_messages = ["dep:oob-messages"]
-plugin-plugins = ["dep:plugins"]
+plugin-didcomm_messaging = ["dep:protocol-manager"]
 
 
 [dev-dependencies]

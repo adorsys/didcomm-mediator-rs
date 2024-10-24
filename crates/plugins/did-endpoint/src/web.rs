@@ -15,7 +15,7 @@ use hyper::StatusCode;
 use mongodb::bson::doc;
 use multibase::Base;
 use serde_json::{json, Value};
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, path::Path, sync::Arc};
 use tokio::{runtime::Handle, task};
 
 const DEFAULT_CONTEXT_V2: &str = "https://www.w3.org/ns/credentials/v2";
@@ -33,8 +33,9 @@ async fn diddoc(State(state): State<Arc<DidEndPointState>>) -> Result<Json<Value
         StatusCode::NOT_FOUND
     })?;
     let filesystem = state.filesystem.lock().unwrap();
+    let did_path = Path::new(&storage_dirpath).join("did.json");
 
-    match filesystem.read_to_string(format!("{storage_dirpath}/did.json").as_ref()) {
+    match filesystem.read_to_string(&did_path).as_ref() {
         Ok(content) => Ok(Json(serde_json::from_str(&content).unwrap())),
         Err(_) => Err(StatusCode::NOT_FOUND),
     }
@@ -101,7 +102,7 @@ async fn didpop(
                 let secret = task::block_in_place(|| {
                     Handle::current().block_on(async {
                         keystore
-                            .find_one_by(doc! { "kid": kid.into_owned() })
+                            .find_one_by(doc! { "kid": kid.as_ref() })
                             .await
                             .expect("Error fetching secret")
                             .expect("Missing key")

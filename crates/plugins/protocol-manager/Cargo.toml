@@ -4,3 +4,29 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+database.workspace = true
+did-endpoint.workspace = true
+keystore.workspace = true
+shared.workspace = true
+plugin-api.workspace = true
+filesystem.workspace = true
+forward.workspace = true
+pickup.workspace = true
+mediator-coordination.workspace = true
+
+mongodb.workspace = true
+didcomm.workspace = true
+tracing.workspace = true
+serde_json.workspace = true
+tokio = { workspace = true, features = ["full"] }
+hyper = { workspace = true, features = ["full"] }
+axum = { workspace = true, features = ["macros"] }
+
+[dev-dependencies]
+json-canon = "0.1.3"
+shared = { workspace = true, features = ["test-utils"] }
+tokio = { version = "1.27.0", default-features = false, features = [
+    "macros",
+    "rt",
+] }
+tower = { version = "0.4.13", features = ["util"] }

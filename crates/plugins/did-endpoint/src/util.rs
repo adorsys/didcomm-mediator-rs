@@ -26,7 +26,7 @@ mod tests {
             ..Default::default()
         };
         assert_eq!(handle_vm_id("#key-1", &diddoc), "did:example:123#key-1");
-        assert_eq!(handle_vm_id("key-1", &diddoc), "key-1");
+        assert_eq!(handle_vm_id("did:key:123#456", &diddoc), "did:key:123#456");
 
         let diddoc = Document::default();
         assert_eq!(handle_vm_id("#key-1", &diddoc), "#key-1");
