@@ -201,26 +201,25 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn verify_didpop() {
-        dotenv_flow::from_filename("../../.env.example").ok();
+        dotenv_flow::from_filename("../../../.env.example").ok();
 
         let expected_diddoc: Document = serde_json::from_str(
             r##"{
-                    "@context": ["https://www.w3.org/ns/did/v1"],
-                    "id": "did:peer:123",
-                    "alsoKnownAs": ["did:peer:123"],
-                    "verificationMethod": [
-                        {
-                            "id": "#key-1",
-                            "type": "JsonWebKey2020",
-                            "controller": "did:peer:123",
-                            "publicKeyJwk": {
-                                "kty": "OKP",
-                                "crv": "Ed25519",
-                                "x": "PuG2L5um-tAnHlvT29gTm9Wj9fZca16vfBCPKsHB5cA"
-                            }
+                "@context": ["https://www.w3.org/ns/did/v1"],
+                "id": "did:peer:123",
+                "verificationMethod": [
+                    {
+                        "id": "#key-1",
+                        "type": "JsonWebKey2020",
+                        "controller": "did:peer:123",
+                        "publicKeyJwk": {
+                            "kty": "OKP",
+                            "crv": "Ed25519",
+                            "x": "PuG2L5um-tAnHlvT29gTm9Wj9fZca16vfBCPKsHB5cA"
                         }
-                    ],
-                    "authentication": ["#key-1"]
+                    }
+                ],
+                "authentication": ["#key-1"]
             }"##,
         )
         .unwrap();
@@ -237,7 +236,6 @@ mod tests {
                 Ok(r##"{
                         "@context": ["https://www.w3.org/ns/did/v1"],
                         "id": "did:peer:123",
-                        "alsoKnownAs": ["did:peer:123"],
                         "verificationMethod": [
                             {
                                 "id": "#key-1",

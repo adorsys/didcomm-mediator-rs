@@ -179,11 +179,11 @@ fn generate_did_peer(service_endpoint: String) -> (String, Ed25519KeyPair, X2551
     // Format them for did:peer
     let keys = vec![
         PurposedKey {
-            purpose: Purpose::Encryption,
+            purpose: Purpose::Verification,
             public_key_multibase: auth_keys.to_multikey(),
         },
         PurposedKey {
-            purpose: Purpose::Verification,
+            purpose: Purpose::Encryption,
             public_key_multibase: agreem_keys.to_multikey(),
         },
     ];
@@ -192,7 +192,10 @@ fn generate_did_peer(service_endpoint: String) -> (String, Ed25519KeyPair, X2551
     let services = vec![Service {
         id: String::from("#didcomm"),
         service_type: String::from("DIDCommMessaging"),
-        service_endpoint: json!({"uri": service_endpoint, "accept": vec!["didcomm/v2"], "routingKeys": Vec::<String>::new()}),
+        service_endpoint: json!({
+            "uri": service_endpoint,
+            "accept": vec!["didcomm/v2"],
+            "routingKeys": Vec::<String>::new()}),
         ..Default::default()
     }];
 

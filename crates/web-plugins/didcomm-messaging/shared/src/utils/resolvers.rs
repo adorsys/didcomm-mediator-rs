@@ -74,26 +74,24 @@ impl DIDResolver for LocalDIDResolver {
 }
 
 fn prepend_alsoknownas_to_ids(diddoc: &mut Document) {
-    if let Some(also_known_as) = diddoc.also_known_as.as_ref().and_then(|v| v.first()) {
-        if let Some(verification_methods) = diddoc.verification_method.as_mut() {
-            for vm in verification_methods.iter_mut() {
-                vm.id = also_known_as.to_owned() + &vm.id;
-            }
+    if let Some(verification_methods) = diddoc.verification_method.as_mut() {
+        for vm in verification_methods.iter_mut() {
+            vm.id = diddoc.id.to_owned() + &vm.id;
         }
+    }
 
-        let rel_prepend = |rel: &mut Option<Vec<VerificationMethodType>>| {
-            if let Some(rel) = rel {
-                for vm in rel.iter_mut() {
-                    if let VerificationMethodType::Reference(ref mut id) = vm {
-                        *id = also_known_as.to_owned() + id;
-                    }
+    let rel_prepend = |rel: &mut Option<Vec<VerificationMethodType>>| {
+        if let Some(rel) = rel {
+            for vm in rel.iter_mut() {
+                if let VerificationMethodType::Reference(ref mut id) = vm {
+                    *id = diddoc.id.to_owned() + id;
                 }
             }
-        };
+        }
+    };
 
-        rel_prepend(&mut diddoc.authentication);
-        rel_prepend(&mut diddoc.key_agreement);
-    }
+    rel_prepend(&mut diddoc.authentication);
+    rel_prepend(&mut diddoc.key_agreement);
 }
 
 #[derive(Clone)]
@@ -174,7 +172,7 @@ mod tests {
                 "id": "did:peer:2.Ez6LSteycMr6tTki5aAEjNAVDsp1vrx9DuDWHDnky9qxyFNUF.Vz6MkigiwfSzv66VSTAeGZLsTHa8ixK1agNFvry2KjYXmg1G3.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0",
                 "verificationMethod": [
                     {
-                        "id": "did:peer:3zQmZo9aYaBjv2XtjRcTfP7X7QwyU1VVnrcEWVtcBhiAtPFa#key-1",
+                        "id": "did:peer:2.Ez6LSteycMr6tTki5aAEjNAVDsp1vrx9DuDWHDnky9qxyFNUF.Vz6MkigiwfSzv66VSTAeGZLsTHa8ixK1agNFvry2KjYXmg1G3.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0#key-1",
                         "type": "JsonWebKey2020",
                         "controller": "did:peer:2.Ez6LSteycMr6tTki5aAEjNAVDsp1vrx9DuDWHDnky9qxyFNUF.Vz6MkigiwfSzv66VSTAeGZLsTHa8ixK1agNFvry2KjYXmg1G3.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0",
                         "publicKeyJwk": {
@@ -184,7 +182,7 @@ mod tests {
                         }
                     },
                     {
-                        "id": "did:peer:3zQmZo9aYaBjv2XtjRcTfP7X7QwyU1VVnrcEWVtcBhiAtPFa#key-2",
+                        "id": "did:peer:2.Ez6LSteycMr6tTki5aAEjNAVDsp1vrx9DuDWHDnky9qxyFNUF.Vz6MkigiwfSzv66VSTAeGZLsTHa8ixK1agNFvry2KjYXmg1G3.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0#key-2",
                         "type": "JsonWebKey2020",
                         "controller": "did:peer:2.Ez6LSteycMr6tTki5aAEjNAVDsp1vrx9DuDWHDnky9qxyFNUF.Vz6MkigiwfSzv66VSTAeGZLsTHa8ixK1agNFvry2KjYXmg1G3.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0",
                         "publicKeyJwk": {
@@ -195,10 +193,10 @@ mod tests {
                     }
                 ],
                 "authentication": [
-                    "did:peer:3zQmZo9aYaBjv2XtjRcTfP7X7QwyU1VVnrcEWVtcBhiAtPFa#key-2"
+                    "did:peer:2.Ez6LSteycMr6tTki5aAEjNAVDsp1vrx9DuDWHDnky9qxyFNUF.Vz6MkigiwfSzv66VSTAeGZLsTHa8ixK1agNFvry2KjYXmg1G3.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0#key-2"
                 ],
                 "keyAgreement": [
-                    "did:peer:3zQmZo9aYaBjv2XtjRcTfP7X7QwyU1VVnrcEWVtcBhiAtPFa#key-1"
+                    "did:peer:2.Ez6LSteycMr6tTki5aAEjNAVDsp1vrx9DuDWHDnky9qxyFNUF.Vz6MkigiwfSzv66VSTAeGZLsTHa8ixK1agNFvry2KjYXmg1G3.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0#key-1"
                 ],
                 "service": [
                     {
@@ -410,7 +408,7 @@ mod tests {
                 ],
                 "verificationMethod": [
                     {
-                        "id": "did:peer:3zQmSBPjNZR15mNMUBKpTqk8Z4icxkv91zAG5GsnsGqZj6yY#key-1",
+                        "id": "did:peer:2.Ez6LSbhKnZ7tsrvScZBR5mRSnVDa7S7km1aCpkHoWS1pkLhkj.Vz6MktvegL6Tx3fPrNhhYbtxmzq6nsjnQKoecKLARJVZ7catQ.Az6MktvegL6Tx3fPrNhhYbtxmzq6nsjnQKoecKLARJVZ7catQ.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0#key-1",
                         "type": "JsonWebKey2020",
                         "controller": "did:peer:2.Ez6LSbhKnZ7tsrvScZBR5mRSnVDa7S7km1aCpkHoWS1pkLhkj.Vz6MktvegL6Tx3fPrNhhYbtxmzq6nsjnQKoecKLARJVZ7catQ.Az6MktvegL6Tx3fPrNhhYbtxmzq6nsjnQKoecKLARJVZ7catQ.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0",
                         "publicKeyJwk": {
@@ -420,7 +418,7 @@ mod tests {
                         }
                     },
                     {
-                        "id": "did:peer:3zQmSBPjNZR15mNMUBKpTqk8Z4icxkv91zAG5GsnsGqZj6yY#key-2",
+                        "id": "did:peer:2.Ez6LSbhKnZ7tsrvScZBR5mRSnVDa7S7km1aCpkHoWS1pkLhkj.Vz6MktvegL6Tx3fPrNhhYbtxmzq6nsjnQKoecKLARJVZ7catQ.Az6MktvegL6Tx3fPrNhhYbtxmzq6nsjnQKoecKLARJVZ7catQ.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0#key-2",
                         "type": "JsonWebKey2020",
                         "controller": "did:peer:2.Ez6LSbhKnZ7tsrvScZBR5mRSnVDa7S7km1aCpkHoWS1pkLhkj.Vz6MktvegL6Tx3fPrNhhYbtxmzq6nsjnQKoecKLARJVZ7catQ.Az6MktvegL6Tx3fPrNhhYbtxmzq6nsjnQKoecKLARJVZ7catQ.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0",
                         "publicKeyJwk": {
@@ -431,10 +429,10 @@ mod tests {
                     }
                 ],
                 "authentication": [
-                    "did:peer:3zQmSBPjNZR15mNMUBKpTqk8Z4icxkv91zAG5GsnsGqZj6yY#key-2"
+                    "did:peer:2.Ez6LSbhKnZ7tsrvScZBR5mRSnVDa7S7km1aCpkHoWS1pkLhkj.Vz6MktvegL6Tx3fPrNhhYbtxmzq6nsjnQKoecKLARJVZ7catQ.Az6MktvegL6Tx3fPrNhhYbtxmzq6nsjnQKoecKLARJVZ7catQ.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0#key-2"
                 ],
                 "keyAgreement": [
-                    "did:peer:3zQmSBPjNZR15mNMUBKpTqk8Z4icxkv91zAG5GsnsGqZj6yY#key-1"
+                    "did:peer:2.Ez6LSbhKnZ7tsrvScZBR5mRSnVDa7S7km1aCpkHoWS1pkLhkj.Vz6MktvegL6Tx3fPrNhhYbtxmzq6nsjnQKoecKLARJVZ7catQ.Az6MktvegL6Tx3fPrNhhYbtxmzq6nsjnQKoecKLARJVZ7catQ.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0#key-1"
                 ],
                 "service": [
                     {

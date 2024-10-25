@@ -3,11 +3,7 @@ use std::borrow::Cow;
 
 pub(crate) fn handle_vm_id<'a>(vm_id: &'a str, diddoc: &Document) -> Cow<'a, str> {
     if vm_id.starts_with('#') {
-        if let Some(also_known_as) = diddoc.also_known_as.as_ref() {
-            Cow::Owned(format!("{}{}", also_known_as[0], vm_id))
-        } else {
-            Cow::Borrowed(vm_id)
-        }
+        Cow::Owned(diddoc.id.clone() + vm_id)
     } else {
         Cow::Borrowed(vm_id)
     }
@@ -22,7 +18,7 @@ mod tests {
     #[test]
     fn test_handle_vm_id() {
         let diddoc = Document {
-            also_known_as: Some(vec!["did:example:123".to_owned()]),
+            id: "did:example:123".to_owned(),
             ..Default::default()
         };
         assert_eq!(handle_vm_id("#key-1", &diddoc), "did:example:123#key-1");

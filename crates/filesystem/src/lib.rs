@@ -82,9 +82,6 @@ impl FileSystem for MockFileSystem {
             p if p.ends_with("did.json") => {
                 Ok(include_str!("../test/storage/did.json").to_string())
             }
-            p if p.ends_with("secrets.json") => {
-                Ok(include_str!("../test/storage/secrets.json").to_string())
-            }
             _ => Err(IoError::new(ErrorKind::NotFound, "NotFound")),
         }
     }

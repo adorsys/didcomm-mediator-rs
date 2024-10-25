@@ -313,7 +313,6 @@ pub(crate) mod tests {
                 Ok(r##"{
                         "@context": ["https://www.w3.org/ns/did/v1"],
                         "id": "did:peer:123",
-                        "alsoKnownAs": ["did:peer:123"],
                         "verificationMethod": [
                             {
                                 "id": "#key-1",
