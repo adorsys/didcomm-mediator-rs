@@ -1,7 +1,7 @@
 use super::errors::RotationError;
 use crate::{didcomm::bridge::LocalDIDResolver, model::stateful::entity::Connection};
 use axum::response::{IntoResponse, Response};
-use database::Repository;
+use database::{Repository, RepositoryError};
 use didcomm::{FromPrior, Message};
 use mongodb::bson::doc;
 use std::sync::Arc;
@@ -81,7 +81,8 @@ mod test {
 
     use did_utils::{didcore::Document, jwk::Jwk};
     use didcomm::secrets::SecretsResolver;
-    use hyper::{header::CONTENT_TYPE, Body, Method, Request, StatusCode};
+    use hyper::{client::conn, header::CONTENT_TYPE, Body, Method, Request, StatusCode};
+    use mongodb::bson::doc;
     use tower::ServiceExt;
 
     use crate::{
@@ -170,7 +171,7 @@ mod test {
 
     use super::did_rotation;
 
-    fn doc() -> Document {
+    fn didoc() -> Document {
         let doc: did_utils::didcore::Document = serde_json::from_str(
             r#"{
             "@context": [
@@ -249,7 +250,7 @@ mod test {
             jti: None,
         };
 
-        let did_resolver = LocalDIDResolver::new(&doc());
+        let did_resolver = LocalDIDResolver::new(&didoc());
         let kid = "did:key:z6MkrQT3VKYGkbPaYuJeBv31gNgpmVtRWP5yTocLDBgPpayM#z6MkrQT3VKYGkbPaYuJeBv31gNgpmVtRWP5yTocLDBgPpayM";
         let (jwt, _kid) = from_prior
             .pack(Some(&kid), &did_resolver, &prev_secrets_resolver())
@@ -289,14 +290,28 @@ mod test {
             connection_repository,
             ..
         } = state.repository.as_ref().unwrap();
-        let msg = test_message_payload(jwt);
 
+        let msg = test_message_payload(jwt);
         did_rotation(msg, &connection_repository).await.unwrap();
+
+        // assert if did was rotated on mediator's site
+        let _ = match connection_repository
+            .find_one_by(doc! {"client_did": new_did()})
+            .await
+            .unwrap()
+        {
+            Some(conn) => {
+                assert_eq!(conn.client_did, new_did())
+            }
+            None => {
+                panic!("Rotation Error")
+            }
+        };
     }
 
     #[tokio::test]
     async fn test_integrate_with_unified_route() {
-        let did_resolver = LocalDIDResolver::new(&doc());
+        let did_resolver = LocalDIDResolver::new(&didoc());
         let jwt = test_jwt_data().await;
         let msg = test_message_payload(jwt);
         let (msg, _) = msg
@@ -310,14 +325,14 @@ mod test {
             )
             .await
             .unwrap();
-
+       
         // Send request
         let app = web::routes(Arc::clone(&setup()));
 
         let response = app
             .oneshot(
                 Request::builder()
-                    .uri(String::from("/"))
+                    .uri(String::from("/mediate"))
                     .method(Method::POST)
                     .header(CONTENT_TYPE, DIDCOMM_ENCRYPTED_MIME_TYPE)
                     .body(Body::from(msg))
