@@ -332,7 +332,7 @@ mod test {
         let response = app
             .oneshot(
                 Request::builder()
-                    .uri(String::from("/mediate"))
+                    .uri(String::from("/"))
                     .method(Method::POST)
                     .header(CONTENT_TYPE, DIDCOMM_ENCRYPTED_MIME_TYPE)
                     .body(Body::from(msg))
