@@ -59,8 +59,8 @@ mod tests {
     #[test]
     fn test_deserialize_stateless_mediation_requests() {
         let msg = r#"{
-            "@id": "id_alice_mediation_request",
-            "@type": "https://didcomm.org/coordinate-mediation/dic/1.0/mediate-request",
+            "id": "id_alice_mediation_request",
+            "type": "https://didcomm.org/coordinate-mediation/dic/1.0/mediate-request",
             "did": "did:key:alice_identity_pub@alice_mediator",
             "services": ["inbox", "outbox"]
         }"#;
@@ -69,8 +69,8 @@ mod tests {
         assert!(matches!(mediation_request, MediationRequest::Stateless(_)));
 
         let msg = r#"{
-            "@id": "id_alice_mediation_request",
-            "@type": "https://didcomm.org/coordinate-mediation/3.0/mediate-request",
+            "id": "id_alice_mediation_request",
+            "type": "https://didcomm.org/coordinate-mediation/3.0/mediate-request",
             "did": "did:key:alice_identity_pub@alice_mediator",
             "services": ["inbox", "outbox"]
         }"#;
@@ -84,16 +84,16 @@ mod tests {
     fn test_deserialize_stateful_mediation_requests() {
         let msg = r#"{
             "return_route": "all",
-            "@id": "id_alice_mediation_request",
-            "@type": "https://didcomm.org/coordinate-mediation/2.0/mediate-request"
+            "id": "id_alice_mediation_request",
+            "type": "https://didcomm.org/coordinate-mediation/2.0/mediate-request"
         }"#;
 
         let mediation_request: MediationRequest = serde_json::from_str(msg).unwrap();
         assert!(matches!(mediation_request, MediationRequest::Stateful(_)));
 
         let msg = r#"{
-            "@id": "id_alice_mediation_request",
-            "@type": "https://didcomm.org/coordinate-mediation/3.0/mediate-request"
+            "id": "id_alice_mediation_request",
+            "type": "https://didcomm.org/coordinate-mediation/3.0/mediate-request"
         }"#;
 
         let err = serde_json::from_str::<MediationRequest>(msg).unwrap_err();

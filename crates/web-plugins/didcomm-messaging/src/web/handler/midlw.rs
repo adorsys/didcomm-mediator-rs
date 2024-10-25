@@ -62,7 +62,7 @@ pub fn ensure_mediation_request_type(
     mediation_request: &Value,
     message_type: &str,
 ) -> Result<(), Response> {
-    if mediation_request.get("@type") != Some(&json!(message_type)) {
+    if mediation_request.get("type") != Some(&json!(message_type)) {
         let response = (
             StatusCode::BAD_REQUEST,
             MediationError::InvalidMessageType.json(),
@@ -95,8 +95,8 @@ mod tests {
             "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
             MEDIATE_REQUEST_2_0.to_string(),
             json!({
-                "@id": "id_alice_mediation_request",
-                "@type": MEDIATE_REQUEST_2_0,
+                "id": "id_alice_mediation_request",
+                "type": MEDIATE_REQUEST_2_0,
                 "did": "did:key:alice_identity_pub@alice_mediator",
                 "services": ["inbox", "outbox"]
             }),
@@ -111,8 +111,8 @@ mod tests {
             "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
             MEDIATE_REQUEST_DIC_1_0.to_string(),
             json!({
-                "@id": "id_alice_mediation_request",
-                "@type": MEDIATE_REQUEST_DIC_1_0,
+                "id": "id_alice_mediation_request",
+                "type": MEDIATE_REQUEST_DIC_1_0,
                 "did": "did:key:alice_identity_pub@alice_mediator",
                 "services": ["inbox", "outbox"]
             }),
@@ -129,8 +129,8 @@ mod tests {
             "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
             "invalid-type".to_string(),
             json!({
-                "@id": "id_alice_mediation_request",
-                "@type": MEDIATE_REQUEST_2_0,
+                "id": "id_alice_mediation_request",
+                "type": MEDIATE_REQUEST_2_0,
                 "did": "did:key:alice_identity_pub@alice_mediator",
                 "services": ["inbox", "outbox"]
             }),
@@ -157,8 +157,8 @@ mod tests {
                     "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
                     MEDIATE_REQUEST_2_0.to_string(),
                     json!({
-                        "@id": "id_alice_mediation_request",
-                        "@type": MEDIATE_REQUEST_2_0,
+                        "id": "id_alice_mediation_request",
+                        "type": MEDIATE_REQUEST_2_0,
                         "did": "did:key:alice_identity_pub@alice_mediator",
                         "services": ["inbox", "outbox"]
                     }),

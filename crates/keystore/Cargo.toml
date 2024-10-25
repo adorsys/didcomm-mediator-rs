@@ -5,12 +5,16 @@ edition = "2021"
 
 [dependencies]
 did-utils.workspace = true
+<<<<<<< HEAD:crates/keystore/Cargo.toml
 
 once_cell.workspace = true
 async-trait.workspace = true
 mongodb.workspace = true
 database.workspace = true
 serde.workspace = true
+=======
+chrono.workspace = true
+>>>>>>> origin/main:crates/web-plugins/didcomm-messaging/keystore/Cargo.toml
 serde_json.workspace = true
 thiserror.workspace = true
 nix.workspace = true
