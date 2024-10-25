@@ -231,12 +231,19 @@ mod tests {
 
     #[test]
     fn test_validate_input_document_empty() {
-        let diddoc = DIDDocument::default();
+        let diddoc = DIDDocument {
+            verification_method: None,
+            authentication: None,
+            key_agreement: None,
+            assertion_method: None,
+            service: None,
+            ..DIDDocument::default()
+        };
         assert!(validate_input_document(&diddoc).is_err());
     }
 
     #[test]
-    fn test_validate_input_document_non_empty() {
+    fn test_validate_input_document_not_empty() {
         let diddoc = DIDDocument {
             service: Some(vec![Service {
                 id: "#service-0".to_string(),

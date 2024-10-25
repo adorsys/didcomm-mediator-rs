@@ -9,7 +9,7 @@ use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use thiserror::Error;
-use tokio::sync::Mutex;
+use tokio::sync::RwLock;
 
 /// A trait that ensures the entity has an `id` field.
 pub trait Identifiable {
@@ -30,13 +30,13 @@ pub enum RepositoryError {
     TargetNotFound,
 }
 
-static MONGO_DB: OnceCell<Arc<Mutex<Database>>> = OnceCell::new();
+static MONGO_DB: OnceCell<Arc<RwLock<Database>>> = OnceCell::new();
 
 /// Get a handle to a database.
 ///
 /// Many threads may call this function concurrently with different initializing functions,
 /// but it is guaranteed that only one function will be executed.
-pub fn get_or_init_database() -> Arc<Mutex<Database>> {
+pub fn get_or_init_database() -> Arc<RwLock<Database>> {
     MONGO_DB
         .get_or_init(|| {
             let mongo_uri = std::env::var("MONGO_URI").expect("MONGO_URI env variable required");
@@ -55,8 +55,7 @@ pub fn get_or_init_database() -> Arc<Mutex<Database>> {
                 })
             });
 
-            // Get a handle to a database.
-            Arc::new(Mutex::new(db))
+            Arc::new(RwLock::new(db))
         })
         .clone()
 }
@@ -69,14 +68,14 @@ where
     Entity: Identifiable + Unpin,
     Entity: Serialize + for<'de> Deserialize<'de>,
 {
-    fn get_collection(&self) -> Arc<Mutex<Collection<Entity>>>;
+    fn get_collection(&self) -> Arc<RwLock<Collection<Entity>>>;
 
     async fn find_all(&self) -> Result<Vec<Entity>, RepositoryError> {
         let mut entities = Vec::new();
         let collection = self.get_collection();
 
         // Lock the Mutex and get the Collection
-        let mut cursor = collection.lock().await.find(None, None).await?;
+        let mut cursor = collection.read().await.find(None, None).await?;
         while cursor.advance().await? {
             entities.push(cursor.deserialize_current()?);
         }
@@ -92,7 +91,7 @@ where
         let collection = self.get_collection();
 
         // Lock the Mutex and get the Collection
-        let collection = collection.lock().await;
+        let collection = collection.read().await;
         Ok(collection.find_one(filter, None).await?)
     }
 
@@ -100,7 +99,7 @@ where
         let collection = self.get_collection();
 
         // Lock the Mutex and get the Collection
-        let collection = collection.lock().await;
+        let collection = collection.read().await;
 
         // Insert the new entity into the database
         let metadata = collection.insert_one(entity.clone(), None).await?;
@@ -123,7 +122,7 @@ where
         let collection = self.get_collection();
 
         // Lock the Mutex and get the Collection
-        let collection = collection.lock().await;
+        let collection = collection.read().await;
 
         // Retrieve all entities from the database
         let mut cursor = collection.find(filter, find_options).await?;
@@ -138,7 +137,7 @@ where
         let collection = self.get_collection();
 
         // Lock the Mutex and get the Collection
-        let collection = collection.lock().await;
+        let collection = collection.read().await;
 
         // Delete the entity from the database
         collection.delete_one(doc! {"_id": id}, None).await?;
@@ -153,7 +152,7 @@ where
         let collection = self.get_collection();
 
         // Lock the Mutex and get the Collection
-        let collection = collection.lock().await;
+        let collection = collection.read().await;
 
         // Update the entity in the database
         let metadata = collection

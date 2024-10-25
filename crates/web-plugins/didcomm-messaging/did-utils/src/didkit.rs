@@ -1,7 +1,7 @@
 use serde_json::Value;
 
 use crate::{
-    didcore::{VerificationMethodType, Document, Service, VerificationMethod},
+    didcore::{Document, Service, VerificationMethod, VerificationMethodType},
     ldmodel::Context,
 };
 
@@ -140,7 +140,7 @@ pub mod tests {
         let canonicalized = json_canon::to_string(&document).unwrap();
         assert_eq!(
             canonicalized,
-            r#"{"@context":"https://www.w3.org/ns/did/v1","id":"did:example:123456789abcdefghi"}"#
+            r#"{"@context":"https://www.w3.org/ns/did/v1","assertionMethod":[],"authentication":[],"id":"did:example:123456789abcdefghi","keyAgreement":[],"service":[],"verificationMethod":[]}"#
         );
     }
 
@@ -184,9 +184,15 @@ pub mod tests {
         let private_verification_method = Some(vec![private_eddsa_vm, private_ecdh_vm]);
         let public_verification_method = Some(vec![public_eddsa_vm, public_ecdh_vm]);
 
-        let authentication = Some(vec![VerificationMethodType::Reference("did:example:123456789abcdefghi#keys-1".to_string())]);
-        let assertion_method = Some(vec![VerificationMethodType::Reference("did:example:123456789abcdefghi#keys-1".to_string())]);
-        let key_agreement = Some(vec![VerificationMethodType::Reference("did:example:123456789abcdefghi#keys-2".to_string())]);
+        let authentication = Some(vec![VerificationMethodType::Reference(
+            "did:example:123456789abcdefghi#keys-1".to_string(),
+        )]);
+        let assertion_method = Some(vec![VerificationMethodType::Reference(
+            "did:example:123456789abcdefghi#keys-1".to_string(),
+        )]);
+        let key_agreement = Some(vec![VerificationMethodType::Reference(
+            "did:example:123456789abcdefghi#keys-2".to_string(),
+        )]);
 
         let srv = Service::new(
             "did:example:123456789abcdefghi#keys-1".to_string(),

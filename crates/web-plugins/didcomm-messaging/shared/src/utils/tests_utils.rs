@@ -3,29 +3,80 @@ pub mod tests {
     use crate::{
         repository::tests::{MockConnectionRepository, MockMessagesRepository},
         state::{AppState, AppStateRepository},
-        utils::{self, resolvers::LocalSecretsResolver},
+        utils::resolvers::LocalSecretsResolver,
     };
-    use did_utils::jwk::Jwk;
+    use did_utils::{didcore::Document, jwk::Jwk};
     use didcomm::{
         error::Error as DidcommError, secrets::SecretsResolver, Message, PackEncryptedOptions,
         UnpackOptions,
     };
-    use keystore::{Secrets, tests::MockKeyStore};
+    use keystore::{tests::MockKeyStore, Secrets};
     use std::sync::Arc;
 
     pub fn setup() -> Arc<AppState> {
         let public_domain = String::from("http://alice-mediator.com");
 
-        let mock_fs = filesystem::MockFileSystem;
-        let diddoc = utils::read_diddoc(&mock_fs, "").unwrap();
+        let diddoc: Document = serde_json::from_str(
+            r##"{
+                "@context": [
+                    "https://www.w3.org/ns/did/v1",
+                    "https://w3id.org/security/suites/jws-2020/v1"
+                ],
+                "id": "did:peer:2.Ez6LSteycMr6tTki5aAEjNAVDsp1vrx9DuDWHDnky9qxyFNUF.Vz6MkigiwfSzv66VSTAeGZLsTHa8ixK1agNFvry2KjYXmg1G3.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0",
+                "alsoKnownAs": [
+                    "did:peer:3zQmZo9aYaBjv2XtjRcTfP7X7QwyU1VVnrcEWVtcBhiAtPFa"
+                ],
+                "verificationMethod": [
+                    {
+                        "id": "#key-1",
+                        "type": "JsonWebKey2020",
+                        "controller": "did:peer:2.Ez6LSteycMr6tTki5aAEjNAVDsp1vrx9DuDWHDnky9qxyFNUF.Vz6MkigiwfSzv66VSTAeGZLsTHa8ixK1agNFvry2KjYXmg1G3.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0",
+                        "publicKeyJwk": {
+                            "kty": "OKP",
+                            "crv": "X25519",
+                            "x": "_EgIPSRgbPPw5-nUsJ6xqMvw5rXn3BViGADeUrjAMzA"
+                        }
+                    },
+                    {
+                        "id": "#key-2",
+                        "type": "JsonWebKey2020",
+                        "controller": "did:peer:2.Ez6LSteycMr6tTki5aAEjNAVDsp1vrx9DuDWHDnky9qxyFNUF.Vz6MkigiwfSzv66VSTAeGZLsTHa8ixK1agNFvry2KjYXmg1G3.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0",
+                        "publicKeyJwk": {
+                            "kty": "OKP",
+                            "crv": "Ed25519",
+                            "x": "PuG2L5um-tAnHlvT29gTm9Wj9fZca16vfBCPKsHB5cA"
+                        }
+                    }
+                ],
+                "authentication": [
+                    "#key-2"
+                ],
+                "keyAgreement": [
+                    "#key-1"
+                ],
+                "service": [
+                    {
+                        "id": "#didcomm",
+                        "type": "DIDCommMessaging",
+                        "serviceEndpoint": {
+                            "accept": [
+                                "didcomm/v2"
+                            ],
+                            "routingKeys": [],
+                            "uri": "http://alice-mediator.com/"
+                        }
+                    }
+                ]
+            }"##
+        ).unwrap();
 
-        let secret_id = "did:web:alice-mediator.com:alice_mediator_pub#keys-3";
+        let secret_id = "did:peer:3zQmZo9aYaBjv2XtjRcTfP7X7QwyU1VVnrcEWVtcBhiAtPFa#key-1";
         let secret: Jwk = serde_json::from_str(
             r#"{
                 "kty": "OKP",
                 "crv": "X25519",
-                "x": "SHSUZ6V3x355FqCzIUfgoPzrZB0BQs0JKyag4UfMqHQ",
-                "d": "0A8SSFkGHg3N9gmVDRnl63ih5fcwtEvnQu9912SVplY"
+                "x": "_EgIPSRgbPPw5-nUsJ6xqMvw5rXn3BViGADeUrjAMzA",
+                "d": "3S3CDZD0vqYN4fnxVratwv2Zq-LtIUgkNqUufR9udLQ"
             }"#,
         )
         .unwrap();
@@ -42,11 +93,7 @@ pub mod tests {
             keystore: Arc::new(MockKeyStore::new(vec![mediator_secret])),
         };
 
-        let state = Arc::new(AppState::from(
-            public_domain,
-            diddoc,
-            Some(repository),
-        ));
+        let state = Arc::new(AppState::from(public_domain, diddoc, Some(repository)));
 
         state
     }

@@ -247,7 +247,7 @@ pub(crate) mod tests {
         pub Keystore {}
         #[async_trait::async_trait]
         impl Repository<Secrets> for Keystore {
-            fn get_collection(&self) -> Arc<tokio::sync::Mutex<mongodb::Collection<Secrets>>> ;
+            fn get_collection(&self) -> Arc<tokio::sync::RwLock<mongodb::Collection<Secrets>>> ;
             async fn find_one_by(&self, filter: BsonDocument) -> Result<Option<Secrets>, RepositoryError>;
             async fn store(&self, entity: Secrets) -> Result<Secrets, RepositoryError>;
         }

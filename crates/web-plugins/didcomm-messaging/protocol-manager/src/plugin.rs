@@ -63,7 +63,7 @@ impl Plugin for MediatorCoordination {
             let rt = tokio::runtime::Handle::current();
             rt.block_on(async {
                 let db_instance = database::get_or_init_database();
-                let db_lock = db_instance.lock().await;
+                let db_lock = db_instance.read().await;
                 db_lock.clone()
             })
         });

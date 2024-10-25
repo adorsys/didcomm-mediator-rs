@@ -87,7 +87,6 @@ mod test {
         algorithms::AnonCryptAlg, protocols::routing::wrap_in_forward, secrets::SecretsResolver,
         Message, PackEncryptedOptions, UnpackOptions,
     };
-    use filesystem::MockFileSystem;
     use keystore::Secrets;
     use serde_json::json;
     use shared::{
@@ -96,47 +95,11 @@ mod test {
             tests::{MockConnectionRepository, MockMessagesRepository},
         },
         state::AppStateRepository,
-        utils::{self, resolvers::LocalSecretsResolver},
+        utils::{resolvers::LocalSecretsResolver, tests_utils::tests},
     };
     use std::sync::Arc;
     use uuid::Uuid;
     use keystore::tests::MockKeyStore;
-
-    pub fn setup() -> Arc<AppState> {
-        let public_domain = String::from("http://alice-mediator.com");
-
-        let mock_fs = MockFileSystem;
-        let storage_dirpath = std::env::var("STORAGE_DIRPATH").unwrap_or_else(|_| "/".to_owned());
-        let diddoc: did_utils::didcore::Document =
-            utils::read_diddoc(&mock_fs, &storage_dirpath).unwrap();
-
-        let secret_id = "did:web:alice-mediator.com:alice_mediator_pub#keys-3";
-        let secret: Jwk = serde_json::from_str(
-            r#"{
-                "kty": "OKP",
-                "crv": "X25519",
-                "x": "SHSUZ6V3x355FqCzIUfgoPzrZB0BQs0JKyag4UfMqHQ",
-                "d": "0A8SSFkGHg3N9gmVDRnl63ih5fcwtEvnQu9912SVplY"
-            }"#,
-        )
-        .unwrap();
-
-        let mediator_secret = Secrets {
-            id: None,
-            kid: secret_id.to_string(),
-            secret_material: secret,
-        };
-
-        let repository = AppStateRepository {
-            connection_repository: Arc::new(MockConnectionRepository::from(_initial_connections())),
-            keystore: Arc::new(MockKeyStore::new(vec![mediator_secret])),
-            message_repository: Arc::new(MockMessagesRepository::from(vec![])),
-        };
-
-        let state = Arc::new(AppState::from(public_domain, diddoc, Some(repository)));
-
-        state
-    }
 
     fn _initial_connections() -> Vec<Connection> {
         let _recipient_did = _recipient_did();
@@ -145,7 +108,7 @@ mod test {
             r##"[
                {{
                     "client_did": "{_recipient_did}",
-                    "mediator_did": "did:web:alice-mediator.com:alice_mediator_pub",
+                    "mediator_did": "did:peer:2.Ez6LSteycMr6tTki5aAEjNAVDsp1vrx9DuDWHDnky9qxyFNUF.Vz6MkigiwfSzv66VSTAeGZLsTHa8ixK1agNFvry2KjYXmg1G3.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0",
                     "routing_did": "did:key:generated",
                     "keylist": [
                         "{_recipient_did}"
@@ -159,10 +122,17 @@ mod test {
 
     #[tokio::test]
     async fn test_mediator_forward_process() {
-        _initial_connections();
         // simulate sender forwarding process
-
-        let state = &setup();
+        let mut state = tests::setup().clone();
+        let state = Arc::make_mut(&mut state);
+        
+        let mock_connections = MockConnectionRepository::from(_initial_connections());
+        state.repository = Some(AppStateRepository {
+            connection_repository: Arc::new(mock_connections),
+            message_repository: Arc::new(MockMessagesRepository::from(vec![])),
+            keystore: Arc::new(MockKeyStore::new(vec![])),
+        });
+        
         let msg = Message::build(
             Uuid::new_v4().to_string(),
             "example/v1".to_owned(),

@@ -151,16 +151,15 @@ impl SecretsResolver for LocalSecretsResolver {
 
 #[cfg(test)]
 mod tests {
+    use crate::utils::tests_utils::tests;
+
     use super::*;
-    use crate::utils;
     use did_utils::jwk::Jwk;
-    use filesystem::MockFileSystem;
     use keystore::tests::MockKeyStore;
     use serde_json::Value;
 
     fn setup() -> Document {
-        let mock_fs = MockFileSystem;
-        utils::read_diddoc(&mock_fs, "").unwrap()
+        tests::setup().clone().diddoc.clone()
     }
 
     #[tokio::test]
@@ -168,51 +167,53 @@ mod tests {
         let diddoc = setup();
         let resolver = LocalDIDResolver::new(&diddoc);
 
-        let did = "did:web:alice-mediator.com:alice_mediator_pub";
+        let did = "did:peer:2.Ez6LSteycMr6tTki5aAEjNAVDsp1vrx9DuDWHDnky9qxyFNUF.Vz6MkigiwfSzv66VSTAeGZLsTHa8ixK1agNFvry2KjYXmg1G3.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0";
         let resolved = resolver.resolve(did).await.unwrap().unwrap();
         let expected = serde_json::from_str::<Value>(
-            r#"{
-                "id": "did:web:alice-mediator.com:alice_mediator_pub",
+            r##"{
+                "id": "did:peer:2.Ez6LSteycMr6tTki5aAEjNAVDsp1vrx9DuDWHDnky9qxyFNUF.Vz6MkigiwfSzv66VSTAeGZLsTHa8ixK1agNFvry2KjYXmg1G3.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0",
                 "verificationMethod": [
                     {
-                        "id": "did:web:alice-mediator.com:alice_mediator_pub#keys-1",
+                        "id": "did:peer:3zQmZo9aYaBjv2XtjRcTfP7X7QwyU1VVnrcEWVtcBhiAtPFa#key-1",
                         "type": "JsonWebKey2020",
-                        "controller": "did:web:alice-mediator.com:alice_mediator_pub",
-                        "publicKeyJwk": {
-                            "kty": "OKP",
-                            "crv": "Ed25519",
-                            "x": "Z0GqpN71rMcnAkky6_J6Bfknr8B-TBsekG3qdI0EQX4"
-                        }
-                    },
-                    {
-                        "id": "did:web:alice-mediator.com:alice_mediator_pub#keys-2",
-                        "type": "JsonWebKey2020",
-                        "controller": "did:web:alice-mediator.com:alice_mediator_pub",
-                        "publicKeyJwk": {
-                            "kty": "OKP",
-                            "crv": "Ed25519",
-                            "x": "Z0GqpN71rMcnAkky6_J6Bfknr8B-TBsekG3qdI0EQX4"
-                        }
-                    },
-                    {
-                        "id": "did:web:alice-mediator.com:alice_mediator_pub#keys-3",
-                        "type": "JsonWebKey2020",
-                        "controller": "did:web:alice-mediator.com:alice_mediator_pub",
+                        "controller": "did:peer:2.Ez6LSteycMr6tTki5aAEjNAVDsp1vrx9DuDWHDnky9qxyFNUF.Vz6MkigiwfSzv66VSTAeGZLsTHa8ixK1agNFvry2KjYXmg1G3.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0",
                         "publicKeyJwk": {
                             "kty": "OKP",
                             "crv": "X25519",
-                            "x": "SHSUZ6V3x355FqCzIUfgoPzrZB0BQs0JKyag4UfMqHQ"
+                            "x": "_EgIPSRgbPPw5-nUsJ6xqMvw5rXn3BViGADeUrjAMzA"
+                        }
+                    },
+                    {
+                        "id": "did:peer:3zQmZo9aYaBjv2XtjRcTfP7X7QwyU1VVnrcEWVtcBhiAtPFa#key-2",
+                        "type": "JsonWebKey2020",
+                        "controller": "did:peer:2.Ez6LSteycMr6tTki5aAEjNAVDsp1vrx9DuDWHDnky9qxyFNUF.Vz6MkigiwfSzv66VSTAeGZLsTHa8ixK1agNFvry2KjYXmg1G3.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0",
+                        "publicKeyJwk": {
+                            "kty": "OKP",
+                            "crv": "Ed25519",
+                            "x": "PuG2L5um-tAnHlvT29gTm9Wj9fZca16vfBCPKsHB5cA"
                         }
                     }
                 ],
                 "authentication": [
-                    "did:web:alice-mediator.com:alice_mediator_pub#keys-1"
+                    "did:peer:3zQmZo9aYaBjv2XtjRcTfP7X7QwyU1VVnrcEWVtcBhiAtPFa#key-2"
                 ],
                 "keyAgreement": [
-                    "did:web:alice-mediator.com:alice_mediator_pub#keys-3"
+                    "did:peer:3zQmZo9aYaBjv2XtjRcTfP7X7QwyU1VVnrcEWVtcBhiAtPFa#key-1"
                 ],
-                "service": []
-            }"#,
+                "service": [
+                    {
+                        "id": "#didcomm",
+                        "type": "DIDCommMessaging",
+                        "serviceEndpoint": {
+                            "accept": [
+                                "didcomm/v2"
+                            ],
+                            "routingKeys": [],
+                            "uri": "http://alice-mediator.com/"
+                        }
+                    }
+                ]
+            }"##
         )
         .unwrap();
 

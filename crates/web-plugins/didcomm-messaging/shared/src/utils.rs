@@ -62,8 +62,8 @@ macro_rules! extract_key_from_diddoc {
 /// Search an assertion key in a DID document.
 ///
 /// if present, return its verification method ID and JWK representation.
-pub fn extract_assertion_key(diddoc: &Document) -> Option<(String, Jwk)> {
-    let method = diddoc.assertion_method.as_ref()?.get(0)?;
+pub fn extract_authentication_key(diddoc: &Document) -> Option<(String, Jwk)> {
+    let method = diddoc.authentication.as_ref()?.get(0)?;
     extract_key_from_diddoc!(VerificationMethodType)(diddoc, method)
 }
 
@@ -88,27 +88,25 @@ fn extract_public_jwk_from_vm(vm: &VerificationMethod) -> Option<(String, Jwk)> 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use filesystem::MockFileSystem;
     use serde_json::Value;
 
     #[test]
-    fn can_extract_assertion_key() {
-        let mock_fs = MockFileSystem;
-        let diddoc = read_diddoc(&mock_fs, "").unwrap();
+    fn can_extract_authentication_key() {
+        let diddoc = tests_utils::tests::setup().diddoc.clone();
 
-        let (vm_id, jwk) = extract_assertion_key(&diddoc).unwrap();
+        let (vm_id, jwk) = extract_authentication_key(&diddoc).unwrap();
         let expected_jwk = serde_json::from_str::<Value>(
             r#"{
                 "kty": "OKP",
                 "crv": "Ed25519",
-                "x": "Z0GqpN71rMcnAkky6_J6Bfknr8B-TBsekG3qdI0EQX4"
+                "x": "PuG2L5um-tAnHlvT29gTm9Wj9fZca16vfBCPKsHB5cA"
             }"#,
         )
         .unwrap();
 
         assert_eq!(
             vm_id,
-            "did:web:alice-mediator.com:alice_mediator_pub#keys-2"
+            "#key-2"
         );
         assert_eq!(
             json_canon::to_string(&jwk).unwrap(),
@@ -118,22 +116,21 @@ mod tests {
 
     #[test]
     fn can_extract_agreement_key() {
-        let mock_fs = MockFileSystem;
-        let diddoc = read_diddoc(&mock_fs, "").unwrap();
+        let diddoc = tests_utils::tests::setup().diddoc.clone();
 
         let (vm_id, jwk) = extract_agreement_key(&diddoc).unwrap();
         let expected_jwk = serde_json::from_str::<Value>(
             r#"{
                 "kty": "OKP",
                 "crv": "X25519",
-                "x": "SHSUZ6V3x355FqCzIUfgoPzrZB0BQs0JKyag4UfMqHQ"
+                "x": "_EgIPSRgbPPw5-nUsJ6xqMvw5rXn3BViGADeUrjAMzA"
             }"#,
         )
         .unwrap();
 
         assert_eq!(
             vm_id,
-            "did:web:alice-mediator.com:alice_mediator_pub#keys-3"
+            "#key-1"
         );
         assert_eq!(
             json_canon::to_string(&jwk).unwrap(),
