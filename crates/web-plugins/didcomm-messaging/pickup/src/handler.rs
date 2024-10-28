@@ -1,41 +1,36 @@
 use crate::{
-    model::stateful::entity::{Connection, RoutedMessage},
-    pickup::{
-        constants::{MESSAGE_DELIVERY_3_0, PROBLEM_REPORT_2_0, STATUS_RESPONSE_3_0},
-        error::PickupError,
-        model::{
-            BodyDeliveryResponse, BodyLiveDeliveryChange, BodyStatusResponse, DeliveryResponse,
-            LiveDeliveryChange, StatusResponse,
-        },
+    error::PickupError,
+    model::{
+        BodyDeliveryResponse, BodyLiveDeliveryChange, BodyStatusResponse, DeliveryResponse,
+        LiveDeliveryChange, StatusResponse,
     },
-    web::{AppState, AppStateRepository},
 };
 use axum::response::{IntoResponse, Response};
 use didcomm::{Attachment, Message, MessageBuilder};
 use mongodb::bson::{doc, oid::ObjectId};
 use serde_json::Value;
+use shared::{
+    constants::{MESSAGE_DELIVERY_3_0, PROBLEM_REPORT_2_0, STATUS_RESPONSE_3_0},
+    midlw::ensure_transport_return_route_is_decorated_all,
+    repository::entity::{Connection, RoutedMessage},
+    state::{AppState, AppStateRepository},
+};
 use std::{str::FromStr, sync::Arc};
 use uuid::Uuid;
 
 // Process pickup status request
-pub(crate) async fn handle_status_request(
+pub async fn handle_status_request(
     state: Arc<AppState>,
     message: Message,
 ) -> Result<Message, Response> {
     // Validate the return_route header
-    if message
-        .extra_headers
-        .get("return_route")
-        .and_then(Value::as_str)
-        != Some("all")
-    {
-        return Err(
-            PickupError::MalformedRequest("Invalid \"return_route\" specifier").into_response(),
-        );
-    }
+    ensure_transport_return_route_is_decorated_all(&message)?;
 
     let mediator_did = &state.diddoc.id;
-    let recipient_did = message.body.get("recipient_did").and_then(|val| val.as_str());
+    let recipient_did = message
+        .body
+        .get("recipient_did")
+        .and_then(|val| val.as_str());
     let sender_did = sender_did(&message)?;
 
     let repository = repository(state.clone())?;
@@ -65,24 +60,18 @@ pub(crate) async fn handle_status_request(
 }
 
 // Process pickup delivery request
-pub(crate) async fn handle_delivery_request(
+pub async fn handle_delivery_request(
     state: Arc<AppState>,
     message: Message,
 ) -> Result<Message, Response> {
     // Validate the return_route header
-    if message
-        .extra_headers
-        .get("return_route")
-        .and_then(Value::as_str)
-        != Some("all")
-    {
-        return Err(
-            PickupError::MalformedRequest("Invalid \"return_route\" specifier").into_response(),
-        );
-    }
+    ensure_transport_return_route_is_decorated_all(&message)?;
 
     let mediator_did = &state.diddoc.id;
-    let recipient_did = message.body.get("recipient_did").and_then(|val| val.as_str());
+    let recipient_did = message
+        .body
+        .get("recipient_did")
+        .and_then(|val| val.as_str());
     let sender_did = sender_did(&message)?;
 
     // Get the messages limit
@@ -149,21 +138,12 @@ pub(crate) async fn handle_delivery_request(
 }
 
 // Process pickup messages acknowledgement
-pub(crate) async fn handle_message_acknowledgement(
+pub async fn handle_message_acknowledgement(
     state: Arc<AppState>,
     message: Message,
 ) -> Result<Message, Response> {
     // Validate the return_route header
-    if message
-        .extra_headers
-        .get("return_route")
-        .and_then(Value::as_str)
-        != Some("all")
-    {
-        return Err(
-            PickupError::MalformedRequest("Invalid \"return_route\" specifier").into_response(),
-        );
-    }
+    ensure_transport_return_route_is_decorated_all(&message)?;
 
     let mediator_did = &state.diddoc.id;
     let repository = repository(state.clone())?;
@@ -221,21 +201,12 @@ pub(crate) async fn handle_message_acknowledgement(
 }
 
 // Process live delivery change request
-pub(crate) async fn handle_live_delivery_change(
+pub async fn handle_live_delivery_change(
     state: Arc<AppState>,
     message: Message,
 ) -> Result<Message, Response> {
     // Validate the return_route header
-    if message
-        .extra_headers
-        .get("return_route")
-        .and_then(Value::as_str)
-        != Some("all")
-    {
-        return Err(
-            PickupError::MalformedRequest("Invalid \"return_route\" specifier").into_response(),
-        );
-    }
+    ensure_transport_return_route_is_decorated_all(&message)?;
 
     if let Some(_live_delivery) = message.body.get("live_delivery").and_then(Value::as_bool) {
         let mediator_did = &state.diddoc.id;
@@ -356,20 +327,21 @@ async fn client_connection(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        pickup::constants::{
+    use hyper::StatusCode;
+    use serde_json::json;
+    use shared::{
+        constants::{
             DELIVERY_REQUEST_3_0, LIVE_MODE_CHANGE_3_0, MESSAGE_DELIVERY_3_0, MESSAGE_RECEIVED_3_0,
             PROBLEM_REPORT_2_0, STATUS_REQUEST_3_0, STATUS_RESPONSE_3_0,
         },
-        repository::stateful::tests::{MockConnectionRepository, MockMessagesRepository},
-        web::handler::tests as global,
+        midlw::tests::assert_error,
+        repository::tests::{MockConnectionRepository, MockMessagesRepository},
+        utils::tests_utils::tests as global,
     };
-    use hyper::StatusCode;
-    use serde_json::{json, Value};
 
     #[allow(clippy::needless_update)]
     fn setup(connections: Vec<Connection>, stored_messages: Vec<RoutedMessage>) -> Arc<AppState> {
-        let (_, state) = global::setup();
+        let state = global::setup();
         let mut state = Arc::into_inner(state).unwrap();
 
         state.repository = Some(AppStateRepository {
@@ -379,18 +351,6 @@ mod tests {
         });
 
         Arc::new(state)
-    }
-
-    async fn assert_error(response: Response, status: StatusCode, pickup_error: PickupError<'_>) {
-        assert_eq!(response.status(), status);
-
-        let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
-        let body: Value = serde_json::from_slice(&body).unwrap();
-
-        assert_eq!(
-            json_canon::to_string(&body).unwrap(),
-            json_canon::to_string(&json!({"error": pickup_error.to_string()})).unwrap()
-        );
     }
 
     fn test_connections() -> Vec<Connection> {
@@ -525,7 +485,7 @@ mod tests {
         assert_error(
             error,
             StatusCode::UNAUTHORIZED,
-            PickupError::MissingClientConnection,
+            &json!({"error": PickupError::MissingClientConnection.to_string()}),
         )
         .await;
     }
@@ -767,7 +727,7 @@ mod tests {
         assert_error(
             error,
             StatusCode::BAD_REQUEST,
-            PickupError::MalformedRequest("Missing \"live_delivery\" specifier"),
+            &json!({"error": PickupError::MalformedRequest("Missing \"live_delivery\" specifier").to_string()})
         )
         .await;
     }

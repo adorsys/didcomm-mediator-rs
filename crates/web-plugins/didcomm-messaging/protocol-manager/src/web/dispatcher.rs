@@ -6,22 +6,17 @@ use axum::{
 use didcomm::Message;
 use forward::web::handler::mediator_forward_process;
 use hyper::{header::CONTENT_TYPE, StatusCode};
-use shared::{constants::{
-    DIDCOMM_ENCRYPTED_MIME_TYPE, KEYLIST_QUERY_2_0, KEYLIST_UPDATE_2_0, MEDIATE_FORWARD_2_0,
-    MEDIATE_REQUEST_2_0,
-}, errors::MediationError, state::AppState};
-use std::sync::Arc;
 use mediator_coordination::web;
-
-use crate::{
-    constant::{
-        DIDCOMM_ENCRYPTED_MIME_TYPE, KEYLIST_QUERY_2_0, KEYLIST_UPDATE_2_0, MEDIATE_FORWARD_2_0,
-        MEDIATE_REQUEST_2_0,
+use shared::{
+    constants::{
+        DELIVERY_REQUEST_3_0, DIDCOMM_ENCRYPTED_MIME_TYPE, KEYLIST_QUERY_2_0, KEYLIST_UPDATE_2_0,
+        LIVE_MODE_CHANGE_3_0, MEDIATE_FORWARD_2_0, MEDIATE_REQUEST_2_0, MESSAGE_RECEIVED_3_0,
+        STATUS_REQUEST_3_0,
     },
-    pickup::{self, constants::{STATUS_REQUEST_3_0, DELIVERY_REQUEST_3_0, MESSAGE_RECEIVED_3_0, LIVE_MODE_CHANGE_3_0}},
-    forward::routing::mediator_forward_process,
-    web::{self, error::MediationError, AppState},
+    errors::MediationError,
+    state::AppState,
 };
+use std::sync::Arc;
 
 #[axum::debug_handler]
 pub(crate) async fn process_didcomm_message(
@@ -43,27 +38,22 @@ pub(crate) async fn process_didcomm_message(
             .await
         }
         KEYLIST_QUERY_2_0 => {
-            web::handler::stateful::process_plain_keylist_query_message(
-                Arc::clone(&state),
-                message,
-            )
-            .await
+            web::handler::stateful::process_plain_keylist_query_message(Arc::clone(&state), message)
+                .await
         }
 
         MEDIATE_REQUEST_2_0 => {
             web::handler::stateful::process_mediate_request(&state, &message).await
         }
-        STATUS_REQUEST_3_0 => {
-            pickup::handler::handle_status_request(Arc::clone(&state), message).await
-        }
+        STATUS_REQUEST_3_0 => pickup::handler::handle_status_request(state.clone(), message).await,
         DELIVERY_REQUEST_3_0 => {
-            pickup::handler::handle_delivery_request(Arc::clone(&state), message).await
+            pickup::handler::handle_delivery_request(state.clone(), message).await
         }
         MESSAGE_RECEIVED_3_0 => {
-            pickup::handler::handle_message_acknowledgement(Arc::clone(&state), message).await
+            pickup::handler::handle_message_acknowledgement(state.clone(), message).await
         }
         LIVE_MODE_CHANGE_3_0 => {
-            pickup::handler::handle_live_delivery_change(Arc::clone(&state), message).await
+            pickup::handler::handle_live_delivery_change(state.clone(), message).await
         }
         _ => {
             let response = (
@@ -101,15 +91,13 @@ async fn process_response(state: Arc<AppState>, response: Result<Message, Respon
 #[cfg(test)]
 mod tests {
     use super::*;
-    use shared::{
-        constants::KEYLIST_UPDATE_RESPONSE_2_0,
-        repository::tests::MockConnectionRepository,
-        state::AppStateRepository,
-        utils::tests_utils::tests as global
-    };
     use axum::Router;
     use hyper::{Body, Method, Request};
     use serde_json::{json, Value};
+    use shared::{
+        constants::KEYLIST_UPDATE_RESPONSE_2_0, repository::tests::MockConnectionRepository,
+        state::AppStateRepository, utils::tests_utils::tests as global,
+    };
     use tower::ServiceExt;
 
     #[allow(clippy::needless_update)]
@@ -144,7 +132,7 @@ mod tests {
         });
 
         let state = Arc::new(state);
-        let app = crate::web::routes(Arc::clone(&state));
+        let app = crate::web::routes(state.clone());
 
         (app, state)
     }
