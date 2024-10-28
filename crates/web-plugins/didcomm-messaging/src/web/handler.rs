@@ -12,6 +12,7 @@ use crate::{
         DIDCOMM_ENCRYPTED_MIME_TYPE, KEYLIST_QUERY_2_0, KEYLIST_UPDATE_2_0, MEDIATE_FORWARD_2_0,
         MEDIATE_REQUEST_2_0,
     },
+    pickup::{self, constants::{STATUS_REQUEST_3_0, DELIVERY_REQUEST_3_0, MESSAGE_RECEIVED_3_0, LIVE_MODE_CHANGE_3_0}},
     forward::routing::mediator_forward_process,
     web::{self, error::MediationError, AppState},
 };
@@ -46,7 +47,18 @@ pub(crate) async fn process_didcomm_message(
         MEDIATE_REQUEST_2_0 => {
             web::coord::handler::stateful::process_mediate_request(&state, &message).await
         }
-
+        STATUS_REQUEST_3_0 => {
+            pickup::handler::handle_status_request(Arc::clone(&state), message).await
+        }
+        DELIVERY_REQUEST_3_0 => {
+            pickup::handler::handle_delivery_request(Arc::clone(&state), message).await
+        }
+        MESSAGE_RECEIVED_3_0 => {
+            pickup::handler::handle_message_acknowledgement(Arc::clone(&state), message).await
+        }
+        LIVE_MODE_CHANGE_3_0 => {
+            pickup::handler::handle_live_delivery_change(Arc::clone(&state), message).await
+        }
         _ => {
             let response = (
                 StatusCode::BAD_REQUEST,

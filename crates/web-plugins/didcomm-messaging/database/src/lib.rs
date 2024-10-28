@@ -52,6 +52,18 @@ where
         Ok(entities)
     }
 
+    /// Counts all entities by filter.
+    async fn count_by(&self, filter: BsonDocument) -> Result<usize, RepositoryError> {
+        let collection = self.get_collection();
+        // Lock the Mutex and get the Collection
+        let collection = collection.lock().await;
+        Ok(collection
+            .count_documents(filter, None)
+            .await?
+            .try_into()
+            .map_err(|_| RepositoryError::Generic("count overflow".to_owned()))?)
+    }
+
     async fn find_one(&self, message_id: ObjectId) -> Result<Option<Entity>, RepositoryError> {
         self.find_one_by(doc! {"_id": message_id}).await
     }
@@ -64,6 +76,7 @@ where
         Ok(collection.find_one(filter, None).await?)
     }
 
+    /// Stores a new entity.
     async fn store(&self, mut entity: Entity) -> Result<Entity, RepositoryError> {
         let collection = self.get_collection();
 
