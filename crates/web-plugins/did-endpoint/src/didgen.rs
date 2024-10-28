@@ -113,7 +113,7 @@ where
     S: Repository<Secrets>,
 {
     // Extract key ID from the DID document
-    let kid = match field.as_ref().unwrap().get(0).unwrap().clone() {
+    let kid = match field.as_ref().unwrap()[0].clone() {
         VerificationMethodType::Reference(kid) => kid,
         VerificationMethodType::Embedded(method) => method.id,
     };

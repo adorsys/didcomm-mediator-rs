@@ -34,7 +34,7 @@ impl DIDResolver for LocalDIDResolver {
     async fn resolve(&self, did: &str) -> Result<Option<DIDDoc>> {
         if did == self.diddoc.id {
             let mut diddoc = self.diddoc.clone();
-            prepend_alsoknownas_to_ids(&mut diddoc);
+            prepend_doc_id_to_vm_ids(&mut diddoc);
             return Ok(Some(serde_json::from_value(json!(diddoc)).expect(
                 "Should easily convert between documents representations",
             )));
@@ -57,7 +57,7 @@ impl DIDResolver for LocalDIDResolver {
             Ok(DidPeer::with_format(PublicKeyFormat::Jwk)
                 .expand(did)
                 .map(|mut doc| {
-                    prepend_alsoknownas_to_ids(&mut doc);
+                    prepend_doc_id_to_vm_ids(&mut doc);
                     Some(
                         serde_json::from_value(json!(doc))
                             .expect("Should easily convert between documents representations"),
@@ -73,7 +73,7 @@ impl DIDResolver for LocalDIDResolver {
     }
 }
 
-fn prepend_alsoknownas_to_ids(diddoc: &mut Document) {
+fn prepend_doc_id_to_vm_ids(diddoc: &mut Document) {
     if let Some(verification_methods) = diddoc.verification_method.as_mut() {
         for vm in verification_methods.iter_mut() {
             vm.id = diddoc.id.to_owned() + &vm.id;
@@ -339,7 +339,7 @@ mod tests {
     }
 
     #[test]
-    fn test_prepend_alsoknownas_to_ids_works() {
+    fn test_prepend_doc_id_to_vm_ids_works() {
         let mut diddoc: Document = serde_json::from_str(
             r##"{
                 "@context": [
@@ -394,7 +394,7 @@ mod tests {
             }"##
         ).unwrap();
 
-        prepend_alsoknownas_to_ids(&mut diddoc);
+        prepend_doc_id_to_vm_ids(&mut diddoc);
 
         let expected = serde_json::from_str::<Value>(
             r##"{

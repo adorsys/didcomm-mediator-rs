@@ -3,7 +3,7 @@ use std::borrow::Cow;
 
 pub(crate) fn handle_vm_id<'a>(vm_id: &'a str, diddoc: &Document) -> Cow<'a, str> {
     if vm_id.starts_with('#') {
-        Cow::Owned(diddoc.id.clone() + vm_id)
+        Cow::Owned(diddoc.id.to_owned() + vm_id)
     } else {
         Cow::Borrowed(vm_id)
     }

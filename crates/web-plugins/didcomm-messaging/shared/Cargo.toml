@@ -10,6 +10,7 @@ plugin-api.workspace = true
 filesystem = { workspace = true, features = ["test-utils"] }
 keystore = { workspace = true, features = ["test-utils"] }
 
+json-canon.workspace = true
 thiserror.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -17,11 +18,13 @@ async-trait.workspace = true
 mongodb.workspace = true
 once_cell.workspace = true
 tracing.workspace = true
+hyper = { workspace = true, features = ["full"] }
 tokio = { workspace = true, features = ["full"] }
 axum = { workspace = true, features = ["macros"] }
 didcomm = { workspace = true, features = ["uniffi"] }
 
 [dev-dependencies]
+hyper = "0.14.27"
 tokio = { version = "1.27.0", default-features = false, features = [
     "macros",
     "rt",

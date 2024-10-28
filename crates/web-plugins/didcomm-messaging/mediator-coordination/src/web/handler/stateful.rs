@@ -20,15 +20,14 @@ use crate::{
         KeylistUpdateConfirmation, KeylistUpdateResponseBody, KeylistUpdateResult, MediationDeny,
         MediationGrant, MediationGrantBody,
     },
-    web::handler::midlw::{
-        self, ensure_jwm_type_is_mediation_request, ensure_transport_return_route_is_decorated_all,
-    },
+    web::handler::midlw::{self, ensure_jwm_type_is_mediation_request},
 };
 
 use keystore::Secrets;
 use shared::{
     constants::{KEYLIST_2_0, KEYLIST_UPDATE_RESPONSE_2_0, MEDIATE_DENY_2_0, MEDIATE_GRANT_2_0},
     errors::MediationError,
+    midlw::ensure_transport_return_route_is_decorated_all,
     repository::entity::Connection,
     state::{AppState, AppStateRepository},
 };
