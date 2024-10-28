@@ -155,20 +155,19 @@ async fn handler_landing_page_oob() -> Response {
                         <h1>&nbsp;didcomm-mediator-rs</h1>
                     </div>
                     <div style="text-align:center">
-                        <p>IDComm v2 mediator</p></p><br />
+                        <p>DIDComm v2 mediator</p></p><br />
                     </div>
                     <div style="text-align:center">
                         <h3>Scan the QR code invitation shown below to start a mediation request:</h3>
-                        <img src="data:image/png;base64,{}" alt="QR Code Image">
+                        <img src="data:image/png;base64,{}" alt="QR Code Image" width="300">
                         <h3>Or just copy and paste the following Out of Band invitation URL:</h3>
-                        <iframe src="/oob_url,{}" title="OOB URL" height="200" width="500" frameBorder="0"></iframe>
+                        <iframe src="/oob_url" title="OOB URL" height="200" width="500" frameBorder="0"></iframe>
                     </div>
             </body>
         </div>
     </html>
         "#,
         &image_data,
-        &oob_inv
     );
 
     (
