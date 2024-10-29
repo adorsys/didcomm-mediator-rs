@@ -15,11 +15,13 @@ members = [
     "crates/web-plugins/didcomm-messaging",
     "crates/web-plugins/oob-messages",
     "crates/database",
+    "crates/web-plugins/didcomm-messaging/protocol-manager",
     "crates/web-plugins/didcomm-messaging/protocol-plugins/*",
 ]
 
 [workspace.dependencies]
 did-utils = { path = "./crates/web-plugins/didcomm-messaging/did-utils", version = "0.1.0" }
+protocol-manager = { path = "./crates/web-plugins/didcomm-messaging/protocol-manager", version = "0.1.0" }
 keystore = { path = "./crates/keystore", version = "0.1.0" }
 plugin-api = { path = "./crates/plugin-api", version = "0.1.0" }
 did-endpoint = { path = "./crates/web-plugins/did-endpoint", version = "0.1.0" }

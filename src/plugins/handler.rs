@@ -139,7 +139,7 @@ impl<'a> PluginContainer<'a> {
             Ok(self
                 .collected_routes
                 .iter()
-                .fold(Router::new(), |acc, e| acc.merge(e.clone())))
+                .fold(Router::new(), |acc: Router, e| acc.merge(e.clone())))
         } else {
             Err(PluginContainerError::Unloaded)
         }
