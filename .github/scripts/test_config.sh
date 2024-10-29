@@ -2,7 +2,7 @@
 
 # Create .env.example file with test variables
 cat <<EOL > .env.example
-SERVER_PUBLIC_DOMAIN=https://example.com/service-1
+SERVER_PUBLIC_DOMAIN=https://example.com
 SERVER_LOCAL_PORT=3000
 STORAGE_DIRPATH=test/storage
 MONGO_URI=mongodb://localhost:27017/
