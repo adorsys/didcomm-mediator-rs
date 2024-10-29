@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+did-utils.workspace = true
 filesystem.workspace = true
 did-endpoint.workspace = true
 plugin-api.workspace = true
@@ -12,7 +13,6 @@ uuid = { workspace = true, features = ["fast-rng", "v4"] }
 multibase.workspace = true
 serde_json.workspace = true
 serde = { workspace = true, features = ["derive"] }
-dotenv-flow.workspace = true
 url.workspace = true
 axum.workspace = true
 tracing.workspace = true
@@ -25,6 +25,8 @@ headers.workspace = true
 lazy_static.workspace = true
 
 [dev-dependencies]
+mockall = "0.13.0"
+dotenv-flow.workspace = true
 tokio = { version = "1.30.0", features = ["full"] }
 tower-http = { version = "0.4.3", features = ["catch-panic", "trace"] }
 hyper = { version = "0.14.27", features = ["full"] }
