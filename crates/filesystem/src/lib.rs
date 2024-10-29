@@ -77,13 +77,8 @@ pub struct MockFileSystem;
 
 #[cfg(any(test, feature = "test-utils"))]
 impl FileSystem for MockFileSystem {
-    fn read_to_string(&self, path: &Path) -> IoResult<String> {
-        match path {
-            p if p.ends_with("did.json") => {
-                Ok(include_str!("../test/storage/did.json").to_string())
-            }
-            _ => Err(IoError::new(ErrorKind::NotFound, "NotFound")),
-        }
+    fn read_to_string(&self, _path: &Path) -> IoResult<String> {
+        Ok("".to_string())
     }
 
     fn write(&mut self, _path: &Path, _content: &str) -> IoResult<()> {

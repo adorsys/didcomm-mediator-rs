@@ -12,9 +12,7 @@ members = [
     "crates/filesystem",
     "crates/keystore",
     "crates/plugin-api",
-    "crates/web-plugins/did-endpoint",
-    "crates/web-plugins/oob-messages",
-    "crates/web-plugins/didcomm-messaging/*",
+    "crates/web-plugins/*",
 ]
 
 
@@ -25,12 +23,12 @@ keystore = { path = "./crates/keystore", version = "0.1.0" }
 plugin-api = { path = "./crates/plugin-api", version = "0.1.0" }
 did-endpoint = { path = "./crates/web-plugins/did-endpoint", version = "0.1.0" }
 oob-messages = { path = "./crates/web-plugins/oob-messages", version = "0.1.0" }
-shared = { path = "./crates/web-plugins/didcomm-messaging/shared", version = "0.1.0" }
+didcomm-messaging = { path = "./crates/web-plugins/didcomm-messaging", version = "0.1.0" }
 did-utils = { path = "./crates/web-plugins/didcomm-messaging/did-utils", version = "0.1.0" }
-pickup = { path = "./crates/web-plugins/didcomm-messaging/pickup", version = "0.1.0" }
-forward = { path = "./crates/web-plugins/didcomm-messaging/forward", version = "0.1.0" }
-mediator-coordination = { path = "./crates/web-plugins/didcomm-messaging/mediator-coordination", version = "0.1.0" }
-didcomm-messaging = { path = "./crates/web-plugins/didcomm-messaging/protocol-manager", version = "0.1.0" }
+shared = { path = "./crates/web-plugins/didcomm-messaging/shared", version = "0.1.0" }
+pickup = { path = "./crates/web-plugins/didcomm-messaging/protocols/pickup", version = "0.1.0" }
+forward = { path = "./crates/web-plugins/didcomm-messaging/protocols/forward", version = "0.1.0" }
+mediator-coordination = { path = "./crates/web-plugins/didcomm-messaging/protocols/mediator-coordination", version = "0.1.0" }
 
 # Other common dependencies
 serde = "1.0"
