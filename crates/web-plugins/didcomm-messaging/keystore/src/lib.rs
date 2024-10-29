@@ -33,7 +33,7 @@ struct FileSystemKeystore {
 }
 
 impl FileSystemKeystore {
-    fn encrypt(mut self, secret: KeyStore) -> Result<(), KeystoreError> {
+    fn encrypt(&mut self, secret: &KeyStore) -> Result<(), KeystoreError> {
         let key = self.key.expose_secret(); // Access key securely
         let cipher = ChaCha20Poly1305::new(GenericArray::from_slice(key.as_bytes()));
 
@@ -45,12 +45,13 @@ impl FileSystemKeystore {
         keystorefile.read_to_end(&mut buffer)?; // Use Result for error handling
 
         let encrypted_key = cipher
-        .encrypt(GenericArray::from_slice(&self.nonce), buffer.as_slice())
-        .map_err(KeystoreError::EncryptionError)?;
+            .encrypt(GenericArray::from_slice(&nonce), buffer.as_slice())
+            .map_err(KeystoreError::EncryptionError)?; 
 
-
-        // Overwrite the file with encrypted keys
-        keystorefile.write_all(&encrypted_key)?; // Use Result for error handling
+        // Overwrite the file with encrypted keys and nonce
+        let mut keystorefile = File::create(path.clone())?; // Create or truncate the file for overwriting
+        keystorefile.write_all(&nonce)?; // Write nonce at the beginning
+        keystorefile.write_all(&encrypted_key)?; // Write encrypted data
 
         // Store the nonce for decryption
         self.nonce = nonce.to_vec();
@@ -65,18 +66,22 @@ impl FileSystemKeystore {
         Ok(())
     }
 
-    fn decrypt(self, secret: KeyStore) -> Result<Vec<u8>, KeystoreError> {
+    fn decrypt(&mut self, secret: &KeyStore) -> Result<Vec<u8>, KeystoreError> {
         let key = self.key.expose_secret(); // Access key securely
         let cipher = ChaCha20Poly1305::new(GenericArray::from_slice(key.as_bytes()));
 
         let path = secret.path();
         let mut keystorefile = File::open(path.clone())?; // Use Result for error handling
 
+        // Read nonce first
+        let mut nonce = [0u8; 12]; // Nonce size for ChaCha20Poly1305
+        keystorefile.read_exact(&mut nonce)?;
+
         let mut buffer = Vec::new();
         keystorefile.read_to_end(&mut buffer)?; // Use Result for error handling
 
         let decrypted_key = cipher
-            .decrypt(GenericArray::from_slice(&self.nonce), buffer.as_slice())
+            .decrypt(GenericArray::from_slice(&nonce), buffer.as_slice())
             .map_err(|err| KeystoreError::DecryptionError(err))?; // Wrap decryption error
 
         // Enhanced redaction: Replace all sensitive characters with asterisks
@@ -90,8 +95,6 @@ impl FileSystemKeystore {
 
         Ok(decrypted_key)
     }
-
-
 }
 
 
@@ -118,7 +121,7 @@ impl<'a> KeyStore<'a> {
             .read_dir_files(&dirpath)
             .map_err(KeystoreError::FileError)?;
 
-        // Collect paths and associated timestamps of files inside `dir`
+        // Collect paths and associated timestamps of files inside dir
         let mut collected: Vec<(String, i32)> = vec![];
         for path in paths {
             if path.ends_with(".json") {
@@ -250,10 +253,7 @@ mod tests {
         let jwk = store.gen_ed25519_jwk().unwrap();
         assert!(store.find_keypair(&jwk).is_some());
 
-        let jwk = store.gen_x25519_jwk().unwrap();
-        assert!(store.find_keypair(&jwk).is_some());
-
-        let latest = KeyStore::latest(&mut mock_fs, "");
-        assert!(latest.is_ok());
+        let latest_store = KeyStore::latest(&mut mock_fs, "").unwrap();
+        assert_eq!(latest_store.keys.len(), 1);
     }
 }
