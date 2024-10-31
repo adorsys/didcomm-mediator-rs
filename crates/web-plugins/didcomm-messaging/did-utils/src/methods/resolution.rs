@@ -199,13 +199,13 @@ pub(super) fn dereference_did_document(
 
         let found = &found[0];
         let relative_ref = query.get("relativeRef");
-        if (fragment.is_some() || relative_ref.is_some()) && found.contains('#') {
+        if (fragment.is_some() || relative_ref.is_some()) && (found.is_string() && found.as_str().unwrap().contains('#')) {
             return Err(DIDResolutionError::InternalError);
         }
 
         return Ok(Content::URL(format!(
             "{}{}{}",
-            found,
+            found.as_str().unwrap(),
             relative_ref.unwrap_or(&String::new()),
             fragment.as_ref().map_or(String::new(), |frag| format!("#{frag}"))
         )));

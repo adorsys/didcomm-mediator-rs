@@ -8,7 +8,6 @@ serde_json.workspace = true
 chrono = { workspace = true, features = ["serde"] }
 hyper = {workspace = true, features = ["client", "http2"]}
 tokio.workspace = true
-json-patch.workspace = true
 serde.workspace = true
 hyper-tls.workspace = true
 
@@ -46,4 +45,3 @@ tokio = { version = "1.27.0", default-features = false, features = [
     "macros",
     "rt",
 ] }
-tokio-test = "0.4.2"

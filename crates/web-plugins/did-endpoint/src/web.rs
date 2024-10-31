@@ -1,4 +1,10 @@
-use axum::{extract::Query, response::Json, routing::get, Router};
+use crate::{plugin::DidEndPointState, util};
+use axum::{
+    extract::{Query, State},
+    response::Json,
+    routing::get,
+    Router,
+};
 use chrono::Utc;
 use did_utils::{
     didcore::{Document, KeyFormat, Proofs},
@@ -6,46 +12,44 @@ use did_utils::{
     vc::{VerifiableCredential, VerifiablePresentation},
 };
 use hyper::StatusCode;
-use keystore::{filesystem::StdFileSystem, KeyStore};
+use mongodb::bson::doc;
 use multibase::Base;
 use serde_json::{json, Value};
-use std::collections::HashMap;
+use std::{collections::HashMap, path::Path, sync::Arc};
+use tokio::{runtime::Handle, task};
 
 const DEFAULT_CONTEXT_V2: &str = "https://www.w3.org/ns/credentials/v2";
 
-pub(crate) fn routes() -> Router {
+pub(crate) fn routes(state: Arc<DidEndPointState>) -> Router {
     Router::new() //
         .route("/.well-known/did.json", get(diddoc))
         .route("/.well-known/did/pop.json", get(didpop))
+        .with_state(state)
 }
 
-async fn diddoc() -> Result<Json<Value>, StatusCode> {
+async fn diddoc(State(state): State<Arc<DidEndPointState>>) -> Result<Json<Value>, StatusCode> {
     let storage_dirpath = std::env::var("STORAGE_DIRPATH").map_err(|_| {
         tracing::error!("STORAGE_DIRPATH env variable required");
         StatusCode::NOT_FOUND
     })?;
+    let filesystem = state.filesystem.lock().unwrap();
+    let did_path = Path::new(&storage_dirpath).join("did.json");
 
-    match tokio::fs::read_to_string(&format!("{storage_dirpath}/did.json")).await {
+    match filesystem.read_to_string(&did_path).as_ref() {
         Ok(content) => Ok(Json(serde_json::from_str(&content).unwrap())),
         Err(_) => Err(StatusCode::NOT_FOUND),
     }
 }
 
 #[axum::debug_handler]
-async fn didpop(Query(params): Query<HashMap<String, String>>) -> Result<Json<Value>, StatusCode> {
+async fn didpop(
+    Query(params): Query<HashMap<String, String>>,
+    State(state): State<Arc<DidEndPointState>>,
+) -> Result<Json<Value>, StatusCode> {
     let challenge = params.get("challenge").ok_or(StatusCode::BAD_REQUEST)?;
 
-    // Retrieve keystore
-    let storage_dirpath = std::env::var("STORAGE_DIRPATH").map_err(|_| {
-        tracing::error!("STORAGE_DIRPATH env variable required");
-        StatusCode::NOT_FOUND
-    })?;
-    let mut fs = StdFileSystem;
-    let keystore =
-        KeyStore::latest(&mut fs, &storage_dirpath).expect("Keystore file probably missing");
-
     // Load DID document and its verification methods
-    let diddoc_value = diddoc().await?.0;
+    let diddoc_value = diddoc(State(state.clone())).await?.0;
     let diddoc: Document = serde_json::from_value(diddoc_value.clone()).unwrap();
 
     let did_address = diddoc.id.clone();
@@ -82,6 +86,8 @@ async fn didpop(Query(params): Query<HashMap<String, String>>) -> Result<Json<Va
     }))
     .unwrap();
 
+    let keystore = state.keystore.clone();
+
     for method in methods {
         // Lookup keypair from keystore
         let pubkey = method
@@ -89,12 +95,23 @@ async fn didpop(Query(params): Query<HashMap<String, String>>) -> Result<Json<Va
             .as_ref()
             .expect("Verification methods should embed public keys.");
 
+        let kid = util::handle_vm_id(&method.id, &diddoc);
+
         let jwk = match pubkey {
-            KeyFormat::Jwk(key) => key,
+            KeyFormat::Jwk(_) => {
+                let secret = task::block_in_place(|| {
+                    Handle::current().block_on(async {
+                        keystore
+                            .find_one_by(doc! { "kid": kid.as_ref() })
+                            .await
+                            .expect("Error fetching secret")
+                            .expect("Missing key")
+                    })
+                });
+                secret.secret_material
+            }
             _ => panic!("Unexpected key format"),
         };
-
-        let jwk = keystore.find_keypair(jwk).expect("Missing key");
 
         // Amend options for linked data proof with method-specific attributes
         let options = Proof {
@@ -164,8 +181,10 @@ fn inspect_vm_relationship(diddoc: &Document, vm_id: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Mutex;
+
     use super::*;
-    use crate::{didgen, util::dotenv_flow_read};
+    use crate::didgen::tests::*;
 
     use axum::{
         body::Body,
@@ -180,33 +199,73 @@ mod tests {
     use serde_json::json;
     use tower::util::ServiceExt;
 
-    fn setup_ephemeral_diddoc() -> (String, Document) {
-        let storage_dirpath = dotenv_flow_read("STORAGE_DIRPATH")
-            .map(|p| format!("{}/{}", p, uuid::Uuid::new_v4()))
-            .unwrap();
-
-        let server_public_domain = dotenv_flow_read("SERVER_PUBLIC_DOMAIN").unwrap();
-
-        // Run didgen logic
-        let diddoc = didgen::didgen(&storage_dirpath, &server_public_domain).unwrap();
-
-        // TODO! Find a race-free way to accomodate this. Maybe a test mutex?
-        std::env::set_var("STORAGE_DIRPATH", &storage_dirpath);
-
-        (storage_dirpath, diddoc)
-    }
-
-    fn cleanup(storage_dirpath: &str) {
-        std::env::remove_var("STORAGE_DIRPATH");
-        std::fs::remove_dir_all(storage_dirpath).unwrap();
-    }
-
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn verify_didpop() {
-        // Generate test-restricted did.json
-        let (storage_dirpath, expected_diddoc) = setup_ephemeral_diddoc();
+        dotenv_flow::from_filename("../../../.env.example").ok();
 
-        let app = routes();
+        let expected_diddoc: Document = serde_json::from_str(
+            r##"{
+                "@context": ["https://www.w3.org/ns/did/v1"],
+                "id": "did:peer:123",
+                "verificationMethod": [
+                    {
+                        "id": "#key-1",
+                        "type": "JsonWebKey2020",
+                        "controller": "did:peer:123",
+                        "publicKeyJwk": {
+                            "kty": "OKP",
+                            "crv": "Ed25519",
+                            "x": "PuG2L5um-tAnHlvT29gTm9Wj9fZca16vfBCPKsHB5cA"
+                        }
+                    }
+                ],
+                "authentication": ["#key-1"]
+            }"##,
+        )
+        .unwrap();
+
+        let mut mock_fs = MockFileSystem::new();
+        let mut mock_keystore = MockKeystore::new();
+        let secret = setup();
+
+        // Simulate reading the did.json file
+        mock_fs
+            .expect_read_to_string()
+            .withf(|path| path.to_str().unwrap().ends_with("did.json"))
+            .returning(|_| {
+                Ok(r##"{
+                        "@context": ["https://www.w3.org/ns/did/v1"],
+                        "id": "did:peer:123",
+                        "verificationMethod": [
+                            {
+                                "id": "#key-1",
+                                "type": "JsonWebKey2020",
+                                "controller": "did:peer:123",
+                                "publicKeyJwk": {
+                                    "kty": "OKP",
+                                    "crv": "Ed25519",
+                                    "x": "PuG2L5um-tAnHlvT29gTm9Wj9fZca16vfBCPKsHB5cA"
+                                }
+                            }
+                        ],
+                        "authentication": ["#key-1"]
+                    }"##
+                .to_string())
+            });
+
+        // Mock the keystore to return the secret for key-1
+        mock_keystore
+            .expect_find_one_by()
+            .withf(|filter| filter.get_str("kid").unwrap() == "did:peer:123#key-1")
+            .returning(move |_| Ok(Some(secret.clone())));
+
+        // Setup state with mocks
+        let state = DidEndPointState {
+            filesystem: Arc::new(Mutex::new(mock_fs)),
+            keystore: Arc::new(mock_keystore),
+        };
+
+        let app = routes(Arc::new(state));
         let response = app
             .oneshot(
                 Request::builder()
@@ -250,8 +309,6 @@ mod tests {
 
             assert!(verifier.verify(json!(vp)).is_ok());
         }
-
-        cleanup(&storage_dirpath);
     }
 
     fn resolve_vm_for_public_key(diddoc: &Document, vm_id: &str) -> Option<Jwk> {

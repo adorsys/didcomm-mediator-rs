@@ -1,11 +1,6 @@
-pub mod client;
-pub mod plugin;
-
-mod forward;
-mod constant;
-mod didcomm;
-mod jose;
-mod model;
-mod repository;
-mod util;
+mod manager;
+mod midlw;
+mod protocols;
 mod web;
+
+pub mod plugin;
