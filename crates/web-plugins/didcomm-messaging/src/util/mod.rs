@@ -4,8 +4,7 @@ use did_utils::{
     didcore::{AssertionMethod, Document, KeyAgreement, KeyFormat, VerificationMethod},
     jwk::Jwk,
 };
-use keystore::{filesystem::FileSystem, KeyStore};
-use keystore::errors::KeystoreError;
+use keystore::{filesystem::FileSystem, KeyStore, KeyStoreError};
 use serde_json::Error as SerdeError;
 use std::io;
 
@@ -44,7 +43,7 @@ pub fn read_diddoc(fs: &dyn FileSystem, storage_dirpath: &str) -> Result<Documen
 pub fn read_keystore<'a>(
     fs: &'a mut dyn FileSystem,
     storage_dirpath: &str,
-) -> Result<KeyStore<'a>, KeystoreError> {
+) -> Result<KeyStore<'a>, KeyStoreError> {
     KeyStore::latest(fs, storage_dirpath)
 }
 
