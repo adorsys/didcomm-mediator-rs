@@ -14,7 +14,7 @@ pub enum RotationError {
     InvalidFromPrior,
     #[error("Could not end relationship")]
     TargetNotFound,
-    #[error("Could not update connecton")]
+    #[error("Could not update connection")]
     RepositoryError,
 }
 
