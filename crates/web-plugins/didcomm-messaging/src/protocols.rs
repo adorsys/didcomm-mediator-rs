@@ -1,11 +1,11 @@
-use std::{
-    collections::HashMap,
-    fmt::Debug,
-    hash::{Hash, Hasher},
-    marker::PhantomData,
-};
+use std::{collections::HashMap, fmt::Debug, marker::PhantomData, sync::{Arc, Mutex}};
 
-use serde::{Deserialize, Serialize};
+use axum::response::Response;
+use didcomm::Message;
+use once_cell::sync::Lazy;
+use shared::state::AppState;
+
+type MessageHandler<S, M, R> = fn(Arc<S>, M) -> Result<M, R>;
 
 #[derive(Debug, PartialEq)]
 pub enum PluginError {
@@ -13,56 +13,52 @@ pub enum PluginError {
 }
 
 #[derive(Debug)]
-pub struct ProtocolRouter<F, T, M, R>
+pub struct MessageRouter<S, M, R>
 where
-    M: Serialize + for<'de> Deserialize<'de>,
-    F: Fn(&T, &M) -> Result<M, R> + Send + Sync + 'static,
+    S: Clone + Sync + Send + 'static,
+    M: Send + 'static,
+    R: Send + 'static,
 {
-    pub route_map: HashMap<String, F>,
-    _marker: PhantomData<(T, M, R)>,
+    routes: HashMap<String, MessageHandler<S, M, R>>,
+    _marker: PhantomData<(S, M, R)>,
 }
 
-impl<F, T, M, R> ProtocolRouter<F, T, M, R>
+impl<S, M, R> MessageRouter<S, M, R>
 where
-    M: Serialize + for<'de> Deserialize<'de>,
-    F: Fn(&T, &M) -> Result<M, R> + Send + Sync + 'static,
+    S: Clone + Sync + Send + 'static,
+    M: Send + 'static,
+    R: Send + 'static,
 {
     pub fn new() -> Self {
         Self {
-            route_map: HashMap::new(),
+            routes: HashMap::new(),
             _marker: PhantomData,
         }
     }
 
-    pub fn add_route(mut self, msg_type: &str, handler: F) -> Self {
-        self.route_map.insert(msg_type.to_string(), handler);
+    pub fn route(mut self, msg_type: &str, f: MessageHandler<S, M, R>) -> Self {
+        self.routes.insert(msg_type.to_string(), f);
         self
-    }
-
-    pub fn merge(self, other: ProtocolRouter<F, T, M, R>) -> Self {
-        let mut new = self;
-        for (k, v) in other.route_map.into_iter() {
-            new.route_map.insert(k, v);
-        }
-        new
     }
 }
 
-// Implement Default for ProtocolRouter
-impl<F, T, M, R> Default for ProtocolRouter<F, T, M, R>
+// Implement Default for MessageRouter
+impl<S, M, R> Default for MessageRouter<S, M, R>
 where
-    M: Serialize + for<'de> Deserialize<'de>,
-    F: Fn(&T, &M) -> Result<M, R> + Send + Sync + 'static,
+    S: Clone + Sync + Send + 'static,
+    M: Send + 'static,
+    R: Send + 'static,
 {
     fn default() -> Self {
         Self::new()
     }
 }
 
-pub trait Plugin<F, T, M, R>: Sync + Send
+pub trait MessagePlugin<S, M, R>: Sync + Send
 where
-    M: Serialize + for<'de> Deserialize<'de>,
-    F: Fn(&T, &M) -> Result<M, R> + Send + Sync + 'static,
+    S: Clone + Sync + Send + 'static,
+    M: Send + 'static,
+    R: Send + 'static,
 {
     /// Define a unique identifier
     fn name(&self) -> &'static str;
@@ -74,35 +70,9 @@ where
     fn unmount(&self) -> Result<(), PluginError>;
 
     /// Return a mapping of message types to handlers
-    fn get_routes(&self) -> ProtocolRouter<F, T, M, R>;
+    fn routes(&self) -> MessageRouter<S, M, R>;
 }
 
-impl<F, T, M, R> Eq for dyn Plugin<F, T, M, R>
-where
-    M: Serialize + for<'de> Deserialize<'de>,
-    F: Fn(&T, &M) -> Result<M, R> + Send + Sync + 'static,
-{
-}
-
-impl<F, T, M, R> PartialEq for dyn Plugin<F, T, M, R>
-where
-    M: Serialize + for<'de> Deserialize<'de>,
-    F: Fn(&T, &M) -> Result<M, R> + Send + Sync + 'static,
-{
-    fn eq(&self, other: &Self) -> bool {
-        self.name() == other.name()
-    }
-}
-
-impl<F, T, M, R> Hash for dyn Plugin<F, T, M, R>
-where
-    M: Serialize + for<'de> Deserialize<'de>,
-    F: Fn(&T, &M) -> Result<M, R> + Send + Sync + 'static,
-{
-    fn hash<H>(&self, state: &mut H)
-    where
-        H: Hasher,
-    {
-        self.name().hash(state)
-    }
-}
+pub(crate) static PROTOCOLS: Lazy<Arc<Mutex<Vec<Box<dyn MessagePlugin<AppState, Message, Response>>>>> = Lazy::new(|| {
+    Arc::new(Mutex::new(vec![])) 
+});
