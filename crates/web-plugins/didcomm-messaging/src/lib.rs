@@ -1,6 +1,7 @@
 pub mod client;
 pub mod web;
 pub mod plugin;
+pub(crate) mod did_rotation;
 
 mod model;
 mod forward;

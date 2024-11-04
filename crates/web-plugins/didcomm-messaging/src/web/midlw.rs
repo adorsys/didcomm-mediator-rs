@@ -9,9 +9,10 @@ use didcomm::{error::ErrorKind as DidcommErrorKind, Message, PackEncryptedOption
 use serde_json::Value;
 use std::sync::Arc;
 
-use super::{error::MediationError, AppState};
+use super::{error::MediationError, AppState, AppStateRepository};
 use crate::{
     constant::{DIDCOMM_ENCRYPTED_MIME_TYPE, DIDCOMM_ENCRYPTED_SHORT_MIME_TYPE},
+    did_rotation::did_rotation::did_rotation,
     didcomm::bridge::{LocalDIDResolver, LocalSecretsResolver},
 };
 
@@ -59,6 +60,19 @@ pub async fn unpack_didcomm_message(
 
     match unpack_payload(&payload, did_resolver, secrets_resolver).await {
         Ok(plain_message) => {
+            // check for and handle did rotation
+            let AppStateRepository {
+                connection_repository,
+                ..
+            } = state.repository.as_ref().unwrap();
+            match did_rotation(plain_message.clone(), connection_repository).await {
+                Ok(_) => {}
+                Err(err) => {
+                    let response = (StatusCode::BAD_REQUEST, err);
+                    return response.into_response();
+                }
+            };
+
             let mut request = Request::from_parts(parts, Body::from(bytes));
             request.extensions_mut().insert(plain_message);
 
