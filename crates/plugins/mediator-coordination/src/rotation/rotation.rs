@@ -1,12 +1,12 @@
 use super::errors::RotationError;
 use crate::{didcomm::bridge::LocalDIDResolver, model::stateful::entity::Connection};
 use axum::response::{IntoResponse, Response};
-use database::{Repository, RepositoryError};
+use database::Repository;
 use didcomm::{FromPrior, Message};
 use mongodb::bson::doc;
 use std::sync::Arc;
 
-// https://identity.foundation/didcomm-messaging/spec/#did-rotation
+/// https://identity.foundation/didcomm-messaging/spec/#did-rotation
 pub async fn did_rotation(
     msg: Message,
     connection_repos: &Arc<dyn Repository<Connection>>,
@@ -14,7 +14,7 @@ pub async fn did_rotation(
     // Check if from_prior is none
     if msg.from_prior.is_none() {
     } else {
-        let jwt = msg.from_prior.unwrap();
+        let jwt = msg.from_prior.unwrap(); 
         let did_resolver = LocalDIDResolver::default();
 
         // decode and validate jwt signature
@@ -81,7 +81,7 @@ mod test {
 
     use did_utils::{didcore::Document, jwk::Jwk};
     use didcomm::secrets::SecretsResolver;
-    use hyper::{client::conn, header::CONTENT_TYPE, Body, Method, Request, StatusCode};
+    use hyper::{header::CONTENT_TYPE, Body, Method, Request, StatusCode};
     use mongodb::bson::doc;
     use tower::ServiceExt;
 
@@ -119,10 +119,9 @@ mod test {
         let public_domain = String::from("http://alice-mediator.com");
 
         let mut mock_fs = MockFileSystem;
-        let storage_dirpath: String =
-            std::env::var("STORAGE_DIRPATH").unwrap_or_else(|_| "/".to_owned());
+
         let diddoc: did_utils::didcore::Document =
-            util::read_diddoc(&mock_fs, &storage_dirpath).unwrap();
+           didoc();
         let keystore = util::read_keystore(&mut mock_fs, "").unwrap();
 
         let repository = AppStateRepository {

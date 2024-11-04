@@ -1,6 +1,6 @@
 pub mod client;
 pub mod plugin;
-pub mod rotation;
+pub(crate) mod rotation;
 
 mod forward;
 mod constant;
