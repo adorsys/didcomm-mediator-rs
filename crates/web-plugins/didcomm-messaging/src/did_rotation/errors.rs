@@ -15,7 +15,7 @@ pub enum RotationError {
     #[error("Could not end relationship")]
     TargetNotFound,
     #[error("Could not update connecton")]
-    RepositoryError
+    RepositoryError,
 }
 
 impl RotationError {

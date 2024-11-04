@@ -12,8 +12,8 @@ use std::sync::Arc;
 use super::{error::MediationError, AppState, AppStateRepository};
 use crate::{
     constant::{DIDCOMM_ENCRYPTED_MIME_TYPE, DIDCOMM_ENCRYPTED_SHORT_MIME_TYPE},
+    did_rotation::did_rotation::did_rotation,
     didcomm::bridge::{LocalDIDResolver, LocalSecretsResolver},
-    did_rotation::{errors::RotationError, did_rotation::did_rotation},
 };
 
 /// Middleware to unpack DIDComm messages for unified handler

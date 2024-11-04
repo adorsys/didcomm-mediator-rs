@@ -29,17 +29,15 @@ impl LocalDIDResolver {
         }
     }
     pub fn default() -> Self {
-    Self {
-        diddoc: DIDDoc {
-            id: "".to_string(),
-            key_agreement: vec![],
-            authentication: vec![],
-            verification_method: vec![],
-            service: vec![],
-        },
-    }
-    
-    
+        Self {
+            diddoc: DIDDoc {
+                id: "".to_string(),
+                key_agreement: vec![],
+                authentication: vec![],
+                verification_method: vec![],
+                service: vec![],
+            },
+        }
     }
 }
 
@@ -73,12 +71,9 @@ impl DIDResolver for LocalDIDResolver {
                         ..diddoc
                     })) {
                         Ok(doc) => Ok(Some(doc)),
-                        Err(err) => Err(Error::new(
-                            ErrorKind::DIDNotResolved, 
-                            Box::new(err)
-                        )),
+                        Err(err) => Err(Error::new(ErrorKind::DIDNotResolved, Box::new(err))),
                     }
-                },
+                }
                 Err(err) => Err(Error::new(ErrorKind::DIDNotResolved, err)),
             }
         } else if did.starts_with("did:key:") {
@@ -91,12 +86,9 @@ impl DIDResolver for LocalDIDResolver {
                         ..diddoc
                     })) {
                         Ok(doc) => Ok(Some(doc)),
-                        Err(err) => Err(Error::new(
-                            ErrorKind::DIDNotResolved, 
-                            Box::new(err)
-                        )),
+                        Err(err) => Err(Error::new(ErrorKind::DIDNotResolved, Box::new(err))),
                     }
-                },
+                }
                 Err(err) => Err(Error::new(ErrorKind::DIDNotResolved, err)),
             }
         } else {
@@ -323,4 +315,3 @@ mod tests {
         assert!(resolved.is_none());
     }
 }
-
