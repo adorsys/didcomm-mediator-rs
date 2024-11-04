@@ -6,7 +6,7 @@
 
 # Didcomm-mediator
 
-A DIDComm mediator is a cloud agent that facilitate secure, decentralized communication between mobile agents in the self-sovereign identity (SSI) ecosystem. This mediator acts as a cloud-based intermediary, enabling mobile agents to communicate without reliance on centralized infrastructures like Facebook, Signal, or Telegram.
+A DIDComm mediator is a cloud agent that facilitates secure, decentralized communication between mobile agents in the self-sovereign identity (SSI) ecosystem. This mediator acts as a cloud-based intermediary, enabling mobile agents to communicate without reliance on centralized infrastructures like Facebook, Signal, or Telegram.
 
 For further understanding checkout the [docs](https://github.com/adorsys/didcomm-mediator-rs/blob/222-readme.md-refactoring/docs/mediator-doc.md)
 
