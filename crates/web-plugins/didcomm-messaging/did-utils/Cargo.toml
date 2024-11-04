@@ -1,0 +1,50 @@
+[package]
+name = "did-utils"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+didcomm.workspace = true
+serde_json.workspace = true
+chrono = { workspace = true, features = ["serde"] }
+hyper = {workspace = true, features = ["client", "http2"]}
+tokio.workspace = true
+json-patch.workspace = true
+serde.workspace = true
+hyper-tls.workspace = true
+
+# Cross-platform random number generator from os
+getrandom = { workspace = true, features = ["js"] }
+
+# Cryptographic algorithms
+ed25519-dalek.workspace = true
+x25519-dalek = { workspace = true, features = ["static_secrets", "getrandom"] }
+curve25519-dalek.workspace = true
+sha2.workspace = true
+
+# Utilities
+lazy_static.workspace = true
+async-trait.workspace = true
+multibase.workspace = true
+json-canon.workspace = true
+thiserror.workspace = true
+url.workspace = true
+num-bigint.workspace = true
+hex.workspace = true
+base64ct = { workspace = true, default-features = false, features = ["alloc"] }
+zeroize = { workspace = true, default-features = false, features = [
+    "alloc",
+    "serde",
+] }
+subtle.workspace = true
+regex.workspace = true
+
+[dev-dependencies]
+hyper = { version = "0.14.26", features = ["server"] }
+async-std = { version = "1.12.0", features = ["attributes"] }
+hex = "0.4.3"
+tokio = { version = "1.27.0", default-features = false, features = [
+    "macros",
+    "rt",
+] }
+tokio-test = "0.4.2"

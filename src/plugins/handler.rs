@@ -16,6 +16,7 @@ pub struct PluginContainer<'a> {
     loaded: bool,
     collected_routes: Vec<Router>,
     plugins: &'a Vec<Arc<Mutex<dyn Plugin>>>,
+    mounted_plugins: Vec<Arc<Mutex<dyn Plugin>>>,
 }
 
 impl<'a> Default for PluginContainer<'a> {
@@ -31,6 +32,7 @@ impl<'a> PluginContainer<'a> {
             loaded: false,
             collected_routes: vec![],
             plugins: &PLUGINS,
+            mounted_plugins: vec![],
         }
     }
 
@@ -64,19 +66,22 @@ impl<'a> PluginContainer<'a> {
             }
         }
 
-        // Reset collection of routes
+        // Reset collection of routes and mounted plugins
         self.collected_routes.clear();
+        self.mounted_plugins.clear();
 
         // Mount plugins and collect routes on successful status
         let errors: HashMap<_, _> = self
             .plugins
             .iter()
             .filter_map(|plugin| {
+                let plugin_clone = plugin.clone();
                 let mut plugin = plugin.lock().unwrap();
                 match plugin.mount() {
                     Ok(_) => {
                         tracing::info!("mounted plugin {}", plugin.name());
                         self.collected_routes.push(plugin.routes());
+                        self.mounted_plugins.push(plugin_clone);
                         None
                     }
                     Err(err) => {
@@ -101,9 +106,14 @@ impl<'a> PluginContainer<'a> {
 
     /// unload container plugins
     pub fn unload(&mut self) -> Result<(), PluginContainerError> {
+        // Check if plugins are loaded before attempting to unload
+        if !self.loaded {
+            return Err(PluginContainerError::Unloaded);
+        }
+
         // Unmount plugins and clearing the vector of routes
         let errors: HashMap<_, _> = self
-            .plugins
+            .mounted_plugins
             .iter()
             .filter_map(|plugin| {
                 let plugin = plugin.lock().unwrap();
@@ -123,9 +133,12 @@ impl<'a> PluginContainer<'a> {
         // Flag as unloaded
         self.loaded = false;
 
+        // Clear mounted plugins and collected routes
+        self.mounted_plugins.clear();
+        self.collected_routes.clear();
+
         // Return state of completion
         if errors.is_empty() {
-            self.collected_routes.clear();
             tracing::debug!("plugin container unloaded");
             Ok(())
         } else {
@@ -241,6 +254,7 @@ mod tests {
             loaded: false,
             collected_routes: vec![],
             plugins: &plugins,
+            mounted_plugins: vec![],
         };
 
         // Test loading plugins
@@ -273,6 +287,7 @@ mod tests {
             loaded: false,
             collected_routes: vec![],
             plugins: &plugins,
+            mounted_plugins: vec![],
         };
 
         // Test loading plugins twice
@@ -296,6 +311,7 @@ mod tests {
             loaded: false,
             collected_routes: vec![],
             plugins: &plugins,
+            mounted_plugins: vec![],
         };
 
         // Attempt to load plugins with duplicates
@@ -321,6 +337,7 @@ mod tests {
             loaded: false,
             collected_routes: vec![],
             plugins: &plugins,
+            mounted_plugins: vec![],
         };
 
         let err = container.load().unwrap_err();
@@ -351,6 +368,7 @@ mod tests {
             loaded: false,
             collected_routes: vec![],
             plugins: &plugins,
+            mounted_plugins: vec![],
         };
 
         // Test route extraction without loading
@@ -372,6 +390,7 @@ mod tests {
             loaded: false,
             collected_routes: vec![],
             plugins: &plugins,
+            mounted_plugins: vec![],
         };
         // Test unloading plugins
         assert!(container.load().is_ok());
