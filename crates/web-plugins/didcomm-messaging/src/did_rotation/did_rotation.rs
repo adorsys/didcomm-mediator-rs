@@ -1,7 +1,7 @@
 use super::errors::RotationError;
 use crate::{didcomm::bridge::LocalDIDResolver, model::stateful::entity::Connection};
 use axum::response::{IntoResponse, Response};
-use database::Repository;
+use database::{Repository, RepositoryError};
 use didcomm::{FromPrior, Message};
 use mongodb::bson::doc;
 use std::sync::Arc;
@@ -13,65 +13,63 @@ pub async fn did_rotation(
 ) -> Result<(), Response> {
     // Check if from_prior is none
     if msg.from_prior.is_none() {
-    } else {
-        let jwt = msg.from_prior.unwrap();
-        let did_resolver = LocalDIDResolver::default();
-
-        // decode and validate jwt signature
-        let (from_prior, _kid) = FromPrior::unpack(&jwt, &did_resolver)
-            .await
-            .map_err(|_| RotationError::InvalidFromPrior.json().into_response())?;
-        let prev = from_prior.iss;
-
-        // validate if did is  known
-        let _ = match connection_repos
-            .find_one_by(doc! {"client_did": &prev})
-            .await
-            .unwrap()
-        {
-            Some(mut connection) => {
-                // get new did for communication, if empty then we end the relationship
-                let new = from_prior.sub;
-
-                if new.is_empty() {
-                    let id = connection.id.unwrap_or_default();
-                    // end the relationship with the mediator
-                    connection_repos
-                        .delete_one(id)
-                        .await
-                        .map_err(|_| RotationError::TargetNotFound.json())
-                        .into_response();
-                }
-
-                let did_index = connection.keylist.iter().position(|did| did == &prev);
-
-                if did_index.is_some() {
-                    connection.keylist.swap_remove(did_index.unwrap());
-
-                    connection.keylist.push(new.clone());
-                } else {
-                    // scenario in which there is rotation prior to keylist update
-                    connection.keylist.push(new.clone());
-                }
-
-                // store updated connection
-                let _confirmations = match connection_repos
-                    .update(Connection {
-                        client_did: new,
-                        ..connection
-                    })
-                    .await
-                {
-                    Ok(conn) => Ok(conn),
-                    Err(_) => Err(RotationError::RepositoryError.json().into_response()),
-                };
-            }
-
-            None => {
-                return Err(RotationError::UnknownIssuer.json().into_response())?;
-            }
-        };
+        return Ok(());
     }
+    let jwt = msg.from_prior.unwrap();
+    let did_resolver = LocalDIDResolver::default();
+
+    // decode and validate jwt signature
+    let (from_prior, _kid) = FromPrior::unpack(&jwt, &did_resolver)
+        .await
+        .map_err(|_| RotationError::InvalidFromPrior.json().into_response())?;
+    let prev = from_prior.iss;
+
+    // validate if did is  known
+    let _ = match connection_repos
+        .find_one_by(doc! {"client_did": &prev})
+        .await
+        .unwrap()
+    {
+        Some(mut connection) => {
+            // get new did for communication, if empty then we end the relationship
+            let new = from_prior.sub;
+
+            if new.is_empty() {
+                let id = connection.id.unwrap_or_default();
+                return connection_repos
+                    .delete_one(id)
+                    .await
+                    .map_err(|_| RotationError::TargetNotFound.json().into_response());
+            }
+
+            let did_index = connection.keylist.iter().position(|did| did == &prev);
+
+            if did_index.is_some() {
+                connection.keylist.swap_remove(did_index.unwrap());
+
+                connection.keylist.push(new.clone());
+            } else {
+                // scenario in which there is rotation prior to keylist update
+                connection.keylist.push(new.clone());
+            }
+
+            // store updated connection
+            let _confirmations: Result<Connection, RepositoryError> = match connection_repos
+                .update(Connection {
+                    client_did: new,
+                    ..connection
+                })
+                .await
+            {
+                Ok(conn) => Ok(conn),
+                Err(_) => return Err(RotationError::RepositoryError.json().into_response()),
+            };
+        }
+
+        None => {
+            return Err(RotationError::UnknownIssuer.json().into_response())?;
+        }
+    };
     Ok(())
 }
 
