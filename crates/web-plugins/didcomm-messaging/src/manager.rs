@@ -9,7 +9,6 @@ use shared::state::AppState;
 
 use crate::protocols::{MessagePlugin, MessageRouter, PluginError, PROTOCOLS};
 
-
 type DidcommRouter = MessageRouter<AppState, Message, Response>;
 
 #[derive(Debug, PartialEq)]
@@ -22,7 +21,7 @@ pub enum MessageContainerError {
 pub struct MessagePluginContainer<'a> {
     loaded: bool,
     collected_routes: Vec<DidcommRouter>,
-    protocols: &'a [Arc<Mutex<dyn MessagePlugin<AppState, Message, Response> + 'static>>],
+    protocols: &'a Vec<Arc<Mutex<Vec<Box<dyn MessagePlugin<AppState, Message, Response>>>>>>,
     mounted_protocols: Vec<Arc<Mutex<dyn MessagePlugin<AppState, Message, Response> + 'static>>>,
 }
 
@@ -36,27 +35,36 @@ impl<'a> MessagePluginContainer<'a> {
         }
     }
 
-    pub fn find_plugin(&self, name: &str) -> Option<Arc<Mutex<dyn MessagePlugin<AppState, Message, Response>>>> {
+    pub fn find_plugin(
+        &self,
+        name: &str,
+    ) -> Option<Arc<Mutex<Vec<Box<dyn MessagePlugin<AppState, Message, Response>>>>>> {
         self.protocols.iter().find_map(|arc_protocol| {
             let protocol = arc_protocol.lock().unwrap();
-            if protocol.name() == name {
-                Some(Arc::clone(arc_protocol))
-            } else {
-                None
+            for plugin in protocol.iter() {
+                if plugin.name() == name {
+                    return Some(Arc::clone(arc_protocol));
+                }
             }
+            None
         })
     }
 
-    pub fn load(&mut self) -> Result<(), MessageContainerError> {
+    pub fn load(&mut self) -> Option<()> {
         tracing::debug!("Loading plugin container");
 
         // Check for duplicates before mounting protocols
         let mut seen_names = HashSet::new();
         for protocol in self.protocols.iter() {
             let protocol = protocol.lock().unwrap();
-            if !seen_names.insert(protocol.name().to_string()) {
-                tracing::error!("Found duplicate entry in protocols registry: {}", protocol.name());
-                return Err(MessageContainerError::DuplicateEntry);
+            for protocol in protocol.iter() {
+                if !seen_names.insert(protocol.name().to_string()) {
+                    tracing::error!(
+                        "Found duplicate entry in protocols registry: {}",
+                        protocol.name()
+                    );
+                    return None; // Returning None instead of DuplicateEntry error
+                }
             }
         }
 
@@ -64,247 +72,236 @@ impl<'a> MessagePluginContainer<'a> {
         self.collected_routes.clear();
 
         // Mount protocols and collect routes on successful status
-        let errors: HashMap<_, _> = self
-            .protocols
-            .iter()
-            .filter_map(|protocol| {
-                let mut protocol = protocol.lock().unwrap();
-                match protocol.mount() {
-                    Ok(_) => {
-                        tracing::info!("Mounted protocol {}", protocol.name());
-                        self.collected_routes.push(protocol.routes());
-                        None
-                    }
-                    Err(err) => {
-                        tracing::error!("Error mounting protocol {}", protocol.name());
-                        Some((protocol.name().to_string(), err))
-                    }
+        let mut has_errors = false;
+        for protocol in self.protocols.iter() {
+            let mut protocol = protocol.lock().unwrap();
+            for protocol in protocol.iter_mut() {
+                if protocol.mount().is_ok() { 
+                    tracing::info!("Mounted protocol {}", protocol.name());
+                    self.collected_routes.push(protocol.routes());
+                } else {
+                    tracing::error!("Error mounting protocol {}", protocol.name());
+                    has_errors = true;
                 }
-            })
-            .collect();
-
-        // Update loaded status
-        self.loaded = true;
-
-        // Return load status
-        if errors.is_empty() {
-            tracing::debug!("Plugin container loaded successfully");
-            Ok(())
-        } else {
-            Err(MessageContainerError::ProtocolErrorMap(errors))
-        }
-    }
-
-    pub fn unload(&mut self) -> Result<(), MessageContainerError> {
-        let mut errors = HashMap::new();
-
-        for protocol in &self.mounted_protocols {
-            let protocol_guard = protocol.lock().unwrap();
-            if let Err(err) = protocol_guard.unmount() {
-                tracing::error!("Error unmounting protocol {}", protocol_guard.name());
-                errors.insert(protocol_guard.name().to_string(), err);
-            } else {
-                tracing::info!("Unmounted protocol {}", protocol_guard.name());
             }
         }
 
-        if !errors.is_empty() {
-            return Err(MessageContainerError::ProtocolErrorMap(errors));
+        // Update loaded status if no errors
+        if !has_errors {
+            self.loaded = true;
+            tracing::debug!("Plugin container loaded successfully");
+            Some(())
+        } else {
+            None
+        }
+    }
+
+    pub fn unload(&mut self) -> Option<()> {
+        for protocol in &self.mounted_protocols {
+            let protocol_guard = protocol.lock().unwrap();
+            if protocol_guard.unmount().is_ok() { 
+                tracing::info!("Unmounted protocol {}", protocol_guard.name());
+            } else {
+                tracing::error!("Error unmounting protocol {}", protocol_guard.name());
+                return None;
+            }
         }
 
         self.loaded = false;
         self.mounted_protocols.clear();
-        Ok(())
+        Some(())
     }
-    
-    pub fn routes(&self) -> Result<MessageRouter<AppState, Message, Response>, MessageContainerError> {
-        if !self.loaded() {
-            return Err(MessageContainerError::Unloaded);
+
+    // pub fn routes(
+    //     &self,
+    // ) -> Result<MessageRouter<AppState, Message, Response>, MessageContainerError> {
+    //     if !self.loaded {
+    //         return Err(MessageContainerError::Unloaded);
+    //     }
+
+    //     let main_router = self
+    //         .collected_routes
+    //         .iter()
+    //         .chain(self.mounted_protocols.iter().collect::<Vec<_>>());
+        
+    //     let mut main_router = MessageRouter::new();
+
+    //     Ok(main_router)
+    // }
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::protocols::{MessagePlugin, MessageRouter, PluginError};
+    use std::collections::HashMap;
+    use std::sync::{Arc, Mutex};
+
+    struct ExampleProtocol;
+    impl<S, M, R> MessagePlugin<S, M, R> for ExampleProtocol
+    where
+        S: Clone + Sync + Send + 'static,
+        M: Send + 'static,
+        R: Send + 'static,
+    {
+        fn name(&self) -> &'static str {
+            "example"
         }
 
-        let main_router = self.collected_routes.iter().chain(self.mounted_protocols.iter().collect());
-        
-        let mut main_router = MessageRouter::new();
-        
-        
-        Ok(main_router)
+        fn mount(&mut self) -> Result<(), PluginError> {
+            Ok(())
+        }
+
+        fn unmount(&self) -> Result<(), PluginError> {
+            Ok(())
+        }
+
+        fn routes(&self) -> MessageRouter<S, M, R> {
+            MessageRouter::new()
+        }
+    }
+
+    struct DuplicateProtocol;
+    impl<S, M, R> MessagePlugin<S, M, R> for DuplicateProtocol
+    where
+        S: Clone + Sync + Send + 'static,
+        M: Send + 'static,
+        R: Send + 'static,
+    {
+        fn name(&self) -> &'static str {
+            "duplicate"
+        }
+
+        fn mount(&mut self) -> Result<(), PluginError> {
+            Ok(())
+        }
+
+        fn unmount(&self) -> Result<(), PluginError> {
+            Ok(())
+        }
+
+        fn routes(&self) -> MessageRouter<S, M, R> {
+            MessageRouter::new()
+        }
+    }
+
+    struct FaultyProtocol;
+    impl<S, M, R> MessagePlugin<S, M, R> for FaultyProtocol
+    where
+        S: Clone + Sync + Send + 'static,
+        M: Send + 'static,
+        R: Send + 'static,
+    {
+        fn name(&self) -> &'static str {
+            "faulty"
+        }
+
+        fn mount(&mut self) -> Result<(), PluginError> {
+            Err(PluginError::InitError)
+        }
+
+        fn unmount(&self) -> Result<(), PluginError> {
+            Ok(())
+        }
+
+        fn routes(&self) -> MessageRouter<S, M, R> {
+            MessageRouter::new()
+        }
+    }
+
+    #[test]
+    fn test_loading_protocols() {
+        let protocols: Vec<Arc<Mutex<Vec<Box<dyn MessagePlugin<AppState, Message, Response>>>>>> = vec![
+            Arc::new(Mutex::new(vec![Box::new(ExampleProtocol {})])),
+            Arc::new(Mutex::new(vec![Box::new(DuplicateProtocol {})])),
+        ];
+
+        // Update your `MessagePluginContainer` initialization:
+        let mut manager = MessagePluginContainer {
+            loaded: false,
+            collected_routes: vec![],
+            protocols: &protocols,
+            mounted_protocols: vec![],
+        };
+
+        assert!(manager.load().is_some());
+        assert!(manager.find_plugin("example").is_some());
+        assert!(manager.find_plugin("duplicate").is_some());
+        assert!(manager.find_plugin("non-existent").is_none());
+    }
+
+    #[test]
+    fn test_loading_with_duplicates() {
+        let protocols: Vec<Arc<Mutex<Vec<Box<dyn MessagePlugin<AppState, Message, Response>>>>>> = vec![
+            Arc::new(Mutex::new(vec![Box::new(ExampleProtocol {})])),
+            Arc::new(Mutex::new(vec![Box::new(DuplicateProtocol {})])),
+        ];
+
+        // Update your `MessagePluginContainer` initialization:
+        let mut manager = MessagePluginContainer {
+            loaded: false,
+            collected_routes: vec![],
+            protocols: &protocols,
+            mounted_protocols: vec![],
+        };
+
+        let result = manager.load();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_loading_with_failing_protocol() {
+        let protocols: Vec<Arc<Mutex<Vec<Box<dyn MessagePlugin<AppState, Message, Response>>>>>> = vec![
+            Arc::new(Mutex::new(vec![Box::new(ExampleProtocol {})])),
+            Arc::new(Mutex::new(vec![Box::new(FaultyProtocol {})])),
+        ];
+
+        // Update your `MessagePluginContainer` initialization:
+        let mut manager = MessagePluginContainer {
+            loaded: false,
+            collected_routes: vec![],
+            protocols: &protocols,
+            mounted_protocols: vec![],
+        };
+
+        let result = manager.load();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_unloading_protocols() {
+        let protocols: Vec<Arc<Mutex<Vec<Box<dyn MessagePlugin<AppState, Message, Response>>>>>> = vec![
+            Arc::new(Mutex::new(vec![Box::new(ExampleProtocol {})])),
+            Arc::new(Mutex::new(vec![Box::new(DuplicateProtocol {})])),
+        ];
+
+        // Update your `MessagePluginContainer` initialization:
+        let mut manager = MessagePluginContainer {
+            loaded: false,
+            collected_routes: vec![],
+            protocols: &protocols,
+            mounted_protocols: vec![],
+        };
+
+        assert!(manager.load().is_some());
+        assert!(manager.unload().is_some());
+    }
+
+    #[test]
+    fn test_route_extraction_without_loading() {
+        let protocols: Vec<Arc<Mutex<Vec<Box<dyn MessagePlugin<AppState, Message, Response>>>>>> = vec![
+            Arc::new(Mutex::new(vec![Box::new(ExampleProtocol {})])),
+            Arc::new(Mutex::new(vec![Box::new(DuplicateProtocol {})])),
+        ];
+
+        // Update your `MessagePluginContainer` initialization:
+        let mut manager = MessagePluginContainer {
+            loaded: false,
+            collected_routes: vec![],
+            protocols: &protocols,
+            mounted_protocols: vec![],
+        };
+
+        assert!(manager.load().is_some());
+        assert!(manager.unload().is_some());
     }
 }
-
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//     use crate::protocols::{MessageRouter, Plugin, PluginError};
-//     use std::sync::{Arc, Mutex};
-
-//     struct ExampleProtocol;
-//     impl<F, T, M, R> Plugin<F, T, M, R> for ExampleProtocol
-//     where
-//         M: serde::Serialize + for<'de> serde::Deserialize<'de>,
-//         F: Fn(&T, &M) -> Result<M, R> + Send + Sync + 'static,
-//     {
-//         fn name(&self) -> &'static str {
-//             "example"
-//         }
-
-//         fn mount(&mut self) -> Result<(), PluginError> {
-//             Ok(())
-//         }
-
-//         fn unmount(&self) -> Result<(), PluginError> {
-//             Ok(())
-//         }
-
-//         fn get_routes(&self) -> MessageRouter<F, T, M, R> {
-//             MessageRouter::new()
-//         }
-//     }
-
-//     struct DuplicateProtocol;
-//     impl<F, T, M, R> Plugin<F, T, M, R> for DuplicateProtocol
-//     where
-//         M: serde::Serialize + for<'de> serde::Deserialize<'de>,
-//         F: Fn(&T, &M) -> Result<M, R> + Send + Sync + 'static,
-//     {
-//         fn name(&self) -> &'static str {
-//             "duplicate"
-//         }
-
-//         fn mount(&mut self) -> Result<(), PluginError> {
-//             Ok(())
-//         }
-
-//         fn unmount(&self) -> Result<(), PluginError> {
-//             Ok(())
-//         }
-
-//         fn get_routes(&self) -> MessageRouter<F, T, M, R> {
-//             MessageRouter::new()
-//         }
-//     }
-
-//     struct FaultyProtocol;
-//     impl<F, T, M, R> Plugin<F, T, M, R> for FaultyProtocol
-//     where
-//         M: serde::Serialize + for<'de> serde::Deserialize<'de>,
-//         F: Fn(&T, &M) -> Result<M, R> + Send + Sync + 'static,
-//     {
-//         fn name(&self) -> &'static str {
-//             "faulty"
-//         }
-
-//         fn mount(&mut self) -> Result<(), PluginError> {
-//             Err(PluginError::InitError)
-//         }
-
-//         fn unmount(&self) -> Result<(), PluginError> {
-//             Ok(())
-//         }
-
-//         fn get_routes(&self) -> MessageRouter<F, T, M, R> {
-//             MessageRouter::new()
-//         }
-//     }
-
-//     #[test]
-//     fn test_loading_protocols() {
-//         let protocols: Vec<
-//             Arc<Mutex<dyn Plugin<fn(&(), &String) -> Result<String, ()>, (), String, ()>>>,
-//         > = vec![
-//             Arc::new(Mutex::new(ExampleProtocol {})),
-//             Arc::new(Mutex::new(DuplicateProtocol {})),
-//         ];
-
-//         let mut manager = ProtocolManager {
-//             protocols,
-//             message_type_handlers: MessageRouter::new(),
-//             loaded: false,
-//         };
-
-//         assert!(manager.load().is_ok());
-//         assert!(manager.find_plugin("example").is_some());
-//         assert!(manager.find_plugin("duplicate").is_some());
-//         assert!(manager.find_plugin("non-existent").is_none());
-//     }
-
-//     #[test]
-//     fn test_loading_with_duplicates() {
-//         let protocols: Vec<
-//             Arc<Mutex<dyn Plugin<fn(&(), &String) -> Result<String, ()>, (), String, ()>>>,
-//         > = vec![
-//             Arc::new(Mutex::new(ExampleProtocol {})),
-//             Arc::new(Mutex::new(DuplicateProtocol {})),
-//             Arc::new(Mutex::new(DuplicateProtocol {})),
-//         ];
-
-//         let mut manager = ProtocolManager {
-//             protocols,
-//             message_type_handlers: MessageRouter::new(),
-//             loaded: false,
-//         };
-
-//         let result = manager.load();
-//         assert_eq!(result.unwrap_err(), MessageContainerError::DuplicateEntry);
-//     }
-
-//     #[test]
-//     fn test_loading_with_failing_protocol() {
-//         let protocols: Vec<
-//             Arc<Mutex<dyn Plugin<fn(&(), &String) -> Result<String, ()>, (), String, ()>>>,
-//         > = vec![
-//             Arc::new(Mutex::new(ExampleProtocol {})),
-//             Arc::new(Mutex::new(FaultyProtocol {})),
-//         ];
-
-//         let mut manager = ProtocolManager {
-//             protocols,
-//             message_type_handlers: MessageRouter::new(),
-//             loaded: false,
-//         };
-
-//         let err = manager.load().unwrap_err();
-//         let mut expected_error_map = HashMap::new();
-//         expected_error_map.insert("faulty".to_string(), PluginError::InitError);
-
-//         assert_eq!(
-//             err,
-//             MessageContainerError::ProtocolErrorMap(expected_error_map)
-//         );
-//     }
-//     #[test]
-//     fn test_unloading_protocols() {
-//         let protocols: Vec<
-//             Arc<Mutex<dyn Plugin<fn(&(), &String) -> Result<String, ()>, (), String, ()>>>,
-//         > = vec![
-//             Arc::new(Mutex::new(ExampleProtocol {})),
-//             Arc::new(Mutex::new(DuplicateProtocol {})),
-//         ];
-
-//         let mut manager = ProtocolManager {
-//             protocols,
-//             message_type_handlers: MessageRouter::new(),
-//             loaded: false,
-//         };
-
-//         assert!(manager.load().is_ok());
-//         assert!(manager.unload().is_ok());
-//     }
-//     #[test]
-//     fn test_route_extraction_without_loading() {
-//         let protocols: Vec<
-//             Arc<Mutex<dyn Plugin<fn(&(), &String) -> Result<String, ()>, (), String, ()>>>,
-//         > = vec![
-//             Arc::new(Mutex::new(ExampleProtocol {})),
-//             Arc::new(Mutex::new(DuplicateProtocol {})),
-//         ];
-
-//         let mut manager = ProtocolManager {
-//             protocols,
-//             message_type_handlers: MessageRouter::new(),
-//             loaded: false,
-//         };
-
-//         assert!(manager.load().is_ok());
-//         assert!(manager.unload().is_ok());
-//     }
-// }

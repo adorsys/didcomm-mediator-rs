@@ -1,11 +1,16 @@
-use std::{collections::HashMap, fmt::Debug, marker::PhantomData, sync::{Arc, Mutex}};
+use std::{
+    collections::HashMap,
+    fmt::Debug,
+    marker::PhantomData,
+    sync::{Arc, Mutex},
+};
 
 use axum::response::Response;
 use didcomm::Message;
 use once_cell::sync::Lazy;
 use shared::state::AppState;
 
-type MessageHandler<S, M, R> = fn(Arc<S>, M) -> Result<M, R>;
+type MessageHandler<S, M, R> = fn(Arc<S>, M) -> Option<R>;
 
 #[derive(Debug, PartialEq)]
 pub enum PluginError {
@@ -73,6 +78,13 @@ where
     fn routes(&self) -> MessageRouter<S, M, R>;
 }
 
-pub(crate) static PROTOCOLS: Lazy<Arc<Mutex<Vec<Box<dyn MessagePlugin<AppState, Message, Response>>>>> = Lazy::new(|| {
-    Arc::new(Mutex::new(vec![])) 
+pub static PROTOCOLS: Lazy<Vec<Arc<Mutex<Vec<Box<dyn MessagePlugin<AppState, Message, Response>>>>>>> = Lazy::new(|| {
+    vec![
+        #[cfg(feature = "forward-protocol")]
+        Arc::new(Mutex::new(vec![Box::new(forward_protocol::plugin::ForwardProtocol::default())])),
+        #[cfg(feature = "pickup-protocol")]
+        Arc::new(Mutex::new(vec![Box::new(pickup_protocol::plugin::PickupProtocol::default())])),
+        #[cfg(feature = "mediator-coordination-protocol")]
+        Arc::new(Mutex::new(vec![Box::new(mediator_coordination_protocol::plugin::MediatorCoordinationProtocol::default())])),
+    ]
 });
