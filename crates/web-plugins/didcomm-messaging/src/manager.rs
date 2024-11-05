@@ -63,7 +63,7 @@ impl<'a> MessagePluginContainer<'a> {
                         "Found duplicate entry in protocols registry: {}",
                         protocol.name()
                     );
-                    return None; // Returning None instead of DuplicateEntry error
+                    return None; 
                 }
             }
         }
@@ -234,19 +234,20 @@ mod tests {
         let protocols: Vec<Arc<Mutex<Vec<Box<dyn MessagePlugin<AppState, Message, Response>>>>>> = vec![
             Arc::new(Mutex::new(vec![Box::new(ExampleProtocol {})])),
             Arc::new(Mutex::new(vec![Box::new(DuplicateProtocol {})])),
+            Arc::new(Mutex::new(vec![Box::new(DuplicateProtocol {})])), // Adding a second instance of DuplicateProtocol
         ];
-
-        // Update your `MessagePluginContainer` initialization:
+    
         let mut manager = MessagePluginContainer {
             loaded: false,
             collected_routes: vec![],
             protocols: &protocols,
             mounted_protocols: vec![],
         };
-
+    
         let result = manager.load();
-        assert!(result.is_none());
+        assert!(result.is_none(), "Expected loading with duplicates to return None");
     }
+    
 
     #[test]
     fn test_loading_with_failing_protocol() {
