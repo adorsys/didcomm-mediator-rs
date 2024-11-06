@@ -45,6 +45,12 @@ where
         self.routes.insert(msg_type.to_string(), f);
         self
     }
+
+    pub fn merge(&mut self, other: &Self) {
+        for (key, handler) in &other.routes {
+            self.routes.insert(key.clone(), *handler);
+        }
+    }
 }
 
 // Implement Default for MessageRouter
@@ -81,10 +87,10 @@ where
 pub static PROTOCOLS: Lazy<Vec<Arc<Mutex<Vec<Box<dyn MessagePlugin<AppState, Message, Response>>>>>>> = Lazy::new(|| {
     vec![
         #[cfg(feature = "forward-protocol")]
-        Arc::new(Mutex::new(vec![Box::new(forward_protocol::plugin::ForwardProtocol::default())])),
+        Arc::new(Mutex::new(vec![Box::new(forward::plugin::default())])),
         #[cfg(feature = "pickup-protocol")]
-        Arc::new(Mutex::new(vec![Box::new(pickup_protocol::plugin::PickupProtocol::default())])),
+        Arc::new(Mutex::new(vec![Box::new(pickup::plugin::Pickup::default())])),
         #[cfg(feature = "mediator-coordination-protocol")]
-        Arc::new(Mutex::new(vec![Box::new(mediator_coordination_protocol::plugin::MediatorCoordinationProtocol::default())])),
+        Arc::new(Mutex::new(vec![Box::new(mediator_coordination::plugin::MediatorCoordination::default())])),
     ]
 });
