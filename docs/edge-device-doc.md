@@ -1,6 +1,6 @@
 # DIDComm Messaging for Edge Device Registration and Message Exchange
 ## Introduction
-With the growth of IoT and connected devices, secure, private communication between devices—like smart sensors, appliances, and any device has become essential. Decentralized Identifier Communication (DIDComm) provides a protocol that ensures private messaging, enabling devices to communicate without intermediaries directly accessing data. This makes DIDComm ideal for IoT networks where privacy, security, and decentralization are paramount.
+With the growth of IoT and connected devices, secure, private communication between devices like smart sensors, appliances, and any device has become essential. Decentralized Identifier Communication (DIDComm) provides a protocol that ensures private messaging, enabling devices to communicate without intermediaries directly accessing data. This makes DIDComm ideal for IoT networks where privacy, security, and decentralization are paramount.
 
 
 ![sample cloud services](basic-flow.png)
