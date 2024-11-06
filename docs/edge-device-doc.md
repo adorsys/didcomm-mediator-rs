@@ -36,6 +36,8 @@ The DIDComm messaging process for Alice and Bob involves three phases, each with
 ## Message Pickup and Delivery 
 – Alice and Bob securely exchange OOB messages, with the Mediator coordinating routing.
 
+![sample cloud services](image1.png)
+
 #                          Phase 1: Establishing Mediation
 In this initial phase, Alice registers with the Mediator, setting up the necessary framework for routing future OOB messages. By establishing mediation, Alice gains the essential routing details needed to connect with Bob securely.
 
