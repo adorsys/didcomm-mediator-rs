@@ -8,6 +8,7 @@
 
 A DIDComm mediator is a cloud agent that facilitates secure, decentralized communication between mobile agents in the self-sovereign identity (SSI) ecosystem. This mediator acts as a cloud-based intermediary, enabling mobile agents to communicate without reliance on centralized infrastructures like Facebook, Signal, or Telegram.
 
+
 For further understanding checkout the [docs](https://github.com/adorsys/didcomm-mediator-rs/blob/222-readme.md-refactoring/docs/mediator-doc.md)<br>
 
 ###  Project Feature Implementation Tracker
@@ -24,7 +25,6 @@ For further understanding checkout the [docs](https://github.com/adorsys/didcomm
 |[Acks](https://github.com/hyperledger/aries-rfcs/tree/main/features/0015-acks)| ADOPTED |❌ |
 |[Present Proof Protocol](https://didcomm.org/present-proof/3.0/)| ADOPTED | ❌|
 |[Basic Message Protocol](https://didcomm.org/basicmessage/2.0/#:~:text=The%20BasicMessage%20protocol%20describes%20a,message%20type%20used%20to%20communicate.) | ADOPTED|❌|
-
 
 ## Building and testing
 
