@@ -8,8 +8,23 @@
 
 A DIDComm mediator is a cloud agent that facilitates secure, decentralized communication between mobile agents in the self-sovereign identity (SSI) ecosystem. This mediator acts as a cloud-based intermediary, enabling mobile agents to communicate without reliance on centralized infrastructures like Facebook, Signal, or Telegram.
 
-For further understanding checkout the [docs](docs/mediator-doc.md)
 
+For further understanding checkout the [docs](https://github.com/adorsys/didcomm-mediator-rs/blob/222-readme.md-refactoring/docs/mediator-doc.md)<br>
+
+###  Project Feature Implementation Tracker
+
+|Message types  | Spec Status | Implementation Status|
+|---------------|-------------|----------------------|
+|[Mediator Coordination Protocol](https://didcomm.org/coordinate-mediation/2.0/)| ADOPTED| ✅|
+|[Pickup Protocol](https://didcomm.org/messagepickup/3.0/)| ADOPTED | ✅ |
+|[DID Rotation](https://didcomm.org/book/v2/didrotation) | ACCEPTED | ✅ |
+|[Cross-Domain Messaging/ Routing Protocol](https://identity.foundation/didcomm-messaging/spec/#routing-protocol-20) | ADOPTED | ✅|
+|[Trust Ping Ptotocol](https://identity.foundation/didcomm-messaging/spec/#trust-ping-protocol-20) | ADOPTED|⚪|
+|[Discover Features Protocol](https://didcomm.org/discover-features/2.0/) | ADOPTED | ⚪ |
+|[Out of band Messaging](https://identity.foundation/didcomm-messaging/spec/#out-of-band-messages) | ADOPTED | ⚪
+|[Acks](https://github.com/hyperledger/aries-rfcs/tree/main/features/0015-acks)| ADOPTED |❌ |
+|[Present Proof Protocol](https://didcomm.org/present-proof/3.0/)| ADOPTED | ❌|
+|[Basic Message Protocol](https://didcomm.org/basicmessage/2.0/#:~:text=The%20BasicMessage%20protocol%20describes%20a,message%20type%20used%20to%20communicate.) | ADOPTED|❌|
 
 ## Building and testing
 
