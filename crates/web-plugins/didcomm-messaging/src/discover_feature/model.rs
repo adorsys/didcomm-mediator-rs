@@ -1,20 +1,25 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 pub struct Queries {
-    queries: Vec<Value>,
+    pub queries: Vec<Value>,
 }
 
 #[derive(Deserialize)]
 pub struct Disclosures {
-    disclosures: Vec<DisclosuresContent>,
+    pub disclosures: Vec<DisclosuresContent>,
+}
+impl Disclosures {
+    pub fn new() -> Self {
+        Disclosures { disclosures: vec![] }
+    }
 }
 #[derive(Deserialize)]
-struct DisclosuresContent {
+pub struct DisclosuresContent {
     #[serde(rename = "feature-type")]
-    feature_type: String,
-    id: String,
+    pub feature_type: String,
+    pub id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    roles: Option<Vec<String>>
+    pub roles: Option<Vec<String>>,
 }
