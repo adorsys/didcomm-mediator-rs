@@ -1,12 +1,13 @@
 pub mod client;
-pub mod web;
 pub mod plugin;
+pub mod web;
 
-mod model;
-mod forward;
 mod constant;
 mod didcomm;
+mod forward;
 mod jose;
-mod util;
+mod model;
 mod pickup;
 mod repository;
+mod trust_ping;
+mod util;
