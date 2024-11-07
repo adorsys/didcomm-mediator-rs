@@ -49,7 +49,6 @@ hex = "0.4.3"
 subtle = "2.5.0"
 regex = "1.10.2"
 mongodb = "2.7.1"
-tower = "0.4"
 nix = "0.22.0"
 uuid = "1.4.1"
 axum = "0.6.20"
@@ -87,6 +86,7 @@ tower-http = { workspace = true, features = ["catch-panic", "trace"] }
 chrono = { workspace = true, optional = true }
 did-endpoint = { workspace = true, optional = true }
 oob-messages = { workspace = true, optional = true }
+
 
 
 [features]
