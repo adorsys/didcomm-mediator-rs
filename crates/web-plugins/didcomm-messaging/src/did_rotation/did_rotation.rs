@@ -1,9 +1,10 @@
 use super::errors::RotationError;
-use crate::{didcomm::bridge::LocalDIDResolver, model::stateful::entity::Connection};
 use axum::response::{IntoResponse, Response};
 use database::{Repository, RepositoryError};
+use did_utils::didcore::Document as DidDocument;
 use didcomm::{FromPrior, Message};
 use mongodb::bson::doc;
+use shared::{repository::entity::Connection, utils::resolvers::LocalDIDResolver};
 use std::sync::Arc;
 
 /// https://identity.foundation/didcomm-messaging/spec/#did-rotation
@@ -16,7 +17,7 @@ pub async fn did_rotation(
         return Ok(());
     }
     let jwt = msg.from_prior.unwrap();
-    let did_resolver = LocalDIDResolver::default();
+    let did_resolver = LocalDIDResolver::new(&DidDocument::default());
 
     // decode and validate jwt signature
     let (from_prior, _kid) = FromPrior::unpack(&jwt, &did_resolver)
@@ -75,7 +76,7 @@ pub async fn did_rotation(
 
 #[cfg(test)]
 mod test {
-    use std::sync::Arc;
+    use std::{sync::Arc, vec};
 
     use did_utils::{didcore::Document, jwk::Jwk};
     use didcomm::secrets::SecretsResolver;
@@ -83,19 +84,20 @@ mod test {
     use mongodb::bson::doc;
     use tower::ServiceExt;
 
-    use crate::{
-        constant::DIDCOMM_ENCRYPTED_MIME_TYPE,
-        didcomm::bridge::LocalSecretsResolver,
-        repository::stateful::tests::{
-            MockConnectionRepository, MockMessagesRepository, MockSecretsRepository,
+    use keystore::{tests::MockKeyStore, Secrets};
+    use shared::{
+        constants::DIDCOMM_ENCRYPTED_MIME_TYPE,
+        repository::{
+            entity::Connection,
+            tests::{MockConnectionRepository, MockMessagesRepository},
         },
-        util::{self, MockFileSystem},
-        web::{self, AppState, AppStateRepository},
+        state::{AppState, AppStateRepository},
+        utils::resolvers::{LocalDIDResolver, LocalSecretsResolver},
     };
 
     pub fn new_secrets_resolver() -> impl SecretsResolver {
         let secret_id = "did:key:z6MkqvgpxveKbuygKXnoRcD3jtLTJLgv7g6asLGLsoC4sUEp#z6LSeQmJnBaXhHz81dCGNDeTUUdMcX1a8p5YSVacaZEDdscp";
-        let secret: Jwk = serde_json::from_str(
+        let secret_material: Jwk = serde_json::from_str(
             r#"{
                 "kty": "OKP",
                 "crv": "X25519",
@@ -104,7 +106,15 @@ mod test {
             }"#,
         )
         .unwrap();
-        LocalSecretsResolver::new(&secret_id, &secret)
+
+        let secret = Secrets {
+            id: None,
+            kid: secret_id.to_string(),
+            secret_material,
+        };
+
+        let keystore = MockKeyStore::new(vec![secret]);
+        LocalSecretsResolver::new(Arc::new(keystore))
     }
 
     pub fn prev_did() -> String {
@@ -116,21 +126,43 @@ mod test {
     pub fn setup() -> Arc<AppState> {
         let public_domain = String::from("http://alice-mediator.com");
 
-        let mut mock_fs = MockFileSystem;
-        let keystore = util::read_keystore(&mut mock_fs, "").unwrap();
+        let keys = vec![
+            Secrets {
+                id: None,
+                kid: String::from("did:peer:2.Vz6Mkf6r1uMJwoRAbzkuyj2RwPusdZhWSPeEknnTcKv2C2EN7.Ez6LSgbP4b3y8HVWG6C73WF2zLbzjDAPXjc33P2VfnVVHE347.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0#key-1"),
+                secret_material: serde_json::from_str(
+                    r#"{
+                        "kty": "OKP",
+                        "crv": "Ed25519",
+                        "x": "CaDmpOjPAiMWfdzBcK2pLyJAER6xvdhDl2dro6BoilQ",
+                        "d": "vp0WuZNeCsoXYj94738e0gwi_PLF7VIutNCrFVNx--0"
+                    }"#,
+                )
+                .unwrap(),
+            },
+            Secrets {
+                id: None,
+                kid: String::from("did:peer:2.Vz6Mkf6r1uMJwoRAbzkuyj2RwPusdZhWSPeEknnTcKv2C2EN7.Ez6LSgbP4b3y8HVWG6C73WF2zLbzjDAPXjc33P2VfnVVHE347.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0#key-2"),
+                secret_material: serde_json::from_str(
+                    r#"{
+                        "kty": "OKP",
+                        "crv": "X25519",
+                        "x": "SQ_7useLAjGf66XAwQWuBuSv9PdD_wB4TJQ6w38nFwQ",
+                        "d": "kxUXT-2TOa6F6xk2ojQgJlT3xWq0aCA9j-BW4VB5_A8"
+                    }"#,
+                )
+                .unwrap(),
+            },
+        ];
+
         let diddoc = didoc();
         let repository = AppStateRepository {
             connection_repository: Arc::new(MockConnectionRepository::from(_initial_connections())),
-            secret_repository: Arc::new(MockSecretsRepository::from(vec![])),
+            keystore: Arc::new(MockKeyStore::new(keys)),
             message_repository: Arc::new(MockMessagesRepository::from(vec![])),
         };
 
-        let state = Arc::new(AppState::from(
-            public_domain,
-            diddoc,
-            keystore,
-            Some(repository),
-        ));
+        let state = Arc::new(AppState::from(public_domain, diddoc, Some(repository)));
 
         state
     }
@@ -145,7 +177,7 @@ mod test {
                     }},
                     
                     "client_did": "{_recipient_did}",
-                    "mediator_did": "did:web:alice-mediator.com:alice_mediator_pub",
+                    "mediator_did": "did:peer:2.Vz6Mkf6r1uMJwoRAbzkuyj2RwPusdZhWSPeEknnTcKv2C2EN7.Ez6LSgbP4b3y8HVWG6C73WF2zLbzjDAPXjc33P2VfnVVHE347.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0",
                     "routing_did": "did:key:generated",
                     "keylist": [
                         "{_recipient_did}"
@@ -161,61 +193,61 @@ mod test {
     use serde_json::json;
     use uuid::Uuid;
 
-    use crate::{didcomm::bridge::LocalDIDResolver, model::stateful::entity::Connection};
-
     use super::did_rotation;
 
     fn didoc() -> Document {
         let doc: did_utils::didcore::Document = serde_json::from_str(
-            r#"{
-            "@context": [
-                "https://www.w3.org/ns/did/v1",
-                "https://w3id.org/security/suites/jws-2020/v1"
-            ],
-            "id": "did:web:alice-mediator.com:alice_mediator_pub",
-            "verificationMethod": [
-                {
-                    "id": "did:web:alice-mediator.com:alice_mediator_pub#keys-1",
+            r##"{
+                "@context": [
+                    "https://www.w3.org/ns/did/v1",
+                    "https://w3id.org/security/suites/jws-2020/v1"
+                ],
+                "id": "did:peer:2.Vz6Mkf6r1uMJwoRAbzkuyj2RwPusdZhWSPeEknnTcKv2C2EN7.Ez6LSgbP4b3y8HVWG6C73WF2zLbzjDAPXjc33P2VfnVVHE347.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0",
+                "alsoKnownAs": [
+                    "did:peer:3zQmNVZUh4qgAxSWhpeGhJVW3HHHU7MZZbZbQ4Vc43madsSf"
+                ],
+                "verificationMethod": [
+                    {
+                    "id": "#key-1",
                     "type": "JsonWebKey2020",
-                    "controller": "did:web:alice-mediator.com:alice_mediator_pub",
+                    "controller": "did:peer:2.Vz6Mkf6r1uMJwoRAbzkuyj2RwPusdZhWSPeEknnTcKv2C2EN7.Ez6LSgbP4b3y8HVWG6C73WF2zLbzjDAPXjc33P2VfnVVHE347.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0",
                     "publicKeyJwk": {
                         "kty": "OKP",
                         "crv": "Ed25519",
-                        "x": "Z0GqpN71rMcnAkky6_J6Bfknr8B-TBsekG3qdI0EQX4"
+                        "x": "CaDmpOjPAiMWfdzBcK2pLyJAER6xvdhDl2dro6BoilQ"
                     }
-                },
-                {
-                    "id": "did:web:alice-mediator.com:alice_mediator_pub#keys-2",
+                    },
+                    {
+                    "id": "#key-2",
                     "type": "JsonWebKey2020",
-                    "controller": "did:web:alice-mediator.com:alice_mediator_pub",
-                    "publicKeyJwk": {
-                        "kty": "OKP",
-                        "crv": "Ed25519",
-                        "x": "Z0GqpN71rMcnAkky6_J6Bfknr8B-TBsekG3qdI0EQX4"
-                    }
-                },
-                {
-                    "id": "did:web:alice-mediator.com:alice_mediator_pub#keys-3",
-                    "type": "JsonWebKey2020",
-                    "controller": "did:web:alice-mediator.com:alice_mediator_pub",
+                    "controller": "did:peer:2.Vz6Mkf6r1uMJwoRAbzkuyj2RwPusdZhWSPeEknnTcKv2C2EN7.Ez6LSgbP4b3y8HVWG6C73WF2zLbzjDAPXjc33P2VfnVVHE347.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0",
                     "publicKeyJwk": {
                         "kty": "OKP",
                         "crv": "X25519",
-                        "x": "SHSUZ6V3x355FqCzIUfgoPzrZB0BQs0JKyag4UfMqHQ"
+                        "x": "SQ_7useLAjGf66XAwQWuBuSv9PdD_wB4TJQ6w38nFwQ"
                     }
-                }
-            ],
-             "assertionMethod": [
-                 "did:web:alice-mediator.com:alice_mediator_pub#keys-1"
-            ],
-            "authentication": [
-                "did:web:alice-mediator.com:alice_mediator_pub#keys-1"
-            ],
-            "keyAgreement": [
-                "did:web:alice-mediator.com:alice_mediator_pub#keys-3"
-            ],
-            "service": []
-        }"#,
+                    }
+                ],
+                "authentication": [
+                    "#key-1"
+                ],
+                "keyAgreement": [
+                    "#key-2"
+                ],
+                "service": [
+                    {
+                    "id": "#didcomm",
+                    "type": "DIDCommMessaging",
+                    "serviceEndpoint": {
+                        "accept": [
+                        "didcomm/v2"
+                        ],
+                        "routingKeys": [],
+                        "uri": "http://alice-mediator.com/"
+                    }
+                    }
+                ]
+            }"##,
         )
         .unwrap();
         doc
@@ -224,7 +256,7 @@ mod test {
     async fn test_jwt_data() -> String {
         pub fn prev_secrets_resolver() -> impl SecretsResolver {
             let secret_id = "did:key:z6MkrQT3VKYGkbPaYuJeBv31gNgpmVtRWP5yTocLDBgPpayM#z6MkrQT3VKYGkbPaYuJeBv31gNgpmVtRWP5yTocLDBgPpayM";
-            let secret: Jwk = serde_json::from_str(
+            let secret_material: Jwk = serde_json::from_str(
                 r#"{
                     "kty": "OKP",
                     "crv": "Ed25519",
@@ -234,7 +266,14 @@ mod test {
             )
             .unwrap();
 
-            LocalSecretsResolver::new(&secret_id, &secret)
+            let secret = Secrets {
+                id: None,
+                kid: secret_id.into(),
+                secret_material,
+            };
+
+            let keystore = MockKeyStore::new(vec![secret]);
+            LocalSecretsResolver::new(Arc::new(keystore))
         }
 
         let from_prior = FromPrior {
@@ -272,7 +311,7 @@ mod test {
             ]}),
         )
         .header("return_route".into(), json!("all"))
-        .to("did:web:alice-mediator.com:alice_mediator_pub".to_string())
+        .to("did:peer:2.Vz6Mkf6r1uMJwoRAbzkuyj2RwPusdZhWSPeEknnTcKv2C2EN7.Ez6LSgbP4b3y8HVWG6C73WF2zLbzjDAPXjc33P2VfnVVHE347.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0".to_string())
         .from(new_did())
         .from_prior(jwt)
         .finalize();
@@ -313,7 +352,7 @@ mod test {
         let msg = test_message_payload(jwt);
         let (msg, _) = msg
             .pack_encrypted(
-                "did:web:alice-mediator.com:alice_mediator_pub",
+                "did:peer:2.Vz6Mkf6r1uMJwoRAbzkuyj2RwPusdZhWSPeEknnTcKv2C2EN7.Ez6LSgbP4b3y8HVWG6C73WF2zLbzjDAPXjc33P2VfnVVHE347.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0",
                 Some(&new_did()),
                 None,
                 &did_resolver,
@@ -324,7 +363,7 @@ mod test {
             .unwrap();
 
         // Send request
-        let app = web::routes(Arc::clone(&setup()));
+        let app = crate::web::routes(Arc::clone(&setup()));
 
         let response = app
             .oneshot(
@@ -332,11 +371,13 @@ mod test {
                     .uri(String::from("/"))
                     .method(Method::POST)
                     .header(CONTENT_TYPE, DIDCOMM_ENCRYPTED_MIME_TYPE)
-                    .body(Body::from(msg))
+                    .body(Body::from(msg.clone()))
                     .unwrap(),
             )
             .await
             .unwrap();
+
+        println!("{:?}", msg);
 
         // Assert response's metadata
         assert_eq!(response.status(), StatusCode::ACCEPTED);
