@@ -10,14 +10,14 @@ use didcomm::Message;
 use once_cell::sync::Lazy;
 use shared::state::AppState;
 
-type MessageHandler<S, M, R> = fn(Arc<S>, M) -> Option<R>;
+type MessageHandler<S, M, R> = fn(Arc<S>, M) -> Result<R, PluginError>;
 
 #[derive(Debug, PartialEq)]
 pub enum PluginError {
     InitError,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MessageRouter<S, M, R>
 where
     S: Clone + Sync + Send + 'static,
@@ -84,12 +84,12 @@ where
     fn routes(&self) -> MessageRouter<S, M, R>;
 }
 
-pub static PROTOCOLS: Lazy<Vec<Arc<Mutex<Vec<Box<dyn MessagePlugin<AppState, Message, Response>>>>>>> = Lazy::new(|| {
+pub static PROTOCOLS: Lazy<Vec<Arc<Mutex<dyn MessagePlugin<AppState, Message, Response>>>>> = Lazy::new(|| {
     vec![
         #[cfg(feature = "forward-protocol")]
-        Arc::new(Mutex::new(vec![Box::new(forward::plugin::default())])),
+        Arc::new(Mutex::new(vec![Box::new(forward::plugin::ForwardProtocol::default())])),
         #[cfg(feature = "pickup-protocol")]
-        Arc::new(Mutex::new(vec![Box::new(pickup::plugin::Pickup::default())])),
+        Arc::new(Mutex::new(vec![Box::new(pickup::plugin::PickupProtocol::default())])),
         #[cfg(feature = "mediator-coordination-protocol")]
         Arc::new(Mutex::new(vec![Box::new(mediator_coordination::plugin::MediatorCoordination::default())])),
     ]
