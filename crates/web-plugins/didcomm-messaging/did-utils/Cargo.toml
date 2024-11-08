@@ -37,11 +37,6 @@ zeroize = { workspace = true, default-features = false, features = [
 subtle.workspace = true
 regex.workspace = true
 
-[features]
-p256 = []
-rsa = []
-url = []
-
 [dev-dependencies]
 hyper = { version = "0.14.26", features = ["server"] }
 async-std = { version = "1.12.0", features = ["attributes"] }
