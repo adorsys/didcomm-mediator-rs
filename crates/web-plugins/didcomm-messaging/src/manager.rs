@@ -7,13 +7,14 @@ use axum::response::Response;
 use didcomm::{protocols, Message};
 use shared::state::AppState;
 
-use crate::protocols::{MessagePlugin, MessageRouter, PluginError, PROTOCOLS};
+use crate::protocol::PROTOCOLS;
+use message_api::{MessagePlugin, MessageRouter, PluginError};
 
 type DidcommRouter = MessageRouter<AppState, Message, Response>;
 
 #[derive(Debug, PartialEq)]
 pub enum MessageContainerError {
-    DuplicateEntry, 
+    DuplicateEntry,
     Unloaded,
     ProtocolErrorMap(HashMap<String, PluginError>),
 }
@@ -137,21 +138,21 @@ impl<'a> MessagePluginContainer<'a> {
         if !self.loaded {
             return Err(MessageContainerError::Unloaded);
         }
-    
+
         let mut main_router = MessageRouter::new();
-    
+
         // Add routes from collected routes
         for route in &self.collected_routes {
             main_router.merge(route);
         }
-    
+
         Ok(main_router)
     }
 }
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::protocols::{MessagePlugin, MessageRouter, PluginError};
+    use message_api::{MessagePlugin, MessageRouter, PluginError};
     use std::sync::{Arc, Mutex};
 
     struct ExampleProtocol;
@@ -252,20 +253,23 @@ mod tests {
         let protocols: Vec<Arc<Mutex<dyn MessagePlugin<AppState, Message, Response>>>> = vec![
             Arc::new(Mutex::new(ExampleProtocol {})),
             Arc::new(Mutex::new(DuplicateProtocol {})),
-            Arc::new(Mutex::new(DuplicateProtocol {})), 
+            Arc::new(Mutex::new(DuplicateProtocol {})),
         ];
-    
+
         let mut manager = MessagePluginContainer {
             loaded: false,
             collected_routes: vec![],
             protocols: &protocols,
             mounted_protocols: vec![],
         };
-    
+
         let result = manager.load();
-        assert!(result.is_err(), "Expected loading with duplicates to return an error");
+        assert!(
+            result.is_err(),
+            "Expected loading with duplicates to return an error"
+        );
     }
-    
+
     #[test]
     fn test_loading_with_failing_protocol() {
         let protocols: Vec<Arc<Mutex<dyn MessagePlugin<AppState, Message, Response>>>> = vec![
@@ -282,7 +286,10 @@ mod tests {
         };
 
         let result = manager.load();
-        assert!(result.is_err(), "Expected loading with a faulty protocol to return an error");
+        assert!(
+            result.is_err(),
+            "Expected loading with a faulty protocol to return an error"
+        );
     }
 
     #[test]

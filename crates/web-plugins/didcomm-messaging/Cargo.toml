@@ -13,7 +13,7 @@ filesystem.workspace = true
 forward.workspace = true
 pickup.workspace = true
 mediator-coordination.workspace = true
-# lazy_static.workspace = true
+message-api.workspace = true
 
 
 mongodb.workspace = true

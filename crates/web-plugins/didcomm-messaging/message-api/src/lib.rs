@@ -1,14 +1,4 @@
-use std::{
-    collections::HashMap,
-    fmt::Debug,
-    marker::PhantomData,
-    sync::{Arc, Mutex},
-};
-
-use axum::response::Response;
-use didcomm::Message;
-use once_cell::sync::Lazy;
-use shared::state::AppState;
+use std::{collections::HashMap, fmt::Debug, marker::PhantomData, sync::Arc};
 
 type MessageHandler<S, M, R> = fn(Arc<S>, M) -> Result<R, PluginError>;
 
@@ -83,14 +73,3 @@ where
     /// Return a mapping of message types to handlers
     fn routes(&self) -> MessageRouter<S, M, R>;
 }
-
-pub static PROTOCOLS: Lazy<Vec<Arc<Mutex<dyn MessagePlugin<AppState, Message, Response>>>>> = Lazy::new(|| {
-    vec![
-        #[cfg(feature = "forward-protocol")]
-        Arc::new(Mutex::new(vec![Box::new(forward::plugin::ForwardProtocol::default())])),
-        #[cfg(feature = "pickup-protocol")]
-        Arc::new(Mutex::new(vec![Box::new(pickup::plugin::PickupProtocol::default())])),
-        #[cfg(feature = "mediator-coordination-protocol")]
-        Arc::new(Mutex::new(vec![Box::new(mediator_coordination::plugin::MediatorCoordination::default())])),
-    ]
-});

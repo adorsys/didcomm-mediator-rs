@@ -11,18 +11,18 @@ use shared::{
 use std::sync::Arc;
 
 #[derive(Default)]
-pub struct MediatorCoordination {
-    env: Option<MediatorCoordinationPluginEnv>,
+pub struct DidcommMessaging {
+    env: Option<DidcommMessagingPluginEnv>,
     db: Option<Database>,
 }
 
-struct MediatorCoordinationPluginEnv {
+struct DidcommMessagingPluginEnv {
     public_domain: String,
     storage_dirpath: String,
 }
 
 /// Loads environment variables required for this plugin
-fn load_plugin_env() -> Result<MediatorCoordinationPluginEnv, PluginError> {
+fn load_plugin_env() -> Result<DidcommMessagingPluginEnv, PluginError> {
     let public_domain = std::env::var("SERVER_PUBLIC_DOMAIN").map_err(|_| {
         tracing::error!("SERVER_PUBLIC_DOMAIN env variable required");
         PluginError::InitError
@@ -33,15 +33,15 @@ fn load_plugin_env() -> Result<MediatorCoordinationPluginEnv, PluginError> {
         PluginError::InitError
     })?;
 
-    Ok(MediatorCoordinationPluginEnv {
+    Ok(DidcommMessagingPluginEnv {
         public_domain,
         storage_dirpath,
     })
 }
 
-impl Plugin for MediatorCoordination {
+impl Plugin for DidcommMessaging {
     fn name(&self) -> &'static str {
-        "mediator_coordination"
+        "didcomm_messaging"
     }
 
     fn mount(&mut self) -> Result<(), PluginError> {

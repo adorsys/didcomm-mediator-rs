@@ -5,6 +5,10 @@ edition = "2021"
 
 [dependencies]
 shared.workspace = true
+filesystem.workspace = true
+message-api.workspace = true
+keystore.workspace = true
+database.workspace = true
 
 serde.workspace = true
 didcomm.workspace = true

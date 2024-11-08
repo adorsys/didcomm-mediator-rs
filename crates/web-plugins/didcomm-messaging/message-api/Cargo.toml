@@ -1,5 +1,5 @@
 [package]
-name = "forward"
+name = "message-api"
 version = "0.1.0"
 edition = "2021"
 
@@ -8,7 +8,6 @@ keystore.workspace = true
 shared.workspace = true
 database.workspace = true
 filesystem.workspace = true
-message-api.workspace = true
 
 mongodb.workspace = true
 serde_json.workspace = true

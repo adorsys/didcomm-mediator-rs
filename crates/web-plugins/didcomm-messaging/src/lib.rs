@@ -1,6 +1,6 @@
 mod manager;
 mod midlw;
-mod protocols;
+mod protocol;
 mod web;
 
 pub mod plugin;
