@@ -7,7 +7,9 @@ pub enum DiscoveryError {
     #[error("message body is malformed")]
     MalformedBody,
     #[error("Repository not set")]
-    RepostitoryError
+    RepostitoryError,
+    #[error("No query field in body")]
+    QueryNotFound
 }
 impl DiscoveryError {
     /// Converts the error to an axum JSON representation.

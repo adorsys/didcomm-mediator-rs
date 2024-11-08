@@ -6,16 +6,16 @@ pub struct Queries {
     pub queries: Vec<Value>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize, Debug)]
 pub struct Disclosures {
-    pub disclosures: Vec<DisclosuresContent>,
+    pub disclosures: Vec<Value>,
 }
 impl Disclosures {
     pub fn new() -> Self {
         Disclosures { disclosures: vec![] }
     }
 }
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 pub struct DisclosuresContent {
     #[serde(rename = "feature-type")]
     pub feature_type: String,
