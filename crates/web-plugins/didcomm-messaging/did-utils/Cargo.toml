@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 serde_json.workspace = true
 chrono = { workspace = true, features = ["serde"] }
-hyper = {workspace = true, features = ["client", "http2"]}
+hyper = { workspace = true, features = ["client", "http2"] }
 tokio.workspace = true
 serde.workspace = true
 hyper-tls.workspace = true
@@ -36,6 +36,11 @@ zeroize = { workspace = true, default-features = false, features = [
 ] }
 subtle.workspace = true
 regex.workspace = true
+
+[features]
+p256 = []
+rsa = []
+url = []
 
 [dev-dependencies]
 hyper = { version = "0.14.26", features = ["server"] }
