@@ -25,6 +25,7 @@ oob-messages = { path = "./crates/web-plugins/oob-messages", version = "0.1.0" }
 didcomm-messaging = { path = "./crates/web-plugins/didcomm-messaging", version = "0.1.0" }
 did-utils = { path = "./crates/web-plugins/didcomm-messaging/did-utils", version = "0.1.0" }
 shared = { path = "./crates/web-plugins/didcomm-messaging/shared", version = "0.1.0" }
+message-api = { path = "./crates/web-plugins/didcomm-messaging/message-api", version = "0.1.0" }
 pickup = { path = "./crates/web-plugins/didcomm-messaging/protocols/pickup", version = "0.1.0" }
 forward = { path = "./crates/web-plugins/didcomm-messaging/protocols/forward", version = "0.1.0" }
 mediator-coordination = { path = "./crates/web-plugins/didcomm-messaging/protocols/mediator-coordination", version = "0.1.0" }
