@@ -1,8 +1,5 @@
 use did_utils::jwk::Jwk;
-use serde::{Deserialize, Serialize};
-
 use serde::{de::Error, Deserialize, Deserializer, Serialize, Serializer};
-
 use serde_json::{json, Value};
 use std::collections::HashMap;
 
