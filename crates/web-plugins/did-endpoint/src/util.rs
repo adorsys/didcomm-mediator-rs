@@ -1,6 +1,8 @@
 use did_utils::didcore::Document;
 use std::borrow::Cow;
 
+// This function is a hack to bypass certain constraints of the did:peer method specification.
+// Its purpose is to uniquely identify the keys used to generate a Peer DID address in the store.
 pub(crate) fn handle_vm_id<'a>(vm_id: &'a str, diddoc: &Document) -> Cow<'a, str> {
     if vm_id.starts_with('#') {
         Cow::Owned(diddoc.id.to_owned() + vm_id)
