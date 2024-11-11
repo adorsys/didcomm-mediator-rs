@@ -4,11 +4,12 @@ use hyper::StatusCode;
 use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::web::AppState;
+use shared::state::AppState;
 
-use super::{constants::TRUST_PING_RESPONSE_2_0, error::TrustPingError, model::TrustPingResponse};
+use crate::{error::TrustPingError, model::TrustPingResponse};
+use shared::constants::TRUST_PING_RESPONSE_2_0;
 
-pub(crate) async fn handle_trust_ping(
+pub async fn handle_trust_ping(
     state: Arc<AppState>,
     message: Message,
 ) -> Result<Message, Response> {
@@ -50,7 +51,7 @@ mod tests {
     use serde_json::{json, Value};
 
     use super::*;
-    use crate::{trust_ping::constants::TRUST_PING_2_0, web::handler::tests as global};
+    use shared::{constants::TRUST_PING_2_0, utils::tests_utils::tests as global};
 
     async fn assert_error(
         response: Response,
@@ -72,7 +73,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_request_trust_ping_response() {
-        let (_, state) = global::setup();
+        let state = global::setup();
 
         let request = Message::build(
             "id_trust_ping".to_owned(),
@@ -95,7 +96,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_request_trust_ping_no_response() {
-        let (_, state) = global::setup();
+        let state = global::setup();
 
         let request = Message::build(
             "id_trust_ping".to_owned(),
@@ -115,7 +116,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_request_trust_ping_error_with_missing_sender_did() {
-        let (_, state) = global::setup();
+        let state = global::setup();
 
         let request = Message::build(
             "id_trust_ping".to_owned(),
@@ -129,6 +130,11 @@ mod tests {
             .await
             .unwrap_err();
 
-        assert_error(response, StatusCode::BAD_REQUEST, Some(TrustPingError::MissingSenderDID)).await;
+        assert_error(
+            response,
+            StatusCode::BAD_REQUEST,
+            Some(TrustPingError::MissingSenderDID),
+        )
+        .await;
     }
 }
