@@ -1,13 +1,7 @@
-pub mod client;
-pub mod web;
-pub mod plugin;
-pub(crate) mod did_rotation;
+mod manager;
+mod midlw;
+mod protocols;
+mod web;
+mod did_rotation;
 
-mod model;
-mod forward;
-mod constant;
-mod didcomm;
-mod jose;
-mod util;
-mod pickup;
-mod repository;
+pub mod plugin;

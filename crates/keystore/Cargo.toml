@@ -1,0 +1,18 @@
+[package]
+name = "keystore"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+did-utils.workspace = true
+
+once_cell.workspace = true
+async-trait.workspace = true
+mongodb.workspace = true
+database.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio = { workspace = true, features = ["full"] }
+
+[features]
+test-utils = []

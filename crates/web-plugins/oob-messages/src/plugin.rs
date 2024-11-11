@@ -3,7 +3,7 @@ use super::{
     web,
 };
 use axum::Router;
-use keystore::filesystem::StdFileSystem;
+use filesystem::StdFileSystem;
 use plugin_api::{Plugin, PluginError};
 
 #[derive(Default)]
