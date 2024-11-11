@@ -1,4 +1,4 @@
-use did_utils::vc::model::VerifiablePresentation;
+use did_utils::vc::VerifiablePresentation;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{BTreeSet, HashMap};
@@ -116,7 +116,7 @@ mod tests {
 
     use serde_json::json;
 
-    use crate::constant::*;
+    use shared::constants::*;
 
     #[test]
     fn can_serialize_mediation_request_message() {
