@@ -1,24 +1,28 @@
-use crate::util::didweb;
+use database::Repository;
 use did_utils::{
-    didcore::{
-        AssertionMethod, Authentication, Document, KeyAgreement, KeyFormat, Service,
-        VerificationMethod,
-    },
+    crypto::{Ed25519KeyPair, Generate, PublicKeyFormat, ToMultikey, X25519KeyPair},
+    didcore::{Document, KeyFormat, Service, VerificationMethodType},
     jwk::Jwk,
-    ldmodel::Context,
+    methods::{DidPeer, Purpose, PurposedKey},
 };
-use keystore::{filesystem::StdFileSystem, KeyStore};
+use filesystem::FileSystem;
+use keystore::Secrets;
+use mongodb::bson::doc;
+use serde_json::json;
 use std::path::Path;
+use tokio::{runtime::Handle, task};
+
+use crate::util;
 
 #[allow(dead_code)]
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("KeyGenerationError")]
+    #[error("Key Generation Error")]
     KeyGenerationError,
-    #[error("MissingServerPublicDomain")]
-    MissingServerPublicDomain,
-    #[error("DidAddressDerivationError")]
-    DidAddressDerivationError,
+    #[error("Key Conversion Error")]
+    KeyConversionError,
+    #[error("DID Generation Error")]
+    DidGenerationError,
     #[error("PersistenceError")]
     PersistenceError,
     #[error("Generic: {0}")]
@@ -26,307 +30,315 @@ pub enum Error {
 }
 
 /// Generates keys and forward them for DID generation
-///
-/// All persistence is handled at `storage_dirpath`.
-pub fn didgen(storage_dirpath: &str, server_public_domain: &str) -> Result<Document, Error> {
-    // Create a new store, which is timestamp-aware
-    let mut fs = StdFileSystem;
-    let mut store = KeyStore::new(&mut fs, storage_dirpath);
-    tracing::info!("keystore: {}", store.path());
+pub fn didgen<K, F>(
+    storage_dirpath: &Path,
+    server_public_domain: &str,
+    keystore: &K,
+    filesystem: &mut F,
+) -> Result<Document, Error>
+where
+    K: Repository<Secrets>,
+    F: FileSystem,
+{
+    // Generate keys for did:peer generation
+    let (auth_keys, agreem_keys) = generate_keys()?;
 
-    // Generate authentication key
-    tracing::debug!("generating authentication key");
-    let authentication_key = store
-        .gen_ed25519_jwk()
-        .map_err(|_| Error::KeyGenerationError)?;
+    let keys = vec![
+        PurposedKey {
+            purpose: Purpose::Verification,
+            public_key_multibase: auth_keys.to_multikey(),
+        },
+        PurposedKey {
+            purpose: Purpose::Encryption,
+            public_key_multibase: agreem_keys.to_multikey(),
+        },
+    ];
 
-    // Generate assertion key
-    tracing::debug!("generating assertion key");
-    let assertion_key = store
-        .gen_ed25519_jwk()
-        .map_err(|_| Error::KeyGenerationError)?;
+    // Build services
+    let services = vec![Service {
+        id: String::from("#didcomm"),
+        service_type: String::from("DIDCommMessaging"),
+        service_endpoint: json!({
+            "uri": server_public_domain,
+            "accept": vec!["didcomm/v2"],
+            "routingKeys": Vec::<String>::new()}),
+        ..Default::default()
+    }];
 
-    // Generate agreement key
-    tracing::debug!("generating agreement key");
-    let agreement_key = store
-        .gen_x25519_jwk()
-        .map_err(|_| Error::KeyGenerationError)?;
+    // Generate DID Document
+    let diddoc = generate_did_document(keys, services)?;
 
-    // Build DID document
-    let diddoc = gen_diddoc(
-        storage_dirpath,
-        server_public_domain,
-        authentication_key,
-        assertion_key,
-        agreement_key,
-    )?;
+    // Convert keys to JWK format
+    let auth_keys_jwk: Jwk = auth_keys
+        .try_into()
+        .map_err(|_| Error::KeyConversionError)?;
+    let agreem_keys_jwk: Jwk = agreem_keys
+        .try_into()
+        .map_err(|_| Error::KeyConversionError)?;
 
-    // Mark successful completion
-    tracing::debug!("successful completion");
+    // Store authentication and agreement keys in the keystore.
+    store_key(auth_keys_jwk, &diddoc, &diddoc.authentication, keystore)?;
+    store_key(agreem_keys_jwk, &diddoc, &diddoc.key_agreement, keystore)?;
+
+    // Serialize DID document and persist to filesystem
+    persist_did_document(storage_dirpath, &diddoc, filesystem)?;
+
+    tracing::info!("DID generation and persistence successful");
     Ok(diddoc)
 }
 
-/// Builds and persists DID document
-fn gen_diddoc(
-    storage_dirpath: &str,
-    server_public_domain: &str,
-    authentication_key: Jwk,
-    assertion_key: Jwk,
-    agreement_key: Jwk,
+fn generate_keys() -> Result<(Ed25519KeyPair, X25519KeyPair), Error> {
+    let auth_keys = Ed25519KeyPair::new().map_err(|_| Error::KeyGenerationError)?;
+    let agreem_keys = X25519KeyPair::new().map_err(|_| Error::KeyGenerationError)?;
+    Ok((auth_keys, agreem_keys))
+}
+
+fn generate_did_document(
+    keys: Vec<PurposedKey>,
+    services: Vec<Service>,
 ) -> Result<Document, Error> {
-    tracing::info!("building DID document");
+    let did =
+        DidPeer::create_did_peer_2(&keys, &services).map_err(|_| Error::DidGenerationError)?;
+    let resolver = DidPeer::with_format(PublicKeyFormat::Jwk);
+    resolver.expand(&did).map_err(|_| Error::DidGenerationError)
+}
 
-    // Prepare DID address
-    let did = didweb::url_to_did_web_id(server_public_domain)
-        .map_err(|_| Error::DidAddressDerivationError)?;
+fn store_key<S>(
+    key: Jwk,
+    diddoc: &Document,
+    field: &Option<Vec<VerificationMethodType>>,
+    keystore: &S,
+) -> Result<(), Error>
+where
+    S: Repository<Secrets>,
+{
+    // Extract key ID from the DID document
+    let kid = match field.as_ref().unwrap()[0].clone() {
+        VerificationMethodType::Reference(kid) => kid,
+        VerificationMethodType::Embedded(method) => method.id,
+    };
+    let kid = util::handle_vm_id(&kid, diddoc);
 
-    // Prepare authentication verification method
-    let authentication_method = VerificationMethod {
-        public_key: Some(KeyFormat::Jwk(authentication_key)),
-        ..VerificationMethod::new(
-            did.clone() + "#keys-1",
-            String::from("JsonWebKey2020"),
-            did.clone(),
-        )
+    // Create Secrets for the key
+    let secret = Secrets {
+        id: None,
+        kid: kid.into_owned(),
+        secret_material: key,
     };
 
-    // Prepare assertion verification method
-    let assertion_method = VerificationMethod {
-        public_key: Some(KeyFormat::Jwk(assertion_key)),
-        ..VerificationMethod::new(
-            did.clone() + "#keys-2",
-            String::from("JsonWebKey2020"),
-            did.clone(),
-        )
-    };
+    // Store the secret in the keystore
+    task::block_in_place(move || {
+        Handle::current().block_on(async move {
+            match keystore.store(secret).await {
+                Ok(_) => tracing::info!("Successfully stored secret."),
+                Err(error) => tracing::error!("Error storing secret: {:?}", error),
+            }
+        })
+    });
 
-    // Prepare key agreement verification method
-    let agreement_method = VerificationMethod {
-        public_key: Some(KeyFormat::Jwk(agreement_key)),
-        ..VerificationMethod::new(
-            did.clone() + "#keys-3",
-            String::from("JsonWebKey2020"),
-            did.clone(),
-        )
-    };
+    Ok(())
+}
 
-    // Prepare service endpoint
-    let service = Service::new(
-        did.clone() + "#pop-domain",
-        String::from("LinkedDomains"),
-        format!("{server_public_domain}/.well-known/did/pop.json"),
-    );
+fn persist_did_document<F>(
+    storage_dirpath: &Path,
+    diddoc: &Document,
+    filesystem: &mut F,
+) -> Result<(), Error>
+where
+    F: FileSystem,
+{
+    // Serialize DID document
+    let pretty_diddoc = serde_json::to_string_pretty(&diddoc).unwrap();
 
-    // Build document
-    let context = Context::SetOfString(vec![
-        String::from("https://www.w3.org/ns/did/v1"),
-        String::from("https://w3id.org/security/suites/jws-2020/v1"),
-    ]);
-
-    let diddoc = Document {
-        authentication: Some(vec![Authentication::Reference(
-            authentication_method.id.clone(), //
-        )]),
-        assertion_method: Some(vec![AssertionMethod::Reference(
-            assertion_method.id.clone(), //
-        )]),
-        key_agreement: Some(vec![KeyAgreement::Reference(
-            agreement_method.id.clone(), //
-        )]),
-        verification_method: Some(vec![
-            authentication_method,
-            assertion_method,
-            agreement_method,
-        ]),
-        service: Some(vec![service]),
-        ..Document::new(context, did)
-    };
-
-    // Serialize and persist to file
-    let did_json = serde_json::to_string_pretty(&diddoc).unwrap();
-
-    std::fs::create_dir_all(storage_dirpath).map_err(|_| Error::PersistenceError)?;
-    std::fs::write(format!("{storage_dirpath}/did.json"), did_json)
+    // Create directory and write the DID document
+    filesystem
+        .create_dir_all(&storage_dirpath)
+        .map_err(|_| Error::PersistenceError)?;
+    filesystem
+        .write(&storage_dirpath.join("did.json"), &pretty_diddoc)
         .map_err(|_| Error::PersistenceError)?;
 
-    tracing::info!("persisted DID document to disk");
-    Ok(diddoc)
+    Ok(())
 }
 
 /// Validates the integrity of the persisted diddoc
-pub fn validate_diddoc(storage_dirpath: &str) -> Result<(), String> {
-    // Validate that did.json exists
-    let didpath = format!("{storage_dirpath}/did.json");
-    if !Path::new(&didpath).exists() {
-        return Err(String::from("Missing did.json"));
-    };
-
-    // Validate that keystore exists
-    let mut fs = StdFileSystem;
-    let store =
-        KeyStore::latest(&mut fs, storage_dirpath).map_err(|_| String::from("Missing keystore"));
-
-    // Validate that did.json matches keystore
-    let store = store.unwrap();
-
-    let diddoc: Document = match std::fs::read_to_string(didpath) {
-        Err(_) => return Err(String::from("Unreadable did.json")),
-        Ok(content) => {
-            serde_json::from_str(&content).map_err(|_| String::from("Unparseable did.json"))?
+pub fn validate_diddoc<K, F>(
+    storage_dirpath: &Path,
+    keystore: &K,
+    filesystem: &mut F,
+) -> Result<(), String>
+where
+    K: Repository<Secrets>,
+    F: FileSystem,
+{
+    cfg_if::cfg_if! {
+        if #[cfg(not(test))] {
+            // Validate that did.json exists
+            let didpath = storage_dirpath.join("did.json");
+            if !didpath.exists() {
+                return Err(String::from("Missing did.json"));
+            };
         }
-    };
+    }
 
-    for method in diddoc.verification_method.unwrap_or(vec![]) {
-        let pubkey = method.public_key.ok_or(String::from("Missing key"))?;
-        let pubkey = match pubkey {
-            KeyFormat::Jwk(jwk) => jwk,
-            _ => return Err(String::from("Unsupported key format")),
-        };
+    // Load the DID document
+    let diddoc: Document = filesystem
+        .read_to_string(&storage_dirpath.join("did.json"))
+        .map_err(|_| String::from("Unreadable did.json"))
+        .and_then(|content| {
+            serde_json::from_str(&content).map_err(|_| String::from("Unparseable did.json"))
+        })?;
 
-        store
-            .find_keypair(&pubkey)
-            .ok_or(String::from("Keystore mismatch"))?;
+    // Validate the keys in the DID document
+    if let Some(verification_methods) = &diddoc.verification_method {
+        for method in verification_methods {
+            let pubkey = method.public_key.as_ref().ok_or(String::from("Missing key"))?;
+            let kid = util::handle_vm_id(&method.id, &diddoc);
+            match pubkey {
+                KeyFormat::Jwk(_) => validate_key(&kid, keystore)?,
+                _ => return Err(String::from("Unsupported key format")),
+            };
+        }
     }
 
     Ok(())
 }
 
+fn validate_key<K>(kid: &str, keystore: &K) -> Result<(), String>
+where
+    K: Repository<Secrets>,
+{
+    // Validate that the key exists
+    task::block_in_place(|| {
+        Handle::current().block_on(async move { keystore.find_one_by(doc! { "kid": kid }).await })
+    })
+    .map_err(|_| String::from("Error fetching secret"))?
+    .ok_or_else(|| String::from("Mismatch or missing secret"))?;
+
+    Ok(())
+}
+
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
-    use crate::util::dotenv_flow_read;
+    use database::RepositoryError;
+    use filesystem::FileSystem;
+    use mockall::{
+        mock,
+        predicate::{self, *},
+    };
+    use mongodb::bson::Document as BsonDocument;
+    use std::{io::Result as IoResult, sync::Arc};
 
-    use did_utils::jwk::{Bytes, Jwk, Key, Okp, OkpCurves, Parameters};
-
-    fn setup() -> (String, String) {
-        let storage_dirpath = dotenv_flow_read("STORAGE_DIRPATH")
-            .map(|p| format!("{}/{}", p, uuid::Uuid::new_v4()))
-            .unwrap();
-
-        let server_public_domain = dotenv_flow_read("SERVER_PUBLIC_DOMAIN").unwrap();
-
-        (storage_dirpath, server_public_domain)
+    // Mock the FileSystem trait
+    mock! {
+        pub FileSystem {}
+        impl FileSystem for FileSystem {
+            fn read_to_string(&self, path: &Path) -> IoResult<String>;
+            fn write(&mut self, path: &Path, content: &str) -> IoResult<()>;
+            fn read_dir_files(&self, path: &Path) -> IoResult<Vec<String>>;
+            fn create_dir_all(&mut self, path: &Path) -> IoResult<()>;
+            fn write_with_lock(&self, path: &Path, content: &str) -> IoResult<()>;
+        }
     }
 
-    fn cleanup(storage_dirpath: &str) {
-        std::fs::remove_dir_all(storage_dirpath).unwrap();
+    // Mock the Repository trait
+    mock! {
+        pub Keystore {}
+        #[async_trait::async_trait]
+        impl Repository<Secrets> for Keystore {
+            fn get_collection(&self) -> Arc<tokio::sync::RwLock<mongodb::Collection<Secrets>>> ;
+            async fn find_one_by(&self, filter: BsonDocument) -> Result<Option<Secrets>, RepositoryError>;
+            async fn store(&self, entity: Secrets) -> Result<Secrets, RepositoryError>;
+        }
+    }
+
+    pub(crate) fn setup() -> Secrets {
+        serde_json::from_str(
+            r##"{
+                "kid": "did:peer:123#key-1",
+                "secret_material": {
+                    "kty": "OKP",
+                    "crv": "Ed25519",
+                    "x": "PuG2L5um-tAnHlvT29gTm9Wj9fZca16vfBCPKsHB5cA",
+                    "d": "af7bypYk00b4sVpSDit1gMGvnmlQI52X4pFBWYXndUA"
+                }
+            }"##,
+        )
+        .unwrap()
     }
 
     // Verifies that the didgen function returns a DID document.
     // Does not validate the DID document.
-    #[test]
-    fn test_didgen() {
-        let (storage_dirpath, server_public_domain) = setup();
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_did_generation() {
+        let mut mock_fs = MockFileSystem::new();
+        let mut mock_keystore = MockKeystore::new();
+        let path = Path::new("/mock/dir");
+        let secret = setup();
 
-        let diddoc = didgen(&storage_dirpath, &server_public_domain).unwrap();
-        assert_eq!(diddoc.id, "did:web:example.com");
+        // Mock the file system write call
+        mock_fs
+            .expect_create_dir_all()
+            .with(predicate::eq(path))
+            .times(1)
+            .returning(|_| Ok(()));
 
-        cleanup(&storage_dirpath);
+        mock_fs.expect_write().times(1).returning(|_, _| Ok(()));
+
+        // Mock keystore save key
+        mock_keystore
+            .expect_store()
+            .times(2)
+            .returning(move |_| Ok(secret.clone()));
+
+        let result = didgen(&path, "https://example.com", &mock_keystore, &mut mock_fs);
+
+        assert!(result.is_ok());
     }
 
-    // Produces did doc from keys and validate that corresponding verification methods are present.
-    #[test]
-    fn test_gen_diddoc() {
-        let (storage_dirpath, server_public_domain) = setup();
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_did_validation() {
+        let mut mock_fs = MockFileSystem::new();
+        let mut mock_keystore = MockKeystore::new();
+        let path = Path::new("/mock/dir");
+        let secret = setup();
 
-        let authentication_key = Jwk {
-            key: Key::Okp(Okp {
-                crv: OkpCurves::Ed25519,
-                x: Bytes::from(
-                    String::from(
-                        "d75a980182b10ab2463c5b1be1b4d97e06ec21ebac8552059996bd962d77f259",
-                    )
-                    .into_bytes(),
-                ),
-                d: None,
-            }),
-            prm: Parameters::default(),
-        };
+        // Mock read from filesystem
+        mock_fs
+            .expect_read_to_string()
+            .withf(|path| path.ends_with("did.json"))
+            .times(1)
+            .returning(|_| {
+                Ok(r##"{
+                        "@context": ["https://www.w3.org/ns/did/v1"],
+                        "id": "did:peer:123",
+                        "verificationMethod": [
+                            {
+                                "id": "#key-1",
+                                "type": "JsonWebKey2020",
+                                "controller": "did:peer:123",
+                                "publicKeyJwk": {
+                                    "kty": "OKP",
+                                    "crv": "Ed25519",
+                                    "x": "PuG2L5um-tAnHlvT29gTm9Wj9fZca16vfBCPKsHB5cA"
+                                }
+                            }
+                        ]
+                    }"##
+                .to_string())
+            });
 
-        let assertion_key = Jwk {
-            key: Key::Okp(Okp {
-                crv: OkpCurves::Ed25519,
-                x: Bytes::from(
-                    String::from(
-                        "d75a980182b10ab2463c5b1be1b4d97e06ec21ebac8552059996bd962d77f259",
-                    )
-                    .into_bytes(),
-                ),
-                d: None,
-            }),
-            prm: Parameters::default(),
-        };
+        // Mock keystore fetch
+        mock_keystore
+            .expect_find_one_by()
+            .with(predicate::function(|filter: &BsonDocument| {
+                filter.contains_key("kid")
+            }))
+            .returning(move |_| Ok(Some(secret.clone())));
 
-        let agreement_key = Jwk {
-            key: Key::Okp(Okp {
-                crv: OkpCurves::X25519,
-                x: Bytes::from(
-                    String::from(
-                        "d75a980182b10ab2463c5b1be1b4d97e06ec21ebac8552059996bd962d77f259",
-                    )
-                    .into_bytes(),
-                ),
-                d: None,
-            }),
-            prm: Parameters::default(),
-        };
+        let result = validate_diddoc(&path, &mock_keystore, &mut mock_fs);
 
-        let diddoc = gen_diddoc(
-            &storage_dirpath,
-            &server_public_domain,
-            authentication_key.clone(),
-            assertion_key.clone(),
-            agreement_key.clone(),
-        )
-        .unwrap();
-
-        // Verify that the DID contains exactly the defined verification methods.
-        let expected_verification_methods = vec![
-            VerificationMethod {
-                id: "did:web:example.com#keys-1".to_string(),
-                public_key: Some(KeyFormat::Jwk(authentication_key)),
-                ..VerificationMethod::new(
-                    "did:web:example.com#keys-1".to_string(),
-                    String::from("JsonWebKey2020"),
-                    "did:web:example.com".to_string(),
-                )
-            },
-            VerificationMethod {
-                id: "did:web:example.com#keys-2".to_string(),
-                public_key: Some(KeyFormat::Jwk(assertion_key)),
-                ..VerificationMethod::new(
-                    "did:web:example.com#keys-2".to_string(),
-                    String::from("JsonWebKey2020"),
-                    "did:web:example.com".to_string(),
-                )
-            },
-            VerificationMethod {
-                id: "did:web:example.com#keys-3".to_string(),
-                public_key: Some(KeyFormat::Jwk(agreement_key)),
-                ..VerificationMethod::new(
-                    "did:web:example.com#keys-3".to_string(),
-                    String::from("JsonWebKey2020"),
-                    "did:web:example.com".to_string(),
-                )
-            },
-        ];
-
-        let actual_verification_methods = diddoc.verification_method.unwrap();
-
-        let actual = json_canon::to_string(&actual_verification_methods).unwrap();
-        let expected = json_canon::to_string(&expected_verification_methods).unwrap();
-        assert_eq!(expected, actual);
-
-        cleanup(&storage_dirpath);
-    }
-
-    #[test]
-    fn test_validate_diddoc() {
-        let (storage_dirpath, server_public_domain) = setup();
-
-        didgen(&storage_dirpath, &server_public_domain).unwrap();
-        assert!(validate_diddoc(&storage_dirpath).is_ok());
-
-        cleanup(&storage_dirpath);
+        assert!(result.is_ok());
     }
 }

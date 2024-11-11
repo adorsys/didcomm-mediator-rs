@@ -1,0 +1,10 @@
+[package]
+name = "filesystem"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+nix.workspace = true
+
+[features]
+test-utils = []
