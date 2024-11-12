@@ -3,4 +3,4 @@ pub mod web;
 
 mod jose;
 mod model;
-mod plugin;
+pub mod plugin;

@@ -21,6 +21,8 @@ where
     }
 
     fn routes(&self) -> MessageRouter<S, M, R> {
-        MessageRouter::new()
+        let mut router = MessageRouter::new();
+        // router.route("/forwardProtocol", self.collected_routes);
+        router
     }
 }
