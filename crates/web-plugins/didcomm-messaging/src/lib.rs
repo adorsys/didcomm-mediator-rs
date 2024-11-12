@@ -1,7 +1,8 @@
+mod did_rotation;
+mod error;
 mod manager;
 mod midlw;
 mod protocols;
 mod web;
-mod did_rotation;
 
 pub mod plugin;

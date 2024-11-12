@@ -377,8 +377,6 @@ mod test {
             .await
             .unwrap();
 
-        println!("{:?}", msg);
-
         // Assert response's metadata
         assert_eq!(response.status(), StatusCode::ACCEPTED);
         assert_eq!(
