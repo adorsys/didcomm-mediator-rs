@@ -13,10 +13,10 @@ serde_json.workspace = true
 thiserror.workspace = true
 uuid = { workspace = true, features = ["v4"] }
 axum = { workspace = true, features = ["macros"] }
+chrono.workspace = true
 
 [dev-dependencies]
 hyper = "0.14.27"
-chrono = "0.4.26"
 shared = { workspace = true, features = ["test-utils"] }
 tokio = { version = "1.27.0", default-features = false, features = [
     "macros",
