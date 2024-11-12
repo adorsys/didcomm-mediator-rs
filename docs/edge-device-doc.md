@@ -3,7 +3,7 @@
 With the growth of IoT and connected devices, secure, private communication between devices like smart sensors, appliances, and any device has become essential. Decentralized Identifier Communication (DIDComm) provides a protocol that ensures private messaging, enabling devices to communicate without intermediaries directly accessing data. This makes DIDComm ideal for IoT networks where privacy, security, and decentralization are paramount.
 
 
-![sample cloud services](basic-flow.png)
+![sample cloud services](work-flow.png)
 
 ### Benefits of DIDComm Messaging for Edge Devices
 * **Enhanced Security:** Encryption protects message content, even when routed through intermediaries.
@@ -24,9 +24,6 @@ Edge Device 2 is the intended recipient. However, it can also initiate communica
 
 ## DIDComm Messaging Phases
 The DIDComm process for edge device communication consists of three main phases:
-* **Phase 1: Out-of-Band (OOB) Setup and Establishing Mediation**
-* **Phase 2: Message Exchange Preparation**
-* **Phase 3: Message Pickup and Delivery**
 
 * **Phase 1: Out-of-Band (OOB) Setup and Establishing Mediation**
 Before DIDComm communication begins, Edge Device 1 and Edge Device 2 perform an Out-of-Band (OOB) setup to establish a secure channel. They exchange essential information, such as:
@@ -39,7 +36,7 @@ The OOB setup establishes a trusted foundation, enabling Edge Device 1 and Edge 
 * **Mediation Request:**
 Edge Device 1 sends a mediation request to the Mediator, signaling its intent to use the Mediator’s services for secure message routing.
 
-* **Mediation Grand:**
+* **Mediation Grant:**
 The Mediator grants the request, providing Edge Device 1 with a routing identifier (DID) and creating a private connection for secure messaging with Edge Device 2.
 
 * **Phase 2: Message Exchange Preparation**
