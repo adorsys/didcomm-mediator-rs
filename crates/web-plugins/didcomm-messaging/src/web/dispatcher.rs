@@ -10,7 +10,7 @@ use shared::{
     constants::{
         DELIVERY_REQUEST_3_0, DIDCOMM_ENCRYPTED_MIME_TYPE, KEYLIST_QUERY_2_0, KEYLIST_UPDATE_2_0,
         LIVE_MODE_CHANGE_3_0, MEDIATE_FORWARD_2_0, MEDIATE_REQUEST_2_0, MESSAGE_RECEIVED_3_0,
-        STATUS_REQUEST_3_0,
+        STATUS_REQUEST_3_0, TRUST_PING_2_0,
     },
     state::AppState,
 };
@@ -66,6 +66,10 @@ pub(crate) async fn process_didcomm_message(
                 .await
                 .map_err(|e| e.into_response())
         }
+
+        TRUST_PING_2_0 => trust_ping::handler::handle_trust_ping(state.clone(), message)
+            .await
+            .map_err(|e| e.into_response()),
 
         _ => return (StatusCode::BAD_REQUEST, "Unsupported operation".to_string()).into_response(),
     };

@@ -21,5 +21,8 @@ pub const MESSAGE_RECEIVED_3_0: &str = "https://didcomm.org/messagepickup/3.0/me
 pub const LIVE_MODE_CHANGE_3_0: &str = "https://didcomm.org/messagepickup/3.0/live-delivery-change";
 pub const PROBLEM_REPORT_2_0: &str = "https://didcomm.org/report-problem/2.0/problem-report";
 
+pub const TRUST_PING_2_0: &str = "https://didcomm.org/trust-ping/2.0/ping";
+pub const TRUST_PING_RESPONSE_2_0: &str = "https://didcomm.org/trust-ping/2.0/ping-response";
+
 pub const DIDCOMM_ENCRYPTED_MIME_TYPE: &str = "application/didcomm-encrypted+json";
 pub const DIDCOMM_ENCRYPTED_SHORT_MIME_TYPE: &str = "didcomm-encrypted+json";
