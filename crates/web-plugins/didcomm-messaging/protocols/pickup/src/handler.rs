@@ -208,33 +208,35 @@ pub async fn handle_live_delivery_change(
     ensure_transport_return_route_is_decorated_all(&message)
         .map_err(|_| PickupError::MalformedRequest("Missing return_route header".to_owned()))?;
 
-    if let Some(_live_delivery) = message.body.get("live_delivery").and_then(Value::as_bool) {
-        let mediator_did = &state.diddoc.id;
-        let sender_did = sender_did(&message)?;
-        let id = Uuid::new_v4().urn().to_string();
-        let pthid = message.thid.as_deref().unwrap_or(id.as_str());
+    match message.body.get("live_delivery").and_then(Value::as_bool) {
+        Some(true) => {
+            let mediator_did = &state.diddoc.id;
+            let sender_did = sender_did(&message)?;
+            let id = Uuid::new_v4().urn().to_string();
+            let pthid = message.thid.as_deref().unwrap_or(id.as_str());
 
-        let response_builder: MessageBuilder = LiveDeliveryChange {
-            id: id.as_str(),
-            pthid,
-            type_: PROBLEM_REPORT_2_0,
-            body: BodyLiveDeliveryChange {
-                code: "e.m.live-mode-not-supported",
-                comment: "Connection does not support Live Delivery",
-            },
+            let response_builder: MessageBuilder = LiveDeliveryChange {
+                id: id.as_str(),
+                pthid,
+                type_: PROBLEM_REPORT_2_0,
+                body: BodyLiveDeliveryChange {
+                    code: "e.m.live-mode-not-supported",
+                    comment: "Connection does not support Live Delivery",
+                },
+            }
+            .into();
+
+            let response = response_builder
+                .to(sender_did.to_owned())
+                .from(mediator_did.to_owned())
+                .finalize();
+
+            Ok(Some(response))
         }
-        .into();
-
-        let response = response_builder
-            .to(sender_did.to_owned())
-            .from(mediator_did.to_owned())
-            .finalize();
-
-        Ok(Some(response))
-    } else {
-        Err(PickupError::MalformedRequest(
+        Some(false) => Ok(None),
+        None => Err(PickupError::MalformedRequest(
             "Missing \"live_delivery\" specifier".to_owned(),
-        ))
+        )),
     }
 }
 
@@ -718,6 +720,26 @@ mod tests {
                 "comment": "Connection does not support Live Delivery"
             })
         );
+    }
+
+    #[tokio::test]
+    async fn test_handle_live_delivery_change_false() {
+        let state = setup(test_connections(), test_messages());
+
+        let request = Message::build(
+            "id_alice_live_delivery_change".to_owned(),
+            LIVE_MODE_CHANGE_3_0.to_owned(),
+            json!({"live_delivery": false}),
+        )
+        .thid("123".to_owned())
+        .header("return_route".into(), json!("all"))
+        .to(global::_mediator_did(&state))
+        .from(global::_edge_did())
+        .finalize();
+
+        let response = handle_live_delivery_change(state, request).await.unwrap();
+
+        assert_eq!(response, None);
     }
 
     #[tokio::test]
