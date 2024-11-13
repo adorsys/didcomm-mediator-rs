@@ -1,5 +1,5 @@
-use crate::model::{BasicMessage, MessageBody};
 use crate::error::ProtocolError;
+use crate::model::{BasicMessage, MessageBody};
 use chrono::Utc;
 use uuid::Uuid;
 
@@ -16,7 +16,7 @@ pub fn basic_message(content: &str, lang: Option<String>) -> Result<BasicMessage
     })
 }
 
-/// Function to handle the received message 
+/// Function to handle the received message
 pub fn handle_received_message(message: &BasicMessage) -> Result<(), ProtocolError> {
     println!("Received message: {}", message.body.content);
     Ok(())

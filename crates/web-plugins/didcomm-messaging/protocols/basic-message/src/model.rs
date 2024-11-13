@@ -1,6 +1,5 @@
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
-
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BasicMessage {
@@ -15,7 +14,7 @@ pub struct BasicMessage {
     /// Timestamp for when the message was created (DIDComm V2 standard)
     #[serde(rename = "created_time")]
     pub created_time: DateTime<Utc>,
-    /// Main message body
+    /// Main message bodsssssssssy
     pub body: MessageBody,
 }
 
