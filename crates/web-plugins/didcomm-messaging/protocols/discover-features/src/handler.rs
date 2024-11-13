@@ -3,9 +3,8 @@ use std::sync::Arc;
 use axum::response::{IntoResponse, Response};
 use didcomm::Message;
 use serde_json::json;
+use shared::state::AppState;
 use uuid::Uuid;
-
-use crate::web::AppState;
 
 use super::{
     constant::DISCOVER_FEATURE,
@@ -15,7 +14,7 @@ use super::{
 
 // handle discover feature request
 // https://didcomm.org/discover-features/2.0/
-pub(crate) fn handle_query_request(
+pub fn handle_query_request(
     message: Message,
     state: Arc<AppState>,
 ) -> Result<Option<Message>, Response> {
@@ -86,40 +85,34 @@ mod test {
 
     use std::{sync::Arc, vec};
 
+    use did_utils::didcore::Document;
     use didcomm::Message;
+    use keystore::tests::MockKeyStore;
     use serde_json::json;
+    use shared::{
+        repository::tests::{MockConnectionRepository, MockMessagesRepository},
+        state::{AppState, AppStateRepository},
+    };
     use uuid::Uuid;
 
-    use crate::{
-        discover_feature::{constant::QUERY_FEATURE, model::Queries},
-        repository::stateful::tests::{
-            MockConnectionRepository, MockMessagesRepository, MockSecretsRepository,
-        },
-        util::{self, MockFileSystem},
-        web::{AppState, AppStateRepository},
-    };
+    use crate::{constant::QUERY_FEATURE, model::Queries};
 
     use super::handle_query_request;
     const TRUST: &str = "https://didcomm.org/trust-ping/2.0/ping";
     pub fn setup() -> Arc<AppState> {
         let public_domain = String::from("http://alice-mediator.com");
 
-        let mut mock_fs = MockFileSystem;
-        let storage_dirpath = std::env::var("STORAGE_DIRPATH").unwrap_or_else(|_| "/".to_owned());
-        let diddoc: did_utils::didcore::Document =
-            util::read_diddoc(&mock_fs, &storage_dirpath).unwrap();
-        let keystore = util::read_keystore(&mut mock_fs, "").unwrap();
+        let diddoc = Document::default();
 
         let repository = AppStateRepository {
             connection_repository: Arc::new(MockConnectionRepository::from(vec![])),
-            secret_repository: Arc::new(MockSecretsRepository::from(vec![])),
             message_repository: Arc::new(MockMessagesRepository::from(vec![])),
+            keystore: Arc::new(MockKeyStore::new(vec![])),
         };
 
         let state = Arc::new(AppState::from(
             public_domain,
             diddoc,
-            keystore,
             Some(vec!["trust-ping/2.0".to_string()]),
             Some(repository),
         ));
