@@ -1,5 +1,7 @@
+use serde_json::Value;
+
 use crate::{
-    didcore::{AssertionMethod, Authentication, Document, KeyAgreement, Service, VerificationMethod},
+    didcore::{Document, Service, VerificationMethod, VerificationMethodType},
     ldmodel::Context,
 };
 
@@ -40,7 +42,7 @@ impl Service {
     /// # Returns
     ///
     /// * A new instance of `Service`.
-    pub fn new(id: String, service_type: String, service_endpoint: String) -> Self {
+    pub fn new(id: String, service_type: String, service_endpoint: Value) -> Self {
         Self {
             id,
             service_type,
@@ -67,13 +69,13 @@ impl Document {
             context,
             also_known_as: None,
             controller: None,
-            authentication: None,
-            assertion_method: None,
+            authentication: Some(vec![]),
+            assertion_method: Some(vec![]),
             capability_delegation: None,
             capability_invocation: None,
-            key_agreement: None,
-            verification_method: None,
-            service: None,
+            key_agreement: Some(vec![]),
+            verification_method: Some(vec![]),
+            service: Some(vec![]),
             proof: None,
             additional_properties: None,
         }
@@ -97,9 +99,9 @@ impl Document {
     pub fn new_full(
         context: Context,
         id: String,
-        authentication: Option<Vec<Authentication>>,
-        assertion_method: Option<Vec<AssertionMethod>>,
-        key_agreement: Option<Vec<KeyAgreement>>,
+        authentication: Option<Vec<VerificationMethodType>>,
+        assertion_method: Option<Vec<VerificationMethodType>>,
+        key_agreement: Option<Vec<VerificationMethodType>>,
         verification_method: Option<Vec<VerificationMethod>>,
         service: Option<Vec<Service>>,
     ) -> Self {
@@ -138,7 +140,7 @@ pub mod tests {
         let canonicalized = json_canon::to_string(&document).unwrap();
         assert_eq!(
             canonicalized,
-            r#"{"@context":"https://www.w3.org/ns/did/v1","id":"did:example:123456789abcdefghi"}"#
+            r#"{"@context":"https://www.w3.org/ns/did/v1","assertionMethod":[],"authentication":[],"id":"did:example:123456789abcdefghi","keyAgreement":[],"service":[],"verificationMethod":[]}"#
         );
     }
 
@@ -182,14 +184,20 @@ pub mod tests {
         let private_verification_method = Some(vec![private_eddsa_vm, private_ecdh_vm]);
         let public_verification_method = Some(vec![public_eddsa_vm, public_ecdh_vm]);
 
-        let authentication = Some(vec![Authentication::Reference("did:example:123456789abcdefghi#keys-1".to_string())]);
-        let assertion_method = Some(vec![AssertionMethod::Reference("did:example:123456789abcdefghi#keys-1".to_string())]);
-        let key_agreement = Some(vec![KeyAgreement::Reference("did:example:123456789abcdefghi#keys-2".to_string())]);
+        let authentication = Some(vec![VerificationMethodType::Reference(
+            "did:example:123456789abcdefghi#keys-1".to_string(),
+        )]);
+        let assertion_method = Some(vec![VerificationMethodType::Reference(
+            "did:example:123456789abcdefghi#keys-1".to_string(),
+        )]);
+        let key_agreement = Some(vec![VerificationMethodType::Reference(
+            "did:example:123456789abcdefghi#keys-2".to_string(),
+        )]);
 
         let srv = Service::new(
             "did:example:123456789abcdefghi#keys-1".to_string(),
             "did-communication".to_string(),
-            "https://example.com".to_string(),
+            Value::String("https://example.com".to_string()),
         );
         let service = Some(vec![srv]);
 

@@ -1,17 +1,17 @@
 use crate::constants::OOB_INVITATION_2_0;
 use base64::{encode_config, STANDARD};
+use did_utils::didcore::Document;
+use filesystem::FileSystem;
 use image::{DynamicImage, Luma};
-use keystore::filesystem::FileSystem;
 use lazy_static::lazy_static;
 use multibase::Base::Base64Url;
 use qrcode::QrCode;
 use serde::{Deserialize, Serialize};
 use serde_json::to_string;
-use std::{collections::HashMap, error::Error, sync::Mutex};
-use url::{ParseError, Url};
+use std::{collections::HashMap, sync::Mutex};
 
 #[cfg(test)]
-use std::io::{Error as IoError, ErrorKind, Result as IoResult};
+use std::io::Result as IoResult;
 
 // region: --- Model
 
@@ -93,15 +93,20 @@ pub(crate) fn retrieve_or_generate_oob_inv<'a>(
     let file_path = format!("{}/oob_invitation.txt", storage_dirpath);
 
     // Attempt to read the file directly
-    if let Ok(content) = fs.read_to_string(&file_path) {
+    if let Ok(content) = fs.read_to_string(file_path.as_ref()) {
         // If successful, return the content
-        println!("OOB Invitation successfully retrieved from file");
+        tracing::info!("OOB Invitation successfully retrieved from file");
         return Ok(content);
     }
 
     // If the file doesn't exist, proceed with creating and storing it
-    let did = url_to_did_web_id(&format!("{}:{}/", server_public_domain, server_local_port))
-        .map_err(|e| format!("Url to Did address error: {}", e))?;
+    let diddoc_path = format!("{}/did.json", storage_dirpath);
+    let diddoc: Document = fs
+        .read_to_string(diddoc_path.as_ref())
+        .map(|content| serde_json::from_str(&content).unwrap())
+        .map_err(|e| format!("Failed to read DID document: {}", e))?;
+
+    let did = diddoc.id.clone();
     let oob_message = OobMessage::new(&did);
     let url: &String = &format!("{}:{}", server_public_domain, server_local_port);
     let oob_url = OobMessage::serialize_oob_message(&oob_message, url)
@@ -134,7 +139,7 @@ pub(crate) fn retrieve_or_generate_qr_image(
     }
 
     // Check if the file exists in the specified path, otherwise create it
-    if let Ok(existing_image) = fs.read_to_string(&path) {
+    if let Ok(existing_image) = fs.read_to_string(path.as_ref()) {
         // Update the cache with the retrieved data
         CACHE
             .lock()
@@ -160,7 +165,7 @@ pub(crate) fn retrieve_or_generate_qr_image(
     let base64_string = encode_config(&buffer, STANDARD);
 
     // Save to file
-    fs.write_with_lock(&path, &base64_string)
+    fs.write_with_lock(path.as_ref(), &base64_string)
         .map_err(|e| format!("Error writing: {}", e))?;
     CACHE
         .lock()
@@ -172,90 +177,45 @@ pub(crate) fn retrieve_or_generate_qr_image(
 
 fn to_local_storage(fs: &mut dyn FileSystem, oob_url: &str, storage_dirpath: &str) {
     // Ensure the parent directory ('storage') exists
-    if let Err(e) = fs.create_dir_all(storage_dirpath) {
-        eprintln!("Error creating directory: {}", e);
+    if let Err(e) = fs.create_dir_all(storage_dirpath.as_ref()) {
+        tracing::error!("Error creating directory: {}", e);
         return;
     }
 
     let file_path = format!("{}/oob_invitation.txt", storage_dirpath);
 
     // Attempt to write the string directly to the file
-    if let Err(e) = fs.write(&file_path, oob_url) {
-        eprintln!("Error writing to file: {}", e);
+    if let Err(e) = fs.write(file_path.as_ref(), oob_url) {
+        tracing::error!("Error writing to file: {}", e);
     } else {
-        println!("String successfully written to file.");
+        tracing::info!("String successfully written to file.");
     }
-}
-
-/// Turns an HTTP(S) URL into a did:web id.
-fn url_to_did_web_id(url: &str) -> Result<String, Box<dyn Error>> {
-    let url = Url::parse(url)?;
-
-    // Validate the scheme
-    match url.scheme() {
-        "http" | "https" => (),
-        _ => return Err(ParseError::IdnaError.into()),
-    }
-
-    let domain = url.domain().ok_or(ParseError::EmptyHost)?;
-    let port = url
-        .port()
-        .map(|port| format!("%3A{}", port))
-        .unwrap_or_default();
-    let path = url
-        .path()
-        .replace('/', ":")
-        .trim_start_matches(':')
-        .to_string();
-
-    Ok(format!("did:web:{}{}{}", domain, port, path))
 }
 
 #[cfg(test)]
-#[derive(Default)]
-pub struct MockFileSystem;
-
-#[cfg(test)]
-impl FileSystem for MockFileSystem {
-    fn read_to_string(&self, path: &str) -> IoResult<String> {
-        match path {
-            p if p.ends_with("oob_invitation.txt") => {
-                Ok(include_str!("../test/storage/oob_invitation.txt").to_string())
-            }
-            p if p.contains("qrcode.txt") => {
-                Ok(include_str!("../test/storage/qrcode.txt").to_string())
-            }
-            _ => Err(IoError::new(ErrorKind::NotFound, "NotFound")),
-        }
-    }
-
-    fn write(&mut self, _path: &str, _content: &str) -> IoResult<()> {
-        Ok(())
-    }
-
-    fn read_dir_files(&self, _path: &str) -> IoResult<Vec<String>> {
-        Ok(vec![])
-    }
-
-    fn create_dir_all(&mut self, _path: &str) -> IoResult<()> {
-        Ok(())
-    }
-
-    fn write_with_lock(&self, _path: &str, _content: &str) -> IoResult<()> {
-        Ok(())
-    }
-}
+use std::path::Path;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::util::dotenv_flow_read;
+    use mockall::{predicate::*, *};
+
+    mock! {
+        pub FileSystem {}
+        impl FileSystem for FileSystem {
+            fn read_to_string(&self, path: &Path) -> IoResult<String>;
+            fn write(&mut self, path: &Path, content: &str) -> IoResult<()>;
+            fn read_dir_files(&self, path: &Path) -> IoResult<Vec<String>>;
+            fn create_dir_all(&mut self, path: &Path) -> IoResult<()>;
+            fn write_with_lock(&self, path: &Path, content: &str) -> IoResult<()>;
+        }
+    }
 
     #[test]
     fn test_create_oob_message() {
-        let did = url_to_did_web_id(&format!("https://testadress.com:3000/")).unwrap();
+        let did = "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7#z6LSbuUXWSgPfpiDBjUK6E7yiCKMN2eKJsXn5b55ZgqGz6Mr";
 
-        let oob_message = OobMessage::new(&did);
+        let oob_message = OobMessage::new(did);
 
         assert_eq!(oob_message.oob_type, OOB_INVITATION_2_0);
         assert!(!oob_message.id.is_empty());
@@ -268,18 +228,14 @@ mod tests {
 
     #[test]
     fn test_serialize_oob_message() {
-        // Assuming url_to_did_web_id and dotenv_flow_read return Results, you should handle errors.
-        let did =
-            url_to_did_web_id(&format!("https://testadress.com:3000/")).expect("Failed to get DID");
+        let did = "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7#z6LSbuUXWSgPfpiDBjUK6E7yiCKMN2eKJsXn5b55ZgqGz6Mr";
 
-        let server_public_domain =
-            dotenv_flow_read("SERVER_PUBLIC_DOMAIN").expect("Failed to read SERVER_PUBLIC_DOMAIN");
-        let server_local_port =
-            dotenv_flow_read("SERVER_LOCAL_PORT").expect("Failed to read SERVER_LOCAL_PORT");
+        let server_public_domain = "https://example.com";
+        let server_local_port = "8080";
 
         let url = format!("{}:{}", server_public_domain, server_local_port);
 
-        let oob_message = OobMessage::new(&did);
+        let oob_message = OobMessage::new(did);
 
         let oob_url = OobMessage::serialize_oob_message(&oob_message, &url)
             .unwrap_or_else(|err| panic!("Failed to serialize oob message: {}", err));
@@ -292,41 +248,77 @@ mod tests {
     #[test]
     fn test_retrieve_or_generate_oob_inv() {
         // Test data
-        let server_public_domain = dotenv_flow_read("SERVER_PUBLIC_DOMAIN").unwrap();
-        let server_local_port = dotenv_flow_read("SERVER_LOCAL_PORT").unwrap();
-        let storage_dirpath = String::from("testpath");
+        let server_public_domain = "https://example.com";
+        let server_local_port = "8080";
+        let storage_dirpath = "testpath";
 
-        let mut mock_fs = MockFileSystem;
+        let mut mock_fs = MockFileSystem::new();
+
+        // Set expectation for reading DID document
+        mock_fs
+            .expect_read_to_string()
+            .with(eq(Path::new("testpath/oob_invitation.txt")))
+            .returning(|_| {
+                Err(std::io::Error::new(
+                    std::io::ErrorKind::NotFound,
+                    "NotFound",
+                ))
+            });
+
+        mock_fs
+            .expect_read_to_string()
+            .with(eq(Path::new("testpath/did.json")))
+            .returning(|_| {
+                Ok(r##"{
+                        "@context": ["https://www.w3.org/ns/did/v1"],
+                        "id": "did:peer:123"
+                    }"##
+                .to_string())
+            });
+
+        mock_fs
+            .expect_create_dir_all()
+            .with(eq(Path::new("testpath")))
+            .returning(|_| Ok(()));
+
+        // Set expectation for writing the oob_invitation.txt file
+        mock_fs
+            .expect_write()
+            .withf(|path, _content| path == Path::new("testpath/oob_invitation.txt"))
+            .returning(|_, _| Ok(()));
 
         let result = retrieve_or_generate_oob_inv(
             &mut mock_fs,
-            &server_public_domain,
-            &server_local_port,
-            &storage_dirpath,
+            server_public_domain,
+            server_local_port,
+            storage_dirpath,
         );
+
         assert!(result.is_ok());
-
-        let didpath = format!("{storage_dirpath}/oob_invitation.txt");
-        let file_content = mock_fs.read_to_string(&didpath).unwrap();
-
-        assert_eq!(result.unwrap(), file_content);
     }
 
     #[test]
     fn test_retrieve_or_generate_qr_image() {
-        let mut mock_fs = MockFileSystem;
+        let mut mock_fs = MockFileSystem::new();
         let url = "https://example.com";
-        let storage_dirpath = String::from("testpath");
+        let storage_dirpath = "testpath";
+        let expected_image_data = "expected_base64_image_data";
 
-        let result = retrieve_or_generate_qr_image(&mut mock_fs, &storage_dirpath, &url);
+        // Mock read_to_string to return expected_image_data when called.
+        mock_fs
+            .expect_read_to_string()
+            .withf(move |path| path == Path::new("testpath/qrcode.txt"))
+            .returning(move |_| Ok(expected_image_data.to_string()));
+
+        // Mock writing with lock to do nothing.
+        mock_fs
+            .expect_write_with_lock()
+            .withf(|path, _| path == Path::new("testpath/qrcode.txt"))
+            .returning(|_, _| Ok(()));
+
+        let result = retrieve_or_generate_qr_image(&mut mock_fs, storage_dirpath, url);
         assert!(result.is_ok());
 
-        let image_data = result.unwrap();
-
-        let expected_result = mock_fs
-            .read_to_string(&format!("{}/qrcode.txt", storage_dirpath))
-            .unwrap();
-
-        assert_eq!(image_data, expected_result);
+        assert_eq!(result.unwrap(), expected_image_data);
     }
 }
