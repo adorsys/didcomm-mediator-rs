@@ -3,7 +3,7 @@ use crate::model::{BasicMessage, MessageBody};
 use chrono::Utc;
 use uuid::Uuid;
 
-///creating a new basic message
+
 pub fn basic_message(content: &str, lang: Option<String>) -> Result<BasicMessage, ProtocolError> {
     Ok(BasicMessage {
         id: Uuid::new_v4().to_string(),
