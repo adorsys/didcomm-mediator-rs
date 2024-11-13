@@ -23,7 +23,6 @@ thiserror.workspace = true
 tokio = { workspace = true, features = ["full"] }
 hyper = { workspace = true, features = ["full"] }
 axum = { workspace = true, features = ["macros"] }
-chrono.workspace = true
 
 
 [dev-dependencies]
