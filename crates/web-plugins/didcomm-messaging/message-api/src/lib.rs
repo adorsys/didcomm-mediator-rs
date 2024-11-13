@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fmt::Debug, marker::PhantomData, sync::Arc};
 
-type MessageHandler<S, M, R> = fn(Arc<S>, M) -> Result<R, PluginError>;
+type MessageHandler<S, M, E> = fn(S, M) -> Result<M, E>;
 
 #[derive(Debug, PartialEq)]
 pub enum PluginError {
@@ -8,21 +8,21 @@ pub enum PluginError {
 }
 
 #[derive(Debug, Clone)]
-pub struct MessageRouter<S, M, R>
+pub struct MessageRouter<S, M, E>
 where
     S: Clone + Sync + Send + 'static,
     M: Send + 'static,
-    R: Send + 'static,
+    E: Send + 'static,
 {
-    routes: HashMap<String, MessageHandler<S, M, R>>,
-    _marker: PhantomData<(S, M, R)>,
+    routes: HashMap<String, MessageHandler<S, M, E>>,
+    _marker: PhantomData<(S, M, E)>,
 }
 
-impl<S, M, R> MessageRouter<S, M, R>
+impl<S, M, E> MessageRouter<S, M, E>
 where
     S: Clone + Sync + Send + 'static,
     M: Send + 'static,
-    R: Send + 'static,
+    E: Send + 'static,
 {
     pub fn new() -> Self {
         Self {
@@ -31,12 +31,12 @@ where
         }
     }
 
-    pub fn route(mut self, msg_type: &str, f: MessageHandler<S, M, R>) -> Self {
+    pub fn route(mut self, msg_type: &str, f: MessageHandler<S, M, E>) -> Self {
         self.routes.insert(msg_type.to_string(), f);
         self
     }
 
-    pub fn merge(&mut self, other: &Self) {
+    pub fn merge(mut self, other: &Self) {
         for (key, handler) in &other.routes {
             self.routes.insert(key.clone(), *handler);
         }
@@ -44,22 +44,22 @@ where
 }
 
 // Implement Default for MessageRouter
-impl<S, M, R> Default for MessageRouter<S, M, R>
+impl<S, M, E> Default for MessageRouter<S, M, E>
 where
     S: Clone + Sync + Send + 'static,
     M: Send + 'static,
-    R: Send + 'static,
+    E: Send + 'static,
 {
     fn default() -> Self {
         Self::new()
     }
 }
 
-pub trait MessagePlugin<S, M, R>: Sync + Send
+pub trait MessagePlugin<S, M, E>: Sync + Send
 where
     S: Clone + Sync + Send + 'static,
     M: Send + 'static,
-    R: Send + 'static,
+    E: Send + 'static,
 {
     /// Define a unique identifier
     fn name(&self) -> &'static str;
@@ -71,5 +71,5 @@ where
     fn unmount(&self) -> Result<(), PluginError>;
 
     /// Return a mapping of message types to handlers
-    fn routes(&self) -> MessageRouter<S, M, R>;
+    fn routes(&self) -> MessageRouter<S, M, E>;
 }

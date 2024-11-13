@@ -156,11 +156,11 @@ mod tests {
     use std::sync::{Arc, Mutex};
 
     struct ExampleProtocol;
-    impl<S, M, R> MessagePlugin<S, M, R> for ExampleProtocol
+    impl<S, M, E> MessagePlugin<S, M, E> for ExampleProtocol
     where
         S: Clone + Sync + Send + 'static,
         M: Send + 'static,
-        R: Send + 'static,
+        E: Send + 'static,
     {
         fn name(&self) -> &'static str {
             "example"
@@ -174,17 +174,17 @@ mod tests {
             Ok(())
         }
 
-        fn routes(&self) -> MessageRouter<S, M, R> {
+        fn routes(&self) -> MessageRouter<S, M, E> {
             MessageRouter::new()
         }
     }
 
     struct DuplicateProtocol;
-    impl<S, M, R> MessagePlugin<S, M, R> for DuplicateProtocol
+    impl<S, M, E> MessagePlugin<S, M, E> for DuplicateProtocol
     where
         S: Clone + Sync + Send + 'static,
         M: Send + 'static,
-        R: Send + 'static,
+        E: Send + 'static,
     {
         fn name(&self) -> &'static str {
             "duplicate"
@@ -198,17 +198,17 @@ mod tests {
             Ok(())
         }
 
-        fn routes(&self) -> MessageRouter<S, M, R> {
+        fn routes(&self) -> MessageRouter<S, M, E> {
             MessageRouter::new()
         }
     }
 
     struct FaultyProtocol;
-    impl<S, M, R> MessagePlugin<S, M, R> for FaultyProtocol
+    impl<S, M, E> MessagePlugin<S, M, E> for FaultyProtocol
     where
         S: Clone + Sync + Send + 'static,
         M: Send + 'static,
-        R: Send + 'static,
+        E: Send + 'static,
     {
         fn name(&self) -> &'static str {
             "faulty"
@@ -222,7 +222,7 @@ mod tests {
             Ok(())
         }
 
-        fn routes(&self) -> MessageRouter<S, M, R> {
+        fn routes(&self) -> MessageRouter<S, M, E> {
             MessageRouter::new()
         }
     }
