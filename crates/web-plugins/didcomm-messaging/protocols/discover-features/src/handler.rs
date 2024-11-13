@@ -6,8 +6,9 @@ use serde_json::json;
 use shared::state::AppState;
 use uuid::Uuid;
 
+use crate::constant::_DISCOVER_FEATURE;
+
 use super::{
-    constant::DISCOVER_FEATURE,
     errors::DiscoveryError,
     model::{Disclosures, DisclosuresContent},
 };
@@ -73,7 +74,7 @@ pub fn handle_query_request(
         }
 
         let id = Uuid::new_v4().urn().to_string();
-        let msg = Message::build(id, DISCOVER_FEATURE.to_string(), json!(body)).finalize();
+        let msg = Message::build(id, _DISCOVER_FEATURE.to_string(), json!(body)).finalize();
 
         Ok(Some(msg))
     } else {
@@ -95,7 +96,7 @@ mod test {
     };
     use uuid::Uuid;
 
-    use crate::{constant::QUERY_FEATURE, model::Queries};
+    use crate::{constant::_QUERY_FEATURE, model::Queries};
 
     use super::handle_query_request;
     const TRUST: &str = "https://didcomm.org/trust-ping/2.0/ping";
@@ -129,7 +130,7 @@ mod test {
         };
         let id = Uuid::new_v4().urn().to_string();
 
-        let message = Message::build(id, QUERY_FEATURE.to_string(), json!(body)).finalize();
+        let message = Message::build(id, _QUERY_FEATURE.to_string(), json!(body)).finalize();
         let state = setup();
         match handle_query_request(message, state) {
             Ok(result) => {
@@ -188,7 +189,7 @@ mod test {
         };
         let id = Uuid::new_v4().urn().to_string();
 
-        let message = Message::build(id, QUERY_FEATURE.to_string(), json!(body)).finalize();
+        let message = Message::build(id, _QUERY_FEATURE.to_string(), json!(body)).finalize();
         match handle_query_request(message, state) {
             Ok(result) => {
                 assert!(result
