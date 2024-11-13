@@ -8,7 +8,7 @@ pub enum DiscoveryError {
     MalformedBody,
     #[error("Repository not set")]
     RepostitoryError,
-    #[error("No query field in body")]
+    #[error("No queries field in body")]
     QueryNotFound
 }
 impl DiscoveryError {

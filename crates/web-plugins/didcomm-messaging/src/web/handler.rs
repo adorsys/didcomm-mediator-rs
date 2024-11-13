@@ -129,6 +129,7 @@ pub mod tests {
             public_domain,
             diddoc,
             keystore,
+            None,
             Some(repository),
         ));
         let app = web::routes(Arc::clone(&state));

@@ -3,16 +3,18 @@ pub mod error;
 pub(crate) mod handler;
 pub(crate) mod midlw;
 
-pub use self::midlw::{unpack_didcomm_message, pack_response_message};
+pub use self::midlw::{pack_response_message, unpack_didcomm_message};
 
 use axum::{middleware, routing::post, Router};
 use database::Repository;
 use did_utils::{didcore::Document, jwk::Jwk};
 use keystore::KeyStore;
-use std::sync::Arc;
+use std::{string, sync::Arc};
 
 use crate::{
-    didcomm::bridge::{LocalDIDResolver, LocalSecretsResolver}, model::stateful::entity::{Connection, RoutedMessage, Secrets}, util
+    didcomm::bridge::{LocalDIDResolver, LocalSecretsResolver},
+    model::stateful::entity::{Connection, RoutedMessage, Secrets},
+    util,
 };
 
 pub fn routes(state: Arc<AppState>) -> Router {
@@ -27,7 +29,6 @@ pub fn routes(state: Arc<AppState>) -> Router {
 }
 
 #[derive(Clone)]
-#[allow(unused)]
 pub struct AppState {
     // Metadata
     pub public_domain: String,
@@ -42,6 +43,9 @@ pub struct AppState {
 
     // Persistence layer
     pub(crate) repository: Option<AppStateRepository>,
+
+    // Disclosed protocols as strings e.g `coordinate-mediation/2.0`
+    pub(crate) supported_protocols: Option<Vec<String>>,
 }
 
 #[derive(Clone)]
@@ -56,6 +60,7 @@ impl AppState {
         public_domain: String,
         diddoc: Document,
         keystore: KeyStore,
+        disclosed_protocols: Option<Vec<String>>,
         repository: Option<AppStateRepository>,
     ) -> Self {
         let (did_url, assertion_pubkey) = util::extract_assertion_key(&diddoc)
@@ -84,6 +89,7 @@ impl AppState {
             did_resolver,
             secrets_resolver,
             repository,
+            supported_protocols: disclosed_protocols,
         }
     }
 }

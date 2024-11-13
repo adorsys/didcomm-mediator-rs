@@ -106,6 +106,7 @@ impl Plugin for MediatorCoordinationPlugin {
             env.public_domain.clone(),
             diddoc,
             keystore,
+            None,
             Some(repository),
         );
 

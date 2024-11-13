@@ -129,7 +129,9 @@ mod test {
             public_domain,
             diddoc,
             keystore,
+            None,
             Some(repository),
+            
         ));
 
         state
