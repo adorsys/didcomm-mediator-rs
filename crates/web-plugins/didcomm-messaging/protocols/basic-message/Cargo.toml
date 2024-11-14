@@ -17,6 +17,7 @@ chrono.workspace = true
 
 [dev-dependencies]
 did-utils.workspace = true
+keystore.workspace = true
 hyper = "0.14.27"
 shared = { workspace = true, features = ["test-utils"] }
 tokio = { version = "1.27.0", default-features = false, features = [
