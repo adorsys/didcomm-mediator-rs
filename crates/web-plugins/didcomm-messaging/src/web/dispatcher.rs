@@ -4,16 +4,14 @@ use axum::{
     Extension, Json,
 };
 use didcomm::Message;
-use forward::web::handler::mediator_forward_process;
 use hyper::{header::CONTENT_TYPE, StatusCode};
 use mediator_coordination::web;
 use shared::{
     constants::{
         DELIVERY_REQUEST_3_0, DIDCOMM_ENCRYPTED_MIME_TYPE, KEYLIST_QUERY_2_0, KEYLIST_UPDATE_2_0,
         LIVE_MODE_CHANGE_3_0, MEDIATE_FORWARD_2_0, MEDIATE_REQUEST_2_0, MESSAGE_RECEIVED_3_0,
-        STATUS_REQUEST_3_0,
+        STATUS_REQUEST_3_0, TRUST_PING_2_0,
     },
-    errors::MediationError,
     state::AppState,
 };
 use std::sync::Arc;
@@ -23,67 +21,85 @@ pub(crate) async fn process_didcomm_message(
     State(state): State<Arc<AppState>>,
     Extension(message): Extension<Message>,
 ) -> Response {
-    if message.type_ == MEDIATE_FORWARD_2_0 {
-        return match mediator_forward_process(&state, message).await {
-            Ok(_message) => StatusCode::ACCEPTED.into_response(),
-            Err(response) => response,
-        };
-    }
-    let response = match message.type_.as_str() {
-        KEYLIST_UPDATE_2_0 => {
-            web::handler::stateful::process_plain_keylist_update_message(
-                Arc::clone(&state),
-                message,
-            )
-            .await
-        }
-        KEYLIST_QUERY_2_0 => {
-            web::handler::stateful::process_plain_keylist_query_message(Arc::clone(&state), message)
+    let response: Result<Option<Message>, Response> = match message.type_.as_str() {
+        MEDIATE_FORWARD_2_0 => {
+            forward::web::handler::mediator_forward_process(state.clone(), message)
                 .await
+                .map_err(|e| e.into_response())
         }
 
         MEDIATE_REQUEST_2_0 => {
-            web::handler::stateful::process_mediate_request(&state, &message).await
+            web::handler::stateful::process_mediate_request(state.clone(), &message)
+                .await
+                .map_err(|e| e.into_response())
         }
-        STATUS_REQUEST_3_0 => pickup::handler::handle_status_request(state.clone(), message).await,
-        DELIVERY_REQUEST_3_0 => {
-            pickup::handler::handle_delivery_request(state.clone(), message).await
+
+        KEYLIST_UPDATE_2_0 => web::handler::stateful::process_plain_keylist_update_message(
+            Arc::clone(&state),
+            message,
+        )
+        .await
+        .map_err(|e| e.into_response()),
+
+        KEYLIST_QUERY_2_0 => {
+            web::handler::stateful::process_plain_keylist_query_message(state.clone(), message)
+                .await
+                .map_err(|e| e.into_response())
         }
+
+        STATUS_REQUEST_3_0 => pickup::handler::handle_status_request(state.clone(), message)
+            .await
+            .map_err(|e| e.into_response()),
+
+        DELIVERY_REQUEST_3_0 => pickup::handler::handle_delivery_request(state.clone(), message)
+            .await
+            .map_err(|e| e.into_response()),
+
         MESSAGE_RECEIVED_3_0 => {
-            pickup::handler::handle_message_acknowledgement(state.clone(), message).await
+            pickup::handler::handle_message_acknowledgement(state.clone(), message)
+                .await
+                .map_err(|e| e.into_response())
         }
+
         LIVE_MODE_CHANGE_3_0 => {
-            pickup::handler::handle_live_delivery_change(state.clone(), message).await
+            pickup::handler::handle_live_delivery_change(state.clone(), message)
+                .await
+                .map_err(|e| e.into_response())
         }
-        _ => {
-            let response = (
-                StatusCode::BAD_REQUEST,
-                MediationError::UnsupportedOperation.json(),
-            );
-            return response.into_response();
-        }
+
+        TRUST_PING_2_0 => trust_ping::handler::handle_trust_ping(state.clone(), message)
+            .await
+            .map_err(|e| e.into_response()),
+
+        _ => return (StatusCode::BAD_REQUEST, "Unsupported operation".to_string()).into_response(),
     };
 
     process_response(state, response).await
 }
 
-async fn process_response(state: Arc<AppState>, response: Result<Message, Response>) -> Response {
+async fn process_response(
+    state: Arc<AppState>,
+    response: Result<Option<Message>, Response>,
+) -> Response {
     match response {
-        Ok(message) => crate::midlw::pack_response_message(
-            &message,
-            &state.did_resolver,
-            &state.secrets_resolver,
-        )
-        .await
-        .map(|packed| {
-            (
-                StatusCode::ACCEPTED,
-                [(CONTENT_TYPE, DIDCOMM_ENCRYPTED_MIME_TYPE)],
-                Json(packed),
+        Ok(message) => match message {
+            Some(message) => crate::midlw::pack_response_message(
+                &message,
+                &state.did_resolver,
+                &state.secrets_resolver,
             )
-                .into_response()
-        })
-        .unwrap_or_else(|err| err.into_response()),
+            .await
+            .map(|packed| {
+                (
+                    StatusCode::ACCEPTED,
+                    [(CONTENT_TYPE, DIDCOMM_ENCRYPTED_MIME_TYPE)],
+                    Json(packed),
+                )
+                    .into_response()
+            })
+            .unwrap_or_else(|err| err.into_response()),
+            None => StatusCode::ACCEPTED.into_response(),
+        },
         Err(response) => response,
     }
 }

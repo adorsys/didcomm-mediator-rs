@@ -1,4 +1,5 @@
 mod did_rotation;
+mod error;
 mod manager;
 mod midlw;
 mod protocols;
