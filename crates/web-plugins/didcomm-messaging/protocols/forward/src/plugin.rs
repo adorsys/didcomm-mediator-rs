@@ -1,4 +1,23 @@
-use message_api::{MessagePlugin, MessageRouter, PluginError};
+use std::sync::Arc;
+
+use didcomm::Message;
+use message_api::{Handler, MessagePlugin, MessageRouter, PluginError};
+use shared::state::AppState;
+
+use crate::ForwardError;
+
+#[derive(Debug)]
+pub struct ForwardPlugin;
+
+impl Handler for ForwardPlugin {
+    type State = Arc<AppState>;
+    type Message = Option<Message>;
+    type Error = ForwardError;
+
+    async fn handle(&self, state: Self::State, msg: Message) -> Result<Self::Message, Self::Error> {
+        crate::web::handler::mediator_forward_process(state, msg).await
+    }
+}
 
 #[derive(Default)]
 pub struct ForwardProtocols;
