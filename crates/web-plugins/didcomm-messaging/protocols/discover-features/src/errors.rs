@@ -19,9 +19,3 @@ impl DiscoveryError {
         }))
     }
 }
-
-impl From<DiscoveryError> for Json<Value> {
-    fn from(error: DiscoveryError) -> Self {
-        error.json()
-    }
-}
