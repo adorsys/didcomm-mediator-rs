@@ -36,7 +36,7 @@ where
         self
     }
 
-    pub fn merge(mut self, other: &Self) {
+    pub fn merge(&mut self, other: &Self) {
         for (key, handler) in &other.routes {
             self.routes.insert(key.clone(), *handler);
         }
