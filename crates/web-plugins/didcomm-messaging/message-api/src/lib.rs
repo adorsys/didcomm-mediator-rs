@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::Debug, marker::PhantomData, sync::Arc};
+use std::{collections::HashMap, fmt::Debug, marker::PhantomData};
 
 type MessageHandler<S, M, E> = fn(S, M) -> Result<M, E>;
 
