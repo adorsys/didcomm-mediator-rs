@@ -19,7 +19,7 @@ For further understanding checkout the [docs](docs/mediator-doc.md)<br>
 |[Pickup Protocol](https://didcomm.org/messagepickup/3.0/)| ADOPTED | ✅ |
 |[DID Rotation](https://didcomm.org/book/v2/didrotation) | ACCEPTED | ✅ |
 |[Cross-Domain Messaging/ Routing Protocol](https://identity.foundation/didcomm-messaging/spec/#routing-protocol-20) | ADOPTED | ✅|
-|[Trust Ping Ptotocol](https://identity.foundation/didcomm-messaging/spec/#trust-ping-protocol-20) | ADOPTED|⚪|
+|[Trust Ping Ptotocol](https://identity.foundation/didcomm-messaging/spec/#trust-ping-protocol-20) | ADOPTED|✅|
 |[Discover Features Protocol](https://didcomm.org/discover-features/2.0/) | ADOPTED | ⚪ |
 |[Out of band Messaging](https://identity.foundation/didcomm-messaging/spec/#out-of-band-messages) | ADOPTED | ⚪
 |[Acks](https://github.com/hyperledger/aries-rfcs/tree/main/features/0015-acks)| ADOPTED |❌ |
