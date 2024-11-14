@@ -6,8 +6,6 @@ use thiserror::Error;
 pub enum DiscoveryError {
     #[error("message body is malformed")]
     MalformedBody,
-    #[error("Repository not set")]
-    RepostitoryError,
     #[error("No queries field in body")]
     QueryNotFound
 }
