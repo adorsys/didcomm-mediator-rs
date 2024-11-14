@@ -13,6 +13,7 @@ plugin-api.workspace = true
 filesystem.workspace = true
 forward.workspace = true
 pickup.workspace = true
+trust-ping.workspace = true
 mediator-coordination.workspace = true
 message-api.workspace = true
 

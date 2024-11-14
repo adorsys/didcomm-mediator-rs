@@ -1,6 +1,11 @@
-use axum::{
-    http::StatusCode,
-    response::{IntoResponse, Response},
+use crate::{
+    errors::MediationError,
+    model::stateful::coord::{
+        Keylist, KeylistBody, KeylistEntry, KeylistUpdateAction, KeylistUpdateBody,
+        KeylistUpdateConfirmation, KeylistUpdateResponseBody, KeylistUpdateResult, MediationDeny,
+        MediationGrant, MediationGrantBody,
+    },
+    web::handler::midlw::ensure_jwm_type_is_mediation_request,
 };
 use did_utils::{
     crypto::{Ed25519KeyPair, Generate, ToMultikey, X25519KeyPair},
@@ -9,41 +14,29 @@ use did_utils::{
     methods::{DidPeer, Purpose, PurposedKey},
 };
 use didcomm::{did::DIDResolver, Message};
+use keystore::Secrets;
 use mongodb::bson::doc;
 use serde_json::json;
-use std::sync::Arc;
-use uuid::Uuid;
-
-use crate::{
-    model::stateful::coord::{
-        Keylist, KeylistBody, KeylistEntry, KeylistUpdateAction, KeylistUpdateBody,
-        KeylistUpdateConfirmation, KeylistUpdateResponseBody, KeylistUpdateResult, MediationDeny,
-        MediationGrant, MediationGrantBody,
-    },
-    web::handler::midlw::{self, ensure_jwm_type_is_mediation_request},
-};
-
-use keystore::Secrets;
 use shared::{
     constants::{KEYLIST_2_0, KEYLIST_UPDATE_RESPONSE_2_0, MEDIATE_DENY_2_0, MEDIATE_GRANT_2_0},
-    errors::MediationError,
     midlw::ensure_transport_return_route_is_decorated_all,
     repository::entity::Connection,
     state::{AppState, AppStateRepository},
 };
+use std::sync::Arc;
+use uuid::Uuid;
 
 /// Process a DIDComm mediate request
 pub async fn process_mediate_request(
-    state: &AppState,
+    state: Arc<AppState>,
     plain_message: &Message,
-) -> Result<Message, Response> {
+) -> Result<Option<Message>, MediationError> {
     // This is to Check message type compliance
-    midlw::run!(ensure_jwm_type_is_mediation_request(&plain_message));
+    ensure_jwm_type_is_mediation_request(&plain_message)?;
 
     // This is to Check explicit agreement to HTTP responding
-    midlw::run!(ensure_transport_return_route_is_decorated_all(
-        &plain_message
-    ));
+    ensure_transport_return_route_is_decorated_all(&plain_message)
+        .map_err(|_| MediationError::NoReturnRouteAllDecoration)?;
 
     let mediator_did = &state.diddoc.id;
 
@@ -69,18 +62,20 @@ pub async fn process_mediate_request(
         .unwrap()
     {
         println!("Sending mediate deny.");
-        return Ok(Message::build(
-            format!("urn:uuid:{}", Uuid::new_v4()),
-            MEDIATE_DENY_2_0.to_string(),
-            json!(MediationDeny {
-                id: format!("urn:uuid:{}", Uuid::new_v4()),
-                message_type: MEDIATE_DENY_2_0.to_string(),
-                ..Default::default()
-            }),
-        )
-        .to(sender_did.clone())
-        .from(mediator_did.clone())
-        .finalize());
+        return Ok(Some(
+            Message::build(
+                format!("urn:uuid:{}", Uuid::new_v4()),
+                MEDIATE_DENY_2_0.to_string(),
+                json!(MediationDeny {
+                    id: format!("urn:uuid:{}", Uuid::new_v4()),
+                    message_type: MEDIATE_DENY_2_0.to_string(),
+                    ..Default::default()
+                }),
+            )
+            .to(sender_did.clone())
+            .from(mediator_did.clone())
+            .finalize(),
+        ));
     } else {
         /* Issue mediate grant response */
         println!("Sending mediate grant.");
@@ -148,14 +143,16 @@ pub async fn process_mediate_request(
             Err(error) => eprintln!("Error storing connection: {:?}", error),
         }
 
-        Ok(Message::build(
-            format!("urn:uuid:{}", Uuid::new_v4()),
-            mediation_grant.message_type.clone(),
-            json!(mediation_grant),
-        )
-        .to(sender_did.clone())
-        .from(mediator_did.clone())
-        .finalize())
+        Ok(Some(
+            Message::build(
+                format!("urn:uuid:{}", Uuid::new_v4()),
+                mediation_grant.message_type.clone(),
+                json!(mediation_grant),
+            )
+            .to(sender_did.clone())
+            .from(mediator_did.clone())
+            .finalize(),
+        ))
     }
 }
 
@@ -208,7 +205,7 @@ fn generate_did_peer(service_endpoint: String) -> (String, Ed25519KeyPair, X2551
 pub async fn process_plain_keylist_update_message(
     state: Arc<AppState>,
     message: Message,
-) -> Result<Message, Response> {
+) -> Result<Option<Message>, MediationError> {
     // Extract message sender
 
     let sender = message
@@ -217,17 +214,8 @@ pub async fn process_plain_keylist_update_message(
 
     // Parse message body into keylist update
 
-    let keylist_update_body: KeylistUpdateBody = match serde_json::from_value(message.body) {
-        Ok(serialized) => serialized,
-        Err(_) => {
-            let response = (
-                StatusCode::BAD_REQUEST,
-                MediationError::UnexpectedMessageFormat.json(),
-            );
-
-            return Err(response.into_response());
-        }
-    };
+    let keylist_update_body: KeylistUpdateBody = serde_json::from_value(message.body)
+        .map_err(|_| MediationError::UnexpectedMessageFormat)?;
 
     // Retrieve repository to connection entities
 
@@ -241,21 +229,11 @@ pub async fn process_plain_keylist_update_message(
 
     // Find connection for this keylist update
 
-    let connection = match connection_repository
+    let connection = connection_repository
         .find_one_by(doc! { "client_did": &sender })
         .await
         .unwrap()
-    {
-        Some(connection) => connection,
-        None => {
-            let response = (
-                StatusCode::UNAUTHORIZED,
-                MediationError::UncoordinatedSender.json(),
-            );
-
-            return Err(response.into_response());
-        }
-    };
+        .ok_or_else(|| MediationError::UncoordinatedSender)?;
 
     // Prepare handles to relevant collections
 
@@ -338,22 +316,24 @@ pub async fn process_plain_keylist_update_message(
 
     let mediator_did = &state.diddoc.id;
 
-    Ok(Message::build(
-        format!("urn:uuid:{}", Uuid::new_v4()),
-        KEYLIST_UPDATE_RESPONSE_2_0.to_string(),
-        json!(KeylistUpdateResponseBody {
-            updated: confirmations
-        }),
-    )
-    .to(sender)
-    .from(mediator_did.to_owned())
-    .finalize())
+    Ok(Some(
+        Message::build(
+            format!("urn:uuid:{}", Uuid::new_v4()),
+            KEYLIST_UPDATE_RESPONSE_2_0.to_string(),
+            json!(KeylistUpdateResponseBody {
+                updated: confirmations
+            }),
+        )
+        .to(sender)
+        .from(mediator_did.to_owned())
+        .finalize(),
+    ))
 }
 
 pub async fn process_plain_keylist_query_message(
     state: Arc<AppState>,
     message: Message,
-) -> Result<Message, Response> {
+) -> Result<Option<Message>, MediationError> {
     println!("Processing keylist query...");
     let sender = message
         .from
@@ -367,21 +347,11 @@ pub async fn process_plain_keylist_query_message(
         .as_ref()
         .expect("missing persistence layer");
 
-    let connection = match connection_repository
+    let connection = connection_repository
         .find_one_by(doc! { "client_did": &sender })
         .await
         .unwrap()
-    {
-        Some(connection) => connection,
-        None => {
-            let response = (
-                StatusCode::UNAUTHORIZED,
-                MediationError::UncoordinatedSender.json(),
-            );
-
-            return Err(response.into_response());
-        }
-    };
+        .ok_or_else(|| MediationError::UncoordinatedSender)?;
 
     println!("keylist: {:?}", connection);
 
@@ -418,13 +388,11 @@ pub async fn process_plain_keylist_query_message(
 
     println!("message: {:?}", message);
 
-    Ok(message)
+    Ok(Some(message))
 }
 
 #[cfg(test)]
 mod tests {
-    use serde_json::Value;
-
     use super::*;
 
     use shared::{
@@ -465,7 +433,8 @@ mod tests {
         // Process request
         let response = process_plain_keylist_query_message(Arc::clone(&state), message)
             .await
-            .unwrap();
+            .unwrap()
+            .expect("Response should not be None");
 
         assert_eq!(response.type_, KEYLIST_2_0);
         assert_eq!(response.from.unwrap(), global::_mediator_did(&state));
@@ -490,12 +459,7 @@ mod tests {
             .await
             .unwrap_err();
         // Assert issued error for uncoordinated sender
-        _assert_delegate_handler_err(
-            err,
-            StatusCode::UNAUTHORIZED,
-            MediationError::UncoordinatedSender,
-        )
-        .await;
+        assert_eq!(err, MediationError::UncoordinatedSender,);
     }
     #[tokio::test]
     async fn test_keylist_update() {
@@ -528,7 +492,8 @@ mod tests {
 
         let response = process_plain_keylist_update_message(Arc::clone(&state), message)
             .await
-            .unwrap();
+            .unwrap()
+            .expect("Response should not be None");
         let response = response;
 
         // Assert metadata
@@ -626,9 +591,8 @@ mod tests {
 
         let response = process_plain_keylist_update_message(Arc::clone(&state), message)
             .await
-            .unwrap();
-
-        let response = response;
+            .unwrap()
+            .expect("Response should not be None");
         // Assert updates
 
         assert_eq!(
@@ -691,8 +655,8 @@ mod tests {
 
         let response = process_plain_keylist_update_message(Arc::clone(&state), message)
             .await
-            .unwrap();
-        let response = response;
+            .unwrap()
+            .expect("Response should not be None");
         // Assert updates
 
         assert_eq!(
@@ -751,8 +715,8 @@ mod tests {
 
         let response = process_plain_keylist_update_message(Arc::clone(&state), message)
             .await
-            .unwrap();
-        let response = response;
+            .unwrap()
+            .expect("Response should not be None");
 
         // Assert updates
 
@@ -791,12 +755,7 @@ mod tests {
             .unwrap_err();
 
         // Assert issued error
-        _assert_delegate_handler_err(
-            err,
-            StatusCode::BAD_REQUEST,
-            MediationError::UnexpectedMessageFormat,
-        )
-        .await;
+        assert_eq!(err, MediationError::UnexpectedMessageFormat,);
     }
 
     #[tokio::test]
@@ -842,12 +801,7 @@ mod tests {
             .unwrap_err();
 
         // Assert issued error
-        _assert_delegate_handler_err(
-            err,
-            StatusCode::UNAUTHORIZED,
-            MediationError::UncoordinatedSender,
-        )
-        .await;
+        assert_eq!(err, MediationError::UncoordinatedSender,);
     }
 
     //----------------------------------------------------------------------------------------------
@@ -880,22 +834,6 @@ mod tests {
             ]"##,
         )
         .unwrap()
-    }
-
-    async fn _assert_delegate_handler_err(
-        err: Response,
-        status: StatusCode,
-        mediation_error: MediationError,
-    ) {
-        assert_eq!(err.status(), status);
-
-        let body = hyper::body::to_bytes(err.into_body()).await.unwrap();
-        let body: Value = serde_json::from_slice(&body).unwrap();
-
-        assert_eq!(
-            json_canon::to_string(&body).unwrap(),
-            json_canon::to_string(&mediation_error.json().0).unwrap()
-        );
     }
 
     use did_utils::crypto::{KeyMaterial, BYTES_LENGTH_32};

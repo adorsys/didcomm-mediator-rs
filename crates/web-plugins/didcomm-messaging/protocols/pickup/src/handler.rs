@@ -5,7 +5,6 @@ use crate::{
         LiveDeliveryChange, StatusResponse,
     },
 };
-use axum::response::{IntoResponse, Response};
 use didcomm::{Attachment, Message, MessageBuilder};
 use mongodb::bson::{doc, oid::ObjectId};
 use serde_json::Value;
@@ -22,9 +21,10 @@ use uuid::Uuid;
 pub async fn handle_status_request(
     state: Arc<AppState>,
     message: Message,
-) -> Result<Message, Response> {
+) -> Result<Option<Message>, PickupError> {
     // Validate the return_route header
-    ensure_transport_return_route_is_decorated_all(&message)?;
+    ensure_transport_return_route_is_decorated_all(&message)
+        .map_err(|_| PickupError::MalformedRequest("Missing return_route header".to_owned()))?;
 
     let mediator_did = &state.diddoc.id;
     let recipient_did = message
@@ -56,16 +56,17 @@ pub async fn handle_status_request(
         .from(mediator_did.to_owned())
         .finalize();
 
-    Ok(response)
+    Ok(Some(response))
 }
 
 // Process pickup delivery request
 pub async fn handle_delivery_request(
     state: Arc<AppState>,
     message: Message,
-) -> Result<Message, Response> {
+) -> Result<Option<Message>, PickupError> {
     // Validate the return_route header
-    ensure_transport_return_route_is_decorated_all(&message)?;
+    ensure_transport_return_route_is_decorated_all(&message)
+        .map_err(|_| PickupError::MalformedRequest("Missing return_route header".to_owned()))?;
 
     let mediator_did = &state.diddoc.id;
     let recipient_did = message
@@ -79,9 +80,7 @@ pub async fn handle_delivery_request(
         .body
         .get("limit")
         .and_then(Value::as_u64)
-        .ok_or_else(|| {
-            PickupError::MalformedRequest("Invalid \"limit\" specifier").into_response()
-        })?;
+        .ok_or_else(|| PickupError::MalformedRequest("Invalid \"limit\" specifier".to_owned()))?;
 
     let repository = repository(state.clone())?;
     let connection = client_connection(&repository, sender_did).await?;
@@ -110,9 +109,8 @@ pub async fn handle_delivery_request(
             let attached = Attachment::json(message.message)
                 .id(message.id.map(|id| id.to_string()).ok_or_else(|| {
                     PickupError::InternalError(
-                        "Failed to load requested messages. Please try again later.",
+                        "Failed to load requested messages. Please try again later.".to_owned(),
                     )
-                    .into_response()
                 })?)
                 .finalize();
 
@@ -134,16 +132,17 @@ pub async fn handle_delivery_request(
         .from(mediator_did.to_owned())
         .finalize();
 
-    Ok(response)
+    Ok(Some(response))
 }
 
 // Process pickup messages acknowledgement
 pub async fn handle_message_acknowledgement(
     state: Arc<AppState>,
     message: Message,
-) -> Result<Message, Response> {
+) -> Result<Option<Message>, PickupError> {
     // Validate the return_route header
-    ensure_transport_return_route_is_decorated_all(&message)?;
+    ensure_transport_return_route_is_decorated_all(&message)
+        .map_err(|_| PickupError::MalformedRequest("Missing return_route header".to_owned()))?;
 
     let mediator_did = &state.diddoc.id;
     let repository = repository(state.clone())?;
@@ -157,24 +156,24 @@ pub async fn handle_message_acknowledgement(
         .and_then(|v| v.as_array())
         .map(|a| a.iter().filter_map(|v| v.as_str()).collect::<Vec<_>>())
         .ok_or_else(|| {
-            PickupError::MalformedRequest("Invalid \"message_id_list\" specifier").into_response()
+            PickupError::MalformedRequest("Invalid \"message_id_list\" specifier".to_owned())
         })?;
 
     for id in message_id_list {
         let msg_id = ObjectId::from_str(id);
         if msg_id.is_err() {
-            return Err(PickupError::MalformedRequest(
-                format!("Invalid message id: {id}").as_str(),
-            )
-            .into_response());
+            return Err(PickupError::MalformedRequest(format!(
+                "Invalid message id: {id}"
+            )));
         }
         repository
             .message_repository
             .delete_one(msg_id.unwrap())
             .await
             .map_err(|_| {
-                PickupError::InternalError("Failed to process the request. Please try again later.")
-                    .into_response()
+                PickupError::InternalError(
+                    "Failed to process the request. Please try again later.".to_owned(),
+                )
             })?;
     }
 
@@ -197,42 +196,47 @@ pub async fn handle_message_acknowledgement(
         .from(mediator_did.to_owned())
         .finalize();
 
-    Ok(response)
+    Ok(Some(response))
 }
 
 // Process live delivery change request
 pub async fn handle_live_delivery_change(
     state: Arc<AppState>,
     message: Message,
-) -> Result<Message, Response> {
+) -> Result<Option<Message>, PickupError> {
     // Validate the return_route header
-    ensure_transport_return_route_is_decorated_all(&message)?;
+    ensure_transport_return_route_is_decorated_all(&message)
+        .map_err(|_| PickupError::MalformedRequest("Missing return_route header".to_owned()))?;
 
-    if let Some(_live_delivery) = message.body.get("live_delivery").and_then(Value::as_bool) {
-        let mediator_did = &state.diddoc.id;
-        let sender_did = sender_did(&message)?;
-        let id = Uuid::new_v4().urn().to_string();
-        let pthid = message.thid.as_deref().unwrap_or(id.as_str());
+    match message.body.get("live_delivery").and_then(Value::as_bool) {
+        Some(true) => {
+            let mediator_did = &state.diddoc.id;
+            let sender_did = sender_did(&message)?;
+            let id = Uuid::new_v4().urn().to_string();
+            let pthid = message.thid.as_deref().unwrap_or(id.as_str());
 
-        let response_builder: MessageBuilder = LiveDeliveryChange {
-            id: id.as_str(),
-            pthid,
-            type_: PROBLEM_REPORT_2_0,
-            body: BodyLiveDeliveryChange {
-                code: "e.m.live-mode-not-supported",
-                comment: "Connection does not support Live Delivery",
-            },
+            let response_builder: MessageBuilder = LiveDeliveryChange {
+                id: id.as_str(),
+                pthid,
+                type_: PROBLEM_REPORT_2_0,
+                body: BodyLiveDeliveryChange {
+                    code: "e.m.live-mode-not-supported",
+                    comment: "Connection does not support Live Delivery",
+                },
+            }
+            .into();
+
+            let response = response_builder
+                .to(sender_did.to_owned())
+                .from(mediator_did.to_owned())
+                .finalize();
+
+            Ok(Some(response))
         }
-        .into();
-
-        let response = response_builder
-            .to(sender_did.to_owned())
-            .from(mediator_did.to_owned())
-            .finalize();
-
-        Ok(response)
-    } else {
-        Err(PickupError::MalformedRequest("Missing \"live_delivery\" specifier").into_response())
+        Some(false) => Ok(None),
+        None => Err(PickupError::MalformedRequest(
+            "Missing \"live_delivery\" specifier".to_owned(),
+        )),
     }
 }
 
@@ -240,7 +244,7 @@ async fn count_messages(
     repository: AppStateRepository,
     recipient_did: Option<&str>,
     connection: Connection,
-) -> Result<usize, Response> {
+) -> Result<usize, PickupError> {
     let recipients = recipients(recipient_did, &connection);
 
     let count = repository
@@ -248,8 +252,9 @@ async fn count_messages(
         .count_by(doc! { "recipient_did": { "$in": recipients } })
         .await
         .map_err(|_| {
-            PickupError::InternalError("Failed to process the request. Please try again later.")
-                .into_response()
+            PickupError::InternalError(
+                "Failed to process the request. Please try again later.".to_owned(),
+            )
         })?;
 
     Ok(count)
@@ -260,7 +265,7 @@ async fn messages(
     recipient_did: Option<&str>,
     connection: Connection,
     limit: usize,
-) -> Result<Vec<RoutedMessage>, Response> {
+) -> Result<Vec<RoutedMessage>, PickupError> {
     let recipients = recipients(recipient_did, &connection);
 
     let routed_messages = repository
@@ -271,8 +276,9 @@ async fn messages(
         )
         .await
         .map_err(|_| {
-            PickupError::InternalError("Failed to process the request. Please try again later.")
-                .into_response()
+            PickupError::InternalError(
+                "Failed to process the request. Please try again later.".to_owned(),
+            )
         })?;
 
     Ok(routed_messages)
@@ -292,49 +298,47 @@ fn recipients<'a>(recipient_did: Option<&'a str>, connection: &'a Connection) ->
 }
 
 #[inline]
-fn sender_did(message: &Message) -> Result<&str, Response> {
+fn sender_did(message: &Message) -> Result<&str, PickupError> {
     message
         .from
         .as_ref()
         .map(|did| did.as_str())
-        .ok_or(PickupError::MissingSenderDID.into_response())
+        .ok_or(PickupError::MissingSenderDID)
 }
 
 #[inline]
-fn repository(state: Arc<AppState>) -> Result<AppStateRepository, Response> {
-    state.repository.clone().ok_or(
-        PickupError::InternalError("Internal server error. Please try again later.")
-            .into_response(),
-    )
+fn repository(state: Arc<AppState>) -> Result<AppStateRepository, PickupError> {
+    state.repository.clone().ok_or(PickupError::InternalError(
+        "Internal server error. Please try again later.".to_owned(),
+    ))
 }
 
 #[inline]
 async fn client_connection(
     repository: &AppStateRepository,
     client_did: &str,
-) -> Result<Connection, Response> {
+) -> Result<Connection, PickupError> {
     repository
         .connection_repository
         .find_one_by(doc! { "client_did": client_did })
         .await
         .map_err(|_| {
-            PickupError::InternalError("Failed to process the request. Please try again later.")
-                .into_response()
+            PickupError::InternalError(
+                "Failed to process the request. Please try again later.".to_owned(),
+            )
         })?
-        .ok_or(PickupError::MissingClientConnection.into_response())
+        .ok_or(PickupError::MissingClientConnection)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use hyper::StatusCode;
     use serde_json::json;
     use shared::{
         constants::{
             DELIVERY_REQUEST_3_0, LIVE_MODE_CHANGE_3_0, MESSAGE_DELIVERY_3_0, MESSAGE_RECEIVED_3_0,
             PROBLEM_REPORT_2_0, STATUS_REQUEST_3_0, STATUS_RESPONSE_3_0,
         },
-        midlw::tests::assert_error,
         repository::tests::{MockConnectionRepository, MockMessagesRepository},
         utils::tests_utils::tests as global,
     };
@@ -401,7 +405,8 @@ mod tests {
 
         let response = handle_status_request(Arc::clone(&state), request)
             .await
-            .unwrap();
+            .unwrap()
+            .expect("Response should not be None");
 
         assert_eq!(response.type_, STATUS_RESPONSE_3_0);
         assert_eq!(response.from.unwrap(), global::_mediator_did(&state));
@@ -429,7 +434,8 @@ mod tests {
 
         let response = handle_status_request(Arc::clone(&state), request)
             .await
-            .unwrap();
+            .unwrap()
+            .expect("Response should not be None");
 
         assert_eq!(
             response.body,
@@ -455,7 +461,8 @@ mod tests {
 
         let response = handle_status_request(Arc::clone(&state), request)
             .await
-            .unwrap();
+            .unwrap()
+            .expect("Response should not be None");
 
         assert_eq!(
             response.body,
@@ -482,12 +489,7 @@ mod tests {
             .await
             .unwrap_err();
 
-        assert_error(
-            error,
-            StatusCode::UNAUTHORIZED,
-            &json!({"error": PickupError::MissingClientConnection.to_string()}),
-        )
-        .await;
+        assert_eq!(error, PickupError::MissingClientConnection);
     }
 
     #[tokio::test]
@@ -506,7 +508,8 @@ mod tests {
 
         let response = handle_delivery_request(Arc::clone(&state), request)
             .await
-            .unwrap();
+            .unwrap()
+            .expect("Response should not be None");
 
         let expected_attachments = vec![
             Attachment::json(json!("test1"))
@@ -548,7 +551,10 @@ mod tests {
 
         // When the specified recipient did is not in the keylist,
         // it should return a status response with a message count of 0
-        let response = handle_delivery_request(state, request).await.unwrap();
+        let response = handle_delivery_request(state, request)
+            .await
+            .unwrap()
+            .expect("Response should not be None");
 
         assert_eq!(response.type_, STATUS_RESPONSE_3_0);
         assert_eq!(
@@ -574,7 +580,10 @@ mod tests {
         // When the limit is set to 0, it should return all the messages in the queue
         // and since the recipient did is not specified, it should return the messages
         // for all the dids in the keylist for that sender connection
-        let response = handle_delivery_request(state, request).await.unwrap();
+        let response = handle_delivery_request(state, request)
+            .await
+            .unwrap()
+            .expect("Response should not be None");
 
         let expected_attachments = vec![
             Attachment::json(json!("test1"))
@@ -611,7 +620,10 @@ mod tests {
         // Since the recipient did is not specified, it should return the messages
         // for all the dids in the keylist for that sender connection (2 in this case)
         // The limit is set to 1 so it should return the first message in the queue
-        let response = handle_delivery_request(state, request).await.unwrap();
+        let response = handle_delivery_request(state, request)
+            .await
+            .unwrap()
+            .expect("Response should not be None");
 
         let expected_attachments = vec![Attachment::json(json!("test1"))
             .id(ObjectId::from_str("6580701fd2d92bb3cd291b2a")
@@ -641,7 +653,8 @@ mod tests {
         // Should return 2 since these ids are not associated with any message
         let response = handle_message_acknowledgement(state, request)
             .await
-            .unwrap();
+            .unwrap()
+            .expect("Response should not be None");
 
         assert_eq!(response.type_, STATUS_RESPONSE_3_0);
         assert_eq!(
@@ -668,7 +681,8 @@ mod tests {
         // to the first message in the queue and then will be deleted
         let response = handle_message_acknowledgement(state, request)
             .await
-            .unwrap();
+            .unwrap()
+            .expect("Response should not be None");
 
         assert_eq!(response.type_, STATUS_RESPONSE_3_0);
         assert_eq!(
@@ -692,7 +706,10 @@ mod tests {
         .from(global::_edge_did())
         .finalize();
 
-        let response = handle_live_delivery_change(state, request).await.unwrap();
+        let response = handle_live_delivery_change(state, request)
+            .await
+            .unwrap()
+            .expect("Response should not be None");
 
         assert_eq!(response.pthid.unwrap(), "123");
         assert_eq!(response.type_, PROBLEM_REPORT_2_0);
@@ -703,6 +720,26 @@ mod tests {
                 "comment": "Connection does not support Live Delivery"
             })
         );
+    }
+
+    #[tokio::test]
+    async fn test_handle_live_delivery_change_false() {
+        let state = setup(test_connections(), test_messages());
+
+        let request = Message::build(
+            "id_alice_live_delivery_change".to_owned(),
+            LIVE_MODE_CHANGE_3_0.to_owned(),
+            json!({"live_delivery": false}),
+        )
+        .thid("123".to_owned())
+        .header("return_route".into(), json!("all"))
+        .to(global::_mediator_did(&state))
+        .from(global::_edge_did())
+        .finalize();
+
+        let response = handle_live_delivery_change(state, request).await.unwrap();
+
+        assert_eq!(response, None);
     }
 
     #[tokio::test]
@@ -724,11 +761,9 @@ mod tests {
             .await
             .unwrap_err();
 
-        assert_error(
+        assert_eq!(
             error,
-            StatusCode::BAD_REQUEST,
-            &json!({"error": PickupError::MalformedRequest("Missing \"live_delivery\" specifier").to_string()})
-        )
-        .await;
+            PickupError::MalformedRequest("Missing \"live_delivery\" specifier".to_owned())
+        );
     }
 }

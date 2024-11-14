@@ -13,6 +13,9 @@ members = [
     "crates/keystore",
     "crates/plugin-api",
     "crates/web-plugins/*",
+    "crates/web-plugins/didcomm-messaging/did-utils",
+    "crates/web-plugins/didcomm-messaging/shared",
+    "crates/web-plugins/didcomm-messaging/protocols/*",
 ]
 
 [workspace.dependencies]
@@ -28,6 +31,7 @@ shared = { path = "./crates/web-plugins/didcomm-messaging/shared", version = "0.
 message-api = { path = "./crates/web-plugins/didcomm-messaging/message-api", version = "0.1.0" }
 pickup = { path = "./crates/web-plugins/didcomm-messaging/protocols/pickup", version = "0.1.0" }
 forward = { path = "./crates/web-plugins/didcomm-messaging/protocols/forward", version = "0.1.0" }
+trust-ping = { path = "./crates/web-plugins/didcomm-messaging/protocols/trust-ping", version = "0.1.0" }
 mediator-coordination = { path = "./crates/web-plugins/didcomm-messaging/protocols/mediator-coordination", version = "0.1.0" }
 
 
