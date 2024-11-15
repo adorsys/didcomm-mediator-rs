@@ -1,13 +1,19 @@
 name: Rust CI
 
-on: [push, pull_request]
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
   build:
-    name: Build and Test
+    name: Build, Test, and Lint
     runs-on: ubuntu-latest
 
     steps:
@@ -35,14 +41,25 @@ jobs:
         rustflags:
 
     - name: Install Nextest test runner
-      uses: taiki-e/install-action@nextest
+      run: cargo install cargo-nextest
 
     - name: Create example env file
       run: |
-        chmod +x .github/scripts/test_config.sh
-        sh .github/scripts/test_config.sh
+        if [ -f .github/scripts/test_config.sh ]; then
+          chmod +x .github/scripts/test_config.sh
+          sh .github/scripts/test_config.sh
+        else
+          echo "No test_config.sh script found, skipping..."
+        fi
 
-    - name: Build and Run Test
-      run: |
-        cargo build --workspace --all-features
-        cargo nextest run --workspace --all-features
+    - name: Run Clippy (Lint)
+      run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+    - name: Check Formatting
+      run: cargo fmt --all -- --check
+
+    - name: Build Project
+      run: cargo build --workspace --all-features
+
+    - name: Run Tests
+      run: cargo nextest run --workspace --all-features
