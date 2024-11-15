@@ -26,3 +26,5 @@ pub const TRUST_PING_RESPONSE_2_0: &str = "https://didcomm.org/trust-ping/2.0/pi
 
 pub const DIDCOMM_ENCRYPTED_MIME_TYPE: &str = "application/didcomm-encrypted+json";
 pub const DIDCOMM_ENCRYPTED_SHORT_MIME_TYPE: &str = "didcomm-encrypted+json";
+pub const DISCOVER_FEATURE: &str = "https://didcomm.org/discover-features/2.0/disclose";
+pub const QUERY_FEATURE: &str = "https://didcomm.org/discover-features/2.0/queries";

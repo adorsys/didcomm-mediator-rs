@@ -23,7 +23,7 @@ pub struct AppState {
     // Persistence layer
     pub repository: Option<AppStateRepository>,
 
-    // disclosed protocols name/version e.g 'trust-ping/2.0'
+    // disclosed protocols `https://org.didcomm.com/{protocol-name}/{version}/{request-type}``
     pub  supported_protocols: Option<Vec<String>>
 }
 
