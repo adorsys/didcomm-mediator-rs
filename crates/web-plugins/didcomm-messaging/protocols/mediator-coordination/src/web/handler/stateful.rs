@@ -29,7 +29,7 @@ use uuid::Uuid;
 /// Process a DIDComm mediate request
 pub async fn process_mediate_request(
     state: Arc<AppState>,
-    plain_message: &Message,
+    plain_message: Message,
 ) -> Result<Option<Message>, MediationError> {
     // This is to Check message type compliance
     ensure_jwm_type_is_mediation_request(&plain_message)?;
