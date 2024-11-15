@@ -1,7 +1,7 @@
 pub mod plugins;
 
 use axum::Router;
-use plugins::handler::PluginContainer;
+use plugins::manager::PluginContainer;
 use tower_http::{catch_panic::CatchPanicLayer, trace::TraceLayer};
 
 pub fn app() -> (PluginContainer<'static>, Router) {

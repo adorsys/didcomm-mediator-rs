@@ -11,6 +11,7 @@ pub trait MessageHandler: Send + Sync {
         -> Result<Option<Message>, Response>;
 }
 
+#[derive(Clone)]
 pub struct MessageRegistry {
     handlers: HashMap<String, Arc<dyn MessageHandler>>,
 }
@@ -27,8 +28,9 @@ impl MessageRegistry {
         self
     }
 
-    pub fn merge(mut self, other: Self) {
+    pub fn merge(mut self, other: Self) -> Self {
         self.handlers.extend(other.handlers);
+        self
     }
 
     pub fn get(&self, msg: &str) -> Option<&Arc<dyn MessageHandler>> {

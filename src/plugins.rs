@@ -1,8 +1,8 @@
-pub(crate) mod handler;
+pub(crate) mod manager;
 #[cfg(feature = "plugin-index")]
 pub(crate) mod index;
 
-pub use handler::{PluginContainer, PluginContainerError};
+pub use manager::{PluginContainer, PluginContainerError};
 
 use lazy_static::lazy_static;
 use std::sync::{Arc, Mutex};
