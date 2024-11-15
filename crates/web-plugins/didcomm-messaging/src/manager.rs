@@ -8,9 +8,7 @@ use didcomm::{protocols, Message};
 use shared::state::AppState;
 
 use crate::protocol::PROTOCOLS;
-use message_api::{MessagePlugin, MessageRouter, PluginError};
-
-type DidcommRouter = MessageRouter<AppState, Message, Response>;
+use message_api::{MessagePlugin, MessageRegistry};
 
 #[derive(Debug, PartialEq)]
 pub enum MessageContainerError {
@@ -21,9 +19,8 @@ pub enum MessageContainerError {
 
 pub struct MessagePluginContainer<'a> {
     loaded: bool,
-    collected_routes: Vec<DidcommRouter>,
-    protocols: &'a Vec<Arc<Mutex<dyn MessagePlugin<AppState, Message, Response>>>>,
-    mounted_protocols: Vec<Arc<Mutex<dyn MessagePlugin<AppState, Message, Response>>>>,
+    collected_handlers: Vec<MessageRegistry>,
+    protocols: &'a Vec<Arc<dyn MessagePlugin>>,
 }
 
 impl<'a> MessagePluginContainer<'a> {

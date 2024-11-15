@@ -29,7 +29,7 @@ pub(crate) async fn process_didcomm_message(
         }
 
         MEDIATE_REQUEST_2_0 => {
-            web::handler::stateful::process_mediate_request(state.clone(), &message)
+            web::handler::stateful::process_mediate_request(state.clone(), message)
                 .await
                 .map_err(|e| e.into_response())
         }
