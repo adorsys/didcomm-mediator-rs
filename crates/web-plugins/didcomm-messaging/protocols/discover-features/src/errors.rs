@@ -7,7 +7,9 @@ pub enum DiscoveryError {
     #[error("message body is malformed")]
     MalformedBody,
     #[error("No queries field in body")]
-    QueryNotFound
+    QueryNotFound,
+    #[error("query feature-type not supported try using `protocol`")]
+    FeatureNOTSupported
 }
 impl DiscoveryError {
     /// Converts the error to an axum JSON representation.
