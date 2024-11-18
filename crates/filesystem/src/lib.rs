@@ -112,11 +112,16 @@ mod tests {
 
     impl FileSystem for MockFileSystem {
         fn read_to_string(&self, path: &Path) -> IoResult<String> {
-            Ok(self.map.get(path.to_str().unwrap()).cloned().unwrap_or_default())
+            Ok(self
+                .map
+                .get(path.to_str().unwrap())
+                .cloned()
+                .unwrap_or_default())
         }
 
         fn write(&mut self, path: &Path, content: &str) -> IoResult<()> {
-            self.map.insert(path.to_str().unwrap().to_string(), content.to_string());
+            self.map
+                .insert(path.to_str().unwrap().to_string(), content.to_string());
             Ok(())
         }
 
