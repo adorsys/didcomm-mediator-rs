@@ -21,7 +21,7 @@ pub fn ensure_transport_return_route_is_decorated_all(
 #[cfg(test)]
 mod midlw_test {
     use super::*;
-    use crate::{constants::MEDIATE_REQUEST_2_0, utils::tests_utils::tests};
+    use crate::{utils::tests_utils::tests};
     use serde_json::{json, Value};
 
     #[tokio::test]
@@ -32,7 +32,7 @@ mod midlw_test {
             () => {
                 Message::build(
                     "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
-                    MEDIATE_REQUEST_2_0.to_string(),
+                    "https://didcomm.org/coordinate-mediation/2.0/mediate-request".to_string(),
                     json!({
                         "did": "did:key:alice_identity_pub@alice_mediator",
                         "services": ["inbox", "outbox"]

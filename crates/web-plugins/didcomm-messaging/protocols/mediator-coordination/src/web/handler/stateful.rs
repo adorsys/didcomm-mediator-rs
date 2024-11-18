@@ -1,4 +1,5 @@
 use crate::{
+    constants::{KEYLIST_2_0, KEYLIST_UPDATE_RESPONSE_2_0, MEDIATE_DENY_2_0, MEDIATE_GRANT_2_0},
     errors::MediationError,
     model::stateful::coord::{
         Keylist, KeylistBody, KeylistEntry, KeylistUpdateAction, KeylistUpdateBody,
@@ -18,7 +19,6 @@ use keystore::Secrets;
 use mongodb::bson::doc;
 use serde_json::json;
 use shared::{
-    constants::{KEYLIST_2_0, KEYLIST_UPDATE_RESPONSE_2_0, MEDIATE_DENY_2_0, MEDIATE_GRANT_2_0},
     midlw::ensure_transport_return_route_is_decorated_all,
     repository::entity::Connection,
     state::{AppState, AppStateRepository},

@@ -1,3 +1,4 @@
+use crate::{manager::MessagePluginContainer, constants::DIDCOMM_ENCRYPTED_MIME_TYPE};
 use axum::{
     extract::State,
     response::{IntoResponse, Response},
@@ -5,15 +6,7 @@ use axum::{
 };
 use didcomm::Message;
 use hyper::{header::CONTENT_TYPE, StatusCode};
-use mediator_coordination::web;
-use shared::{
-    constants::{
-        DELIVERY_REQUEST_3_0, DIDCOMM_ENCRYPTED_MIME_TYPE, KEYLIST_QUERY_2_0, KEYLIST_UPDATE_2_0,
-        LIVE_MODE_CHANGE_3_0, MEDIATE_FORWARD_2_0, MEDIATE_REQUEST_2_0, MESSAGE_RECEIVED_3_0,
-        STATUS_REQUEST_3_0, TRUST_PING_2_0,
-    },
-    state::AppState,
-};
+use shared::state::AppState;
 use std::sync::Arc;
 
 #[axum::debug_handler]
@@ -21,60 +14,22 @@ pub(crate) async fn process_didcomm_message(
     State(state): State<Arc<AppState>>,
     Extension(message): Extension<Message>,
 ) -> Response {
-    let response: Result<Option<Message>, Response> = match message.type_.as_str() {
-        MEDIATE_FORWARD_2_0 => {
-            forward::web::handler::mediator_forward_process(state.clone(), message)
-                .await
-                .map_err(|e| e.into_response())
-        }
+    let mut container = MessagePluginContainer::new();
+    if container.load().is_err() {
+        tracing::error!("failed to load DIDComm protocols container");
+        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+    }
 
-        MEDIATE_REQUEST_2_0 => {
-            web::handler::stateful::process_mediate_request(state.clone(), message)
-                .await
-                .map_err(|e| e.into_response())
-        }
-
-        KEYLIST_UPDATE_2_0 => web::handler::stateful::process_plain_keylist_update_message(
-            Arc::clone(&state),
-            message,
-        )
-        .await
-        .map_err(|e| e.into_response()),
-
-        KEYLIST_QUERY_2_0 => {
-            web::handler::stateful::process_plain_keylist_query_message(state.clone(), message)
-                .await
-                .map_err(|e| e.into_response())
-        }
-
-        STATUS_REQUEST_3_0 => pickup::handler::handle_status_request(state.clone(), message)
-            .await
-            .map_err(|e| e.into_response()),
-
-        DELIVERY_REQUEST_3_0 => pickup::handler::handle_delivery_request(state.clone(), message)
-            .await
-            .map_err(|e| e.into_response()),
-
-        MESSAGE_RECEIVED_3_0 => {
-            pickup::handler::handle_message_acknowledgement(state.clone(), message)
-                .await
-                .map_err(|e| e.into_response())
-        }
-
-        LIVE_MODE_CHANGE_3_0 => {
-            pickup::handler::handle_live_delivery_change(state.clone(), message)
-                .await
-                .map_err(|e| e.into_response())
-        }
-
-        TRUST_PING_2_0 => trust_ping::handler::handle_trust_ping(state.clone(), message)
-            .await
-            .map_err(|e| e.into_response()),
-
-        _ => return (StatusCode::BAD_REQUEST, "Unsupported operation".to_string()).into_response(),
-    };
-
-    process_response(state, response).await
+    if let Some(handler) = container
+        .didcomm_routes()
+        .unwrap_or_default()
+        .get_handler(&message.type_)
+    {
+        let response = handler.handle(state.clone(), message).await;
+        process_response(state, response).await
+    } else {
+        (StatusCode::BAD_REQUEST, "Unsupported didcomm message").into_response()
+    }
 }
 
 async fn process_response(
@@ -111,7 +66,7 @@ mod tests {
     use hyper::{Body, Method, Request};
     use serde_json::{json, Value};
     use shared::{
-        constants::KEYLIST_UPDATE_RESPONSE_2_0, repository::tests::MockConnectionRepository,
+        repository::tests::MockConnectionRepository,
         state::AppStateRepository, utils::tests_utils::tests as global,
     };
     use tower::ServiceExt;
@@ -220,7 +175,7 @@ mod tests {
             .unwrap();
 
         // Assert metadata
-        assert_eq!(response.type_, KEYLIST_UPDATE_RESPONSE_2_0);
+        assert_eq!(response.type_, "https://didcomm.org/coordinate-mediation/2.0/keylist-update-response");
         assert_eq!(response.from.unwrap(), global::_mediator_did(&state));
         assert_eq!(response.to.unwrap(), vec![global::_edge_did()]);
 

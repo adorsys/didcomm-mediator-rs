@@ -4,8 +4,7 @@ use uuid::Uuid;
 
 use shared::state::AppState;
 
-use crate::{error::TrustPingError, model::TrustPingResponse};
-use shared::constants::TRUST_PING_RESPONSE_2_0;
+use crate::{constants::TRUST_PING_RESPONSE_2_0, error::TrustPingError, model::TrustPingResponse};
 
 pub async fn handle_trust_ping(
     state: Arc<AppState>,
@@ -48,7 +47,8 @@ mod tests {
     use serde_json::json;
 
     use super::*;
-    use shared::{constants::TRUST_PING_2_0, utils::tests_utils::tests as global};
+    use crate::constants::TRUST_PING_2_0;
+    use shared::utils::tests_utils::tests as global;
 
     #[tokio::test]
     async fn test_request_trust_ping_response() {

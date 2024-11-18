@@ -11,19 +11,22 @@ pub trait MessageHandler: Send + Sync {
         -> Result<Option<Message>, Response>;
 }
 
-#[derive(Clone)]
-pub struct MessageRegistry {
+#[derive(Default, Clone)]
+pub struct MessageRouter {
     handlers: HashMap<String, Arc<dyn MessageHandler>>,
 }
 
-impl MessageRegistry {
+impl MessageRouter {
     pub fn new() -> Self {
         Self {
             handlers: HashMap::new(),
         }
     }
 
-    pub fn register<F: MessageHandler + 'static>(mut self, msg: &str, f: F) -> Self {
+    pub fn register<F>(mut self, msg: &str, f: F) -> Self
+    where
+        F: MessageHandler + 'static,
+    {
         self.handlers.insert(msg.to_string(), Arc::new(f));
         self
     }
@@ -33,15 +36,15 @@ impl MessageRegistry {
         self
     }
 
-    pub fn get(&self, msg: &str) -> Option<&Arc<dyn MessageHandler>> {
+    pub fn get_handler(&self, msg: &str) -> Option<&Arc<dyn MessageHandler>> {
         self.handlers.get(msg)
     }
 }
 
-pub trait MessagePlugin {
+pub trait MessagePlugin: Send + Sync {
     /// Define a unique identifier
     fn name(&self) -> &'static str;
 
     /// Return a mapping of message types to handlers
-    fn handlers(&self) -> MessageRegistry;
+    fn didcomm_routes(&self) -> MessageRouter;
 }

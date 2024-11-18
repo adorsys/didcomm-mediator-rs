@@ -116,6 +116,11 @@ plugin-did_endpoint = ["dep:did-endpoint"]
 plugin-oob_messages = ["dep:oob-messages"]
 plugin-didcomm_messaging = ["dep:didcomm-messaging"]
 
+routing = ["plugin-didcomm_messaging", "didcomm-messaging/routing"]
+pickup = ["plugin-didcomm_messaging", "didcomm-messaging/pickup"]
+trust-ping = ["plugin-didcomm_messaging", "didcomm-messaging/trust-ping"]
+mediator-coordination = ["plugin-didcomm_messaging", "didcomm-messaging/mediator-coordination"]
+
 
 [dev-dependencies]
 tower = { version = "0.4.13", features = ["util"] }

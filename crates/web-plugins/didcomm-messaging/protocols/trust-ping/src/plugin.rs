@@ -1,4 +1,4 @@
-use crate::constants::MEDIATE_FORWARD_2_0;
+use crate::constants::TRUST_PING_2_0;
 use async_trait::async_trait;
 use axum::response::{IntoResponse, Response};
 use didcomm::Message;
@@ -6,29 +6,29 @@ use message_api::{MessageHandler, MessagePlugin, MessageRouter};
 use shared::state::AppState;
 use std::sync::Arc;
 
-pub struct RoutingProtocol;
+pub struct TrustPingProtocol;
 
-struct ForwardHandler;
+struct TrustPingHandler;
 
 #[async_trait]
-impl MessageHandler for ForwardHandler {
+impl MessageHandler for TrustPingHandler {
     async fn handle(
         &self,
         state: Arc<AppState>,
         msg: Message,
     ) -> Result<Option<Message>, Response> {
-        crate::web::handler::mediator_forward_process(state, msg)
+        crate::handler::handle_trust_ping(state, msg)
             .await
             .map_err(|e| e.into_response())
     }
 }
 
-impl MessagePlugin for RoutingProtocol {
+impl MessagePlugin for TrustPingProtocol {
     fn name(&self) -> &'static str {
-        "routing"
+        "trust-ping"
     }
 
     fn didcomm_routes(&self) -> MessageRouter {
-        MessageRouter::new().register(MEDIATE_FORWARD_2_0, ForwardHandler)
+        MessageRouter::new().register(TRUST_PING_2_0, TrustPingHandler)
     }
 }

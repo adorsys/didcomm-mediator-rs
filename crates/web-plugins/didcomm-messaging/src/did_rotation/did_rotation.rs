@@ -77,6 +77,7 @@ pub async fn did_rotation(
 #[cfg(test)]
 mod test {
     use std::{sync::Arc, vec};
+    use crate::constants::DIDCOMM_ENCRYPTED_MIME_TYPE;
 
     use did_utils::{didcore::Document, jwk::Jwk};
     use didcomm::secrets::SecretsResolver;
@@ -86,7 +87,6 @@ mod test {
 
     use keystore::{tests::MockKeyStore, Secrets};
     use shared::{
-        constants::DIDCOMM_ENCRYPTED_MIME_TYPE,
         repository::{
             entity::Connection,
             tests::{MockConnectionRepository, MockMessagesRepository},
