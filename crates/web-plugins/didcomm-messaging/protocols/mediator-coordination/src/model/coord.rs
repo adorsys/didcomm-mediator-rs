@@ -2,7 +2,6 @@ use serde::{de::Error, Deserialize, Deserializer, Serialize};
 
 use shared::constants::MEDIATE_REQUEST_2_0;
 
-#[allow(unexpected_cfgs)]
 #[cfg(feature = "stateless")]
 use super::stateless::coord::MediationRequest as StatelessMediationRequest;
 
@@ -18,14 +17,12 @@ pub enum MediationRequest {
     Stateful(StatefulMediationRequest),
 
     /// Format for stateless mode over DICs
-    #[allow(unexpected_cfgs)]
     #[cfg(feature = "stateless")]
     #[serde(deserialize_with = "MediationRequest::deserialize_stateless_variant")]
     Stateless(StatelessMediationRequest),
 }
 
 impl MediationRequest {
-    #[allow(unexpected_cfgs)]
     #[cfg(feature = "stateless")]
     fn deserialize_stateless_variant<'de, D>(
         deserializer: D,
