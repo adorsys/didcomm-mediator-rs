@@ -12,7 +12,7 @@ async fn main() {
 
     // Start server
     let port = std::env::var("SERVER_LOCAL_PORT").unwrap_or("3000".to_owned());
-    let addr: SocketAddr = format!("127.0.0.1:{port}").parse().unwrap();
+    let addr: SocketAddr = format!("0.0.0.0:{port}").parse().unwrap();
 
     tracing::info!("listening on {addr}");
     generic_server_with_graceful_shutdown(addr).await;
