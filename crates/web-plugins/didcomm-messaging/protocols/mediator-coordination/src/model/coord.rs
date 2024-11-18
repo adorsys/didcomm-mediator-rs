@@ -18,7 +18,7 @@ pub enum MediationRequest {
     Stateful(StatefulMediationRequest),
 
     /// Format for stateless mode over DICs
-     #[allow(unexpected_cfgs)]
+    #[allow(unexpected_cfgs)]
     #[cfg(feature = "stateless")]
     #[serde(deserialize_with = "MediationRequest::deserialize_stateless_variant")]
     Stateless(StatelessMediationRequest),
