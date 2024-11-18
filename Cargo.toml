@@ -34,7 +34,7 @@ keystore = { path = "./crates/keystore", version = "0.1.0" }
 plugin-api = { path = "./crates/plugin-api", version = "0.1.0" }
 did-endpoint = { path = "./crates/web-plugins/did-endpoint", version = "0.1.0" }
 oob-messages = { path = "./crates/web-plugins/oob-messages", version = "0.1.0" }
-didcomm-messaging = { path = "./crates/web-plugins/didcomm-messaging", version = "0.1.0" }
+didcomm-messaging = { path = "./crates/web-plugins/didcomm-messaging"}
 did-utils = { path = "./crates/web-plugins/didcomm-messaging/did-utils", version = "0.1.0" }
 shared = { path = "./crates/web-plugins/didcomm-messaging/shared", version = "0.1.0" }
 pickup = { path = "./crates/web-plugins/didcomm-messaging/protocols/pickup", version = "0.1.0" }
