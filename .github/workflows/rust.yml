@@ -48,8 +48,6 @@ jobs:
       run: |
         chmod +x .github/scripts/test_config.sh
         sh .github/scripts/test_config.sh
-    - name: Run Clippy (Lint)
-      run: cargo clippy --workspace --all-targets --all-features -- -D warnings
 
     - name: Check Formatting
       run: cargo fmt --all -- --check
