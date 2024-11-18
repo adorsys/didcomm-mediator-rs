@@ -12,6 +12,14 @@
 - [**3. System Scope and Context**](#3-system-scope-and-context)
     - [**3.1 Business Context**](#31-business-context)
     - [**3.2 Technical Context**](#32-technical-context)
+- [**4. Solution Strategy**](#4-solution-strategy)
+- [**5. Building Block View**](#5-building-block-view)
+- [**6. Runtime View**](#6-runtime-view)
+- [**7. Deployment View**](#7-deployment-view)
+- [**8. Cross Cutting Concerns**](#8-cross-cutting-concerns)
+- [**9. Architectural Decisions**](#9-architectural-decisions)
+- [**10. Quality Requirements**](#10-quality-requirements)
+- [**11. Risk and Technical Debt**](#11-risk-and-technical-debt)
 - [**12. Glossary**](#12-glossary)
 
 ## 1. Introduction
@@ -40,6 +48,23 @@ Key stakeholders include DATEV, the adorsys development team, and third-party de
 The DIDComm Mediator acts as a bridge to enable seemless communication between decentralized agents, ensuring secure and reliable message routing.
 
 ### 3.2 Technical Context
+![images](work-flow.png)
+
+# 4. Solution Strategy
+
+# 5. Building Block View
+
+# 6. Runtime View
+
+# 7. Deployment View
+
+# 8. Cross Cutting Concerns
+
+# 9. Architectural Decisions
+
+# 10. Quality Requirements
+
+# 11. Risk and Technical Debt
 
 # 12. Glossary
 - ***DID(Decentralized Identifier):*** A unique identifier that enables verifiable, self-sovereign identities
