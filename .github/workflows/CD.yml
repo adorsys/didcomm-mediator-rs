@@ -1,0 +1,21 @@
+name: CD 
+
+on:
+  workflow_run:
+    workflows: ["Rust CI Pipeline"]  # Trigger on successful CI completion
+    types:
+      - completed
+jobs:
+  deploy:
+    runs-on: ubuntu-latest  
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Rust
+        uses: actions/setup-rust@v1
+        with:
+          rust-version: stable
+
+      # Deploy to AWS EC2 Or another instance

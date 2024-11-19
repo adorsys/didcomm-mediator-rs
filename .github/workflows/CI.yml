@@ -1,4 +1,4 @@
-name: Rust CI/CD
+name: Rust CI
 
 on:
   push:
@@ -12,9 +12,9 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  # Continuous Integration Job
+
   ci:
-    name: Continuous Integration
+    name: Build and test
     runs-on: ubuntu-latest
 
     steps:
@@ -57,33 +57,3 @@ jobs:
 
     - name: Run Tests
       run: cargo nextest run --workspace --all-features
-
-  # Continuous Deployment Job
-  cd:
-    name: Continuous Deployment
-    needs: ci 
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Set up Rust
-      uses: actions-rust-lang/setup-rust-toolchain@v1
-      with:
-        toolchain: stable
-
-    - name: Build Release
-      run: cargo build --release --workspace --all-features
-
-    - name: Deploy to Production
-      env:
-        SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-        HOST: ${{ secrets.PRODUCTION_HOST }}
-        USER: ${{ secrets.PRODUCTION_USER }}
-      run: |
-        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ssh_key
-        chmod 600 ssh_key
-        scp -i ssh_key target/release/your_binary ${{ env.USER }}@${{ env.HOST }}:/path/to/your/binary
-        ssh -i ssh_key ${{ env.USER }}@${{ env.HOST }} 'systemctl restart your-service'
-        rm -f ssh_key
