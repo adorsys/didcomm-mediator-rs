@@ -8,6 +8,7 @@ use axum::Router;
 #[derive(Debug, PartialEq)]
 pub enum PluginError {
     InitError,
+    DidcommMessagContainerError,
 }
 
 pub trait Plugin: Sync + Send {

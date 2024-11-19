@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, fmt::Debug, sync::Arc};
 
 use async_trait::async_trait;
 use axum::response::Response;
@@ -6,12 +6,12 @@ use didcomm::Message;
 use shared::state::AppState;
 
 #[async_trait]
-pub trait MessageHandler: Send + Sync {
+pub trait MessageHandler: Send + Sync + Debug{
     async fn handle(&self, state: Arc<AppState>, msg: Message)
         -> Result<Option<Message>, Response>;
 }
 
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Debug)]
 pub struct MessageRouter {
     handlers: HashMap<String, Arc<dyn MessageHandler>>,
 }

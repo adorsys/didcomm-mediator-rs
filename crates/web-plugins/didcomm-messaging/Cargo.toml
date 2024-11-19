@@ -11,10 +11,10 @@ keystore.workspace = true
 shared.workspace = true
 plugin-api.workspace = true
 filesystem.workspace = true
-forward.workspace = true
-pickup.workspace = true
-trust-ping.workspace = true
-mediator-coordination.workspace = true
+forward = { workspace = true, optional = true }
+pickup = { workspace = true, optional = true }
+trust-ping = { workspace = true, optional = true }
+mediator-coordination = { workspace = true, optional = true }
 message-api.workspace = true
 
 
@@ -31,11 +31,10 @@ serde = { version = "1.0", features = ["derive"] }
 
 
 [features]
-default = ["routing", "pickup", "trust-ping", "mediator-coordination"]
-routing = []
-pickup = []
-trust-ping = []
-mediator-coordination = []
+routing = ["dep:forward"]
+pickup = ["dep:pickup"]
+trust-ping = ["dep:trust-ping"]
+mediator-coordination = ["dep:mediator-coordination"]
 
 
 [dev-dependencies]

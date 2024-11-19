@@ -81,3 +81,128 @@ impl<'a> MessagePluginContainer<'a> {
             }))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::Arc;
+
+    // Real plugin implementations
+    struct FirstPlugin;
+    impl MessagePlugin for FirstPlugin {
+        fn name(&self) -> &'static str {
+            "first"
+        }
+
+        fn didcomm_routes(&self) -> MessageRouter {
+            MessageRouter::new()
+        }
+    }
+
+    struct SecondPlugin;
+    impl MessagePlugin for SecondPlugin {
+        fn name(&self) -> &'static str {
+            "second"
+        }
+
+        fn didcomm_routes(&self) -> MessageRouter {
+            MessageRouter::new()
+        }
+    }
+
+    #[test]
+    fn test_loading_plugins() {
+        let plugins: Vec<Arc<dyn MessagePlugin>> =
+            vec![Arc::new(FirstPlugin {}), Arc::new(SecondPlugin {})];
+
+        let mut container = MessagePluginContainer {
+            loaded: false,
+            collected_routes: vec![],
+            message_plugins: &plugins,
+        };
+
+        assert!(container.load().is_ok());
+        assert!(container.loaded);
+
+        assert_eq!(container.collected_routes.len(), 2);
+
+        assert!(container.find_handler("first").is_some());
+        assert!(container.find_handler("second").is_some());
+        assert!(container.find_handler("non-existent").is_none());
+    }
+
+    #[test]
+    fn test_loading_duplicate_plugins() {
+        let plugins: Vec<Arc<dyn MessagePlugin>> = vec![
+            Arc::new(FirstPlugin {}),
+            Arc::new(SecondPlugin {}),
+            Arc::new(SecondPlugin {}),
+        ];
+
+        let mut container = MessagePluginContainer {
+            loaded: false,
+            collected_routes: vec![],
+            message_plugins: &plugins,
+        };
+
+        assert_eq!(
+            container.load().unwrap_err(),
+            MessageContainerError::DuplicateEntry
+        );
+
+        assert_eq!(container.collected_routes.len(), 0);
+    }
+
+    #[test]
+    fn test_double_loading() {
+        let plugins: Vec<Arc<dyn MessagePlugin>> =
+            vec![Arc::new(FirstPlugin {}), Arc::new(SecondPlugin {})];
+
+        let mut container = MessagePluginContainer {
+            loaded: false,
+            collected_routes: vec![],
+            message_plugins: &plugins,
+        };
+
+        assert!(container.load().is_ok());
+        assert!(container.load().is_ok());
+    }
+
+    #[test]
+    fn test_unloading_plugins() {
+        let plugins: Vec<Arc<dyn MessagePlugin>> =
+            vec![Arc::new(FirstPlugin {}), Arc::new(SecondPlugin {})];
+
+        let mut container = MessagePluginContainer {
+            loaded: false,
+            collected_routes: vec![],
+            message_plugins: &plugins,
+        };
+
+        assert!(container.load().is_ok());
+        assert_eq!(container.collected_routes.len(), 2);
+
+        assert!(container.unload().is_ok());
+        assert!(!container.loaded);
+
+        assert_eq!(container.collected_routes.len(), 0);
+    }
+
+    #[test]
+    fn test_routes_without_loading() {
+        let plugins: Vec<Arc<dyn MessagePlugin>> =
+            vec![Arc::new(FirstPlugin {}), Arc::new(SecondPlugin {})];
+
+        let container = MessagePluginContainer {
+            loaded: false,
+            collected_routes: vec![],
+            message_plugins: &plugins,
+        };
+
+        // Attempt to access routes without loading
+        assert_eq!(
+            container.didcomm_routes().unwrap_err(),
+            MessageContainerError::Unloaded
+        );
+    }
+}

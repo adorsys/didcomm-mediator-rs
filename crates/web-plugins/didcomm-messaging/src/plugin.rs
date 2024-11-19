@@ -1,7 +1,8 @@
-use crate::web;
+use crate::{manager::MessagePluginContainer, web};
 use axum::Router;
 use filesystem::StdFileSystem;
 use mongodb::Database;
+use plugin_api::PluginError::DidcommMessagContainerError;
 use plugin_api::{Plugin, PluginError};
 use shared::{
     repository::{MongoConnectionRepository, MongoMessagesRepository},
@@ -23,6 +24,12 @@ struct DidcommMessagingPluginEnv {
 
 /// Loads environment variables required for this plugin
 fn load_plugin_env() -> Result<DidcommMessagingPluginEnv, PluginError> {
+    let mut container = MessagePluginContainer::new();
+    if container.load().is_err() {
+        tracing::error!("failed to load DIDComm protocols container");
+        return Err(DidcommMessagContainerError);
+    }
+
     let public_domain = std::env::var("SERVER_PUBLIC_DOMAIN").map_err(|_| {
         tracing::error!("SERVER_PUBLIC_DOMAIN env variable required");
         PluginError::InitError

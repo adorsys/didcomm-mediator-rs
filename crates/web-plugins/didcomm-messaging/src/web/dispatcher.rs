@@ -14,11 +14,7 @@ pub(crate) async fn process_didcomm_message(
     State(state): State<Arc<AppState>>,
     Extension(message): Extension<Message>,
 ) -> Response {
-    let mut container = MessagePluginContainer::new();
-    if container.load().is_err() {
-        tracing::error!("failed to load DIDComm protocols container");
-        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
-    }
+    let  container = MessagePluginContainer::new();
 
     if let Some(handler) = container
         .didcomm_routes()
