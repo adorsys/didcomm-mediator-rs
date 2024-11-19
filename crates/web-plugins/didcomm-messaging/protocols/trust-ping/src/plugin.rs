@@ -8,6 +8,7 @@ use std::sync::Arc;
 
 pub struct TrustPingProtocol;
 
+#[derive(Debug)]
 struct TrustPingHandler;
 
 #[async_trait]

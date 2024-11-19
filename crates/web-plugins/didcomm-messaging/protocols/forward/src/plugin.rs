@@ -8,6 +8,7 @@ use std::sync::Arc;
 
 pub struct RoutingProtocol;
 
+#[derive(Debug)]
 struct ForwardHandler;
 
 #[async_trait]
