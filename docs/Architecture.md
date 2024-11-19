@@ -88,6 +88,12 @@ The DIDComm Mediator operates within decentralized identity systems, leveraging 
 - * **didkit (if applicable):** Supports DID operations, creation, and verification.
 
 # 4. Solution Strategy
+The solution strategy outlines the foundational decisions that guide the system's architecture, aligning with the key quality goals, constraints, and overall system requirements.
+
+**Technology Decisions**
+- **Programming Language**: Rust is chosen for its high performance, memory safety, and strong concurrency support. This decision aligns with the security and scalability goals of the mediator.
+- **Cryptographic Libraries:** Askar is selected as the cryptographic library to provide high-level cryptographic functions specifically designed for decentralized identity systems. Askar offers key management, encryption, and decryption capabilities that are essential for DIDComm communication. Its focus on modularity and interoperability with other decentralized identity (DID) systems ensures that the system can evolve and stay secure over time.
+- **Database:** MongoDB is selected as the database for its flexibility in handling semi-structured data, scalability, and ease of horizontal scaling. It is ideal for storing DID-related metadata, messages, and other data in a schema-less format that can adapt as the system evolves.
 
 # 5. Building Block View
 
