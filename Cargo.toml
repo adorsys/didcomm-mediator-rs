@@ -28,19 +28,19 @@ members = [
 
 
 [workspace.dependencies]
-database = { path = "./crates/database", version = "0.1.0" }
-filesystem = { path = "./crates/filesystem", version = "0.1.0" }
-keystore = { path = "./crates/keystore", version = "0.1.0" }
-plugin-api = { path = "./crates/plugin-api", version = "0.1.0" }
-did-endpoint = { path = "./crates/web-plugins/did-endpoint", version = "0.1.0" }
-oob-messages = { path = "./crates/web-plugins/oob-messages", version = "0.1.0" }
-didcomm-messaging = { path = "./crates/web-plugins/didcomm-messaging", version = "0.1.0" }
-did-utils = { path = "./crates/web-plugins/didcomm-messaging/did-utils", version = "0.1.0" }
-shared = { path = "./crates/web-plugins/didcomm-messaging/shared", version = "0.1.0" }
-pickup = { path = "./crates/web-plugins/didcomm-messaging/protocols/pickup", version = "0.1.0" }
-forward = { path = "./crates/web-plugins/didcomm-messaging/protocols/forward", version = "0.1.0" }
-trust-ping = { path = "./crates/web-plugins/didcomm-messaging/protocols/trust-ping", version = "0.1.0" }
-mediator-coordination = { path = "./crates/web-plugins/didcomm-messaging/protocols/mediator-coordination", version = "0.1.0" }
+database = { path = "./crates/database"}
+filesystem = { path = "./crates/filesystem" }
+keystore = { path = "./crates/keystore"}
+plugin-api = { path = "./crates/plugin-api"}
+did-endpoint = { path = "./crates/web-plugins/did-endpoint"}
+oob-messages = { path = "./crates/web-plugins/oob-messages"}
+didcomm-messaging = { path = "./crates/web-plugins/didcomm-messaging"}
+did-utils = { path = "./crates/web-plugins/didcomm-messaging/did-utils"}
+shared = { path = "./crates/web-plugins/didcomm-messaging/shared"}
+pickup = { path = "./crates/web-plugins/didcomm-messaging/protocols/pickup"}
+forward = { path = "./crates/web-plugins/didcomm-messaging/protocols/forward"}
+trust-ping = { path = "./crates/web-plugins/didcomm-messaging/protocols/trust-ping"}
+mediator-coordination = { path = "./crates/web-plugins/didcomm-messaging/protocols/mediator-coordination"}
 
 # Other common dependencies
 serde = "1.0"
