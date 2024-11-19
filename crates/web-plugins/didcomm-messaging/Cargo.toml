@@ -31,6 +31,8 @@ serde = { version = "1.0", features = ["derive"] }
 
 
 [features]
+default = ["routing", "pickup", "trust-ping", "mediator-coordination"]
+
 routing = ["dep:forward"]
 pickup = ["dep:pickup"]
 trust-ping = ["dep:trust-ping"]
