@@ -1,9 +1,17 @@
 [package]
-name = "didcomm-mediator"
-version = "0.1.0"
+name = "didcomm-mediator" 
+version = "0.1.0" 
+authors = ["adorsys GmbH Co. KG"] 
+license = "Apache-2.0"
+description = "A Rust Mediator for DIDComm messaging, supporting secure and decentralized communication."
+repository = "https://github.com/adorsys/didcomm-mediator-rs"
+homepage = "https://github.com/adorsys/didcomm-mediator-rs/blob/main/README.md"
+documentation = "https://github.com/adorsys/didcomm-mediator-rs/tree/main/docs"
+keywords = ["DIDComm", "Mediator", "DIDComm Mediator", "DIDComm Mediation", "DIDCOMM Messaging", "Decentralized Identity", "Rust Mediator"]
+categories = ["cryptography", "decentralized-systems"]
 edition = "2021"
-description = "A mediator for DIDComm messages"
-authors = ["adorsys GmbH Co. KG"]
+readme = "README.md"
+
 
 
 [workspace]

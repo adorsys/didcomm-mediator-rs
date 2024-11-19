@@ -1,36 +1,13 @@
-use axum::{
-    http::StatusCode,
-    response::{IntoResponse, Response},
-};
+use crate::errors::MediationError;
 use didcomm::Message;
 use serde_json::{json, Value};
-
-use shared::{
-    constants::{MEDIATE_REQUEST_2_0, MEDIATE_REQUEST_DIC_1_0},
-    errors::MediationError,
-};
-
-macro_rules! run {
-    ($expression:expr) => {
-        match $expression {
-            Ok(res) => res,
-
-            Err(err) => return Err(err),
-        }
-    };
-}
-
-pub(crate) use run;
-
+use shared::constants::{MEDIATE_REQUEST_2_0, MEDIATE_REQUEST_DIC_1_0};
 /// Validate that JWM's indicative body type is a mediation request
-pub(crate) fn ensure_jwm_type_is_mediation_request(message: &Message) -> Result<(), Response> {
+pub(crate) fn ensure_jwm_type_is_mediation_request(
+    message: &Message,
+) -> Result<(), MediationError> {
     if ![MEDIATE_REQUEST_2_0, MEDIATE_REQUEST_DIC_1_0].contains(&message.type_.as_str()) {
-        let response = (
-            StatusCode::BAD_REQUEST,
-            MediationError::InvalidMessageType.json(),
-        );
-
-        return Err(response.into_response());
+        return Err(MediationError::InvalidMessageType);
     }
 
     Ok(())
@@ -41,14 +18,9 @@ pub(crate) fn ensure_jwm_type_is_mediation_request(message: &Message) -> Result<
 pub fn ensure_mediation_request_type(
     mediation_request: &Value,
     message_type: &str,
-) -> Result<(), Response> {
+) -> Result<(), MediationError> {
     if mediation_request.get("type") != Some(&json!(message_type)) {
-        let response = (
-            StatusCode::BAD_REQUEST,
-            MediationError::InvalidMessageType.json(),
-        );
-
-        return Err(response.into_response());
+        return Err(MediationError::InvalidMessageType);
     }
 
     Ok(())
@@ -57,7 +29,7 @@ pub fn ensure_mediation_request_type(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use shared::{utils::tests_utils::tests::*, midlw::tests::assert_error};
+    use shared::utils::tests_utils::tests::*;
 
     #[cfg(feature = "stateless")]
     use crate::model::stateless::coord::{
@@ -75,8 +47,6 @@ mod tests {
             "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
             MEDIATE_REQUEST_2_0.to_string(),
             json!({
-                "id": "id_alice_mediation_request",
-                "type": MEDIATE_REQUEST_2_0,
                 "did": "did:key:alice_identity_pub@alice_mediator",
                 "services": ["inbox", "outbox"]
             }),
@@ -91,8 +61,6 @@ mod tests {
             "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
             MEDIATE_REQUEST_DIC_1_0.to_string(),
             json!({
-                "id": "id_alice_mediation_request",
-                "type": MEDIATE_REQUEST_DIC_1_0,
                 "did": "did:key:alice_identity_pub@alice_mediator",
                 "services": ["inbox", "outbox"]
             }),
@@ -109,8 +77,6 @@ mod tests {
             "urn:uuid:8f8208ae-6e16-4275-bde8-7b7cb81ffa59".to_owned(),
             "invalid-type".to_string(),
             json!({
-                "id": "id_alice_mediation_request",
-                "type": MEDIATE_REQUEST_2_0,
                 "did": "did:key:alice_identity_pub@alice_mediator",
                 "services": ["inbox", "outbox"]
             }),
@@ -119,12 +85,10 @@ mod tests {
         .from(_edge_did())
         .finalize();
 
-        assert_error(
+        assert_eq!(
             ensure_jwm_type_is_mediation_request(&msg).unwrap_err(),
-            StatusCode::BAD_REQUEST,
-            &MediationError::InvalidMessageType.json().0,
-        )
-        .await;
+            MediationError::InvalidMessageType,
+        );
     }
 
     #[cfg(feature = "stateless")]
