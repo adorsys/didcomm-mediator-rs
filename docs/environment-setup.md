@@ -26,9 +26,13 @@ curl -X GET http://0.0.0.0:8080/ \
 ```
 
 ## Step 4: Logging And Monitoring
-to monitor the logs run the command
+For real time monitoring of the logs run the command
 ```sh 
 docker logs -f didcomm-mediator
+```
+Or save them in a file using the command
+```sh
+docker logs didcommm-mediator > mediator.log
 ```
 
 ## Step 5: Cleanup
