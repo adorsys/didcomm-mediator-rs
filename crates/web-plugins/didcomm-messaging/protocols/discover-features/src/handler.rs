@@ -26,8 +26,8 @@ pub fn handle_query_request(
             for value in queries {
                 match value.get("feature-type") {
                     Some(val) => {
-                        let val = val.as_str().unwrap();
-                        if val.to_string() == "protocol" {
+                        let val = val.as_str().unwrap_or_default();
+                        if val == "protocol" {
                             match value.get("match") {
                                 Some(id) => {
                                     let id = id.as_str().unwrap_or_default();
@@ -46,7 +46,7 @@ pub fn handle_query_request(
                                         }
                                     }
                                     // wildcard scenario
-                                    if id.ends_with(".*") {
+                                    else {
                                         let parts: Vec<&str> = id.split(".*").collect();
                                         // container
                                         let mut container: String = Default::default();
@@ -69,6 +69,7 @@ pub fn handle_query_request(
                                             {
                                                 let parts: Vec<&str> =
                                                     container.split(id).collect();
+                                                // getting the minor version supported by the mediator when we have a request with a wilcard as minor
                                                 let minor = parts[1]
                                                     .to_string()
                                                     .chars()
@@ -80,17 +81,13 @@ pub fn handle_query_request(
                                         }
                                     }
                                 }
-                                None => {
-                                    return Err(DiscoveryError::MalformedBody
-                                        .json()
-                                        .into_response())
-                                }
+                                None => return Err(DiscoveryError::MalformedBody.into_response()),
                             }
                         } else {
-                            return Err(DiscoveryError::FeatureNOTSupported.json().into_response());
+                            return Err(DiscoveryError::FeatureNOTSupported.into_response());
                         }
                     }
-                    None => return Err(DiscoveryError::MalformedBody.json().into_response()),
+                    None => return Err(DiscoveryError::MalformedBody.into_response()),
                 }
             }
 
@@ -98,7 +95,7 @@ pub fn handle_query_request(
             let msg = build_response(disclosed_protocols);
             Ok(Some(msg))
         } else {
-            return Err(DiscoveryError::QueryNotFound.json().into_response());
+            return Err(DiscoveryError::QueryNotFound.into_response());
         }
     } else {
         let msg = build_response(disclosed_protocols);
@@ -180,7 +177,6 @@ mod test {
         let state = setup();
         match handle_query_request(message, state) {
             Ok(result) => {
-                println!("{:#?}", &result.clone().unwrap());
                 assert!(result.clone().unwrap().body.get("disclosures").is_some());
                 assert!(result
                     .clone()
@@ -228,8 +224,9 @@ mod test {
     async fn test_get_supported_protocols_with_wildcard() {
         let queries = json!({"feature-type": "protocol", "match": "https://didcomm.org/coordinate-mediation/2.*"});
 
+        // test duplicates in queries
         let body = Queries {
-            queries: vec![queries],
+            queries: vec![queries.clone(), queries],
         };
         let id = Uuid::new_v4().urn().to_string();
 
@@ -237,7 +234,7 @@ mod test {
         let state = setup();
         match handle_query_request(message, state) {
             Ok(result) => {
-                println!("{:#?}", &result.clone().unwrap());
+                println!("{:#?}", result.clone().unwrap());
                 assert!(result.clone().unwrap().body.get("disclosures").is_some());
                 assert!(result
                     .clone()
