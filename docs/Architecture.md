@@ -38,12 +38,12 @@ The DIDComm Mediator acts as an intermediary that forwards messages between dece
 ### 1.4 Stakeholders
 Key stakeholders include DATEV, the adorsys development team, and third-party developers
 
-# 2. Constraints
+## 2. Constraints
 - The project will be implemented in rust so as to take advantage of it's performance and safety features
 - Only asynchronous Rust frameworks like tokio, axum, hyper, tracing can be used to ensure non-blocking operations
 - The project must adhere to DIDComm V2 specifications
 
-# 3. System Scope and Context
+## 3. System Scope and Context
 ### 3.1 Business Context
 The DIDComm Mediator acts as a bridge to enable seemless communication between decentralized agents, ensuring secure and reliable message routing.
 
@@ -52,40 +52,40 @@ The DIDComm Mediator acts as a bridge to enable seemless communication between d
 
 The DIDComm Mediator operates within decentralized identity systems, leveraging the DIDComm protocol and Decentralized Identifiers (DIDs) to provide secure and scalable communication between agents.
 
-* **Key Technical Considerations**
-- * **DIDComm Protocol:** Provides secure messaging with end-to-end encryption and authentication, creating a secure communication channel between decentralized agents.
-- * **Decentralized Identifiers (DIDs):** Unique identifiers that enable self-sovereign, verifiable identities within the system.
-- * **Secure Messaging Mechanisms:** TLS and other mechanisms ensure confidentiality and integrity of messages during transmission.
-- * **Asynchronous Rust Frameworks:** Utilizes libraries such as tokio, axum, hyper, and tracing for high-performance, non-blocking operations.
-- * **Adherence to Specifications:** The system adheres to the DIDComm V2 specifications for compatibility and standardization.
+***Key Technical Considerations**
+- ***DIDComm Protocol:** Provides secure messaging with end-to-end encryption and authentication, creating a secure communication channel between decentralized agents.
+- ***Decentralized Identifiers (DIDs):** Unique identifiers that enable self-sovereign, verifiable identities within the system.
+- ***Secure Messaging Mechanisms:** TLS and other mechanisms ensure confidentiality and integrity of messages during transmission.
+- ***Asynchronous Rust Frameworks:** Utilizes libraries such as tokio, axum, hyper, and tracing for high-performance, non-blocking operations.
+- ***Adherence to Specifications:** The system adheres to the DIDComm V2 specifications for compatibility and standardization.
 
-* **Core Components and Responsibilities**
-- * **Mediator Core Module:** The central component responsible for receiving, storing, and routing messages while ensuring DIDComm V2 compliance.
-- * **DID Resolver:** Interfaces with decentralized networks/registries to validate and retrieve DID documents, enabling proper routing based on public keys or routing details.
-- * **Message Handling and Routing:** Supports various DIDComm message types (e.g., forward messages) and ensures robust routing based on recipient details.
-- * **Message Storage** Temporarily stores messages until recipients retrieve them, using optimized storage mechanisms and asynchronous I/O.
+***Core Components and Responsibilities**
+- ***Mediator Core Module:** The central component responsible for receiving, storing, and routing messages while ensuring DIDComm V2 compliance.
+- ***DID Resolver:** Interfaces with decentralized networks/registries to validate and retrieve DID documents, enabling proper routing based on public keys or routing details.
+- ***Message Handling and Routing:** Supports various DIDComm message types (e.g., forward messages) and ensures robust routing based on recipient details.
+- ***Message Storage** Temporarily stores messages until recipients retrieve them, using optimized storage mechanisms and asynchronous I/O.
 
-* **Key Technical Challenges**
-- * **Message Confidentiality and Integrity:** Ensures messages remain secure and tamper-proof with end-to-end encryption and compliance with security standards.
-- * **Performance Optimization:** Handles high message volumes using asynchronous Rust frameworks (tokio, hyper) to ensure scalable, non-blocking operations.
-- * **Message Routing and Delivery:** Supports various DIDComm message types (e.g., forward messages) and ensures proper routing based on recipient details.
+***Key Technical Challenges**
+- ***Message Confidentiality and Integrity:** Ensures messages remain secure and tamper-proof with end-to-end encryption and compliance with security standards.
+- ***Performance Optimization:** Handles high message volumes using asynchronous Rust frameworks (tokio, hyper) to ensure scalable, non-blocking operations.
+- ***Message Routing and Delivery:** Supports various DIDComm message types (e.g., forward messages) and ensures proper routing based on recipient details.
 
-* **External Integrations**
-- * **DID Registries and Networks**: Communicates with registries to perform reliable DID resolution.
-- * **External Agents and Clients:** Interfaces with clients such as mobile and desktop applications for secure message routing.
-- * **Verifiable Credential Systems:** Potentially integrates with credential issuance and verification workflows.
+***External Integrations**
+- ***DID Registries and Networks**: Communicates with registries to perform reliable DID resolution.
+- ***External Agents and Clients:** Interfaces with clients such as mobile and desktop applications for secure message routing.
+- ***Verifiable Credential Systems:** Potentially integrates with credential issuance and verification workflows.
 
-* **System Architecture Considerations**
-- * **Security Protocols:** Implements TLS alongside end-to-end encryption within the DIDComm protocol, prioritizing security across all layers.
-- * **Asynchronous Communication**: Uses asynchronous programming (via tokio and similar libraries) to manage high throughput without blocking operations.
+***System Architecture Considerations**
+- ***Security Protocols:** Implements TLS alongside end-to-end encryption within the DIDComm protocol, prioritizing security across all layers.
+- ***Asynchronous Communication**: Uses asynchronous programming (via tokio and similar libraries) to manage high throughput without blocking operations.
 
-* **Technology Choices:**
-- * **Rust:** Rust language Chosen for memory safety, performance, and strong concurrency support.
+***Technology Choices:**
+- ***Rust:** Rust language Chosen for memory safety, performance, and strong concurrency support.
 
-* **Key Libraries:**
-- * **serde:** For efficient serialization/deserialization.
-- * **actix-web / axum:** Handles HTTP requests/web socket connections (based on the preferred framework).
-- * **didkit (if applicable):** Supports DID operations, creation, and verification.
+***Key Libraries:**
+- ***serde:** For efficient serialization/deserialization.
+- ***actix-web / axum:** Handles HTTP requests/web socket connections (based on the preferred framework).
+- ***didkit (if applicable):** Supports DID operations, creation, and verification.
 
 # 4. Solution Strategy
 The solution strategy outlines the foundational decisions that guide the system's architecture, aligning with the key quality goals, constraints, and overall system requirements.
@@ -95,21 +95,27 @@ The solution strategy outlines the foundational decisions that guide the system'
 - **Cryptographic Libraries:** Askar is selected as the cryptographic library to provide high-level cryptographic functions specifically designed for decentralized identity systems. Askar offers key management, encryption, and decryption capabilities that are essential for DIDComm communication. Its focus on modularity and interoperability with other decentralized identity (DID) systems ensures that the system can evolve and stay secure over time.
 - **Database:** MongoDB is selected as the database for its flexibility in handling semi-structured data, scalability, and ease of horizontal scaling. It is ideal for storing DID-related metadata, messages, and other data in a schema-less format that can adapt as the system evolves.
 
-# 5. Building Block View
+**Organisational Decisions**
+- **Development Process:**Agile methodology is adopted to deliver incremental updates and adapt to changing requirements.
+- **Task Delegation:** Integration with external DID registries is modularized, enabling future partnerships with third-party providers for registry or DID resolution services.
+- **Team Structure:** Assign dedicated team to core components (e.g., Mediator Core, Key Management, Communication Interfaces) for focused development and testing.
 
-# 6. Runtime View
 
-# 7. Deployment View
+## 5. Building Block View
 
-# 8. Cross Cutting Concerns
+## 6. Runtime View
 
-# 9. Architectural Decisions
+## 7. Deployment View
 
-# 10. Quality Requirements
+## 8. Cross Cutting Concerns
 
-# 11. Risk and Technical Debt
+## 9. Architectural Decisions
 
-# 12. Glossary
+## 10. Quality Requirements
+
+## 11. Risk and Technical Debt
+
+## 12. Glossary
 - ***DID(Decentralized Identifier):*** A unique identifier that enables verifiable, self-sovereign identities
 - ***DIDComm:*** A secure messaging protocol used to communicate over decentralized networks
 - ***Mediator:*** An intermediary service that routes DIDComm messages between agents
