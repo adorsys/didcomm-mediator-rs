@@ -10,7 +10,7 @@ RUN cargo build --release
 # Use a minimal image for running the server
 FROM ubuntu
 
-RUN apt update && apt install -y libpq5
+RUN apt update && apt install -y libpq5 && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
 
