@@ -1,10 +1,10 @@
 use async_trait::async_trait;
-use database::{Identifiable, Repository};
-use did_utils::jwk::Jwk;
+use database::{Identifiable, Repository, RepositoryError};
+use did_utils::jwk::{Bytes, Jwk};
 use mongodb::{bson::oid::ObjectId, Collection};
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
+use std::{io::Read, sync::Arc};
 use tokio::sync::RwLock;
 
 static SECRETS_COLLECTION: OnceCell<Collection<Secrets>> = OnceCell::new();
@@ -27,6 +27,10 @@ impl Identifiable for Secrets {
 
     fn set_id(&mut self, id: ObjectId) {
         self.id = Some(id);
+    }
+    fn get_secret(&self) -> Option<Vec<u8>> {
+        let secret: String = serde_json::from_reader(&self.secret_material.key).unwrap_or_default();
+        Some(secret.as_bytes().to_owned())
     }
 }
 

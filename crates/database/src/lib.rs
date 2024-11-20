@@ -1,13 +1,14 @@
 use async_trait::async_trait;
+use cocoon::MiniCocoon;
 use mongodb::{
     bson::{self, doc, oid::ObjectId, Bson, Document as BsonDocument},
     error::Error as MongoError,
-    options::{ClientOptions, FindOptions},
+    options::{ClientOptions, CountOptions, FindOptions},
     Client, Collection, Database,
 };
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
+use std::{borrow::Borrow, f64::consts::E, sync::Arc};
 use thiserror::Error;
 use tokio::sync::RwLock;
 
@@ -15,6 +16,7 @@ use tokio::sync::RwLock;
 pub trait Identifiable {
     fn id(&self) -> Option<ObjectId>;
     fn set_id(&mut self, id: ObjectId);
+    fn get_secret(&self) -> Option<Vec<u8>>;
 }
 
 /// Definition of custom errors for repository operations.
@@ -60,6 +62,50 @@ pub fn get_or_init_database() -> Arc<RwLock<Database>> {
         .clone()
 }
 
+/// Definition of a trait for secure repository operations.
+#[async_trait]
+pub trait SecureRepository<Entity>: Sync + Send
+where
+    Entity: Sized + Clone + Send + Sync + 'static,
+    Entity: Identifiable + Unpin,
+    Entity: Serialize + for<'de> Deserialize<'de>,
+    Vec<u8>: Borrow<Entity>,
+{
+    fn get_collection(&self) -> Arc<RwLock<Collection<Entity>>>;
+    /// Stores a new entity.
+    async fn wrap_store(&self, mut entity: Entity) -> Result<Entity, RepositoryError> {
+        let collection = self.get_collection();
+
+        // Lock the Mutex and get the Collection
+        let collection = collection.read().await;
+
+        // read master key for encryption
+        let master_key = std::env::var("MASTER_KEY").unwrap_or_default();
+
+        let seed = &[0; 32];
+        let mut cocoon = MiniCocoon::from_key(master_key.as_bytes(), seed);
+        let secret = entity.get_secret().unwrap_or_default();
+        let wrapped_key = cocoon.wrap(&secret).unwrap_or_default();
+
+        // Insert the new entity into the database
+        let metadata = collection.insert_one(wrapped_key, None).await?;
+
+        // Set the ID if it was inserted and return the updated entity
+        if let Bson::ObjectId(oid) = metadata.inserted_id {
+            entity.set_id(oid);
+        }
+
+        Ok(entity)
+    }
+    async fn unwrap_find_one_by(&self, filter: BsonDocument) -> Result<Option<Entity>, RepositoryError> {
+        let collection = self.get_collection();
+
+        // Lock the Mutex and get the Collection
+        let collection = collection.read().await;
+        Ok(collection.find_one(filter, None).await?)
+    }
+
+}
 /// Definition of a trait for repository operations.
 #[async_trait]
 pub trait Repository<Entity>: Sync + Send

@@ -10,3 +10,4 @@ async-trait.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
+cocoon = "0.4.3"
