@@ -1,15 +1,19 @@
 use axum::Router;
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
+use thiserror::Error;
 
 use super::PLUGINS;
-use plugin_api::{Plugin, PluginError};
+use plugin_api::Plugin;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Error)]
 pub enum PluginContainerError {
+    #[error("Duplicate entry in plugin registry")]
     DuplicateEntry,
+    #[error("Plugin container is unloaded")]
     Unloaded,
-    PluginErrorMap(HashMap<String, PluginError>),
+    #[error("{0}")]
+    ContainerError(String),
 }
 
 pub struct PluginContainer<'a> {
@@ -77,16 +81,17 @@ impl<'a> PluginContainer<'a> {
             .filter_map(|plugin| {
                 let plugin_clone = plugin.clone();
                 let mut plugin = plugin.lock().unwrap();
+                let plugin_name = plugin.name().to_string();
                 match plugin.mount() {
                     Ok(_) => {
-                        tracing::info!("mounted plugin {}", plugin.name());
+                        tracing::info!("mounted plugin {}", plugin_name);
                         self.collected_routes.push(plugin.routes());
                         self.mounted_plugins.push(plugin_clone);
                         None
                     }
                     Err(err) => {
-                        tracing::error!("error mounting plugin {}", plugin.name());
-                        Some((plugin.name().to_string(), err))
+                        tracing::error!("Error mounting plugin {plugin_name}: {err}");
+                        Some((plugin_name, err))
                     }
                 }
             })
@@ -100,7 +105,9 @@ impl<'a> PluginContainer<'a> {
             tracing::debug!("plugin container loaded");
             Ok(())
         } else {
-            Err(PluginContainerError::PluginErrorMap(errors))
+            Err(PluginContainerError::ContainerError(
+                "error loading plugin container".to_string(),
+            ))
         }
     }
 
@@ -142,7 +149,9 @@ impl<'a> PluginContainer<'a> {
             tracing::debug!("plugin container unloaded");
             Ok(())
         } else {
-            Err(PluginContainerError::PluginErrorMap(errors))
+            Err(PluginContainerError::ContainerError(
+                "error unloading plugin container".to_string(),
+            ))
         }
     }
 
@@ -163,6 +172,7 @@ impl<'a> PluginContainer<'a> {
 mod tests {
     use super::*;
     use axum::routing::get;
+    use plugin_api::PluginError;
 
     // Define plugin structs for testing
     struct FirstPlugin;
@@ -229,7 +239,7 @@ mod tests {
         }
 
         fn mount(&mut self) -> Result<(), PluginError> {
-            Err(PluginError::InitError)
+            Err(PluginError::InitError("failed to mount".to_owned()))
         }
 
         fn unmount(&self) -> Result<(), PluginError> {
@@ -348,7 +358,7 @@ mod tests {
 
         assert_eq!(
             err,
-            PluginContainerError::PluginErrorMap(expected_error_map)
+            PluginContainerError::ContainerError("error loading plugin container".to_string(),)
         );
 
         // Verify collected routes

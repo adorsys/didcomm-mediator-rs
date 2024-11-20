@@ -2,12 +2,14 @@ use std::{
     fmt::Debug,
     hash::{Hash, Hasher},
 };
+use thiserror::Error;
 
 use axum::Router;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Error, PartialEq)]
 pub enum PluginError {
-    InitError,
+    #[error("cause: {0}")]
+    InitError(String),
 }
 
 pub trait Plugin: Sync + Send {

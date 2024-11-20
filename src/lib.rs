@@ -1,17 +1,18 @@
 pub mod plugins;
 
+use eyre::{Result, eyre};
 use axum::Router;
 use plugins::handler::PluginContainer;
 use tower_http::{catch_panic::CatchPanicLayer, trace::TraceLayer};
 
-pub fn app() -> (PluginContainer<'static>, Router) {
+pub fn app() -> Result<(PluginContainer<'static>, Router)> {
     let mut container = PluginContainer::new();
-    let _ = container.load();
+    container.load().map_err(|e| eyre!(e))?;
 
     let router = Router::new()
         .merge(container.routes().unwrap_or_default())
         .layer(TraceLayer::new_for_http())
         .layer(CatchPanicLayer::new());
 
-    (container, router)
+    Ok((container, router))
 }

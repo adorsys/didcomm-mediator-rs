@@ -16,24 +16,28 @@ pub struct MediatorCoordination {
     db: Option<Database>,
 }
 
-struct MediatorCoordinationPluginEnv {
+struct DidcommMessagingPluginEnv {
     public_domain: String,
     storage_dirpath: String,
 }
 
 /// Loads environment variables required for this plugin
-fn load_plugin_env() -> Result<MediatorCoordinationPluginEnv, PluginError> {
+fn load_plugin_env() -> Result<DidcommMessagingPluginEnv, PluginError> {
     let public_domain = std::env::var("SERVER_PUBLIC_DOMAIN").map_err(|_| {
-        tracing::error!("SERVER_PUBLIC_DOMAIN env variable required");
-        PluginError::InitError
+        PluginError::InitError("SERVER_PUBLIC_DOMAIN env variable required".to_owned())
     })?;
 
-    let storage_dirpath = std::env::var("STORAGE_DIRPATH").map_err(|_| {
-        tracing::error!("STORAGE_DIRPATH env variable required");
-        PluginError::InitError
-    })?;
+    let storage_dirpath = std::env::var("STORAGE_DIRPATH")
+        .map_err(|_| PluginError::InitError("STORAGE_DIRPATH env variable required".to_owned()))?;
 
-    Ok(MediatorCoordinationPluginEnv {
+    let mut container = MessagePluginContainer::new();
+    if container.load().is_err() {
+        return Err(PluginError::InitError(
+            "failed to load DIDComm protocols container".to_owned(),
+        ));
+    }
+
+    Ok(DidcommMessagingPluginEnv {
         public_domain,
         storage_dirpath,
     })
@@ -54,8 +58,9 @@ impl Plugin for MediatorCoordination {
         if did_endpoint::validate_diddoc(env.storage_dirpath.as_ref(), &keystore, &mut filesystem)
             .is_err()
         {
-            tracing::error!("diddoc validation failed; is plugin did-endpoint mounted?");
-            return Err(PluginError::InitError);
+            return Err(PluginError::InitError(
+                "diddoc validation failed; is plugin did-endpoint mounted?".to_owned(),
+            ));
         }
 
         // Check connectivity to database
