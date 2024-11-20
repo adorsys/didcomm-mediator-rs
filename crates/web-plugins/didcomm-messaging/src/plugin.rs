@@ -12,7 +12,7 @@ use std::sync::Arc;
 
 #[derive(Default)]
 pub struct MediatorCoordination {
-    env: Option<MediatorCoordinationPluginEnv>,
+    env: Option<DidcommMessagingPluginEnv>,
     db: Option<Database>,
 }
 
@@ -29,13 +29,6 @@ fn load_plugin_env() -> Result<DidcommMessagingPluginEnv, PluginError> {
 
     let storage_dirpath = std::env::var("STORAGE_DIRPATH")
         .map_err(|_| PluginError::InitError("STORAGE_DIRPATH env variable required".to_owned()))?;
-
-    let mut container = MessagePluginContainer::new();
-    if container.load().is_err() {
-        return Err(PluginError::InitError(
-            "failed to load DIDComm protocols container".to_owned(),
-        ));
-    }
 
     Ok(DidcommMessagingPluginEnv {
         public_domain,

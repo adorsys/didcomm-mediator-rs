@@ -9,7 +9,7 @@ async fn main() -> Result<()> {
     dotenv_flow::dotenv_flow().ok();
 
     // Enable logging
-    config_tracing()?;
+    config_tracing();
 
     // Start server
     let port = std::env::var("SERVER_LOCAL_PORT").unwrap_or("3000".to_owned());
@@ -45,11 +45,10 @@ async fn generic_server_with_graceful_shutdown(addr: SocketAddr) -> Result<()> {
     Ok(())
 }
 
-fn config_tracing() -> Result<()> {
+fn config_tracing() {
     if std::env::var("RUST_LIB_BACKTRACE").is_err() {
         std::env::set_var("RUST_LIB_BACKTRACE", "1")
     }
-    eyre::install()?;
 
     use tracing::Level;
     use tracing_subscriber::{filter, layer::SubscriberExt, util::SubscriberInitExt};
@@ -64,6 +63,4 @@ fn config_tracing() -> Result<()> {
         .with(tracing_layer)
         .with(filter)
         .init();
-
-    Ok(())
 }
