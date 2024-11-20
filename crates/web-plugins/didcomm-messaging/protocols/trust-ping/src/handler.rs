@@ -1,6 +1,4 @@
-use axum::response::{IntoResponse, Response};
 use didcomm::{Message, MessageBuilder};
-use hyper::StatusCode;
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -12,12 +10,12 @@ use shared::constants::TRUST_PING_RESPONSE_2_0;
 pub async fn handle_trust_ping(
     state: Arc<AppState>,
     message: Message,
-) -> Result<Message, Response> {
+) -> Result<Option<Message>, TrustPingError> {
     let mediator_did = &state.diddoc.id;
     let sender_did = message
         .from
         .as_ref()
-        .ok_or(TrustPingError::MissingSenderDID.into_response())?;
+        .ok_or(TrustPingError::MissingSenderDID)?;
 
     match message
         .body
@@ -36,40 +34,21 @@ pub async fn handle_trust_ping(
                 .to(sender_did.to_owned())
                 .from(mediator_did.to_owned())
                 .finalize();
-            Ok(response)
+            Ok(Some(response))
         }
-        Some(false) => Err(StatusCode::OK.into_response()),
-        None => Err(
-            TrustPingError::MalformedRequest("Missing \"response_requested\" field.")
-                .into_response(),
-        ),
+        Some(false) => Ok(None),
+        None => Err(TrustPingError::MalformedRequest(
+            "Missing \"response_requested\" field.".to_owned(),
+        )),
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use serde_json::{json, Value};
+    use serde_json::json;
 
     use super::*;
     use shared::{constants::TRUST_PING_2_0, utils::tests_utils::tests as global};
-
-    async fn assert_error(
-        response: Response,
-        status: StatusCode,
-        error: Option<TrustPingError<'_>>,
-    ) {
-        assert_eq!(response.status(), status);
-
-        if let Some(error) = error {
-            let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
-            let body: Value = serde_json::from_slice(&body).unwrap();
-
-            assert_eq!(
-                json_canon::to_string(&body).unwrap(),
-                json_canon::to_string(&json!({"error": error.to_string()})).unwrap()
-            );
-        }
-    }
 
     #[tokio::test]
     async fn test_request_trust_ping_response() {
@@ -86,7 +65,8 @@ mod tests {
 
         let response = handle_trust_ping(Arc::clone(&state), request)
             .await
-            .unwrap();
+            .unwrap()
+            .expect("Response should not be None");
 
         assert_eq!(response.type_, TRUST_PING_RESPONSE_2_0);
         assert_eq!(response.from.unwrap(), global::_mediator_did(&state));
@@ -109,9 +89,9 @@ mod tests {
 
         let response = handle_trust_ping(Arc::clone(&state), request)
             .await
-            .unwrap_err();
+            .unwrap();
 
-        assert_error(response, StatusCode::OK, None).await;
+        assert_eq!(response, None);
     }
 
     #[tokio::test]
@@ -130,11 +110,6 @@ mod tests {
             .await
             .unwrap_err();
 
-        assert_error(
-            response,
-            StatusCode::BAD_REQUEST,
-            Some(TrustPingError::MissingSenderDID),
-        )
-        .await;
+        assert_eq!(response, TrustPingError::MissingSenderDID);
     }
 }
