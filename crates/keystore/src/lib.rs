@@ -1,3 +1,5 @@
+#![allow(unused_imports)]
+
 use async_trait::async_trait;
 use database::{Identifiable, Repository, RepositoryError};
 use did_utils::jwk::{Bytes, Jwk};
