@@ -695,115 +695,46 @@ This combination integrates **application security** and **SSDLC best practices*
 
 ---
 
-## 13. [Glossary](#glossary)
+## 13. Glossary
 
-* **DID**: 
-  - **Decentralized Identifier**: A self-sovereign, cryptographically secure identifier independent of centralized authorities.
-
-* **DIDComm**: 
-  - **Messaging Protocol for DIDs**: A protocol for secure, private communication between entities using DIDs.
-
-* **Mediator**: 
-  - **Message Intermediary**: A trusted entity that routes messages between parties in DIDComm, often used to bridge communication gaps.
-
-* **Scalability**: 
-  - The system's ability to handle increasing loads by distributing resources or scaling horizontally.
-
-* **Security**: 
-  - Protection of data through encryption, ensuring confidentiality, integrity, and authenticity of messages.
-
-* **Semantic Versioning (SemVer)**: 
-  - A versioning scheme for software that indicates the nature of changes through `MAJOR.MINOR.PATCH`.
-
-* **Horizontal Scaling**: 
-  - Increasing capacity by adding more instances of servers or resources.
-
-* **Load Balancing**: 
-  - Distributing network traffic across multiple servers to avoid overloading a single resource.
-
-* **Kubernetes**: 
-  - A container orchestration platform that automates deployment, scaling, and management of applications.
-
-* **Rust**: 
-  - A systems programming language known for memory safety, concurrency, and performance.
-
-* **Actix-web**: 
-  - A Rust-based framework for building fast, asynchronous web applications.
-
-* **SQLite**: 
-  - A self-contained, serverless database engine used for lightweight, persistent storage.
-
-* **DID Rotation**: 
-  - Changing a DID’s associated cryptographic keys to enhance security while maintaining continuous communication.
-
-* **Message Delivery**: 
-  - The reliable transmission of messages from sender to recipient, often involving intermediaries.
-
-* **Persistent Storage**: 
-  - Data storage that retains information beyond the system’s runtime, ensuring data availability across sessions.
-
-* **Encryption**: 
-  - The process of securing data to prevent unauthorized access, ensuring privacy and data integrity.
-
-* **Cloud-First**: 
-  - A strategy where applications are designed to be deployed in the cloud, leveraging cloud services for scalability.
-
-* **Transport Agnosticism**: 
-  - The capability of a system to support different communication protocols without being reliant on one.
-
-* **Retry Logic**: 
-  - A mechanism that attempts to resend failed operations or messages to ensure reliability in communication.
-
-* **Public Key Infrastructure (PKI)**: 
-  - A framework for managing digital keys and certificates for secure communication.
-
-* **Trust Store**: 
-  - A repository of trusted certificates and keys used to verify the authenticity of communication partners.
-
-* **Horizontal Load Balancing**: 
-  - Distributing incoming traffic across multiple servers to prevent overloading a single server.
-
-* **Vertical Scaling**: 
-  - Increasing a system's capacity by adding more resources (e.g., CPU, RAM) to a single server.
-
-* **TLS (Transport Layer Security)**: 
-  - A cryptographic protocol designed to provide secure communication over a computer network.
-
-* **REST API**: 
-  - An architectural style for building web services, using HTTP requests to interact with resources (e.g., GET, POST).
-
-* **WebSocket**: 
-  - A communication protocol that provides full-duplex communication channels over a single TCP connection.
-
-* **Asynchronous Programming**: 
-  - A programming model that allows tasks to be performed without blocking the main program flow.
-
-* **Message Acknowledgment**: 
-  - A process where the recipient confirms receipt of a message, often to ensure reliability in communication.
-
-* **Caching**: 
-  - Storing frequently accessed data in temporary storage for faster retrieval.
-
-* **Decentralized Identity (DID)**: 
-  - A self-sovereign identity system that allows individuals to own and control their identifiers without depending on a central authority.
-
-* **Encryption Key Management**: 
-  - The process of handling, storing, and rotating encryption keys to ensure the security of encrypted data.
-
-* **Zero-Trust Security**: 
-  - A security model that assumes no trust is granted to any entity, even inside the network, and requires continuous verification.
-
-* **Encryption Algorithm**: 
-  - A mathematical procedure used to encrypt or decrypt data, ensuring confidentiality and security.
-
-* **Public-Key Cryptography**: 
-  - A cryptographic system that uses a pair of keys: a public key for encryption and a private key for decryption.
-
-* **Trust Chain**: 
-  - A sequence of certificates that validate the authenticity of a cryptographic key, leading back to a trusted root certificate.
-
-* **Service Discovery**: 
-  - The process of automatically detecting services in a network, allowing components to find and interact with each other dynamically.
+| **Component**                        | **Definition**                                                                                                                                      |
+|----------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **DID**                          | Decentralized Identifier: A self-sovereign, cryptographically secure identifier independent of centralized authorities.                            |
+| **DIDComm**                      | Messaging Protocol for DIDs: A protocol for secure, private communication between entities using DIDs.                                               |
+| **Mediator**                     | Message Intermediary: A trusted entity that routes messages between parties in DIDComm, often used to bridge communication gaps.                     |
+| **Scalability**                  | The system's ability to handle increasing loads by distributing resources or scaling horizontally.                                                   |
+| **Security**                     | Protection of data through encryption, ensuring confidentiality, integrity, and authenticity of messages.                                            |
+| **Semantic Versioning (SemVer)** | A versioning scheme for software that indicates the nature of changes through `MAJOR.MINOR.PATCH`.                                                   |
+| **Horizontal Scaling**           | Increasing capacity by adding more instances of servers or resources.                                                                               |
+| **Load Balancing**               | Distributing network traffic across multiple servers to avoid overloading a single resource.                                                        |
+| **Kubernetes**                   | A container orchestration platform that automates deployment, scaling, and management of applications.                                               |
+| **Rust**                         | A systems programming language known for memory safety, concurrency, and performance.                                                               |
+| **Actix-web**                    | A Rust-based framework for building fast, asynchronous web applications.                                                                            |
+| **SQLite**                       | A self-contained, serverless database engine used for lightweight, persistent storage.                                                              |
+| **DID Rotation**                 | Changing a DID’s associated cryptographic keys to enhance security while maintaining continuous communication.                                        |
+| **Message Delivery**             | The reliable transmission of messages from sender to recipient, often involving intermediaries.                                                     |
+| **Persistent Storage**           | Data storage that retains information beyond the system’s runtime, ensuring data availability across sessions.                                        |
+| **Encryption**                   | The process of securing data to prevent unauthorized access, ensuring privacy and data integrity.                                                   |
+| **Cloud-First**                  | A strategy where applications are designed to be deployed in the cloud, leveraging cloud services for scalability.                                    |
+| **Transport Agnosticism**        | The capability of a system to support different communication protocols without being reliant on one.                                                |
+| **Retry Logic**                  | A mechanism that attempts to resend failed operations or messages to ensure reliability in communication.                                            |
+| **Public Key Infrastructure (PKI)** | A framework for managing digital keys and certificates for secure communication.                                                                  |
+| **Trust Store**                  | A repository of trusted certificates and keys used to verify the authenticity of communication partners.                                             |
+| **Horizontal Load Balancing**    | Distributing incoming traffic across multiple servers to prevent overloading a single server.                                                       |
+| **Vertical Scaling**             | Increasing a system's capacity by adding more resources (e.g., CPU, RAM) to a single server.                                                        |
+| **TLS (Transport Layer Security)** | A cryptographic protocol designed to provide secure communication over a computer network.                                                          |
+| **REST API**                     | An architectural style for building web services, using HTTP requests to interact with resources (e.g., GET, POST).                                  |
+| **WebSocket**                    | A communication protocol that provides full-duplex communication channels over a single TCP connection.                                              |
+| **Asynchronous Programming**     | A programming model that allows tasks to be performed without blocking the main program flow.                                                        |
+| **Message Acknowledgment**       | A process where the recipient confirms receipt of a message, often to ensure reliability in communication.                                           |
+| **Caching**                      | Storing frequently accessed data in temporary storage for faster retrieval.                                                                          |
+| **Decentralized Identity (DID)** | A self-sovereign identity system that allows individuals to own and control their identifiers without depending on a central authority.              |
+| **Encryption Key Management**    | The process of handling, storing, and rotating encryption keys to ensure the security of encrypted data.                                              |
+| **Zero-Trust Security**          | A security model that assumes no trust is granted to any entity, even inside the network, and requires continuous verification.                       |
+| **Encryption Algorithm**         | A mathematical procedure used to encrypt or decrypt data, ensuring confidentiality and security.                                                     |
+| **Public-Key Cryptography**      | A cryptographic system that uses a pair of keys: a public key for encryption and a private key for decryption.                                        |
+| **Trust Chain**                  | A sequence of certificates that validate the authenticity of a cryptographic key, leading back to a trusted root certificate.                         |
+| **Service Discovery**            | The process of automatically detecting services in a network, allowing components to find and interact with each other dynamically.                   |
 
 ---
 
