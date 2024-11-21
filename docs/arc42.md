@@ -5,25 +5,23 @@ Here is an ARC42 architecture document tailored for the Rust-based `didcomm-medi
 # DIDComm Mediator RS - ARC42 Architecture Documentation
 
 ## Table of Contents
-1. [Introduction](#introduction)
-2. [Architecture Constraints](#architecture-constraints)
-3. [System Scope and Context](#system-scope-and-context)
-4. [Solution Strategy](#solution-strategy)
-5. [Building Block View](#building-block-view)
-6. [Runtime View](#runtime-view)
-7. [Deployment View](#deployment-view)
-8. [Cross-cutting Concepts](#cross-cutting-concepts)
-9. [Architecture Decisions](#architecture-decisions)
-10. [Quality Requirements](#quality-requirements)
-11. [Risks and Technical Debt](#risks-and-technical-debt)
-12. [Product Management](#product-management)
-13. [Glossary](#glossary)
-14. [Appendix](#appendix)
+1. [Introduction](#1-introduction)
+2. [Architecture Constraints](#2-architecture-constraints)
+3. [System Scope and Context](#3-system-scope-and-context)
+4. [Solution Strategy](#4-solution-strategy)
+5. [Building Block View](#5-building-block-view)
+6. [Runtime View](#6-runtime-view)
+7. [Deployment View](#7-deployment-view)
+8. [Cross-cutting Concepts](#8-cross-cutting-concepts)
+9. [Architecture Decisions](#9-architecture-decisions)
+10. [Quality Requirements](#10-quality-requirements)
+11. [Risks and Technical Debt](#11-risks-and-technical-debt)
+12. [Product Management](#12-product-management)
+13. [Glossary](#13-glossary)
 
 ---
 
-## 1. [Introduction](#introduction)
-
+## 1. Introduction
 ### 1.1 Document Goals
 This document outlines the architecture of the `didcomm-mediator-rs`, a Rust-based implementation of a DIDComm v2 mediator. Its purpose is to ensure secure, efficient, and reliable routing of DIDComm messages while providing clarity to stakeholders, architects, and developers.
 
@@ -36,7 +34,7 @@ This document outlines the architecture of the `didcomm-mediator-rs`, a Rust-bas
 
 ---
 
-## 2. [Architecture Constraints](#architecture-constraints)
+## 2. Architecture Constraints
 
 ### 2.1 Technical Constraints
 - **Rust Programming Language**: Ensures high performance and memory safety.
@@ -49,7 +47,7 @@ This document outlines the architecture of the `didcomm-mediator-rs`, a Rust-bas
 
 ---
 
-## 3. [System Scope and Context](#system-scope-and-context)
+## 3. System Scope and Context
 
 ### 3.1 Business Context
 The mediator facilitates routing of DIDComm messages for agents unable to maintain direct communication channels. It acts as an intermediary, ensuring reliability and privacy.
@@ -71,7 +69,7 @@ graph LR
 
 ---
 
-## 4. [Solution Strategy](#solution-strategy)
+## 4. Solution Strategy
 A microservices approach ensures modularity and scalability. `didcomm-mediator-rs` employs Rust's async capabilities to handle concurrent message routing efficiently.
 
 ### Key Features:
@@ -106,7 +104,7 @@ This modular and extensible implementation ensures the mediator evolves with the
 
 ---
 
-## 5. [Building Block View](#building-block-view)
+## 5. Building Block View
 
 ### 5.1 Overview
 
@@ -168,7 +166,7 @@ graph TD
 
 ---
 
-## 6. [Runtime View](#runtime-view)
+## 6. Runtime View
 
 ### 6.1 Message Flow
 1. Agent sends a message to the mediator.
@@ -222,7 +220,7 @@ This interaction ensures that messages intended for the recipient are appropriat
 
 ---
 
-## 7. [Deployment View](#deployment-view)
+## 7. Deployment View
 
 ### 7.1 Deployment Strategy
 
@@ -343,7 +341,7 @@ This detailed deployment view provides clarity on how the system can be deployed
 
 ---
 
-## 8. [Cross-cutting Concepts](#cross-cutting-concepts)
+## 8. Cross-cutting Concepts
 
 ### 8.1 Security
 
@@ -517,7 +515,7 @@ This combination integrates **application security** and **SSDLC best practices*
 
 ---
 
-## 9. [Architecture Decisions](#architecture-decisions)
+## 9. Architecture Decisions
 
 ### 9.1 Technology Decisions
 - **Rust for Performance**: 
@@ -571,7 +569,7 @@ This combination integrates **application security** and **SSDLC best practices*
 ---
 
 
-## 10. [Quality Requirements](#quality-requirements)
+## 10. Quality Requirements
 
 ### Functional
 * **Reliable Message Storage and Delivery**: 
