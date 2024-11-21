@@ -588,7 +588,6 @@ This combination integrates **application security** and **SSDLC best practices*
 ---
 
 ## 11. Risks and Technical Debt
----
 
 #### **Risks**
 1. **Message Pickup Delays Under High Load:**  
@@ -654,8 +653,46 @@ This combination integrates **application security** and **SSDLC best practices*
 ---
 
 ## 12. Product Management
-- **Tech Stack**: Rust, Actix-web, SQLite, Kubernetes.
-- **Versioning**: Semantic versioning for compatibility.
+
+#### **Tech Stack**
+- **Programming Language:** Rust, chosen for its high performance, memory safety, and robust concurrency support, ensuring efficient and reliable message routing.  
+- **Web Framework:** Actix-web, selected for its asynchronous capabilities, enabling scalable handling of concurrent DIDComm messages.  
+- **Database:** MongoDB, a NoSQL database chosen for its:  
+  - **Scalability:** Seamlessly handles large volumes of data with horizontal scaling.  
+  - **Flexibility:** Supports dynamic schema for evolving DIDComm message formats.  
+  - **Fault Tolerance:** Features built-in replication and sharding for high availability and resilience in production deployments.  
+- **Orchestration and Deployment:** Kubernetes, offering container orchestration for efficient resource utilization and scalability.  
+  - Includes Helm charts for configuration standardization and easy deployments.  
+
+#### **CI/CD Practices**
+- **Versioning:** Adheres to semantic versioning for consistent feature progression and backward compatibility.  
+- **Testing Pipelines:** Comprehensive CI/CD pipelines with automated:  
+  - **Static Code Analysis:** Tools like Clippy and Rustfmt for code quality and style adherence.  
+  - **Unit and Integration Testing:** Focus on protocol compliance and end-to-end functionality validation.  
+  - **Security Testing:** Integrates SAST (e.g., CodeQL) and DAST (e.g., OWASP ZAP) for identifying vulnerabilities.  
+  - **Performance Testing:** Employs tools like Locust or K6 to validate performance under simulated high loads.  
+
+#### **Roadmap and Feature Prioritization**
+- **Planned Features:**  
+  - Completion of Discover Features and Out-of-Band Messaging protocols.  
+  - Implementation of Acknowledgments (Acks) and Present Proof Protocol to fully align with DIDComm standards.  
+- **Backlog Management:**  
+  - Managed using agile methodologies, with tracking in tools like GitHub Projects.  
+  - Prioritization based on end-user requirements, technical feasibility, and feedback from the DIDComm community.  
+
+#### **Monitoring and Metrics**
+- **Database Monitoring:** Leverages MongoDB Atlas or Prometheus MongoDB Exporter for tracking query performance, connection pool utilization, and replica set health.  
+- **System Observability:** Implements Prometheus and Grafana for real-time metrics visualization, including:  
+  - Message throughput (e.g., messages processed per second).  
+  - Latency (e.g., message pickup times).  
+  - System health (e.g., memory, CPU, and disk usage).  
+
+#### **Release and Deployment Strategies**
+- **Release Cadence:**  
+  - Regular minor releases for incremental updates.  
+  - Quarterly major releases for architectural improvements or significant feature additions.  
+- **Blue-Green Deployments:** Ensures minimal disruption during updates by switching traffic between live and staging environments.  
+- **Rollback Plan:** Supports quick rollback to previous stable versions in case of critical issues during deployment.  
 
 ---
 
