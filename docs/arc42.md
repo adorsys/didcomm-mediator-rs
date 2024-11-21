@@ -22,7 +22,7 @@ Here is an ARC42 architecture document tailored for the Rust-based `didcomm-medi
 
 ---
 
-## 1. Introduction
+## 1. [Introduction](#introduction)
 
 ### 1.1 Document Goals
 This document outlines the architecture of the `didcomm-mediator-rs`, a Rust-based implementation of a DIDComm v2 mediator. Its purpose is to ensure secure, efficient, and reliable routing of DIDComm messages while providing clarity to stakeholders, architects, and developers.
@@ -36,7 +36,7 @@ This document outlines the architecture of the `didcomm-mediator-rs`, a Rust-bas
 
 ---
 
-## 2. Architecture Constraints
+## 2. [Architecture Constraints](#architecture-constraints)
 
 ### 2.1 Technical Constraints
 - **Rust Programming Language**: Ensures high performance and memory safety.
@@ -49,7 +49,7 @@ This document outlines the architecture of the `didcomm-mediator-rs`, a Rust-bas
 
 ---
 
-## 3. System Scope and Context
+## 3. [System Scope and Context](#system-scope-and-context)
 
 ### 3.1 Business Context
 The mediator facilitates routing of DIDComm messages for agents unable to maintain direct communication channels. It acts as an intermediary, ensuring reliability and privacy.
@@ -71,7 +71,7 @@ graph LR
 
 ---
 
-## 4. Solution Strategy
+## 4. [Solution Strategy](#solution-strategy)
 A microservices approach ensures modularity and scalability. `didcomm-mediator-rs` employs Rust's async capabilities to handle concurrent message routing efficiently.
 
 ### Key Features:
@@ -106,7 +106,7 @@ This modular and extensible implementation ensures the mediator evolves with the
 
 ---
 
-## 5. Building Block View
+## 5. [Building Block View](#building-block-view)
 
 ### 5.1 Overview
 
@@ -168,7 +168,7 @@ graph TD
 
 ---
 
-## 6. Runtime View
+## 6. [Runtime View](#runtime-view)
 
 ### 6.1 Message Flow
 1. Agent sends a message to the mediator.
@@ -222,7 +222,7 @@ This interaction ensures that messages intended for the recipient are appropriat
 
 ---
 
-## 7. Deployment View
+## 7. [Deployment View](#deployment-view)
 
 ### 7.1 Deployment Strategy
 
@@ -343,7 +343,7 @@ This detailed deployment view provides clarity on how the system can be deployed
 
 ---
 
-## 8. Cross-cutting Concepts
+## 8. [Cross-cutting Concepts](#cross-cutting-concepts)
 
 ### 8.1 Security
 
@@ -517,38 +517,91 @@ This combination integrates **application security** and **SSDLC best practices*
 
 ---
 
-## 9. Architecture Decisions
-- **Rust for Performance**: Chosen for safety and speed.
-- **Transport Agnosticism**: Supports various communication protocols.
-- **Cloud-First**: Optimized for deployment in cloud environments.
+## 9. [Architecture Decisions](#architecture-decisions)
+
+### 9.1 Technology Decisions
+- **Rust for Performance**: 
+  - Chosen for its memory safety, high-speed execution, and ability to handle concurrent processes efficiently. 
+  - Ensures robust and reliable mediation services in a decentralized environment.
+  
+- **Transport Agnosticism**: 
+  - Supports various communication protocols (e.g., HTTP, WebSocket, and others).
+  - Designed to integrate seamlessly into diverse ecosystems, enhancing interoperability.
+
+- **Cloud-First**: 
+  - Optimized for deployment in modern cloud environments.
+  - Employs containerized solutions (e.g., Docker) and orchestration tools (e.g., Kubernetes) for scalability and ease of maintenance.
+
+
+### 9.2 Architectural Features
+- **DIDComm Protocol Implementation**:
+  - Follows the DIDComm v2 standard for secure and decentralized identity communication.
+  - Supports encrypted, authenticated, and transport-agnostic messaging.
+
+- **Scalability and Modularity**:
+  - Architected to handle growing user and message loads without performance bottlenecks.
+  - Modular design allows for easy extension of features like advanced message routing or additional protocol support.
+
+- **Secure Message Mediation**:
+  - Incorporates robust cryptographic mechanisms to protect sensitive data.
+  - Ensures confidentiality, integrity, and authenticity in all message exchanges.
+
+### 9.3 Deployment and Maintenance
+- **CI/CD Integration**: 
+  - Automated pipelines for testing, building, and deploying ensure rapid and error-free updates.
+
+- **On-Premise and Hybrid Support**:
+  - Though optimized for the cloud, the solution is also adaptable for on-premise deployment.
+  - Suitable for organizations with strict data sovereignty or privacy requirements.
+
+- **Logging and Monitoring**:
+  - Designed to include observability features such as detailed logs and performance monitoring.
+  - Aids in debugging and enhances operational reliability.
+
+### 9.4 Future Considerations
+- **Additional Protocol Support**: 
+  - Exploring further transport protocols to expand integration capabilities.
+  
+- **Dynamic Scaling**: 
+  - Introducing auto-scaling mechanisms to manage resource usage based on real-time demand.
+
+- **Advanced Observability**: 
+  - Adding comprehensive monitoring and analytics dashboards to track system performance and detect anomalies.
 
 ---
 
-## 10. Quality Requirements
+
+## 10. [Quality Requirements](#quality-requirements)
 
 ### Functional
-- Reliable message storage and delivery.
-- DID rotation support.
+* **Reliable Message Storage and Delivery**: 
+  The system must ensure that messages are stored persistently and delivered reliably to the correct recipient, even in the event of system failures. This includes handling retries, acknowledgments, and maintaining message order. The system should support eventual consistency and be able to recover from intermittent network failures, ensuring that no messages are lost during transmission.
+
+* **DID Rotation Support**: 
+  The system should support Decentralized Identifier (DID) rotation to ensure secure communication can continue uninterrupted when the keys or identifiers change. This includes the ability to handle key rotation, update trust stores, and ensure that the recipient is aware of the new DID information. Rotation must not disrupt communication, ensuring transparency in key changes and maintaining message integrity through appropriate versioning and key management mechanisms.
 
 ### Non-Functional
-- **Scalability**: Supports 10,000+ concurrent connections.
-- **Security**: Fully encrypted message routing.
+* **Scalability**: 
+  The system must be capable of handling a high number of concurrent connections while maintaining performance and reliability. Scalability can be achieved through load balancing, horizontal scaling across multiple servers, and efficient resource management. Techniques such as data partitioning, caching, and asynchronous processing will ensure that the system can handle increased load without performance degradation.
+
+* **Security**: 
+  All messages must be routed and stored in an encrypted format to ensure the privacy and integrity of the data. The system should comply with established cryptographic standards, using public-key encryption for message transmission and ensuring that keys are securely managed. Additional measures like integrity checks (e.g., HMAC, digital signatures) must be used to protect data from tampering or unauthorized access. The system must also support end-to-end encryption to ensure that only the intended recipients can decrypt the messages, with mechanisms for key revocation and renewal built-in.
 
 ---
 
-## 11. Risks and Technical Debt
+## 11. [Risks and Technical Debt](#risks-and-technical-debt)
 - **Risks**: Potential bottlenecks in message pickup under high loads.
 - **Debt**: Optimization of transport layer abstraction.
 
 ---
 
-## 12. Product Management
+## 12. [Product Management](#product-management)
 - **Tech Stack**: Rust, Actix-web, SQLite, Kubernetes.
 - **Versioning**: Semantic versioning for compatibility.
 
 ---
 
-## 13. Glossary
+## 13. [Glossary](#glossary)
 - **DID**: Decentralized Identifier.
 - **DIDComm**: Messaging protocol for DIDs.
 - **Mediator**: Intermediary facilitating message delivery.
