@@ -1,13 +1,12 @@
-name: CD 
+name: CD
 
 on:
-  workflow_run:
-    workflows: ["Rust CI Pipeline"]  # Trigger on successful CI completion
-    types:
-      - completed
+  push:
+    branches: [main]
+
 jobs:
   deploy:
-    runs-on: ubuntu-latest  
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
