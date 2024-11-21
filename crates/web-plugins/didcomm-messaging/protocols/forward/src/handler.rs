@@ -1,4 +1,4 @@
-use crate::error::ForwardError;
+use crate::ForwardError;
 use database::Repository;
 use didcomm::{AttachmentData, Message};
 use mongodb::bson::doc;
@@ -9,30 +9,12 @@ use shared::{
 };
 use std::sync::Arc;
 
-async fn checks(
-    message: &Message,
-    connection_repository: &Arc<dyn Repository<Connection>>,
-) -> Result<String, ForwardError> {
-    let next = message.body.get("next").and_then(Value::as_str);
-    match next {
-        Some(next) => next,
-        None => return Err(ForwardError::MalformedBody),
-    };
-
-    // Check if the client's did in mediator's keylist
-    let _connection = match connection_repository
-        .find_one_by(doc! {"keylist": doc!{ "$elemMatch": { "$eq": &next}}})
-        .await
-        .map_err(|_| ForwardError::InternalServerError)?
-    {
-        Some(connection) => connection,
-        None => return Err(ForwardError::UncoordinatedSender),
-    };
-
-    Ok(next.unwrap().to_string())
-}
-
-pub(crate) async fn handler(state: Arc<AppState>, message: Message) -> Result<Option<Message>, ForwardError> {
+/// Mediator receives forwarded messages, extract the next field in the message body, and the attachments in the message
+/// then stores the attachment with the next field as key for pickup
+pub async fn mediator_forward_process(
+    state: Arc<AppState>,
+    message: Message,
+) -> Result<Option<Message>, ForwardError> {
     let AppStateRepository {
         message_repository,
         connection_repository,
@@ -66,10 +48,31 @@ pub(crate) async fn handler(state: Arc<AppState>, message: Message) -> Result<Op
     Ok(None)
 }
 
+async fn checks(
+    message: &Message,
+    connection_repository: &Arc<dyn Repository<Connection>>,
+) -> Result<String, ForwardError> {
+    let next = message.body.get("next").and_then(Value::as_str);
+    match next {
+        Some(next) => next,
+        None => return Err(ForwardError::MalformedBody),
+    };
+
+    // Check if the client's did in mediator's keylist
+    let _connection = match connection_repository
+        .find_one_by(doc! {"keylist": doc!{ "$elemMatch": { "$eq": &next}}})
+        .await
+        .map_err(|_| ForwardError::InternalServerError)?
+    {
+        Some(connection) => connection,
+        None => return Err(ForwardError::UncoordinatedSender),
+    };
+
+    Ok(next.unwrap().to_string())
+}
+
 #[cfg(test)]
 mod test {
-    use crate::web::handler::mediator_forward_process;
-
     use super::*;
     use did_utils::jwk::Jwk;
     use didcomm::{
@@ -163,7 +166,9 @@ mod test {
         .await
         .expect("Unable unpack");
 
-        let msg = mediator_forward_process(Arc::new(state.clone()), msg).await.unwrap();
+        let msg = mediator_forward_process(Arc::new(state.clone()), msg)
+            .await
+            .unwrap();
 
         println!("Mediator1 is forwarding message \n{:?}\n", msg);
     }

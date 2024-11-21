@@ -78,8 +78,10 @@ impl Plugin for DidEndpoint {
         Ok(())
     }
 
-    fn routes(&self) -> Router {
-        let state = self.state.as_ref().expect("Plugin not mounted");
-        web::routes(Arc::new(state.clone()))
+    fn routes(&self) -> Result<Router, PluginError> {
+        let state = self.state.as_ref().ok_or(PluginError::Other(
+            "missing state, plugin not mounted".to_owned(),
+        ))?;
+        Ok(web::routes(Arc::new(state.clone())))
     }
 }

@@ -1,5 +1,5 @@
 mod error;
-pub mod web;
+pub mod handler;
 
 // Re-exports
 pub use error::ForwardError;

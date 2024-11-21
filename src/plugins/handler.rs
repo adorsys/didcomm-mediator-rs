@@ -8,9 +8,9 @@ use plugin_api::Plugin;
 
 #[derive(Debug, PartialEq, Error)]
 pub enum PluginContainerError {
-    #[error("Duplicate entry in plugin registry")]
+    #[error("duplicate entry in plugin registry")]
     DuplicateEntry,
-    #[error("Plugin container is unloaded")]
+    #[error("plugin container is unloaded")]
     Unloaded,
     #[error("{0}")]
     ContainerError(String),
@@ -75,27 +75,27 @@ impl<'a> PluginContainer<'a> {
         self.mounted_plugins.clear();
 
         // Mount plugins and collect routes on successful status
-        let errors: HashMap<_, _> = self
-            .plugins
-            .iter()
-            .filter_map(|plugin| {
-                let plugin_clone = plugin.clone();
-                let mut plugin = plugin.lock().unwrap();
-                let plugin_name = plugin.name().to_string();
-                match plugin.mount() {
-                    Ok(_) => {
-                        tracing::info!("mounted plugin {}", plugin_name);
-                        self.collected_routes.push(plugin.routes());
-                        self.mounted_plugins.push(plugin_clone);
-                        None
-                    }
-                    Err(err) => {
-                        tracing::error!("Error mounting plugin {plugin_name}: {err}");
-                        Some((plugin_name, err))
-                    }
+        let mut errors = HashMap::new();
+        self.mounted_plugins.reserve(self.plugins.len());
+        self.collected_routes.reserve(self.plugins.len());
+        for plugin in self.plugins.iter() {
+            let plugin_clone = plugin.clone();
+            let mut plugin = plugin.lock().unwrap();
+            let plugin_name = plugin.name().to_string();
+            match plugin.mount() {
+                Ok(_) => {
+                    tracing::info!("mounted plugin {}", plugin_name);
+                    self.mounted_plugins.push(plugin_clone);
+                    self.collected_routes.push(plugin.routes().map_err(|err| {
+                        PluginContainerError::ContainerError(format!("Error collecting routes for plugin {plugin_name}\n{:?}", err))
+                    })?);
                 }
-            })
-            .collect();
+                Err(err) => {
+                    tracing::error!("Error mounting plugin {plugin_name}\n{:?}", err);
+                    errors.insert(plugin_name, err);
+                }
+            }
+        }
 
         // Flag as loaded
         self.loaded = true;
@@ -189,8 +189,8 @@ mod tests {
             Ok(())
         }
 
-        fn routes(&self) -> Router {
-            Router::new().route("/first", get(|| async {}))
+        fn routes(&self) -> Result<Router, PluginError> {
+            Ok(Router::new().route("/first", get(|| async {})))
         }
     }
 
@@ -208,8 +208,8 @@ mod tests {
             Ok(())
         }
 
-        fn routes(&self) -> Router {
-            Router::new().route("/second", get(|| async {}))
+        fn routes(&self) -> Result<Router, PluginError> {
+            Ok(Router::new().route("/second", get(|| async {})))
         }
     }
 
@@ -227,8 +227,8 @@ mod tests {
             Ok(())
         }
 
-        fn routes(&self) -> Router {
-            Router::new().route("/second", get(|| async {}))
+        fn routes(&self) -> Result<Router, PluginError> {
+            Ok(Router::new().route("/second", get(|| async {})))
         }
     }
 
@@ -246,8 +246,8 @@ mod tests {
             Ok(())
         }
 
-        fn routes(&self) -> Router {
-            Router::new().route("/faulty", get(|| async {}))
+        fn routes(&self) -> Result<Router, PluginError> {
+            Ok(Router::new().route("/faulty", get(|| async {})))
         }
     }
 

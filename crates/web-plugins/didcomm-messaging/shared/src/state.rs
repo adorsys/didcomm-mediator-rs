@@ -36,21 +36,21 @@ impl AppState {
         public_domain: String,
         diddoc: Document,
         repository: Option<AppStateRepository>,
-    ) -> Self {
+    ) -> eyre::Result<Self> {
         let did_resolver = LocalDIDResolver::new(&diddoc);
         let keystore = repository
             .as_ref()
-            .expect("Missing persistence layer")
+            .ok_or_else(|| eyre::eyre!("Missing persistence layer"))?
             .keystore
             .clone();
         let secrets_resolver = LocalSecretsResolver::new(keystore);
 
-        Self {
+        Ok(Self {
             public_domain,
             diddoc,
             did_resolver,
             secrets_resolver,
             repository,
-        }
+        })
     }
 }

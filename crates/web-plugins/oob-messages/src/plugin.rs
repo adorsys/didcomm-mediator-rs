@@ -55,7 +55,7 @@ impl Plugin for OOBMessages {
         Ok(())
     }
 
-    fn routes(&self) -> Router {
-        web::routes()
+    fn routes(&self) -> Result<Router, PluginError> {
+        Ok(web::routes())
     }
 }

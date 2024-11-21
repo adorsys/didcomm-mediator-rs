@@ -19,7 +19,12 @@ async fn main() -> Result<()> {
 
     tracing::debug!("listening on {}", addr);
 
-    generic_server_with_graceful_shutdown(addr).await?;
+    generic_server_with_graceful_shutdown(addr)
+        .await
+        .map_err(|e| {
+            tracing::error!("{:?}", e);
+            e
+        })?;
 
     Ok(())
 }
@@ -46,6 +51,7 @@ async fn generic_server_with_graceful_shutdown(addr: SocketAddr) -> Result<()> {
 }
 
 fn config_tracing() {
+    // Enable errors backtrace
     if std::env::var("RUST_LIB_BACKTRACE").is_err() {
         std::env::set_var("RUST_LIB_BACKTRACE", "1")
     }
