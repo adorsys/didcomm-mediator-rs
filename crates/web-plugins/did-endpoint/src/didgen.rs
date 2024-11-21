@@ -1,4 +1,4 @@
-use database::Repository;
+use database::{Repository, SecureRepository};
 use did_utils::{
     crypto::{Ed25519KeyPair, Generate, PublicKeyFormat, ToMultikey, X25519KeyPair},
     didcore::{Document, KeyFormat, Service, VerificationMethodType},
@@ -9,7 +9,7 @@ use filesystem::FileSystem;
 use keystore::Secrets;
 use mongodb::bson::doc;
 use serde_json::json;
-use std::path::Path;
+use std::{borrow::Borrow, path::Path};
 use tokio::{runtime::Handle, task};
 
 use crate::util;
@@ -110,7 +110,8 @@ fn store_key<S>(
     keystore: &S,
 ) -> Result<(), Error>
 where
-    S: Repository<Secrets>,
+    S: SecureRepository<Secrets>,
+    Vec<u8>: Borrow<[u8]>,
 {
     // Extract key ID from the DID document
     let kid = match field.as_ref().unwrap()[0].clone() {
@@ -129,7 +130,7 @@ where
     // Store the secret in the keystore
     task::block_in_place(move || {
         Handle::current().block_on(async move {
-            match keystore.store(secret).await {
+            match keystore.wrap_store(secret).await {
                 Ok(_) => tracing::info!("Successfully stored secret."),
                 Err(error) => tracing::error!("Error storing secret: {:?}", error),
             }
@@ -192,7 +193,10 @@ where
     // Validate the keys in the DID document
     if let Some(verification_methods) = &diddoc.verification_method {
         for method in verification_methods {
-            let pubkey = method.public_key.as_ref().ok_or(String::from("Missing key"))?;
+            let pubkey = method
+                .public_key
+                .as_ref()
+                .ok_or(String::from("Missing key"))?;
             let kid = util::handle_vm_id(&method.id, &diddoc);
             match pubkey {
                 KeyFormat::Jwk(_) => validate_key(&kid, keystore)?,

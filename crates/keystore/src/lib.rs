@@ -1,10 +1,11 @@
 use async_trait::async_trait;
-use database::{Identifiable, Repository, RepositoryError};
-use did_utils::jwk::{Bytes, Jwk};
+use database::{Identifiable, Repository};
+use did_utils::jwk::Jwk;
 use mongodb::{bson::oid::ObjectId, Collection};
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
-use std::{io::Read, sync::Arc};
+use serde_json::to_vec;
+use std::sync::Arc;
 use tokio::sync::RwLock;
 
 static SECRETS_COLLECTION: OnceCell<Collection<Secrets>> = OnceCell::new();
@@ -29,8 +30,8 @@ impl Identifiable for Secrets {
         self.id = Some(id);
     }
     fn get_secret(&self) -> Option<Vec<u8>> {
-        let secret: String = serde_json::from_reader(&self.secret_material.key).unwrap_or_default();
-        Some(secret.as_bytes().to_owned())
+        let secret = to_vec(&self.secret_material).unwrap_or_default();
+        Some(secret)
     }
 }
 
@@ -109,10 +110,10 @@ where
 #[cfg(any(test, feature = "test-utils"))]
 pub mod tests {
     use super::*;
-    use database::{Repository, RepositoryError};
+    use database::{Repository, RepositoryError, SecureRepository};
     use mongodb::bson::{doc, Bson, Document};
     use serde_json::json;
-    use std::{collections::HashMap, sync::RwLock};
+    use std::{borrow::Borrow, collections::HashMap, sync::RwLock};
 
     #[derive(Default)]
     pub struct MockKeyStore {
@@ -184,6 +185,20 @@ pub mod tests {
             Ok(())
         }
     }
+    // impl SecureRepository<Secrets> for MockKeyStore  {
+    //       // Implement a dummy get_collection method
+    //       fn get_collection(&self) -> Arc<tokio::sync::RwLock<Collection<Secrets>>> {
+    //         // In-memory, we don't have an actual collection, but we can create a dummy Arc<Mutex> for compatibility.
+    //         unimplemented!("This is a mock repository, no real collection exists.")
+    //     }
+
+    //     async fn wrap_store(&self, secrets: Secrets) -> Result<Secrets, RepositoryError> {
+    //         let seed = &[0; 32];
+    //         let mut cocoon = MiniCocoon::from_key("master_key".as_bytes(), seed);
+    //         let secret = to_vec(&secrets.secret_material).unwrap();
+    //         let wrapped_key = cocoon.wrap(&secret).unwrap_or_default();
+    //     }
+    // }
 
     #[tokio::test]
     async fn test_keystore_flow() {

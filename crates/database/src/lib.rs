@@ -69,7 +69,7 @@ where
     Entity: Sized + Clone + Send + Sync + 'static,
     Entity: Identifiable + Unpin,
     Entity: Serialize + for<'de> Deserialize<'de>,
-    Vec<u8>: Borrow<Entity>,
+    Vec<u8>: Borrow<Entity>
 {
     fn get_collection(&self) -> Arc<RwLock<Collection<Entity>>>;
     /// Stores a new entity.
