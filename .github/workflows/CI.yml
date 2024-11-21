@@ -36,7 +36,7 @@ jobs:
         rustflags:
 
     - name: Install Nextest test runner
-      run: cargo install cargo-nextest
+      uses: taiki-e/install-action@nextest
 
     - name: Create example env file
       run: |
