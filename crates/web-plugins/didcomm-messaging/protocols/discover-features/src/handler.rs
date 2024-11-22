@@ -18,10 +18,12 @@ pub fn handle_query_request(
     state: Arc<AppState>,
 ) -> Result<Option<Message>, Response> {
     let mut disclosed_protocols: HashSet<String> = HashSet::new();
+    let supported: &Vec<String>;
 
     let queries = message.body.get("queries").and_then(|val| val.as_array());
 
-    if let Some(_) = &state.supported_protocols {
+    if let Some(protocols) = &state.supported_protocols {
+        supported = protocols;
         if let Some(queries) = queries {
             for value in queries {
                 match value.get("feature-type") {
@@ -32,55 +34,48 @@ pub fn handle_query_request(
                                 Some(id) => {
                                     let id = id.as_str().unwrap_or_default();
 
-                                    if !id.ends_with(".*") {
-                                        if state.as_ref().clone().supported_protocols.is_some_and(
-                                            |a| {
-                                                a.into_iter()
-                                                    .find(|protocol| {
-                                                        protocol.contains(&id.to_string())
-                                                    })
-                                                    .is_some()
-                                            },
-                                        ) {
-                                            disclosed_protocols.insert(id.to_owned());
-                                        }
+                                    if !id
+                                        .ends_with(".*")
+                                        .then(|| {
+                                            supported
+                                                .into_iter()
+                                                .find(|protocol| protocol.contains(&id.to_string()))
+                                                .is_some()
+                                        })
+                                        .is_some()
+                                    {
+                                        disclosed_protocols.insert(id.to_owned());
                                     }
                                     // wildcard scenario
                                     else {
                                         let parts: Vec<&str> = id.split(".*").collect();
-                                        // container
+                                        // stores the full protocol obtained when we have a match with wildcard
                                         let mut container: String = Default::default();
 
                                         if let Some(id) = parts.get(0) {
-                                            if state
-                                                .as_ref()
-                                                .clone()
-                                                .supported_protocols
-                                                .is_some_and(|a| {
-                                                    a.into_iter()
-                                                        .find(|protocol| {
-                                                            protocol.contains(&id.to_string())
-                                                        })
-                                                        .is_some_and(|protocol| {
-                                                            container = protocol;
-                                                            return true;
-                                                        })
+                                            supported
+                                                .into_iter()
+                                                .find(|protocol| protocol.contains(&id.to_string()))
+                                                .is_some_and(|protocol| {
+                                                    container = protocol.to_string();
+                                                    return true;
                                                 })
-                                            {
-                                                let parts: Vec<&str> =
-                                                    container.split(id).collect();
-                                                // getting the minor version supported by the mediator when we have a request with a wilcard as minor
-                                                let minor = parts[1]
-                                                    .to_string()
-                                                    .chars()
-                                                    .nth(1)
-                                                    .unwrap_or_default();
-                                                let id = format!("{id}.{minor}");
-                                                disclosed_protocols.insert(id.to_string());
-                                            }
+                                                .then(|| {
+                                                    let parts: Vec<&str> =
+                                                        container.split(id).collect();
+                                                    // getting the minor version supported by the mediator when we have a request with a wildcard as minor
+                                                    let minor = parts[1]
+                                                        .to_string()
+                                                        .chars()
+                                                        .nth(1)
+                                                        .unwrap_or_default();
+                                                    let id = format!("{id}.{minor}");
+                                                    disclosed_protocols.insert(id.to_string());
+                                                });
                                         }
                                     }
                                 }
+
                                 None => return Err(DiscoveryError::MalformedBody.into_response()),
                             }
                         } else {
