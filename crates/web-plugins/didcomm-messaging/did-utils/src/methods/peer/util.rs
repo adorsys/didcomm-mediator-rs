@@ -1,6 +1,6 @@
 use super::errors::DIDPeerMethodError;
 use crate::didcore::Document as DIDDocument;
-use crate::didcore::{VerificationMethodType, Service};
+use crate::didcore::{Service, VerificationMethodType};
 use serde_json::{json, Map, Value};
 
 pub(super) fn abbreviate_service_for_did_peer_2(service: &Service) -> Result<String, DIDPeerMethodError> {
