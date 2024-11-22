@@ -192,7 +192,10 @@ where
     // Validate the keys in the DID document
     if let Some(verification_methods) = &diddoc.verification_method {
         for method in verification_methods {
-            let pubkey = method.public_key.as_ref().ok_or(String::from("Missing key"))?;
+            let pubkey = method
+                .public_key
+                .as_ref()
+                .ok_or(String::from("Missing key"))?;
             let kid = util::handle_vm_id(&method.id, &diddoc);
             match pubkey {
                 KeyFormat::Jwk(_) => validate_key(&kid, keystore)?,
