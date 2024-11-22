@@ -1,4 +1,4 @@
-use crate::{manager::MessagePluginContainer, constants::DIDCOMM_ENCRYPTED_MIME_TYPE};
+use crate::{constants::DIDCOMM_ENCRYPTED_MIME_TYPE, plugin::MESSAGE_CONTAINER};
 use axum::{
     extract::State,
     response::{IntoResponse, Response},
@@ -14,18 +14,20 @@ pub(crate) async fn process_didcomm_message(
     State(state): State<Arc<AppState>>,
     Extension(message): Extension<Message>,
 ) -> Response {
-    let  container = MessagePluginContainer::new();
-
-    if let Some(handler) = container
+    if let Some(handler) = MESSAGE_CONTAINER
+        .get()
+        .unwrap()
+        .read()
+        .await
         .didcomm_routes()
         .unwrap_or_default()
         .get_handler(&message.type_)
     {
         let response = handler.handle(state.clone(), message).await;
-        process_response(state, response).await
-    } else {
-        (StatusCode::BAD_REQUEST, "Unsupported didcomm message").into_response()
+        return process_response(state, response).await;
     }
+
+    (StatusCode::BAD_REQUEST, "Unsupported didcomm message").into_response()
 }
 
 async fn process_response(
@@ -57,13 +59,16 @@ async fn process_response(
 
 #[cfg(test)]
 mod tests {
+    use crate::manager::MessagePluginContainer;
+    use mediator_coordination::web::handler;
     use super::*;
     use axum::Router;
     use hyper::{Body, Method, Request};
+    use message_api::MessagePlugin;
     use serde_json::{json, Value};
     use shared::{
-        repository::tests::MockConnectionRepository,
-        state::AppStateRepository, utils::tests_utils::tests as global,
+        repository::tests::MockConnectionRepository, state::AppStateRepository,
+        utils::tests_utils::tests as global,
     };
     use tower::ServiceExt;
 
@@ -104,8 +109,23 @@ mod tests {
         (app, state)
     }
 
+    struct MockKeylistUpdateHandler;
+
+    #[async_trait::async_trait]
+    impl MessagePlugin for MockKeylistUpdateHandler {
+        async fn handle(
+            &self,
+            state: Arc<AppState>,
+            message: Message,
+        ) -> Result<Option<Message>, Response> {
+            handler::stateful::process_plain_keylist_update_message(state, message).await.map_err(
+                |e| e.into_response(),)
+        }
+    }
+
     #[tokio::test]
     async fn test_keylist_update_via_didcomm() {
+        
         let (app, state) = setup();
 
         // Build message
@@ -171,7 +191,10 @@ mod tests {
             .unwrap();
 
         // Assert metadata
-        assert_eq!(response.type_, "https://didcomm.org/coordinate-mediation/2.0/keylist-update-response");
+        assert_eq!(
+            response.type_,
+            "https://didcomm.org/coordinate-mediation/2.0/keylist-update-response"
+        );
         assert_eq!(response.from.unwrap(), global::_mediator_did(&state));
         assert_eq!(response.to.unwrap(), vec![global::_edge_did()]);
 

@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use crate::protocols::DIDCOMM_PLUGINS;
 use message_api::{MessagePlugin, MessageRouter};
 use std::{collections::HashSet, sync::Arc};
@@ -23,12 +21,6 @@ impl<'a> MessagePluginContainer<'a> {
             collected_routes: vec![],
             message_plugins: &DIDCOMM_PLUGINS,
         }
-    }
-
-    pub(crate) fn find_handler(&self, name: &str) -> Option<Arc<dyn MessagePlugin>> {
-        self.message_plugins
-            .iter()
-            .find_map(|handler| (handler.name() == name).then_some(handler.clone()))
     }
 
     pub(crate) fn load(&mut self) -> Result<(), MessageContainerError> {
@@ -57,14 +49,6 @@ impl<'a> MessagePluginContainer<'a> {
         // Update loaded status
         self.loaded = true;
         tracing::debug!("DIDComm protocols container loaded successfully");
-        Ok(())
-    }
-
-    /// unload container protocols
-    pub(crate) fn unload(&mut self) -> Result<(), MessageContainerError> {
-        self.loaded = false;
-        self.collected_routes.clear();
-
         Ok(())
     }
 
@@ -125,10 +109,6 @@ mod tests {
         assert!(container.loaded);
 
         assert_eq!(container.collected_routes.len(), 2);
-
-        assert!(container.find_handler("first").is_some());
-        assert!(container.find_handler("second").is_some());
-        assert!(container.find_handler("non-existent").is_none());
     }
 
     #[test]
@@ -181,11 +161,6 @@ mod tests {
 
         assert!(container.load().is_ok());
         assert_eq!(container.collected_routes.len(), 2);
-
-        assert!(container.unload().is_ok());
-        assert!(!container.loaded);
-
-        assert_eq!(container.collected_routes.len(), 0);
     }
 
     #[test]

@@ -16,8 +16,6 @@ pub struct AppState {
     // Crypto identity
     pub diddoc: Document,
 
-    pub message_container: MessagePluginContainer, 
-
     // DIDComm Resolvers
     pub did_resolver: LocalDIDResolver,
     pub secrets_resolver: LocalSecretsResolver,

@@ -40,6 +40,7 @@ mediator-coordination = ["dep:mediator-coordination"]
 
 
 [dev-dependencies]
+async-trait.workspace = true
 mockall = "0.13.0"
 uuid = { workspace = true, features = ["v4"] }
 json-canon = "0.1.3"

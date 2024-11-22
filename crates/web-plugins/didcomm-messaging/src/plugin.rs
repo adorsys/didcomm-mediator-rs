@@ -2,7 +2,7 @@ use crate::{manager::MessagePluginContainer, web};
 use axum::Router;
 use filesystem::StdFileSystem;
 use mongodb::Database;
-use plugin_api::PluginError::DidcommMessagContainerError;
+use once_cell::sync::OnceCell;
 use plugin_api::{Plugin, PluginError};
 use shared::{
     repository::{MongoConnectionRepository, MongoMessagesRepository},
@@ -10,6 +10,9 @@ use shared::{
     utils,
 };
 use std::sync::Arc;
+use tokio::sync::RwLock;
+
+pub(crate) static MESSAGE_CONTAINER: OnceCell<RwLock<MessagePluginContainer>> = OnceCell::new();
 
 #[derive(Default)]
 pub struct DidcommMessaging {
@@ -24,12 +27,6 @@ struct DidcommMessagingPluginEnv {
 
 /// Loads environment variables required for this plugin
 fn load_plugin_env() -> Result<DidcommMessagingPluginEnv, PluginError> {
-    let mut container = MessagePluginContainer::new();
-    if container.load().is_err() {
-        tracing::error!("failed to load DIDComm protocols container");
-        return Err(DidcommMessagContainerError);
-    }
-
     let public_domain = std::env::var("SERVER_PUBLIC_DOMAIN").map_err(|_| {
         tracing::error!("SERVER_PUBLIC_DOMAIN env variable required");
         PluginError::InitError
@@ -64,6 +61,18 @@ impl Plugin for DidcommMessaging {
             tracing::error!("diddoc validation failed; is plugin did-endpoint mounted?");
             return Err(PluginError::InitError);
         }
+
+        // Load message container
+        let mut container = MessagePluginContainer::new();
+        if let Err(err) = container.load() {
+            tracing::error!("Error loading message container: {:?}", err);
+            return Err(PluginError::InitError);
+        }
+
+        MESSAGE_CONTAINER.set(RwLock::new(container)).map_err(|_| {
+            tracing::error!("Container already initialized");
+            PluginError::InitError
+        })?;
 
         // Check connectivity to database
         let db = tokio::task::block_in_place(|| {

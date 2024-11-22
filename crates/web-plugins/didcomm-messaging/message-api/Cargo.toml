@@ -12,6 +12,7 @@ filesystem.workspace = true
 async-trait.workspace = true
 mongodb.workspace = true
 anyhow.workspace = true
+tracing.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 didcomm = { workspace = true, features = ["uniffi"] }
