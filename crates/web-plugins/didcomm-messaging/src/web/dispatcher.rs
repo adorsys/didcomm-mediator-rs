@@ -64,7 +64,7 @@ mod tests {
     use super::*;
     use axum::Router;
     use hyper::{Body, Method, Request};
-    use message_api::MessagePlugin;
+    use message_api::{MessageHandler, MessagePlugin};
     use serde_json::{json, Value};
     use shared::{
         repository::tests::MockConnectionRepository, state::AppStateRepository,
@@ -109,17 +109,18 @@ mod tests {
         (app, state)
     }
 
+    #[derive(Debug)]
     struct MockKeylistUpdateHandler;
 
     #[async_trait::async_trait]
-    impl MessagePlugin for MockKeylistUpdateHandler {
+    impl MessageHandler for MockKeylistUpdateHandler {
         async fn handle(
             &self,
             state: Arc<AppState>,
             message: Message,
         ) -> Result<Option<Message>, Response> {
             handler::stateful::process_plain_keylist_update_message(state, message).await.map_err(
-                |e| e.into_response(),)
+                |e| e.into_response())
         }
     }
 
