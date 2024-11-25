@@ -1,56 +1,31 @@
-# didcomm-mediator
+[![CI](https://github.com/adorsys/didcomm-mediator-rs/actions/workflows/CI.yml/badge.svg)](https://github.com/adorsys/didcomm-mediator-rs/blob/main/.github/workflows/CI.yml)
+[![CD](https://github.com/adorsys/didcomm-mediator-rs/actions/workflows/CD.yml/badge.svg)](https://github.com/adorsys/didcomm-mediator-rs/blob/main/.github/workflows/CD.yml)
+[![DIDComm Messaging Clients Utilities](https://img.shields.io/badge/DIDComm%20Messaging%20Clients%20Utilities-repo-blue.svg)](https://github.com/adorsys/didcomm-messaging-clients-utilities)
+[![DIDComm Messaging Spec](https://img.shields.io/badge/DIDComm%20Messaging-Specification-blue.svg)](https://identity.foundation/didcomm-messaging/spec/)
+[![License](https://img.shields.io/badge/license-Apache%202.0-brightgreen.svg)](https://github.com/adorsys/didcomm-mediator-rs/blob/main/LICENSE)
 
-A DIDComm mediator is a cloud agent that facilitate secure, decentralized communication between mobile agents in the self-sovereign identity (SSI) ecosystem. This mediator acts as a cloud-based intermediary, enabling mobile agents to communicate without reliance on centralized infrastructures like Facebook, Signal, or Telegram.
 
-## Overview
+# DIDComm-Mediator
 
-### Why a DIDComm Mediator?
+A DIDComm mediator is a cloud agent that facilitates secure, decentralized communication between mobile agents in the self-sovereign identity (SSI) ecosystem. This mediator acts as a cloud-based intermediary, enabling mobile agents to communicate without reliance on centralized infrastructures like Facebook, Signal, or Telegram.
 
-Mobile phones are not naturally suited for web-based interactions. To overcome this limitation, messages sent between mobile agents are routed through a DIDComm mediator, a cloud agent that ensures reliable delivery by always being available for web interactions.
 
-### How It Works
+For further understanding checkout the [docs](docs/mediator-doc.md)<br>
 
-A DIDComm mediator stores the Decentralized Identifiers (DIDs) of mobile agents. When one mobile agent sends a message to another, it first sends the message to a DIDComm mediator. This mediator routes the message to the recipient’s mediator, which then delivers the message to the intended recipient.
+###  Project Feature Implementation Tracker
 
-The following diagram displays some cloud services that can be provided by a DIDComm mediator. In particular, services that take care of routing and relaying messages among mobile agents.
-
-![sample cloud services](docs/basic-arch.png)
-
-**Key Services Provided:**
-
-* **Routing**: Ensures messages are correctly forwarded to the intended recipients.
-* **Relaying**: Acts as an intermediary for messages between agents.
-* **Proxy Service**: Similar to an SMTP server, it handles message sending.
-* **Gateway Service**: Analogous to an IMAP server, it manages message delivery.
-
-**Data Service**: Although not part of the core DIDComm specifications, it’s a vital service that ensures mobile agents have the necessary support for comprehensive functionality.
-
-**Subscriptions**: Ensures trusted relationships between mobile agents and cloud services, and thereby serve as the foundation of the economic model on top of which cloud services are built.
-
-### The Importance of Standardization
-
-Standardizing these cloud agents is essential for the decentralized web's success, much like the standardization of email protocols.
-
-## Self-Sovereign Identity (SSI)
-
-* **Self-Sovereign Identity (SSI)**: Empowers individuals to control their own digital identities without relying on centralized authorities.
-* **Decentralized Identifiers (DIDs) and Verifiable Credentials (VCs)**: The backbone of SSI, allowing secure, privacy-preserving sharing of identity information.
-* **Revolutionary Potential**: SSI has the potential to revolutionize the way that we interact with the internet, making them more secure, private, and user-centric.
-
-## DIDComm Messaging
-
-**DIDComm** is a messaging protocol that works with DIDs to provide secure, private communication between parties. The full specification is available [here](https://identity.foundation/didcomm-messaging/spec/).
-
-### Functional Aspects
-
-* **Flexibility**: DIDComm messaging is designed to allow new protocols and applications to be built on top of it.
-* **Adoption**: Already adopted by several projects, including the W3C Verifiable Credentials Working Group.
-
-### Technical Aspects
-
-* **Structure**: DIDComm messages are JSON objects, transferable over channels like HTTP, WebSockets, and SMS.
-* **Usability**: DIDComm messages can be used to send a variety of data, including requests, responses, notifications, and events.
-* **Security**: Messages are signed using the DID method, ensuring tamper-proof, verifiable communication.
+|Message types  | Spec Status | Implementation Status|
+|---------------|-------------|----------------------|
+|[Mediator Coordination Protocol](https://didcomm.org/coordinate-mediation/2.0/)| ADOPTED| ✅|
+|[Pickup Protocol](https://didcomm.org/messagepickup/3.0/)| ADOPTED | ✅ |
+|[DID Rotation](https://didcomm.org/book/v2/didrotation) | ACCEPTED | ✅ |
+|[Cross-Domain Messaging/ Routing Protocol](https://identity.foundation/didcomm-messaging/spec/#routing-protocol-20) | ADOPTED | ✅|
+|[Trust Ping Ptotocol](https://identity.foundation/didcomm-messaging/spec/#trust-ping-protocol-20) | ADOPTED|✅|
+|[Discover Features Protocol](https://didcomm.org/discover-features/2.0/) | ADOPTED | ⚪ |
+|[Out of band Messaging](https://identity.foundation/didcomm-messaging/spec/#out-of-band-messages) | ADOPTED | ⚪
+|[Basic Message Protocol](https://didcomm.org/basicmessage/2.0/#:~:text=The%20BasicMessage%20protocol%20describes%20a,message%20type%20used%20to%20communicate.) | ADOPTED|⚪|
+|[Acks](https://github.com/hyperledger/aries-rfcs/tree/main/features/0015-acks)| ADOPTED |❌ |
+|[Present Proof Protocol](https://didcomm.org/present-proof/3.0/)| ADOPTED | ❌|
 
 ## Building and testing
 
@@ -124,4 +99,4 @@ cargo check
 
 ## License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+This project is licensed under the Apache License. See the [LICENSE](https://github.com/adorsys/didcomm-mediator-rs/blob/main/LICENSE) file for details.

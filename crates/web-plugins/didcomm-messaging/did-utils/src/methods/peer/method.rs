@@ -227,13 +227,12 @@ impl DidPeer {
         }
 
         match did {
-        s if s.starts_with("did:peer:0") => self.expand_did_peer_0(did).map_err(Into::into),
-        s if s.starts_with("did:peer:2") => self.expand_did_peer_2(did).map_err(Into::into),
-        s if s.starts_with("did:peer:4") => self.expand_did_peer_4(did).map_err(Into::into),
-        _ => Err(DIDResolutionError::MethodNotSupported), 
+            s if s.starts_with("did:peer:0") => self.expand_did_peer_0(did).map_err(Into::into),
+            s if s.starts_with("did:peer:2") => self.expand_did_peer_2(did).map_err(Into::into),
+            s if s.starts_with("did:peer:4") => self.expand_did_peer_4(did).map_err(Into::into),
+            _ => Err(DIDResolutionError::MethodNotSupported),
+        }
     }
-}
-
 
     /// Expands did:peer:0 address
     ///
@@ -263,16 +262,16 @@ impl DidPeer {
             controller: None,
             also_known_as: None,
             verification_method: Some(vec![signature_verification_method.clone()]),
-            authentication: Some(vec![didcore::Authentication::Reference(
+            authentication: Some(vec![didcore::VerificationMethodType::Reference(
                 signature_verification_method.id.clone(), //
             )]),
-            assertion_method: Some(vec![didcore::AssertionMethod::Reference(
+            assertion_method: Some(vec![didcore::VerificationMethodType::Reference(
                 signature_verification_method.id.clone(), //
             )]),
-            capability_delegation: Some(vec![didcore::CapabilityDelegation::Reference(
+            capability_delegation: Some(vec![didcore::VerificationMethodType::Reference(
                 signature_verification_method.id.clone(), //
             )]),
-            capability_invocation: Some(vec![didcore::CapabilityInvocation::Reference(
+            capability_invocation: Some(vec![didcore::VerificationMethodType::Reference(
                 signature_verification_method.id.clone(), //
             )]),
             key_agreement: None,
@@ -289,7 +288,7 @@ impl DidPeer {
             // Amend DID document accordingly
             let verification_method = diddoc.verification_method.as_mut().unwrap();
             verification_method.push(encryption_verification_method.clone());
-            diddoc.key_agreement = Some(vec![didcore::KeyAgreement::Reference(
+            diddoc.key_agreement = Some(vec![didcore::VerificationMethodType::Reference(
                 encryption_verification_method.id.clone(), //
             )]);
         }
@@ -387,11 +386,11 @@ impl DidPeer {
             let id = format!("#key-{}", method_current_id + 1);
 
             match purpose {
-                Purpose::Assertion => assertion_method.push(didcore::AssertionMethod::Reference(id.clone())),
-                Purpose::Encryption => key_agreement.push(didcore::KeyAgreement::Reference(id.clone())),
-                Purpose::Verification => authentication.push(didcore::Authentication::Reference(id.clone())),
-                Purpose::CapabilityDelegation => capability_delegation.push(didcore::CapabilityDelegation::Reference(id.clone())),
-                Purpose::CapabilityInvocation => capability_invocation.push(didcore::CapabilityInvocation::Reference(id.clone())),
+                Purpose::Assertion => assertion_method.push(didcore::VerificationMethodType::Reference(id.clone())),
+                Purpose::Encryption => key_agreement.push(didcore::VerificationMethodType::Reference(id.clone())),
+                Purpose::Verification => authentication.push(didcore::VerificationMethodType::Reference(id.clone())),
+                Purpose::CapabilityDelegation => capability_delegation.push(didcore::VerificationMethodType::Reference(id.clone())),
+                Purpose::CapabilityInvocation => capability_invocation.push(didcore::VerificationMethodType::Reference(id.clone())),
                 Purpose::Service => unreachable!(),
             }
 
@@ -596,7 +595,7 @@ mod tests {
         let services = vec![Service {
             id: String::from("#didcomm"),
             service_type: String::from("DIDCommMessaging"),
-            service_endpoint: String::from("http://example.com/didcomm"),
+            service_endpoint: Value::String(String::from("http://example.com/didcomm")),
             additional_properties: None,
         }];
 
@@ -621,13 +620,13 @@ mod tests {
             Service {
                 id: String::from("#didcomm-1"),
                 service_type: String::from("DIDCommMessaging"),
-                service_endpoint: String::from("http://example.com/didcomm-1"),
+                service_endpoint: Value::String(String::from("http://example.com/didcomm-1")),
                 additional_properties: None,
             },
             Service {
                 id: String::from("#didcomm-2"),
                 service_type: String::from("DIDCommMessaging"),
-                service_endpoint: String::from("http://example.com/didcomm-2"),
+                service_endpoint: Value::String(String::from("http://example.com/didcomm-2")),
                 additional_properties: None,
             },
         ];
@@ -814,10 +813,7 @@ mod tests {
         let did_method = DidPeer::default();
 
         let did = "did:peer:1zQmbEB1EqP7PnNVaHiSpXhkatAA6kNyQK9mWkvrMx2eckgq";
-        assert!(matches!(
-            did_method.expand(did).unwrap_err(),
-            DIDResolutionError::MethodNotSupported
-        ));
+        assert!(matches!(did_method.expand(did).unwrap_err(), DIDResolutionError::MethodNotSupported));
     }
 
     #[test]
@@ -983,10 +979,7 @@ mod tests {
     fn test_expand_did_peer_0_fails_on_too_long_did() {
         let did_method = DidPeer::default();
         let did = "did:peer:0zQebt6zPwbE4Vw5GFAjjARHrNXFALofERVv4q6Z4db8cnDRQm";
-        assert!(matches!(
-            did_method.expand(did).unwrap_err(),
-            DIDResolutionError::InvalidPublicKeyLength
-        ));
+        assert!(matches!(did_method.expand(did).unwrap_err(), DIDResolutionError::InvalidPublicKeyLength));
     }
 
     #[test]
