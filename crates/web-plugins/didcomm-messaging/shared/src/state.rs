@@ -24,7 +24,7 @@ pub struct AppState {
     pub repository: Option<AppStateRepository>,
 
     // disclosed protocols `https://org.didcomm.com/{protocol-name}/{version}/{request-type}``
-    pub  supported_protocols: Option<Vec<String>>
+    pub supported_protocols: Option<Vec<String>>,
 }
 
 #[derive(Clone)]

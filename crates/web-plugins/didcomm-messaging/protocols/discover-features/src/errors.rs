@@ -8,7 +8,7 @@ pub enum DiscoveryError {
     #[error("No queries field in body")]
     QueryNotFound,
     #[error("query feature-type not supported try using `protocol`")]
-    FeatureNOTSupported
+    FeatureNOTSupported,
 }
 
 impl IntoResponse for DiscoveryError {

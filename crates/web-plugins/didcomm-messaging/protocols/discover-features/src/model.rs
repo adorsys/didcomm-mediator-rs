@@ -12,7 +12,9 @@ pub struct Disclosures {
 }
 impl Disclosures {
     pub fn new() -> Self {
-        Disclosures { disclosures: vec![] }
+        Disclosures {
+            disclosures: vec![],
+        }
     }
 }
 #[derive(Deserialize, Serialize)]
