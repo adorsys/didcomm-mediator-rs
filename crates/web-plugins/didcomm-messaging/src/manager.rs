@@ -9,9 +9,9 @@ pub(crate) enum MessageContainerError {
 }
 
 pub(crate) struct MessagePluginContainer<'a> {
-    loaded: bool,
-    collected_routes: Vec<MessageRouter>,
-    message_plugins: &'a Vec<Arc<dyn MessagePlugin>>,
+    pub(crate) loaded: bool,
+    pub(crate) collected_routes: Vec<MessageRouter>,
+    pub(crate) message_plugins: &'a Vec<Arc<dyn MessagePlugin>>,
 }
 
 impl<'a> MessagePluginContainer<'a> {
@@ -175,9 +175,13 @@ mod tests {
         };
 
         // Attempt to access routes without loading
-        assert_eq!(
-            container.didcomm_routes().unwrap_err(),
-            MessageContainerError::Unloaded
+        assert!(
+            container.didcomm_routes().is_err(),
+            "Routes should not be accessible without loading"
         );
+        
+        if let Err(err) = container.didcomm_routes() {
+            assert_eq!(err, MessageContainerError::Unloaded);
+        }
     }
 }

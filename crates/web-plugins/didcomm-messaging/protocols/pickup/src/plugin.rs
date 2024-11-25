@@ -10,13 +10,9 @@ use std::sync::Arc;
 
 pub struct PickupProtocol;
 
-#[derive(Debug)]
 struct StatusRequestHandler;
-#[derive(Debug)]
 struct DeliveryRequestHandler;
-#[derive(Debug)]
 struct MessageReceivedHandler;
-#[derive(Debug)]
 struct LiveModeChangeHandler;
 
 #[async_trait]

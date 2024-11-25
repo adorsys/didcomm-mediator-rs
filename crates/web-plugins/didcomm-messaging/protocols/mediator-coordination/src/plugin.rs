@@ -8,11 +8,8 @@ use std::sync::Arc;
 
 pub struct MediatorCoordinationProtocol;
 
-#[derive(Debug)]
 struct MediateRequestHandler;
-#[derive(Debug)]
 struct KeylistUpdateHandler;
-#[derive(Debug)]
 struct KeylistQueryHandler;
 
 #[async_trait]

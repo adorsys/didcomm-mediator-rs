@@ -2,15 +2,15 @@ use async_trait::async_trait;
 use axum::response::Response;
 use didcomm::Message;
 use shared::state::AppState;
-use std::{collections::HashMap, fmt::Debug, sync::Arc};
+use std::{collections::HashMap, sync::Arc};
 
 #[async_trait]
-pub trait MessageHandler: Send + Sync + Debug {
+pub trait MessageHandler: Send + Sync {
     async fn handle(&self, state: Arc<AppState>, msg: Message)
         -> Result<Option<Message>, Response>;
 }
 
-#[derive(Default, Clone, Debug)]
+#[derive(Default, Clone)]
 pub struct MessageRouter {
     handlers: HashMap<String, Arc<dyn MessageHandler>>,
 }

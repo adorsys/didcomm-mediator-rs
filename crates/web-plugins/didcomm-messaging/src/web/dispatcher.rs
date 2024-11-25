@@ -59,17 +59,21 @@ async fn process_response(
 
 #[cfg(test)]
 mod tests {
-    use crate::manager::MessagePluginContainer;
-    use mediator_coordination::web::handler;
+    use std::vec;
+
     use super::*;
+    use crate::manager::MessagePluginContainer;
     use axum::Router;
     use hyper::{Body, Method, Request};
-    use message_api::{MessageHandler, MessagePlugin};
+    use mediator_coordination::web::handler;
+    use message_api::{MessageHandler, MessagePlugin, MessageRouter};
+    use once_cell::sync::Lazy;
     use serde_json::{json, Value};
     use shared::{
         repository::tests::MockConnectionRepository, state::AppStateRepository,
         utils::tests_utils::tests as global,
     };
+    use tokio::sync::RwLock;
     use tower::ServiceExt;
 
     #[allow(clippy::needless_update)]
@@ -111,6 +115,7 @@ mod tests {
 
     #[derive(Debug)]
     struct MockKeylistUpdateHandler;
+    struct MockProtocol;
 
     #[async_trait::async_trait]
     impl MessageHandler for MockKeylistUpdateHandler {
@@ -119,14 +124,42 @@ mod tests {
             state: Arc<AppState>,
             message: Message,
         ) -> Result<Option<Message>, Response> {
-            handler::stateful::process_plain_keylist_update_message(state, message).await.map_err(
-                |e| e.into_response())
+            handler::stateful::process_plain_keylist_update_message(state, message)
+                .await
+                .map_err(|e| e.into_response())
         }
     }
 
+    impl MessagePlugin for MockProtocol {
+        fn name(&self) -> &'static str {
+            "mock_protocol"
+        }
+
+        fn didcomm_routes(&self) -> MessageRouter {
+            MessageRouter::new().register(
+                "https://didcomm.org/coordinate-mediation/2.0/keylist-update",
+                MockKeylistUpdateHandler,
+            )
+        }
+    }
+
+    static MOCK_PLUGINS: Lazy<Vec<Arc<dyn MessagePlugin>>> =
+        Lazy::new(|| vec![Arc::new(MockProtocol)]);
+
     #[tokio::test]
     async fn test_keylist_update_via_didcomm() {
-        
+        let mut container = MessagePluginContainer {
+            loaded: false,
+            collected_routes: vec![],
+            message_plugins: &MOCK_PLUGINS,
+        };
+
+        assert!(container.load().is_ok());
+
+        if let Err(_) = MESSAGE_CONTAINER.set(RwLock::new(container)) {
+            panic!("Failed to initialize MESSAGE_CONTAINER");
+        }
+
         let (app, state) = setup();
 
         // Build message
