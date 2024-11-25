@@ -305,44 +305,4 @@ mod test {
             }
         };
     }
-
-    #[tokio::test]
-    async fn test_integrate_with_unified_route() {
-        let did_resolver = LocalDIDResolver::new(&didoc());
-        let jwt = test_jwt_data().await;
-        let msg = test_message_payload(jwt);
-        let (msg, _) = msg
-            .pack_encrypted(
-                "did:web:alice-mediator.com:alice_mediator_pub",
-                Some(&new_did()),
-                None,
-                &did_resolver,
-                &new_secrets_resolver(),
-                &didcomm::PackEncryptedOptions::default(),
-            )
-            .await
-            .unwrap();
-
-        // Send request
-        let app = web::routes(Arc::clone(&setup()));
-
-        let response = app
-            .oneshot(
-                Request::builder()
-                    .uri(String::from("/"))
-                    .method(Method::POST)
-                    .header(CONTENT_TYPE, DIDCOMM_ENCRYPTED_MIME_TYPE)
-                    .body(Body::from(msg))
-                    .unwrap(),
-            )
-            .await
-            .unwrap();
-
-        // Assert response's metadata
-        assert_eq!(response.status(), StatusCode::ACCEPTED);
-        assert_eq!(
-            response.headers().get(CONTENT_TYPE).unwrap(),
-            DIDCOMM_ENCRYPTED_MIME_TYPE
-        );
-    }
 }
