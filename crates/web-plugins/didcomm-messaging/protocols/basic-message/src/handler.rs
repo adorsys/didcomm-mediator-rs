@@ -6,6 +6,7 @@ use std::sync::Arc;
 
 use crate::model::BasicMessage;
 
+// https://didcomm.org/basicmessage/2.0/ 
 pub fn handle_basic_message(_state: Arc<AppState>, message: BasicMessage) -> Response {
     if message.lang.is_none() {
         return (StatusCode::BAD_REQUEST, "Language is required").into_response();
