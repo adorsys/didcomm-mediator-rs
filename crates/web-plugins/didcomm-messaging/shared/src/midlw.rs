@@ -21,7 +21,7 @@ pub fn ensure_transport_return_route_is_decorated_all(
 #[cfg(test)]
 mod midlw_test {
     use super::*;
-    use crate::{utils::tests_utils::tests};
+    use crate::utils::tests_utils::tests;
     use serde_json::{json, Value};
 
     #[tokio::test]

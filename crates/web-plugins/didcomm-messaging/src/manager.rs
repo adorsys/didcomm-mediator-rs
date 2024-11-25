@@ -179,7 +179,7 @@ mod tests {
             container.didcomm_routes().is_err(),
             "Routes should not be accessible without loading"
         );
-        
+
         if let Err(err) = container.didcomm_routes() {
             assert_eq!(err, MessageContainerError::Unloaded);
         }
