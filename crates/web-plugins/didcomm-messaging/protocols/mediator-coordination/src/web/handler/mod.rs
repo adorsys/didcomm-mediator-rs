@@ -1,6 +1,7 @@
+mod midlw;
 #[cfg(feature = "stateful")]
 pub mod stateful;
-mod midlw;
 
+#[allow(unexpected_cfgs)]
 #[cfg(feature = "stateless")]
 mod stateless;
