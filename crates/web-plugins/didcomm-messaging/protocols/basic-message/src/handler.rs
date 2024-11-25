@@ -92,7 +92,12 @@ mod tests {
             message_repository: Arc::new(MockMessagesRepository::from(vec![])),
             keystore: Arc::new(MockKeyStore::new(vec![])),
         };
-        let state = Arc::new(AppState::from(public_domain, diddoc, None, Some(repository)));
+        let state = Arc::new(AppState::from(
+            public_domain,
+            diddoc,
+            None,
+            Some(repository),
+        ));
 
         let created_time = "2024-11-22T10:00:00Z"
             .parse::<DateTime<Utc>>()
