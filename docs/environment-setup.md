@@ -18,12 +18,17 @@ Modify the ```.env``` file with the right values for the variables
 ```sh
  docker-compose up -d
 ```
+Verify that all containers are running by executing
+```sh
+docker-compose ps
+``` 
 ## Step 3: Test Connectivity
 Use a tool like Postman or curl to verify that the server is running and responding.
 ```sh 
 curl -X GET http://0.0.0.0:8080/ \
 -H "Content-Type: application/json" \
 ```
+Expected Response: A JSON object indicating the mediator is operational 
 
 ## Step 4: Logging And Monitoring
 For real time monitoring of the logs run the command
