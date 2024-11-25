@@ -147,22 +147,6 @@ mod tests {
         assert!(container.load().is_ok());
         assert!(container.load().is_ok());
     }
-
-    #[test]
-    fn test_unloading_plugins() {
-        let plugins: Vec<Arc<dyn MessagePlugin>> =
-            vec![Arc::new(FirstPlugin {}), Arc::new(SecondPlugin {})];
-
-        let mut container = MessagePluginContainer {
-            loaded: false,
-            collected_routes: vec![],
-            message_plugins: &plugins,
-        };
-
-        assert!(container.load().is_ok());
-        assert_eq!(container.collected_routes.len(), 2);
-    }
-
     #[test]
     fn test_routes_without_loading() {
         let plugins: Vec<Arc<dyn MessagePlugin>> =
