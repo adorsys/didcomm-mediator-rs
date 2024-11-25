@@ -13,7 +13,6 @@ thiserror.workspace = true
 tokio = { workspace = true, features = ["full", "rt"] }
 uuid.workspace = true
 keystore.workspace = true
-constant = "0.2.0"
 
 [dev-dependencies]
 shared = { workspace = true, features = ["test-utils"] }
