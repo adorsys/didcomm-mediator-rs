@@ -5,8 +5,8 @@ authors = ["adorsys GmbH Co. KG"]
 license = "Apache-2.0"
 description = "A Rust library for implementing out of band messages for DID-based applications."
 repository = "https://github.com/adorsys/didcomm-mediator-rs/tree/main/crates/web-plugins/oob-messages"
-keywords = ["out-of-band", "oob", "obb-message",  "DIDComm", "Mediator", "DIDComm Mediator", "DIDComm Mediation", "DIDCOMM Messaging", "Decentralized Identity", "Rust Mediator"]
-categories = ["cryptography", "decentralized-systems"]
+keywords = ["out-of-band", "oob", "obb-message",  "didcomm", "Mediator"]
+categories = ["cryptography"]
 edition = "2021"
 
 [dependencies]
