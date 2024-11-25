@@ -51,4 +51,4 @@ The documentation for the library is available here: https://docs.rs/did-utils/
 
 ## License
 
-The library is licensed under the MIT License.
+The library is licensed under the Apache License.
