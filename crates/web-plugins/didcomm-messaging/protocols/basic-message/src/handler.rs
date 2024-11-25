@@ -6,30 +6,27 @@ use std::sync::Arc;
 
 use crate::model::BasicMessage;
 
-pub fn handle_basic_message(
-    _state: Arc<AppState>,
-    _message: BasicMessage,
-) -> Response {
-    
+pub fn handle_basic_message(_state: Arc<AppState>, _message: BasicMessage) -> Response {
     StatusCode::ACCEPTED.into_response()
 }
 
-    #[cfg(test)]
-    mod tests {
-        use super::*;
-        use axum::http::StatusCode;
-        use did_utils::didcore::Document;
-        use keystore::tests::MockKeyStore;
-        use shared::{repository::tests::{MockConnectionRepository, MockMessagesRepository}, state::AppStateRepository};
-        use std::sync::Arc;
-        use chrono::{DateTime, Utc};
-        use serde_json::Value;
-    
-    
-        #[test]
-        fn test_handle_basic_message() {
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::http::StatusCode;
+    use chrono::{DateTime, Utc};
+    use did_utils::didcore::Document;
+    use keystore::tests::MockKeyStore;
+    use serde_json::Value;
+    use shared::{
+        repository::tests::{MockConnectionRepository, MockMessagesRepository},
+        state::AppStateRepository,
+    };
+    use std::sync::Arc;
 
-            let diddoc: Document = serde_json::from_str(
+    #[test]
+    fn test_handle_basic_message() {
+        let diddoc: Document = serde_json::from_str(
                 r##"{
                     "@context": [
                         "https://www.w3.org/ns/did/v1",
@@ -83,29 +80,29 @@ pub fn handle_basic_message(
                 }"##
             ).unwrap();
 
-            let public_domain = String::from("http://alice-mediator.com");
+        let public_domain = String::from("http://alice-mediator.com");
 
-            let repository = AppStateRepository {
-                connection_repository: Arc::new(MockConnectionRepository::from(vec![])),
-                message_repository: Arc::new(MockMessagesRepository::from(vec![])),
-                keystore: Arc::new(MockKeyStore::new(vec![])),
-            };
-            let state = Arc::new(AppState::from(public_domain, diddoc, Some(repository)));
-    
-            let created_time = "2024-11-22T10:00:00Z"
-                .parse::<DateTime<Utc>>()
-                .expect("Failed to parse datetime");
-            
-            let message = BasicMessage {
-                id: "1".to_string(),
-                message_type: "text".to_string(),
-                lang: Some("en".to_string()),
-                created_time,
-                body: Value::String("Test message body".to_string()),
-            };
-    
-            let response = handle_basic_message(state, message);
-    
-            assert_eq!(response.status(), StatusCode::ACCEPTED);
-        }
+        let repository = AppStateRepository {
+            connection_repository: Arc::new(MockConnectionRepository::from(vec![])),
+            message_repository: Arc::new(MockMessagesRepository::from(vec![])),
+            keystore: Arc::new(MockKeyStore::new(vec![])),
+        };
+        let state = Arc::new(AppState::from(public_domain, diddoc, Some(repository)));
+
+        let created_time = "2024-11-22T10:00:00Z"
+            .parse::<DateTime<Utc>>()
+            .expect("Failed to parse datetime");
+
+        let message = BasicMessage {
+            id: "1".to_string(),
+            message_type: "text".to_string(),
+            lang: Some("en".to_string()),
+            created_time,
+            body: Value::String("Test message body".to_string()),
+        };
+
+        let response = handle_basic_message(state, message);
+
+        assert_eq!(response.status(), StatusCode::ACCEPTED);
+    }
 }
