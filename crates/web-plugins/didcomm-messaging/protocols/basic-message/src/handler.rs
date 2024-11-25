@@ -6,7 +6,11 @@ use std::sync::Arc;
 
 use crate::model::BasicMessage;
 
-pub fn handle_basic_message(_state: Arc<AppState>, _message: BasicMessage) -> Response {
+pub fn handle_basic_message(_state: Arc<AppState>, message: BasicMessage) -> Response {
+    if message.lang.is_none() {
+        return (StatusCode::BAD_REQUEST, "Language is required").into_response();
+    }
+
     StatusCode::ACCEPTED.into_response()
 }
 
