@@ -10,10 +10,9 @@ use serde_json::Value;
 use std::sync::Arc;
 
 // use super::{error::MediationError, AppState};
-use crate::did_rotation::did_rotation::did_rotation;
+use crate::{did_rotation::did_rotation::did_rotation, error::Error};
 use shared::{
     constants::{DIDCOMM_ENCRYPTED_MIME_TYPE, DIDCOMM_ENCRYPTED_SHORT_MIME_TYPE},
-    errors::MediationError,
     state::{AppState, AppStateRepository},
     utils::resolvers::{LocalDIDResolver, LocalSecretsResolver},
 };
@@ -39,10 +38,7 @@ pub async fn unpack_didcomm_message(
     let bytes = match hyper::body::to_bytes(body).await {
         Ok(bytes) => bytes,
         Err(_) => {
-            let response = (
-                StatusCode::BAD_REQUEST,
-                MediationError::UnparseablePayload.json(),
-            );
+            let response = (StatusCode::BAD_REQUEST, Error::UnparseablePayload.json());
 
             return response.into_response();
         }
@@ -92,7 +88,7 @@ fn content_type_is_didcomm_encrypted(content_type: Option<&str>) -> Result<(), R
     {
         let response = (
             StatusCode::BAD_REQUEST,
-            MediationError::NotDidcommEncryptedPayload.json(),
+            Error::NotDidcommEncryptedPayload.json(),
         );
 
         return Err(response.into_response());
@@ -118,7 +114,7 @@ async fn unpack_payload(
     let (plain_message, metadata) = res.map_err(|_| {
         let response = (
             StatusCode::BAD_REQUEST,
-            MediationError::MessageUnpackingFailure.json(),
+            Error::MessageUnpackingFailure.json(),
         );
 
         response.into_response()
@@ -127,17 +123,14 @@ async fn unpack_payload(
     if !metadata.encrypted {
         let response = (
             StatusCode::BAD_REQUEST,
-            MediationError::MalformedDidcommEncrypted.json(),
+            Error::MalformedDidcommEncrypted.json(),
         );
 
         return Err(response.into_response());
     }
 
     if plain_message.from.is_none() || !metadata.authenticated || metadata.anonymous_sender {
-        let response = (
-            StatusCode::BAD_REQUEST,
-            MediationError::AnonymousPacker.json(),
-        );
+        let response = (StatusCode::BAD_REQUEST, Error::AnonymousPacker.json());
 
         return Err(response.into_response());
     }
@@ -157,7 +150,7 @@ pub async fn pack_response_message(
     if from.is_none() || to.is_none() {
         let response = (
             StatusCode::INTERNAL_SERVER_ERROR,
-            MediationError::MessagePackingFailure(DidcommErrorKind::Malformed).json(),
+            Error::MessagePackingFailure(DidcommErrorKind::Malformed).json(),
         );
 
         return Err(response.into_response());
@@ -176,7 +169,7 @@ pub async fn pack_response_message(
     .map_err(|err| {
         let response = (
             StatusCode::INTERNAL_SERVER_ERROR,
-            MediationError::MessagePackingFailure(err.kind()).json(),
+            Error::MessagePackingFailure(err.kind()).json(),
         );
 
         response.into_response()
@@ -240,7 +233,7 @@ mod tests {
                     .await
                     .unwrap_err(),
                 StatusCode::INTERNAL_SERVER_ERROR,
-                MediationError::MessagePackingFailure(DidcommErrorKind::Malformed),
+                Error::MessagePackingFailure(DidcommErrorKind::Malformed),
             )
             .await;
         }
@@ -266,7 +259,7 @@ mod tests {
                 .await
                 .unwrap_err(),
             StatusCode::INTERNAL_SERVER_ERROR,
-            MediationError::MessagePackingFailure(DidcommErrorKind::Unsupported),
+            Error::MessagePackingFailure(DidcommErrorKind::Unsupported),
         )
         .await;
     }
@@ -275,7 +268,7 @@ mod tests {
     // Helpers -------------------------------------------------------------------------------------
     //----------------------------------------------------------------------------------------------
 
-    async fn _assert_midlw_err(err: Response, status: StatusCode, mediation_error: MediationError) {
+    async fn _assert_midlw_err(err: Response, status: StatusCode, mediation_error: Error) {
         assert_eq!(err.status(), status);
 
         let body = hyper::body::to_bytes(err.into_body()).await.unwrap();
