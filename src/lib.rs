@@ -1,7 +1,7 @@
 pub mod plugins;
 
-use eyre::{Result, eyre};
 use axum::Router;
+use eyre::{eyre, Result};
 use plugins::handler::PluginContainer;
 use tower_http::{catch_panic::CatchPanicLayer, trace::TraceLayer};
 

@@ -87,7 +87,10 @@ impl<'a> PluginContainer<'a> {
                     tracing::info!("mounted plugin {}", plugin_name);
                     self.mounted_plugins.push(plugin_clone);
                     self.collected_routes.push(plugin.routes().map_err(|err| {
-                        PluginContainerError::ContainerError(format!("Error collecting routes for plugin {plugin_name}\n{:?}", err))
+                        PluginContainerError::ContainerError(format!(
+                            "Error collecting routes for plugin {plugin_name}\n{:?}",
+                            err
+                        ))
                     })?);
                 }
                 Err(err) => {
