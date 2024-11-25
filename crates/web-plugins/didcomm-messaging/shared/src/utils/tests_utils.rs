@@ -93,12 +93,8 @@ pub mod tests {
             keystore: Arc::new(MockKeyStore::new(vec![mediator_secret])),
         };
 
-        let state = Arc::new(AppState::from(
-            public_domain,
-            diddoc,
-            None,
-            Some(repository),
-        ).unwrap());
+        let state =
+            Arc::new(AppState::from(public_domain, diddoc, None, Some(repository)).unwrap());
 
         state
     }

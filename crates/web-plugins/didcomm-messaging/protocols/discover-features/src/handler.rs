@@ -123,7 +123,11 @@ mod test {
     use didcomm::Message;
     use keystore::tests::MockKeyStore;
     use serde_json::json;
-    use shared::{constants::QUERY_FEATURE, repository::tests::{MockConnectionRepository, MockMessagesRepository}, state::{AppState, AppStateRepository}};
+    use shared::{
+        constants::QUERY_FEATURE,
+        repository::tests::{MockConnectionRepository, MockMessagesRepository},
+        state::{AppState, AppStateRepository},
+    };
     use uuid::Uuid;
 
     use crate::model::Queries;
@@ -142,13 +146,14 @@ mod test {
             keystore: Arc::new(MockKeyStore::new(vec![])),
         };
 
-        let state = Arc::new(AppState::from(
-            public_domain,
-            diddoc,
-            Some(vec![
-                "https://didcomm.org/coordinate-mediation/2.0/mediate-request".to_string(),
-            ]),
-            Some(repository),
+        let state = Arc::new(
+            AppState::from(
+                public_domain,
+                diddoc,
+                Some(vec![
+                    "https://didcomm.org/coordinate-mediation/2.0/mediate-request".to_string(),
+                ]),
+                Some(repository),
             )
             .unwrap(),
         );
