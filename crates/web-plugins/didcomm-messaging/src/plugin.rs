@@ -114,7 +114,7 @@ impl Plugin for DidcommMessaging {
         };
 
         // Compile state
-        let state = AppState::from(env.public_domain.clone(), diddoc, Some(repository));
+        let state = AppState::from(env.public_domain.clone(), diddoc,None, Some(repository));
 
         // Build router
         web::routes(Arc::new(state))
