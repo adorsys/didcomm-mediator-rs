@@ -5,8 +5,8 @@ authors = ["adorsys GmbH Co. KG"]
 license = "Apache-2.0"
 description = "The `didcomm-messaging` is a core component of the DIDComm Mediator system, designed to facilitate secure, decentralized communication within the Self-Sovereign Identity (SSI) ecosystem."
 repository = "https://github.com/adorsys/didcomm-mediator-rs/tree/main/crates/web-plugins/did-endpoint"
-keywords = ["DIDComm Messaging","DIDComm", "DIDComm Mediator", "DIDComm Mediation", "DIDCOMM Messaging", "Decentralized Identity", "Rust Mediator"]
-categories = ["cryptography", "decentralized-systems"]
+keywords = ["didcomm messaging","didcomm", "didcomm mediator", "didcomm mediation", "decentralized identity"]
+categories = ["cryptography"]
 edition = "2021"
 
 
