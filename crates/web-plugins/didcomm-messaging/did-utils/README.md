@@ -1,13 +1,6 @@
-[package]
-name = "did-utils" 
-version = "0.1.0" 
-authors = ["adorsys GmbH Co. KG"] 
-license = "Apache-2.0"
-description = "A Rust library for implementing reusable utility code for DID-based applications"
-repository = "https://github.com/adorsys/didcomm-mediator-rs/tree/main/crates/web-plugins/didcomm-messaging/did-utils"
-keywords = ["did-utils", "DIDComm Messaging","DIDComm", "DIDComm Mediator", "DIDComm Mediation", "Decentralized Identity", "Rust Mediator"]
-categories = ["cryptography", "decentralized-systems"]
-edition = "2021"
+# did-utils
+
+A Rust library for implementing reusable utility code for DID-based applications.
 
 ## Features
 
@@ -56,3 +49,6 @@ let decrypted_did_document = encrypted_did_document.decrypt(&my_private_key);
 
 The documentation for the library is available here: https://docs.rs/did-utils/
 
+## License
+
+The library is licensed under the MIT License.
