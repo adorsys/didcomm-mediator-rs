@@ -5,8 +5,8 @@ authors = ["adorsys GmbH Co. KG"]
 license = "Apache-2.0"
 description = "The `did-endpoint` crate provides tools and functionalities for generating and managing Decentralized Identifiers (DIDs) and web-based interactions."
 repository = "https://github.com/adorsys/didcomm-mediator-rs/tree/main/crates/web-plugins/did-endpoint"
-keywords = ["DID Endpoint","DIDComm", "Mediator", "DIDComm Mediator", "DIDComm Mediation", "DIDCOMM Messaging", "Decentralized Identity", "Rust Mediator"]
-categories = ["cryptography", "decentralized-systems"]
+keywords = ["did-endpoint", "didcomm", "mediator", "didcomm mediator","didcomm messaging"]
+categories = ["cryptography"]
 edition = "2021"
 
 [dependencies]
