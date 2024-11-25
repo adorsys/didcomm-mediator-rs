@@ -40,6 +40,7 @@ shared = { path = "./crates/web-plugins/didcomm-messaging/shared", version = "0.
 pickup = { path = "./crates/web-plugins/didcomm-messaging/protocols/pickup", version = "0.1.0" }
 forward = { path = "./crates/web-plugins/didcomm-messaging/protocols/forward", version = "0.1.0" }
 trust-ping = { path = "./crates/web-plugins/didcomm-messaging/protocols/trust-ping", version = "0.1.0" }
+discover-features = { path = "./crates/web-plugins/didcomm-messaging/protocols/discover-features", version = "0.1.0" }
 mediator-coordination = { path = "./crates/web-plugins/didcomm-messaging/protocols/mediator-coordination", version = "0.1.0" }
 
 # Other common dependencies
