@@ -22,6 +22,9 @@ pub struct AppState {
 
     // Persistence layer
     pub repository: Option<AppStateRepository>,
+
+    // disclosed protocols `https://org.didcomm.com/{protocol-name}/{version}/{request-type}``
+    pub  supported_protocols: Option<Vec<String>>
 }
 
 #[derive(Clone)]
@@ -35,6 +38,7 @@ impl AppState {
     pub fn from(
         public_domain: String,
         diddoc: Document,
+        disclose_protocols: Option<Vec<String>>,
         repository: Option<AppStateRepository>,
     ) -> eyre::Result<Self> {
         let did_resolver = LocalDIDResolver::new(&diddoc);
@@ -51,6 +55,7 @@ impl AppState {
             did_resolver,
             secrets_resolver,
             repository,
+            supported_protocols: disclose_protocols,
         })
     }
 }

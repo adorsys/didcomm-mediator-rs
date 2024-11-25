@@ -137,7 +137,7 @@ mod test {
             message_repository: Arc::new(MockMessagesRepository::from(vec![])),
         };
 
-        let state = Arc::new(AppState::from(public_domain, diddoc, Some(repository)).unwrap());
+        let state = Arc::new(AppState::from(public_domain, diddoc, None, Some(repository)).unwrap());
 
         state
     }

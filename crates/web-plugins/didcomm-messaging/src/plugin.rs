@@ -101,7 +101,7 @@ impl Plugin for MediatorCoordination {
 
         // Compile state
         let state =
-            AppState::from(env.public_domain.clone(), diddoc, Some(repository)).map_err(|err| {
+            AppState::from(env.public_domain.clone(), diddoc, None, Some(repository)).map_err(|err| {
                 tracing::error!("Failed to load app state: {:?}", err);
                 PluginError::Other("Failed to load app state".to_owned())
             })?;
