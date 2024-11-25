@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use serde::{ Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
