@@ -1,10 +1,10 @@
 use super::{didgen, web};
 use axum::Router;
 use database::Repository;
+use filesystem::FileSystem;
 use keystore::Secrets;
 use plugin_api::{Plugin, PluginError};
 use std::sync::{Arc, Mutex};
-use filesystem::FileSystem;
 
 #[derive(Default)]
 pub struct DidEndpoint {

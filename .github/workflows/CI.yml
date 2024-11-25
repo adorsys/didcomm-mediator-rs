@@ -1,13 +1,14 @@
 name: Rust CI
 
-on: [push, pull_request]
+on:[pull_request]
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
-    name: Build and Test
+
+  ci:
+    name: Build and test
     runs-on: ubuntu-latest
 
     steps:
@@ -42,7 +43,11 @@ jobs:
         chmod +x .github/scripts/test_config.sh
         sh .github/scripts/test_config.sh
 
-    - name: Build and Run Test
-      run: |
-        cargo build --workspace --all-features
-        cargo nextest run --workspace --all-features
+    - name: Check Formatting
+      run: cargo fmt --all -- --check
+
+    - name: Build Project
+      run: cargo build --workspace --all-features
+
+    - name: Run Tests
+      run: cargo nextest run --workspace --all-features
