@@ -5,7 +5,7 @@ authors = ["adorsys GmbH Co. KG"]
 license = "Apache-2.0"
 description = "A Rust library for implementing reusable utility code for DID-based applications"
 repository = "https://github.com/adorsys/didcomm-mediator-rs/tree/main/crates/web-plugins/didcomm-messaging/did-utils"
-keywords = ["did-utils", "DIDComm Messaging","DIDComm", "DIDComm Mediator", "DIDComm Mediation", "Decentralized Identity", "Rust Mediator"]
+keywords = ["did-utils", "DIDComm Messaging","DIDComm", "DIDComm Mediation", "Rust Mediator"]
 categories = ["cryptography", "decentralized-systems"]
 edition = "2021"
 
