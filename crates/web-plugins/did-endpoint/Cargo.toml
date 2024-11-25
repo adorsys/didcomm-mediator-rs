@@ -7,7 +7,7 @@ description = "The `did-endpoint` crate provides tools and functionalities for g
 repository = "https://github.com/adorsys/didcomm-mediator-rs/tree/main/crates/web-plugins/did-endpoint"
 keywords = ["did-endpoint", "didcomm", "mediator", "didcomm mediator","didcomm messaging"]
 categories = ["cryptography"]
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 database.workspace = true
