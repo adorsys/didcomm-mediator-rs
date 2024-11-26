@@ -38,6 +38,10 @@ impl MessageRouter {
     pub fn get_handler(&self, msg: &str) -> Option<&Arc<dyn MessageHandler>> {
         self.handlers.get(msg)
     }
+
+    pub fn messages_types(&self) -> Vec<String> {
+        self.handlers.keys().cloned().collect()
+    }
 }
 
 pub trait MessagePlugin: Send + Sync {
