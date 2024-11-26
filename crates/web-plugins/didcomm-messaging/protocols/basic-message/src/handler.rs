@@ -91,12 +91,8 @@ mod tests {
             message_repository: Arc::new(MockMessagesRepository::from(vec![])),
             keystore: Arc::new(MockKeyStore::new(vec![])),
         };
-        let state = Arc::new(AppState::from(
-            public_domain,
-            diddoc,
-            None,
-            Some(repository),
-        ));
+        let state =
+            Arc::new(AppState::from(public_domain, diddoc, None, Some(repository)).unwrap());
 
         let message = Message::build(
             "id_alice".to_owned(),

@@ -14,6 +14,7 @@ filesystem.workspace = true
 forward.workspace = true
 pickup.workspace = true
 trust-ping.workspace = true
+discover-features.workspace = true
 mediator-coordination.workspace = true
 
 mongodb.workspace = true
