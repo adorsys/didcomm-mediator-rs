@@ -16,7 +16,7 @@ pickup = { workspace = true, optional = true }
 trust-ping = { workspace = true, optional = true }
 mediator-coordination = { workspace = true, optional = true }
 message-api.workspace = true
-
+discover-features.workspace = true
 
 mongodb.workspace = true
 didcomm.workspace = true

@@ -13,6 +13,8 @@ pub enum MediationError {
     UncoordinatedSender,
     #[error("could not parse into expected message format")]
     UnexpectedMessageFormat,
+    #[error("internal server error")]
+    InternalServerError,
 }
 
 impl IntoResponse for MediationError {
@@ -23,6 +25,7 @@ impl IntoResponse for MediationError {
             }
             MediationError::UncoordinatedSender => StatusCode::UNAUTHORIZED,
             MediationError::UnexpectedMessageFormat => StatusCode::BAD_REQUEST,
+            MediationError::InternalServerError => StatusCode::INTERNAL_SERVER_ERROR,
         };
 
         let body = Json(serde_json::json!({

@@ -4,8 +4,7 @@ mod jose;
 mod model;
 
 pub mod client;
-pub mod plugin;
-pub mod web;
+pub mod handler;
 
 // Re-exports
 pub use errors::MediationError;
