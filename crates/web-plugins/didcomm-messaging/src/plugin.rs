@@ -27,12 +27,16 @@ struct DidcommMessagingPluginEnv {
 
 /// Loads environment variables required for this plugin
 fn load_plugin_env() -> Result<DidcommMessagingPluginEnv, PluginError> {
-    let public_domain = std::env::var("SERVER_PUBLIC_DOMAIN").map_err(|_| {
-        PluginError::InitError("SERVER_PUBLIC_DOMAIN env variable required".to_owned())
+    let public_domain = std::env::var("SERVER_PUBLIC_DOMAIN").map_err(|err| {
+        PluginError::InitError(format!(
+            "SERVER_PUBLIC_DOMAIN env variable required: {:?}",
+            err
+        ))
     })?;
 
-    let storage_dirpath = std::env::var("STORAGE_DIRPATH")
-        .map_err(|_| PluginError::InitError("STORAGE_DIRPATH env variable required".to_owned()))?;
+    let storage_dirpath = std::env::var("STORAGE_DIRPATH").map_err(|err| {
+        PluginError::InitError(format!("STORAGE_DIRPATH env variable required: {:?}", err))
+    })?;
 
     Ok(DidcommMessagingPluginEnv {
         public_domain,
@@ -52,25 +56,27 @@ impl Plugin for DidcommMessaging {
         let keystore = keystore::KeyStore::get();
 
         // Expect DID document from file system
-        if did_endpoint::validate_diddoc(env.storage_dirpath.as_ref(), &keystore, &mut filesystem)
-            .is_err()
+        if let Err(err) =
+            did_endpoint::validate_diddoc(env.storage_dirpath.as_ref(), &keystore, &mut filesystem)
         {
-            return Err(PluginError::InitError(
-                "diddoc validation failed; is plugin did-endpoint mounted?".to_owned(),
-            ));
+            return Err(PluginError::InitError(format!(
+                "diddoc validation failed: {:?}",
+                err
+            )));
         }
 
         // Load message container
         let mut container = MessagePluginContainer::new();
         if let Err(err) = container.load() {
-            tracing::error!("Error loading message container: {:?}", err);
-            return Err(PluginError::InitError);
+            return Err(PluginError::InitError(format!(
+                "Error loading message container: {:?}",
+                err
+            )));
         }
 
-        MESSAGE_CONTAINER.set(RwLock::new(container)).map_err(|_| {
-            tracing::error!("Container already initialized");
-            PluginError::InitError
-        })?;
+        MESSAGE_CONTAINER
+            .set(RwLock::new(container))
+            .map_err(|_| PluginError::InitError("Container already initialized".to_owned()))?;
 
         // Check connectivity to database
         let db = tokio::task::block_in_place(|| {

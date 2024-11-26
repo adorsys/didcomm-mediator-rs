@@ -65,7 +65,7 @@ mod tests {
     use crate::manager::MessagePluginContainer;
     use axum::Router;
     use hyper::{Body, Method, Request};
-    use mediator_coordination::web::handler;
+    use mediator_coordination::handler;
     use message_api::{MessageHandler, MessagePlugin, MessageRouter};
     use once_cell::sync::Lazy;
     use serde_json::{json, Value};

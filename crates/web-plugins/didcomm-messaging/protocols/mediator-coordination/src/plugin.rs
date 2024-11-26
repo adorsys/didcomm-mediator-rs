@@ -19,7 +19,7 @@ impl MessageHandler for MediateRequestHandler {
         state: Arc<AppState>,
         msg: Message,
     ) -> Result<Option<Message>, Response> {
-        crate::web::handler::stateful::process_mediate_request(state, msg)
+        crate::handler::stateful::process_mediate_request(state, msg)
             .await
             .map_err(|e| e.into_response())
     }
@@ -32,7 +32,7 @@ impl MessageHandler for KeylistUpdateHandler {
         state: Arc<AppState>,
         msg: Message,
     ) -> Result<Option<Message>, Response> {
-        crate::web::handler::stateful::process_plain_keylist_update_message(state, msg)
+        crate::handler::stateful::process_plain_keylist_update_message(state, msg)
             .await
             .map_err(|e| e.into_response())
     }
@@ -45,7 +45,7 @@ impl MessageHandler for KeylistQueryHandler {
         state: Arc<AppState>,
         msg: Message,
     ) -> Result<Option<Message>, Response> {
-        crate::web::handler::stateful::process_plain_keylist_query_message(state, msg)
+        crate::handler::stateful::process_plain_keylist_query_message(state, msg)
             .await
             .map_err(|e| e.into_response())
     }

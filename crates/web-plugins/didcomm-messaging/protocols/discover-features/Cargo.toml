@@ -5,14 +5,17 @@ edition = "2021"
 
 [dependencies]
 shared.workspace = true
+keystore.workspace = true
+message-api.workspace = true
+
 axum.workspace = true
 didcomm.workspace = true
-serde = { workspace = true, features = ["derive"] }
-serde_json.workspace = true
-thiserror.workspace = true
-tokio = { workspace = true, features = ["full", "rt"] }
 uuid.workspace = true
-keystore.workspace = true
+thiserror.workspace = true
+serde_json.workspace = true
+async-trait.workspace = true
+serde = { workspace = true, features = ["derive"] }
+tokio = { workspace = true, features = ["full", "rt"] }
 
 [dev-dependencies]
 shared = { workspace = true, features = ["test-utils"] }

@@ -10,6 +10,8 @@ pub(crate) static DIDCOMM_PLUGINS: Lazy<Vec<Arc<dyn MessagePlugin>>> = Lazy::new
         Arc::new(pickup::plugin::PickupProtocol),
         #[cfg(feature = "trust-ping")]
         Arc::new(trust_ping::plugin::TrustPingProtocol),
+        #[cfg(feature = "discover-features")]
+        Arc::new(discover_features::plugin::DiscoverFeaturesProtocol),
         #[cfg(feature = "mediator-coordination")]
         Arc::new(mediator_coordination::plugin::MediatorCoordinationProtocol),
     ]

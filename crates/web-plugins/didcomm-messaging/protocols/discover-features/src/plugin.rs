@@ -1,4 +1,4 @@
-use crate::constants::MEDIATE_FORWARD_2_0;
+use crate::constants::QUERY_FEATURE;
 use async_trait::async_trait;
 use axum::response::{IntoResponse, Response};
 use didcomm::Message;
@@ -6,29 +6,29 @@ use message_api::{MessageHandler, MessagePlugin, MessageRouter};
 use shared::state::AppState;
 use std::sync::Arc;
 
-pub struct RoutingProtocol;
+pub struct DiscoverFeaturesProtocol;
 
-struct ForwardHandler;
+struct DiscoverFeaturesHandler;
 
 #[async_trait]
-impl MessageHandler for ForwardHandler {
+impl MessageHandler for DiscoverFeaturesHandler {
     async fn handle(
         &self,
         state: Arc<AppState>,
         msg: Message,
     ) -> Result<Option<Message>, Response> {
-        crate::handler::mediator_forward_process(state, msg)
+        crate::handler::handle_query_request(state, msg)
             .await
             .map_err(|e| e.into_response())
     }
 }
 
-impl MessagePlugin for RoutingProtocol {
+impl MessagePlugin for DiscoverFeaturesProtocol {
     fn name(&self) -> &'static str {
-        "routing"
+        "discover-features"
     }
 
     fn didcomm_routes(&self) -> MessageRouter {
-        MessageRouter::new().register(MEDIATE_FORWARD_2_0, ForwardHandler)
+        MessageRouter::new().register(QUERY_FEATURE, DiscoverFeaturesHandler)
     }
 }

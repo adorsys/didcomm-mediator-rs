@@ -107,7 +107,7 @@ pub async fn process_mediate_request(
             Ok(_stored_connection) => {
                 tracing::info!("Successfully stored agreement keys.")
             }
-            Err(error) => tracing::debug!("Error storing agreement keys: {:?}", error),
+            Err(error) => tracing::error!("Error storing agreement keys: {:?}", error),
         }
 
         let auth_keys_jwk: Jwk = auth_keys.try_into().unwrap();
@@ -122,7 +122,7 @@ pub async fn process_mediate_request(
             Ok(_stored_connection) => {
                 tracing::info!("Successfully stored authentication keys.")
             }
-            Err(error) => tracing::debug!("Error storing authentication keys: {:?}", error),
+            Err(error) => tracing::error!("Error storing authentication keys: {:?}", error),
         }
 
         let mediation_grant = create_mediation_grant(&routing_did);
@@ -140,7 +140,7 @@ pub async fn process_mediate_request(
             Ok(_stored_connection) => {
                 tracing::info!("Successfully stored connection: ")
             }
-            Err(error) => tracing::debug!("Error storing connection: {:?}", error),
+            Err(error) => tracing::error!("Error storing connection: {:?}", error),
         }
 
         Ok(Some(
