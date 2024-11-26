@@ -100,15 +100,11 @@ impl Plugin for MediatorCoordination {
         };
 
         // Compile state
-<<<<<<< HEAD
-        let state = AppState::from(env.public_domain.clone(), diddoc, None, Some(repository));
-=======
         let state = AppState::from(env.public_domain.clone(), diddoc, None, Some(repository))
             .map_err(|err| {
                 tracing::error!("Failed to load app state: {:?}", err);
                 PluginError::Other("Failed to load app state".to_owned())
             })?;
->>>>>>> main
 
         // Build router
         Ok(web::routes(Arc::new(state)))
