@@ -1,14 +1,13 @@
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
+use didcomm::Message;
 use shared::state::AppState;
 
 use std::sync::Arc;
 
-use crate::model::BasicMessage;
-
 // https://didcomm.org/basicmessage/2.0/
-pub fn handle_basic_message(_state: Arc<AppState>, message: BasicMessage) -> Response {
-    if message.lang.is_none() {
+pub fn handle_basic_message(_state: Arc<AppState>, message: Message) -> Response {
+    if message.extra_headers.get("lang").is_none() {
         return (StatusCode::BAD_REQUEST, "Language is required").into_response();
     }
 
@@ -19,10 +18,10 @@ pub fn handle_basic_message(_state: Arc<AppState>, message: BasicMessage) -> Res
 mod tests {
     use super::*;
     use axum::http::StatusCode;
-    use chrono::{DateTime, Utc};
+    use chrono::Utc;
     use did_utils::didcore::Document;
     use keystore::tests::MockKeyStore;
-    use serde_json::Value;
+    use serde_json::json;
     use shared::{
         repository::tests::{MockConnectionRepository, MockMessagesRepository},
         state::AppStateRepository,
@@ -99,17 +98,16 @@ mod tests {
             Some(repository),
         ));
 
-        let created_time = "2024-11-22T10:00:00Z"
-            .parse::<DateTime<Utc>>()
-            .expect("Failed to parse datetime");
-
-        let message = BasicMessage {
-            id: "1".to_string(),
-            message_type: "text".to_string(),
-            lang: Some("en".to_string()),
-            created_time,
-            body: Value::String("Test message body".to_string()),
-        };
+        let message = Message::build(
+            "id_alice".to_owned(),
+            "https://didcomm.org/basicmessage/2.0/".to_owned(),
+            json!({
+               "content": "Your hovercraft is full of eels."
+            }),
+        )
+        .header("lang".into(), json!("en"))
+        .header("created_time".into(), json!(Utc::now()))
+        .finalize();
 
         let response = handle_basic_message(state, message);
 
