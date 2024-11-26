@@ -13,6 +13,7 @@ database.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tokio = { workspace = true, features = ["full"] }
+cocoon = "0.4.3"
 
 [features]
 test-utils = []

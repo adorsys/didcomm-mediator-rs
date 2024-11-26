@@ -1,4 +1,4 @@
-use database::{Repository, SecureRepository};
+use database::Repository;
 use did_utils::{
     crypto::{Ed25519KeyPair, Generate, PublicKeyFormat, ToMultikey, X25519KeyPair},
     didcore::{Document, KeyFormat, Service, VerificationMethodType},
@@ -6,10 +6,10 @@ use did_utils::{
     methods::{DidPeer, Purpose, PurposedKey},
 };
 use filesystem::FileSystem;
-use keystore::Secrets;
+use keystore::{Material, Secrets};
 use mongodb::bson::doc;
 use serde_json::json;
-use std::{borrow::Borrow, path::Path};
+use std::path::Path;
 use tokio::{runtime::Handle, task};
 
 use crate::util;
@@ -38,6 +38,7 @@ pub fn didgen<K, F>(
 ) -> Result<Document, Error>
 where
     K: Repository<Secrets>,
+    K: Material,
     F: FileSystem,
 {
     // Generate keys for did:peer generation
@@ -110,8 +111,9 @@ fn store_key<S>(
     keystore: &S,
 ) -> Result<(), Error>
 where
-    S: SecureRepository<Secrets>,
-    Vec<u8>: Borrow<[u8]>,
+    S: Repository<Secrets>,
+    S: Material
+
 {
     // Extract key ID from the DID document
     let kid = match field.as_ref().unwrap()[0].clone() {
@@ -119,6 +121,8 @@ where
         VerificationMethodType::Embedded(method) => method.id,
     };
     let kid = util::handle_vm_id(&kid, diddoc);
+    let key = serde_json::to_vec(&key).unwrap_or_default();
+    let key = String::from_utf8(key).unwrap_or_default();
 
     // Create Secrets for the key
     let secret = Secrets {
@@ -130,7 +134,7 @@ where
     // Store the secret in the keystore
     task::block_in_place(move || {
         Handle::current().block_on(async move {
-            match keystore.wrap_store(secret).await {
+            match keystore.securestore(secret).await {
                 Ok(_) => tracing::info!("Successfully stored secret."),
                 Err(error) => tracing::error!("Error storing secret: {:?}", error),
             }

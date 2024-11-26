@@ -154,7 +154,7 @@ mod tests {
     use super::*;
     use did_utils::jwk::Jwk;
     use keystore::tests::MockKeyStore;
-    use serde_json::Value;
+    use serde_json::{to_vec, Value};
 
     fn setup() -> Document {
         tests::setup().clone().diddoc.clone()
@@ -303,6 +303,8 @@ mod tests {
             }"#,
         )
         .unwrap();
+        let secret = to_vec(&secret).unwrap();
+        let secret = String::from_utf8(secret).unwrap();
 
         let test_secret = Secrets {
             id: None,

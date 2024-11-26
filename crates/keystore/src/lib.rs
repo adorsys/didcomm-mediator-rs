@@ -1,16 +1,138 @@
 #![allow(unused_imports)]
 
 use async_trait::async_trait;
-use database::{Identifiable, Repository};
+use cocoon::MiniCocoon;
+use database::{Identifiable, Repository, RepositoryError};
 use did_utils::jwk::Jwk;
-use mongodb::{bson::oid::ObjectId, Collection};
+use mongodb::{
+    bson::{doc, oid::ObjectId, Bson},
+    options::CountOptions,
+    Collection,
+};
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use serde_json::to_vec;
-use std::sync::Arc;
-use tokio::sync::RwLock;
+use std::{borrow::Borrow, sync::Arc};
+use tokio::{runtime::EnterGuard, sync::RwLock};
 
 static SECRETS_COLLECTION: OnceCell<Collection<Secrets>> = OnceCell::new();
+#[async_trait]
+pub trait Material {
+    async fn securestore(&self, secret: Secrets) -> Result<Secrets, RepositoryError>;
+    async fn find_one_by(&self, kid: String) -> Result<Option<Secrets>, RepositoryError>;
+}
+
+#[async_trait]
+impl Material for SecretStore {
+    async fn securestore(&self, secret: Secrets) -> Result<Secrets, RepositoryError> {
+        // read master key for encryption
+        let master_key = std::env::var("MASTER_KEY").unwrap_or_default();
+
+        let mut secret = secret;
+
+        let seed = &[0; 32];
+        let secret_material = secret.secret_material.as_bytes();
+        let mut cocoon = MiniCocoon::from_key(master_key.as_bytes(), seed);
+        let wrapped_key = cocoon.wrap(secret_material).unwrap_or_default();
+        secret.secret_material = String::from_utf8(wrapped_key).unwrap_or_default();
+
+        // Insert the new entity into the database
+        let metadata = self
+            .keystore
+            .collection
+            .insert_one(secret.clone(), None)
+            .await?;
+
+        // Set the ID if it was inserted and return the updated entity
+        if let Bson::ObjectId(oid) = metadata.inserted_id {
+            secret.set_id(oid);
+        }
+
+        Ok(secret)
+    }
+
+    async fn find_one_by(&self, kid: String) -> Result<Option<Secrets>, RepositoryError> {
+        let collection = self.keystore.clone();
+
+        let secret = collection
+            .collection
+            .find_one(doc! {"kid": kid}, None)
+            .await?;
+        if let Some(mut secrets) = secret {
+            let wrapped_secret_material = secrets.secret_material;
+            let master_key = std::env::var("MASTER_KEY").unwrap_or_default();
+            let seed = &[0; 32];
+            let cocoon = MiniCocoon::from_key(master_key.as_bytes(), seed);
+            let unwrap_secret = cocoon
+                .unwrap(wrapped_secret_material.as_bytes())
+                .unwrap_or_default();
+            secrets.secret_material = String::from_utf8(unwrap_secret).unwrap_or_default();
+            Ok(Some(secrets))
+        } else {
+            Ok(None)
+        }
+    }
+}
+
+pub struct SecretStore {
+    keystore: KeyStore<Secrets>,
+}
+
+impl SecretStore {
+    pub fn new() -> Self {
+        let keystore = KeyStore::get();
+        Self { keystore }
+    }
+}
+// }
+//     pub async fn securestore(&self, secret: Secrets) -> Result<Secrets, RepositoryError> {
+//         // read master key for encryption
+//         let master_key = std::env::var("MASTER_KEY").unwrap_or_default();
+
+//         let mut secret = secret;
+
+//         let seed = &[0; 32];
+//         let secret_material = secret.secret_material.as_bytes();
+//         let mut cocoon = MiniCocoon::from_key(master_key.as_bytes(), seed);
+//         let wrapped_key = cocoon.wrap(secret_material).unwrap_or_default();
+//         secret.secret_material = String::from_utf8(wrapped_key).unwrap_or_default();
+
+//         // Insert the new entity into the database
+//         let metadata = self
+//             .keystore
+//             .collection
+//             .insert_one(secret.clone(), None)
+//             .await?;
+
+//         // Set the ID if it was inserted and return the updated entity
+//         if let Bson::ObjectId(oid) = metadata.inserted_id {
+//             secret.set_id(oid);
+//         }
+
+//         Ok(secret)
+//     }
+//     async fn find_one_by(&self, kid: String) -> Result<Option<Secrets>, RepositoryError> {
+//         let collection = self.keystore.clone();
+
+//         let secret = collection
+//             .collection
+//             .find_one(doc! {"kid": kid}, None)
+//             .await?;
+//         if let Some(mut secrets) = secret {
+//             let wrapped_secret_material = secrets.secret_material;
+//             let master_key = std::env::var("MASTER_KEY").unwrap_or_default();
+//             let seed = &[0; 32];
+//             let cocoon = MiniCocoon::from_key(master_key.as_bytes(), seed);
+//             let unwrap_secret = cocoon
+//                 .unwrap(wrapped_secret_material.as_bytes())
+//                 .unwrap_or_default();
+//             secrets.secret_material = String::from_utf8(unwrap_secret).unwrap_or_default();
+//             Ok(Some(secrets))
+//         } else {
+//             Ok(None)
+//         }
+//     }
+// }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct Secrets {
@@ -20,7 +142,7 @@ pub struct Secrets {
 
     pub kid: String,
 
-    pub secret_material: Jwk,
+    pub secret_material: String,
 }
 
 impl Identifiable for Secrets {
@@ -30,10 +152,6 @@ impl Identifiable for Secrets {
 
     fn set_id(&mut self, id: ObjectId) {
         self.id = Some(id);
-    }
-    fn get_secret(&self) -> Option<Vec<u8>> {
-        let secret = to_vec(&self.secret_material).unwrap_or_default();
-        Some(secret)
     }
 }
 
@@ -98,21 +216,21 @@ where
 }
 
 #[async_trait]
-impl<T> Repository<T> for KeyStore<T>
-where
-    T: Sized + Clone + Send + Sync + 'static,
-    T: Identifiable + Unpin,
-    T: Serialize + for<'de> Deserialize<'de>,
-{
-    fn get_collection(&self) -> Arc<RwLock<Collection<T>>> {
-        Arc::new(RwLock::new(self.collection.clone()))
+impl Repository<Secrets> for SecretStore {
+    fn get_collection(&self) -> Arc<RwLock<Collection<Secrets>>> {
+        Arc::new(RwLock::new(self.keystore.collection.clone()))
+    }
+
+    async fn store(&self, entity: Secrets) -> Result<Secrets, RepositoryError> {
+        let secrets = self.securestore(entity).await?;
+        Ok(secrets)
     }
 }
 
 #[cfg(any(test, feature = "test-utils"))]
 pub mod tests {
     use super::*;
-    use database::{Repository, RepositoryError, SecureRepository};
+    use database::{Repository, RepositoryError};
     use mongodb::bson::{doc, Bson, Document};
     use serde_json::json;
     use std::{borrow::Borrow, collections::HashMap, sync::RwLock};
@@ -187,20 +305,6 @@ pub mod tests {
             Ok(())
         }
     }
-    // impl SecureRepository<Secrets> for MockKeyStore  {
-    //       // Implement a dummy get_collection method
-    //       fn get_collection(&self) -> Arc<tokio::sync::RwLock<Collection<Secrets>>> {
-    //         // In-memory, we don't have an actual collection, but we can create a dummy Arc<Mutex> for compatibility.
-    //         unimplemented!("This is a mock repository, no real collection exists.")
-    //     }
-
-    //     async fn wrap_store(&self, secrets: Secrets) -> Result<Secrets, RepositoryError> {
-    //         let seed = &[0; 32];
-    //         let mut cocoon = MiniCocoon::from_key("master_key".as_bytes(), seed);
-    //         let secret = to_vec(&secrets.secret_material).unwrap();
-    //         let wrapped_key = cocoon.wrap(&secret).unwrap_or_default();
-    //     }
-    // }
 
     #[tokio::test]
     async fn test_keystore_flow() {
@@ -223,6 +327,13 @@ pub mod tests {
               }"#,
         )
         .unwrap();
+        let secret1 = serde_json::to_vec(&secret1).unwrap();
+
+        let secret1 = String::from_utf8(secret1).unwrap_or_default();
+
+        let secret2 = serde_json::to_vec(&secret2).unwrap();
+
+        let secret2 = String::from_utf8(secret2).unwrap_or_default();
 
         let secrets = vec![
             Secrets {
