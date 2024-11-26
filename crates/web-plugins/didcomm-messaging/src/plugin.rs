@@ -12,28 +12,25 @@ use std::sync::Arc;
 
 #[derive(Default)]
 pub struct MediatorCoordination {
-    env: Option<MediatorCoordinationPluginEnv>,
+    env: Option<DidcommMessagingPluginEnv>,
     db: Option<Database>,
 }
 
-struct MediatorCoordinationPluginEnv {
+struct DidcommMessagingPluginEnv {
     public_domain: String,
     storage_dirpath: String,
 }
 
 /// Loads environment variables required for this plugin
-fn load_plugin_env() -> Result<MediatorCoordinationPluginEnv, PluginError> {
+fn load_plugin_env() -> Result<DidcommMessagingPluginEnv, PluginError> {
     let public_domain = std::env::var("SERVER_PUBLIC_DOMAIN").map_err(|_| {
-        tracing::error!("SERVER_PUBLIC_DOMAIN env variable required");
-        PluginError::InitError
+        PluginError::InitError("SERVER_PUBLIC_DOMAIN env variable required".to_owned())
     })?;
 
-    let storage_dirpath = std::env::var("STORAGE_DIRPATH").map_err(|_| {
-        tracing::error!("STORAGE_DIRPATH env variable required");
-        PluginError::InitError
-    })?;
+    let storage_dirpath = std::env::var("STORAGE_DIRPATH")
+        .map_err(|_| PluginError::InitError("STORAGE_DIRPATH env variable required".to_owned()))?;
 
-    Ok(MediatorCoordinationPluginEnv {
+    Ok(DidcommMessagingPluginEnv {
         public_domain,
         storage_dirpath,
     })
@@ -54,8 +51,9 @@ impl Plugin for MediatorCoordination {
         if did_endpoint::validate_diddoc(env.storage_dirpath.as_ref(), &keystore, &mut filesystem)
             .is_err()
         {
-            tracing::error!("diddoc validation failed; is plugin did-endpoint mounted?");
-            return Err(PluginError::InitError);
+            return Err(PluginError::InitError(
+                "diddoc validation failed; is plugin did-endpoint mounted?".to_owned(),
+            ));
         }
 
         // Check connectivity to database
@@ -79,16 +77,20 @@ impl Plugin for MediatorCoordination {
         Ok(())
     }
 
-    fn routes(&self) -> Router {
+    fn routes(&self) -> Result<Router, PluginError> {
         // Ensure the plugin is properly mounted
-        let env = self.env.as_ref().expect("Plugin not mounted");
-        let db = self.db.as_ref().expect("Plugin not mounted");
-
-        let msg = "This should not occur following successful mounting.";
+        let env = self.env.as_ref().ok_or(PluginError::Other(
+            "Failed to get environment variables. Check if the plugin is mounted".to_owned(),
+        ))?;
+        let db = self.db.as_ref().ok_or(PluginError::Other(
+            "Failed to get database handle. Check if the plugin is mounted".to_owned(),
+        ))?;
 
         // Load crypto identity
         let fs = StdFileSystem;
-        let diddoc = utils::read_diddoc(&fs, &env.storage_dirpath).expect(msg);
+        let diddoc = utils::read_diddoc(&fs, &env.storage_dirpath).map_err(|_| {
+            PluginError::Other("This should not occur following successful mounting.".to_owned())
+        })?;
 
         // Load persistence layer
         let repository = AppStateRepository {
@@ -98,9 +100,13 @@ impl Plugin for MediatorCoordination {
         };
 
         // Compile state
-        let state = AppState::from(env.public_domain.clone(), diddoc,None, Some(repository));
+        let state = AppState::from(env.public_domain.clone(), diddoc, None, Some(repository))
+            .map_err(|err| {
+                tracing::error!("Failed to load app state: {:?}", err);
+                PluginError::Other("Failed to load app state".to_owned())
+            })?;
 
         // Build router
-        web::routes(Arc::new(state))
+        Ok(web::routes(Arc::new(state)))
     }
 }

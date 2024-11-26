@@ -5,12 +5,12 @@ use axum::{
 };
 use didcomm::Message;
 use hyper::{header::CONTENT_TYPE, StatusCode};
-use mediator_coordination::web;
+use mediator_coordination::handler;
 use shared::{
     constants::{
-        DELIVERY_REQUEST_3_0, DIDCOMM_ENCRYPTED_MIME_TYPE, KEYLIST_QUERY_2_0, KEYLIST_UPDATE_2_0,
-        LIVE_MODE_CHANGE_3_0, MEDIATE_FORWARD_2_0, MEDIATE_REQUEST_2_0, MESSAGE_RECEIVED_3_0,
-        STATUS_REQUEST_3_0, TRUST_PING_2_0,
+        DELIVERY_REQUEST_3_0, DIDCOMM_ENCRYPTED_MIME_TYPE, DISCOVER_FEATURE, KEYLIST_QUERY_2_0,
+        KEYLIST_UPDATE_2_0, LIVE_MODE_CHANGE_3_0, MEDIATE_FORWARD_2_0, MEDIATE_REQUEST_2_0,
+        MESSAGE_RECEIVED_3_0, STATUS_REQUEST_3_0, TRUST_PING_2_0,
     },
     state::AppState,
 };
@@ -22,27 +22,22 @@ pub(crate) async fn process_didcomm_message(
     Extension(message): Extension<Message>,
 ) -> Response {
     let response: Result<Option<Message>, Response> = match message.type_.as_str() {
-        MEDIATE_FORWARD_2_0 => {
-            forward::web::handler::mediator_forward_process(state.clone(), message)
+        MEDIATE_FORWARD_2_0 => forward::handler::mediator_forward_process(state.clone(), message)
+            .await
+            .map_err(|e| e.into_response()),
+
+        MEDIATE_REQUEST_2_0 => handler::stateful::process_mediate_request(state.clone(), &message)
+            .await
+            .map_err(|e| e.into_response()),
+
+        KEYLIST_UPDATE_2_0 => {
+            handler::stateful::process_plain_keylist_update_message(Arc::clone(&state), message)
                 .await
                 .map_err(|e| e.into_response())
         }
-
-        MEDIATE_REQUEST_2_0 => {
-            web::handler::stateful::process_mediate_request(state.clone(), &message)
-                .await
-                .map_err(|e| e.into_response())
-        }
-
-        KEYLIST_UPDATE_2_0 => web::handler::stateful::process_plain_keylist_update_message(
-            Arc::clone(&state),
-            message,
-        )
-        .await
-        .map_err(|e| e.into_response()),
 
         KEYLIST_QUERY_2_0 => {
-            web::handler::stateful::process_plain_keylist_query_message(state.clone(), message)
+            handler::stateful::process_plain_keylist_query_message(state.clone(), message)
                 .await
                 .map_err(|e| e.into_response())
         }
@@ -70,6 +65,12 @@ pub(crate) async fn process_didcomm_message(
         TRUST_PING_2_0 => trust_ping::handler::handle_trust_ping(state.clone(), message)
             .await
             .map_err(|e| e.into_response()),
+
+        DISCOVER_FEATURE => {
+            discover_features::handler::handle_query_request(state.clone(), message)
+                .await
+                .map_err(|e| e.into_response())
+        }
 
         _ => return (StatusCode::BAD_REQUEST, "Unsupported operation".to_string()).into_response(),
     };

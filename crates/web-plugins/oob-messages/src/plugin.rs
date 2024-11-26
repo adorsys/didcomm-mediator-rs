@@ -18,18 +18,15 @@ impl Plugin for OOBMessages {
         let mut fs = StdFileSystem;
 
         let server_public_domain = std::env::var("SERVER_PUBLIC_DOMAIN").map_err(|_| {
-            tracing::error!("SERVER_PUBLIC_DOMAIN env variable required");
-            PluginError::InitError
+            PluginError::InitError("SERVER_PUBLIC_DOMAIN env variable required".to_owned())
         })?;
 
         let server_local_port = std::env::var("SERVER_LOCAL_PORT").map_err(|_| {
-            tracing::error!("SERVER_LOCAL_PORT env variable required");
-            PluginError::InitError
+            PluginError::InitError("SERVER_LOCAL_PORT env variable required".to_owned())
         })?;
 
         let storage_dirpath = std::env::var("STORAGE_DIRPATH").map_err(|_| {
-            tracing::error!("STORAGE_DIRPATH env variable required");
-            PluginError::InitError
+            PluginError::InitError("STORAGE_DIRPATH env variable required".to_owned())
         })?;
 
         let oob_inv = retrieve_or_generate_oob_inv(
@@ -39,16 +36,16 @@ impl Plugin for OOBMessages {
             &storage_dirpath,
         )
         .map_err(|e| {
-            tracing::error!("Error retrieving or generating OOB invitation: {}", e);
-            PluginError::InitError
+            PluginError::InitError(format!(
+                "Error retrieving or generating OOB invitation: {e}"
+            ))
         })?;
 
         tracing::debug!("Out Of Band Invitation: {}", oob_inv);
 
         let _ =
             retrieve_or_generate_qr_image(&mut fs, &storage_dirpath, &oob_inv).map_err(|e| {
-                println!("Error retrieving or generating QR code image: {}", e);
-                PluginError::InitError
+                PluginError::InitError(format!("Error retrieving or generating QR code image: {e}"))
             })?;
 
         Ok(())
@@ -58,7 +55,7 @@ impl Plugin for OOBMessages {
         Ok(())
     }
 
-    fn routes(&self) -> Router {
-        web::routes()
+    fn routes(&self) -> Result<Router, PluginError> {
+        Ok(web::routes())
     }
 }

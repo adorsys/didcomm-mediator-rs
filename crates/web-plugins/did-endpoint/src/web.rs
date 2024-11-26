@@ -36,7 +36,10 @@ async fn diddoc(State(state): State<Arc<DidEndPointState>>) -> Result<Json<Value
     let did_path = Path::new(&storage_dirpath).join("did.json");
 
     match filesystem.read_to_string(&did_path).as_ref() {
-        Ok(content) => Ok(Json(serde_json::from_str(&content).unwrap())),
+        Ok(content) => Ok(Json(serde_json::from_str(&content).map_err(|_| {
+            tracing::error!("Unparseable did.json");
+            StatusCode::NOT_FOUND
+        })?)),
         Err(_) => Err(StatusCode::NOT_FOUND),
     }
 }
