@@ -1,0 +1,30 @@
+[package]
+name = "basic-message"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+shared.workspace = true
+did-utils.workspace = true
+database.workspace = true
+keystore.workspace = true
+
+serde.workspace = true
+didcomm.workspace = true
+mongodb.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+uuid = { workspace = true, features = ["v4"] }
+axum = { workspace = true, features = ["macros"] }
+tokio = { workspace = true, features = ["full"] }
+chrono.workspace = true
+
+[dev-dependencies]
+did-utils.workspace = true
+keystore.workspace = true
+hyper = "0.14.27"
+shared = { workspace = true, features = ["test-utils"] }
+tokio = { version = "1.27.0", default-features = false, features = [
+    "macros",
+    "rt",
+] }
