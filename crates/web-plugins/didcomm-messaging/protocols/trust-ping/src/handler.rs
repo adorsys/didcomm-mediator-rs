@@ -6,7 +6,7 @@ use shared::state::AppState;
 
 use crate::{constants::TRUST_PING_RESPONSE_2_0, error::TrustPingError, model::TrustPingResponse};
 
-pub async fn handle_trust_ping(
+pub(crate) async fn handle_trust_ping(
     state: Arc<AppState>,
     message: Message,
 ) -> Result<Option<Message>, TrustPingError> {

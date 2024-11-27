@@ -27,7 +27,7 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 /// Process a DIDComm mediate request
-pub async fn process_mediate_request(
+pub(crate) async fn process_mediate_request(
     state: Arc<AppState>,
     plain_message: Message,
 ) -> Result<Option<Message>, MediationError> {
@@ -202,7 +202,7 @@ fn generate_did_peer(service_endpoint: String) -> (String, Ed25519KeyPair, X2551
     )
 }
 
-pub async fn process_plain_keylist_update_message(
+pub(crate) async fn process_plain_keylist_update_message(
     state: Arc<AppState>,
     message: Message,
 ) -> Result<Option<Message>, MediationError> {
@@ -330,7 +330,7 @@ pub async fn process_plain_keylist_update_message(
     ))
 }
 
-pub async fn process_plain_keylist_query_message(
+pub(crate) async fn process_plain_keylist_query_message(
     state: Arc<AppState>,
     message: Message,
 ) -> Result<Option<Message>, MediationError> {

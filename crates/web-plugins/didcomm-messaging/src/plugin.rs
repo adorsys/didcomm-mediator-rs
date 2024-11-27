@@ -61,7 +61,7 @@ impl Plugin for DidcommMessaging {
             did_endpoint::validate_diddoc(env.storage_dirpath.as_ref(), &keystore, &mut filesystem)
         {
             return Err(PluginError::InitError(format!(
-                "diddoc validation failed: {:?}",
+                "DID document validation failed: {:?}",
                 err
             )));
         }
@@ -70,7 +70,7 @@ impl Plugin for DidcommMessaging {
         let mut container = MessagePluginContainer::new();
         if let Err(err) = container.load() {
             return Err(PluginError::InitError(format!(
-                "Error loading message container: {:?}",
+                "Error loading didcomm messages container: {:?}",
                 err
             )));
         }

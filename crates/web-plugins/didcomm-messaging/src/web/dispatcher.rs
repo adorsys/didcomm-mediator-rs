@@ -59,55 +59,20 @@ async fn process_response(
 
 #[cfg(test)]
 mod tests {
-    use std::vec;
-
     use super::*;
     use crate::manager::MessagePluginContainer;
     use axum::Router;
     use hyper::{Body, Method, Request};
-    use mediator_coordination::handler;
     use message_api::{MessageHandler, MessagePlugin, MessageRouter};
     use once_cell::sync::Lazy;
     use serde_json::{json, Value};
-    use shared::{
-        repository::tests::MockConnectionRepository, state::AppStateRepository,
-        utils::tests_utils::tests as global,
-    };
+    use shared::utils::tests_utils::tests as global;
     use tokio::sync::RwLock;
     use tower::ServiceExt;
 
     #[allow(clippy::needless_update)]
     pub fn setup() -> (Router, Arc<AppState>) {
         let state = global::setup();
-
-        let mut state = match Arc::try_unwrap(state) {
-            Ok(state) => state,
-            Err(_) => panic!(),
-        };
-
-        state.repository = Some(AppStateRepository {
-            connection_repository: Arc::new(MockConnectionRepository::from(
-                serde_json::from_str(
-                    r##"[
-                      {
-                        "_id": {
-                            "$oid": "6580701fd2d92bb3cd291b2a"
-                        },
-                        "client_did": "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7",
-                        "mediator_did": "did:web:alice-mediator.com:alice_mediator_pub",
-                        "routing_did": "did:key:generated",
-                        "keylist": [
-                            "did:key:alice_identity_pub1@alice_mediator"
-                        ]
-                    }
-                ]"##,
-                )
-                .unwrap(),
-            )),
-            ..state.repository.unwrap()
-        });
-
-        let state = Arc::new(state);
         let app = crate::web::routes(state.clone());
 
         (app, state)
@@ -121,12 +86,34 @@ mod tests {
     impl MessageHandler for MockKeylistUpdateHandler {
         async fn handle(
             &self,
-            state: Arc<AppState>,
+            _state: Arc<AppState>,
             message: Message,
         ) -> Result<Option<Message>, Response> {
-            handler::stateful::process_plain_keylist_update_message(state, message)
-                .await
-                .map_err(|e| e.into_response())
+            let response_body = json!({
+                "updated": [
+                    {
+                        "recipient_did": "did:key:alice_identity_pub1@alice_mediator",
+                        "action": "remove",
+                        "result": "success"
+                    },
+                    {
+                        "recipient_did": "did:key:alice_identity_pub2@alice_mediator",
+                        "action": "add",
+                        "result": "success"
+                    },
+                ]
+            });
+
+            let response = Message::build(
+                message.id.clone(),
+                "https://didcomm.org/coordinate-mediation/2.0/keylist-update-response".to_owned(),
+                response_body,
+            )
+            .to(message.from.unwrap())
+            .from(message.to.unwrap()[0].clone())
+            .finalize();
+
+            Ok(Some(response))
         }
     }
 

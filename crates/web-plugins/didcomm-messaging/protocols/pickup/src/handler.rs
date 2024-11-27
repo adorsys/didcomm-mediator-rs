@@ -18,7 +18,7 @@ use std::{str::FromStr, sync::Arc};
 use uuid::Uuid;
 
 // Process pickup status request
-pub async fn handle_status_request(
+pub(crate) async fn handle_status_request(
     state: Arc<AppState>,
     message: Message,
 ) -> Result<Option<Message>, PickupError> {
@@ -60,7 +60,7 @@ pub async fn handle_status_request(
 }
 
 // Process pickup delivery request
-pub async fn handle_delivery_request(
+pub(crate) async fn handle_delivery_request(
     state: Arc<AppState>,
     message: Message,
 ) -> Result<Option<Message>, PickupError> {
@@ -136,7 +136,7 @@ pub async fn handle_delivery_request(
 }
 
 // Process pickup messages acknowledgement
-pub async fn handle_message_acknowledgement(
+pub(crate) async fn handle_message_acknowledgement(
     state: Arc<AppState>,
     message: Message,
 ) -> Result<Option<Message>, PickupError> {
@@ -200,7 +200,7 @@ pub async fn handle_message_acknowledgement(
 }
 
 // Process live delivery change request
-pub async fn handle_live_delivery_change(
+pub(crate) async fn handle_live_delivery_change(
     state: Arc<AppState>,
     message: Message,
 ) -> Result<Option<Message>, PickupError> {

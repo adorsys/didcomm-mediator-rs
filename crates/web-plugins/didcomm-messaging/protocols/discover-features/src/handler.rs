@@ -11,7 +11,7 @@ use uuid::Uuid;
 
 // handle discover feature request
 // https://didcomm.org/discover-features/2.0/
-pub async fn handle_query_request(
+pub(crate) async fn handle_query_request(
     state: Arc<AppState>,
     message: Message,
 ) -> Result<Option<Message>, DiscoveryError> {
