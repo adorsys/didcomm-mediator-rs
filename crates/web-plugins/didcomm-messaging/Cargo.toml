@@ -11,23 +11,45 @@ keystore.workspace = true
 shared.workspace = true
 plugin-api.workspace = true
 filesystem.workspace = true
-forward.workspace = true
-pickup.workspace = true
-trust-ping.workspace = true
-discover-features.workspace = true
-mediator-coordination.workspace = true
+message-api.workspace = true
+
+# optional dependencies
+forward = { workspace = true, optional = true }
+pickup = { workspace = true, optional = true }
+trust-ping = { workspace = true, optional = true }
+discover-features = { workspace = true, optional = true }
+mediator-coordination = { workspace = true, optional = true }
 
 mongodb.workspace = true
 didcomm.workspace = true
 tracing.workspace = true
+once_cell.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["full"] }
 hyper = { workspace = true, features = ["full"] }
 axum = { workspace = true, features = ["macros"] }
+serde = { version = "1.0", features = ["derive"] }
+
+
+[features]
+default = [
+    "routing",
+    "pickup",
+    "trust-ping",
+    "discover-features",
+    "mediator-coordination",
+]
+
+routing = ["dep:forward"]
+pickup = ["dep:pickup"]
+trust-ping = ["dep:trust-ping"]
+discover-features = ["dep:discover-features"]
+mediator-coordination = ["dep:mediator-coordination"]
 
 
 [dev-dependencies]
+async-trait.workspace = true
 mockall = "0.13.0"
 uuid = { workspace = true, features = ["v4"] }
 json-canon = "0.1.3"

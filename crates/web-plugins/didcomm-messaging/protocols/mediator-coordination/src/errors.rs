@@ -4,7 +4,7 @@ use thiserror::Error;
 
 /// Represents errors that can occur during mediation.
 #[derive(Debug, Error, PartialEq, Eq)]
-pub enum MediationError {
+pub(crate) enum MediationError {
     #[error("No return route all decoration")]
     NoReturnRouteAllDecoration,
     #[error("invalid message type")]

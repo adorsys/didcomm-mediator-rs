@@ -76,6 +76,7 @@ pub async fn did_rotation(
 
 #[cfg(test)]
 mod test {
+    use crate::constants::DIDCOMM_ENCRYPTED_MIME_TYPE;
     use std::{sync::Arc, vec};
 
     use did_utils::{didcore::Document, jwk::Jwk};

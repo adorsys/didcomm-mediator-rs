@@ -1,7 +1,6 @@
+mod constants;
 mod error;
+mod handler;
 mod model;
 
-pub mod handler;
-
-// Re-exports
-pub use error::PickupError;
+pub mod plugin;

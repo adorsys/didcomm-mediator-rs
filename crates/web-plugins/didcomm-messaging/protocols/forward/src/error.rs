@@ -3,7 +3,7 @@ use hyper::StatusCode;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum ForwardError {
+pub(crate) enum ForwardError {
     #[error("message body is malformed")]
     MalformedBody,
     #[error("Uncoordinated sender")]

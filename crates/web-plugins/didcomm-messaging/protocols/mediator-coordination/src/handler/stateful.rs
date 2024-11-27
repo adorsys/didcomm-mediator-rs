@@ -1,4 +1,5 @@
 use crate::{
+    constants::{KEYLIST_2_0, KEYLIST_UPDATE_RESPONSE_2_0, MEDIATE_DENY_2_0, MEDIATE_GRANT_2_0},
     errors::MediationError,
     handler::midlw::ensure_jwm_type_is_mediation_request,
     model::stateful::coord::{
@@ -18,7 +19,6 @@ use keystore::Secrets;
 use mongodb::bson::doc;
 use serde_json::json;
 use shared::{
-    constants::{KEYLIST_2_0, KEYLIST_UPDATE_RESPONSE_2_0, MEDIATE_DENY_2_0, MEDIATE_GRANT_2_0},
     midlw::ensure_transport_return_route_is_decorated_all,
     repository::entity::Connection,
     state::{AppState, AppStateRepository},
@@ -27,9 +27,9 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 /// Process a DIDComm mediate request
-pub async fn process_mediate_request(
+pub(crate) async fn process_mediate_request(
     state: Arc<AppState>,
-    plain_message: &Message,
+    plain_message: Message,
 ) -> Result<Option<Message>, MediationError> {
     // This is to Check message type compliance
     ensure_jwm_type_is_mediation_request(&plain_message)?;
@@ -107,7 +107,7 @@ pub async fn process_mediate_request(
             Ok(_stored_connection) => {
                 tracing::info!("Successfully stored agreement keys.")
             }
-            Err(error) => tracing::debug!("Error storing agreement keys: {:?}", error),
+            Err(error) => tracing::error!("Error storing agreement keys: {:?}", error),
         }
 
         let auth_keys_jwk: Jwk = auth_keys.try_into().unwrap();
@@ -122,7 +122,7 @@ pub async fn process_mediate_request(
             Ok(_stored_connection) => {
                 tracing::info!("Successfully stored authentication keys.")
             }
-            Err(error) => tracing::debug!("Error storing authentication keys: {:?}", error),
+            Err(error) => tracing::error!("Error storing authentication keys: {:?}", error),
         }
 
         let mediation_grant = create_mediation_grant(&routing_did);
@@ -140,7 +140,7 @@ pub async fn process_mediate_request(
             Ok(_stored_connection) => {
                 tracing::info!("Successfully stored connection: ")
             }
-            Err(error) => tracing::debug!("Error storing connection: {:?}", error),
+            Err(error) => tracing::error!("Error storing connection: {:?}", error),
         }
 
         Ok(Some(
@@ -202,7 +202,7 @@ fn generate_did_peer(service_endpoint: String) -> (String, Ed25519KeyPair, X2551
     )
 }
 
-pub async fn process_plain_keylist_update_message(
+pub(crate) async fn process_plain_keylist_update_message(
     state: Arc<AppState>,
     message: Message,
 ) -> Result<Option<Message>, MediationError> {
@@ -330,7 +330,7 @@ pub async fn process_plain_keylist_update_message(
     ))
 }
 
-pub async fn process_plain_keylist_query_message(
+pub(crate) async fn process_plain_keylist_query_message(
     state: Arc<AppState>,
     message: Message,
 ) -> Result<Option<Message>, MediationError> {

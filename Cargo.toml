@@ -26,7 +26,6 @@ members = [
     "crates/web-plugins/didcomm-messaging/protocols/*",
 ]
 
-
 [workspace.dependencies]
 database = { path = "./crates/database", version = "0.1.0" }
 filesystem = { path = "./crates/filesystem", version = "0.1.0" }
@@ -37,12 +36,14 @@ oob-messages = { path = "./crates/web-plugins/oob-messages", version = "0.1.0" }
 didcomm-messaging = { path = "./crates/web-plugins/didcomm-messaging", version = "0.1.0" }
 did-utils = { path = "./crates/web-plugins/didcomm-messaging/did-utils", version = "0.1.0" }
 shared = { path = "./crates/web-plugins/didcomm-messaging/shared", version = "0.1.0" }
+message-api = { path = "./crates/web-plugins/didcomm-messaging/message-api", version = "0.1.0" }
 pickup = { path = "./crates/web-plugins/didcomm-messaging/protocols/pickup", version = "0.1.0" }
 forward = { path = "./crates/web-plugins/didcomm-messaging/protocols/forward", version = "0.1.0" }
 trust-ping = { path = "./crates/web-plugins/didcomm-messaging/protocols/trust-ping", version = "0.1.0" }
 basic-message = { path = "./crates/web-plugins/didcomm-messaging/protocols/basic-message", version = "0.1.0" }
 discover-features = { path = "./crates/web-plugins/didcomm-messaging/protocols/discover-features", version = "0.1.0" }
 mediator-coordination = { path = "./crates/web-plugins/didcomm-messaging/protocols/mediator-coordination", version = "0.1.0" }
+
 
 # Other common dependencies
 serde = "1.0"
@@ -125,6 +126,12 @@ plugin-index = ["dep:chrono"]
 plugin-did_endpoint = ["dep:did-endpoint"]
 plugin-oob_messages = ["dep:oob-messages"]
 plugin-didcomm_messaging = ["dep:didcomm-messaging"]
+
+routing = ["plugin-didcomm_messaging", "didcomm-messaging/routing"]
+pickup = ["plugin-didcomm_messaging", "didcomm-messaging/pickup"]
+trust-ping = ["plugin-didcomm_messaging", "didcomm-messaging/trust-ping"]
+discover-features = ["plugin-didcomm_messaging", "didcomm-messaging/discover-features"]
+mediator-coordination = ["plugin-didcomm_messaging", "didcomm-messaging/mediator-coordination"]
 
 
 [dev-dependencies]

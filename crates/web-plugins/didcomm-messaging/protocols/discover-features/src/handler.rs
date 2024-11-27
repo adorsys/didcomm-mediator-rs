@@ -1,16 +1,17 @@
 use crate::{
+    constants::DISCOVER_FEATURE,
     errors::DiscoveryError,
     model::{Disclosures, DisclosuresContent},
 };
 use didcomm::Message;
 use serde_json::json;
-use shared::{constants::DISCOVER_FEATURE, state::AppState};
+use shared::state::AppState;
 use std::{collections::HashSet, sync::Arc};
 use uuid::Uuid;
 
 // handle discover feature request
 // https://didcomm.org/discover-features/2.0/
-pub async fn handle_query_request(
+pub(crate) async fn handle_query_request(
     state: Arc<AppState>,
     message: Message,
 ) -> Result<Option<Message>, DiscoveryError> {
@@ -117,20 +118,17 @@ fn build_response(disclosed_protocols: HashSet<String>) -> Message {
 #[cfg(test)]
 mod test {
 
-    use std::{sync::Arc, vec};
-
+    use crate::{constants::QUERY_FEATURE, model::Queries};
     use did_utils::didcore::Document;
     use didcomm::Message;
     use keystore::tests::MockKeyStore;
     use serde_json::json;
     use shared::{
-        constants::QUERY_FEATURE,
         repository::tests::{MockConnectionRepository, MockMessagesRepository},
         state::{AppState, AppStateRepository},
     };
+    use std::{sync::Arc, vec};
     use uuid::Uuid;
-
-    use crate::model::Queries;
 
     use super::handle_query_request;
     const MEDIATION: &str = "https://didcomm.org/coordinate-mediation/2.0";

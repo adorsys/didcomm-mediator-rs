@@ -283,7 +283,7 @@ mod tests {
 
     use serde_json::{json, Value};
 
-    use shared::constants::*;
+    use crate::constants::*;
 
     #[test]
     fn can_serde_return_route_header_enum() {

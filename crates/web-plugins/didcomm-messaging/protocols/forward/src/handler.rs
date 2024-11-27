@@ -1,4 +1,4 @@
-use crate::ForwardError;
+use crate::error::ForwardError;
 use database::Repository;
 use didcomm::{AttachmentData, Message};
 use mongodb::bson::doc;
@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 /// Mediator receives forwarded messages, extract the next field in the message body, and the attachments in the message
 /// then stores the attachment with the next field as key for pickup
-pub async fn mediator_forward_process(
+pub(crate) async fn mediator_forward_process(
     state: Arc<AppState>,
     message: Message,
 ) -> Result<Option<Message>, ForwardError> {
