@@ -131,6 +131,7 @@ plugin-didcomm_messaging = ["dep:didcomm-messaging"]
 routing = ["plugin-didcomm_messaging", "didcomm-messaging/routing"]
 pickup = ["plugin-didcomm_messaging", "didcomm-messaging/pickup"]
 trust-ping = ["plugin-didcomm_messaging", "didcomm-messaging/trust-ping"]
+discover-features = ["plugin-didcomm_messaging", "didcomm-messaging/discover-features"]
 mediator-coordination = ["plugin-didcomm_messaging", "didcomm-messaging/mediator-coordination"]
 
 
