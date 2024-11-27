@@ -1,3 +1,5 @@
+mod database;
+
 use async_trait::async_trait;
 use mongodb::{
     bson::{self, doc, oid::ObjectId, Bson, Document as BsonDocument},

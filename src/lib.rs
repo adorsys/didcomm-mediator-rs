@@ -1,4 +1,6 @@
 pub mod plugins;
+mod health;
+mod metrics;
 
 use axum::Router;
 use plugins::handler::PluginContainer;
