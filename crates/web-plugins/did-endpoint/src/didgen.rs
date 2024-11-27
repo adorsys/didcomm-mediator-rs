@@ -35,6 +35,7 @@ pub fn didgen<K, F>(
     server_public_domain: &str,
     keystore: &K,
     filesystem: &mut F,
+    master_key: [u8; 32],
 ) -> Result<Document, Error>
 where
     K: Repository<Secrets>,
@@ -78,8 +79,20 @@ where
         .map_err(|_| Error::KeyConversionError)?;
 
     // Store authentication and agreement keys in the keystore.
-    store_key(auth_keys_jwk, &diddoc, &diddoc.authentication, keystore)?;
-    store_key(agreem_keys_jwk, &diddoc, &diddoc.key_agreement, keystore)?;
+    store_key(
+        auth_keys_jwk,
+        &diddoc,
+        master_key,
+        &diddoc.authentication,
+        keystore,
+    )?;
+    store_key(
+        agreem_keys_jwk,
+        &diddoc,
+        master_key,
+        &diddoc.key_agreement,
+        keystore,
+    )?;
 
     // Serialize DID document and persist to filesystem
     persist_did_document(storage_dirpath, &diddoc, filesystem)?;
@@ -107,13 +120,13 @@ fn generate_did_document(
 fn store_key<S>(
     key: Jwk,
     diddoc: &Document,
+    master_key: [u8; 32],
     field: &Option<Vec<VerificationMethodType>>,
     keystore: &S,
 ) -> Result<(), Error>
 where
     S: Repository<Secrets>,
-    S: Material
-
+    S: Material,
 {
     // Extract key ID from the DID document
     let kid = match field.as_ref().unwrap()[0].clone() {
@@ -122,7 +135,6 @@ where
     };
     let kid = util::handle_vm_id(&kid, diddoc);
     let key = serde_json::to_vec(&key).unwrap_or_default();
-    let key = String::from_utf8(key).unwrap_or_default();
 
     // Create Secrets for the key
     let secret = Secrets {
@@ -134,7 +146,7 @@ where
     // Store the secret in the keystore
     task::block_in_place(move || {
         Handle::current().block_on(async move {
-            match keystore.securestore(secret).await {
+            match keystore.securestore(secret, master_key).await {
                 Ok(_) => tracing::info!("Successfully stored secret."),
                 Err(error) => tracing::error!("Error storing secret: {:?}", error),
             }
@@ -229,6 +241,7 @@ where
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
+    use axum::async_trait;
     use database::RepositoryError;
     use filesystem::FileSystem;
     use mockall::{
@@ -299,12 +312,35 @@ pub(crate) mod tests {
             .expect_store()
             .times(2)
             .returning(move |_| Ok(secret.clone()));
+        let master_key = [0; 32];
 
-        let result = didgen(&path, "https://example.com", &mock_keystore, &mut mock_fs);
+        let result = didgen(
+            &path,
+            "https://example.com",
+            &mock_keystore,
+            &mut mock_fs,
+            master_key,
+        );
 
         assert!(result.is_ok());
     }
-
+    #[async_trait]
+    impl Material for MockKeystore {
+        async fn find_one_by(
+            &self,
+            _kid: String,
+            _master_key: [u8; 32],
+        ) -> Result<Option<Secrets>, RepositoryError> {
+            todo!()
+        }
+       async fn securestore(
+            &self,
+            _secret: Secrets,
+            _master_key: [u8; 32],
+        ) -> Result<Secrets, RepositoryError> {
+            todo!()
+        }
+    }
     #[tokio::test(flavor = "multi_thread")]
     async fn test_did_validation() {
         let mut mock_fs = MockFileSystem::new();

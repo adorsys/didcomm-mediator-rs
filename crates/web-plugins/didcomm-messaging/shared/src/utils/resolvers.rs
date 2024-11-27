@@ -304,8 +304,7 @@ mod tests {
         )
         .unwrap();
         let secret = to_vec(&secret).unwrap();
-        let secret = String::from_utf8(secret).unwrap();
-
+     
         let test_secret = Secrets {
             id: None,
             kid: secret_id.to_string(),

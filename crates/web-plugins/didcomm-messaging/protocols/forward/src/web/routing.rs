@@ -32,7 +32,10 @@ async fn checks(
     Ok(next.unwrap().to_string())
 }
 
-pub(crate) async fn handler(state: Arc<AppState>, message: Message) -> Result<Option<Message>, ForwardError> {
+pub(crate) async fn handler(
+    state: Arc<AppState>,
+    message: Message,
+) -> Result<Option<Message>, ForwardError> {
     let AppStateRepository {
         message_repository,
         connection_repository,
@@ -163,7 +166,9 @@ mod test {
         .await
         .expect("Unable unpack");
 
-        let msg = mediator_forward_process(Arc::new(state.clone()), msg).await.unwrap();
+        let msg = mediator_forward_process(Arc::new(state.clone()), msg)
+            .await
+            .unwrap();
 
         println!("Mediator1 is forwarding message \n{:?}\n", msg);
     }
@@ -191,6 +196,8 @@ mod test {
             }"#,
         )
         .unwrap();
+        let secret = serde_json::to_string(&secret).unwrap();
+        let secret = serde_json::to_vec(&secret).unwrap();
 
         let test_secret = Secrets {
             id: None,
