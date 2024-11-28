@@ -1,4 +1,4 @@
-mod database;
+mod data_storage;
 
 use async_trait::async_trait;
 use mongodb::{

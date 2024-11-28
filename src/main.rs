@@ -1,6 +1,11 @@
+use axum::{routing::get, Router};
 use axum::Server;
 use didcomm_mediator::app;
 use std::net::SocketAddr;
+
+// Import health and metrics modules
+mod health;
+mod metrics;
 
 #[tokio::main]
 async fn main() {
@@ -20,7 +25,12 @@ async fn main() {
 
 async fn generic_server_with_graceful_shutdown(addr: SocketAddr) {
     // Load plugins
-    let (mut plugin_container, router) = app();
+    let (mut plugin_container, app_router) = app();
+
+    // Add health and metrics routes to the app
+    let router = app_router
+        .merge(create_health_routes()) // Add health checks
+        .merge(create_metrics_routes()); // Add metrics endpoint
 
     // Spawn task for server
     tokio::spawn(async move {
@@ -36,6 +46,16 @@ async fn generic_server_with_graceful_shutdown(addr: SocketAddr) {
             let _ = plugin_container.unload();
         }
     };
+}
+
+// Create routes for health checks
+fn create_health_routes() -> Router {
+    Router::new().route("/health", get(health::health_check))
+}
+
+// Create routes for Prometheus metrics
+fn create_metrics_routes() -> Router {
+    Router::new().route("/metrics", get(metrics::metrics))
 }
 
 fn config_tracing() {

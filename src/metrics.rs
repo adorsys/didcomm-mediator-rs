@@ -1,14 +1,8 @@
-use prometheus::{Encoder, TextEncoder, register_counter_vec};
 use axum::response::IntoResponse;
+use hyper::StatusCode;
+use prometheus::{Encoder, TextEncoder};
 
-lazy_static::lazy_static! {
-    static ref HTTP_COUNTER: prometheus::CounterVec = register_counter_vec!(
-        "http_requests_total",
-        "Number of HTTP requests",
-        &["method", "endpoint"]
-    ).unwrap();
-}
-
+/// Prometheus metrics handler
 pub async fn metrics() -> impl IntoResponse {
     let encoder = TextEncoder::new();
     let mut buffer = Vec::new();

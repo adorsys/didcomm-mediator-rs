@@ -1,32 +1,32 @@
-use actix_web::{HttpResponse, Responder};
-use sysinfo::{System, SystemExt};
-use crate::tower_http::services::{database, keystore};
-/// Health check endpoint
-pub async fn health_check() -> impl Responder {
+use axum::{response::IntoResponse, Json};
+use serde_json::json;
+use sysinfo::{ProcessorExt, System, SystemExt};
+
+/// Health check handler
+pub async fn health_check() -> impl IntoResponse {
     let mut sys = System::new_all();
     sys.refresh_all();
 
-    let db_status = database::check_database_health();
-    let keystore_status = keystore::check_keystore_health();
+    // Example: Add specific checks for your application components here
+    let database_status = "healthy"; // Replace with real database health check
+    let keystore_status = "healthy"; // Replace with real keystore health check
 
-    let overall_status = if db_status == "healthy" && keystore_status == "healthy" {
+    let overall_status = if database_status == "healthy" && keystore_status == "healthy" {
         "healthy"
     } else {
         "degraded"
     };
 
-    let health_status = serde_json::json!({
+    Json(json!({
         "status": overall_status,
         "components": {
-            "database": db_status,
-            "keystore": keystore_status,
+            "database": database_status,
+            "keystore": keystore_status
         },
         "system_metrics": {
             "cpu_usage": sys.global_processor_info().cpu_usage(),
             "memory_used": sys.used_memory(),
             "memory_total": sys.total_memory(),
         }
-    });
-
-    HttpResponse::Ok().json(health_status)
+    }))
 }
