@@ -2,7 +2,7 @@ use axum::{http::StatusCode, response::IntoResponse, Json};
 use thiserror::Error;
 
 #[derive(Debug, Error, PartialEq)]
-pub enum PickupError {
+pub(crate) enum PickupError {
     #[error("Missing sender DID")]
     MissingSenderDID,
 

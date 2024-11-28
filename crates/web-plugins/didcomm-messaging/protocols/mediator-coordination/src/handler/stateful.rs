@@ -1,11 +1,12 @@
 use crate::{
+    constants::{KEYLIST_2_0, KEYLIST_UPDATE_RESPONSE_2_0, MEDIATE_DENY_2_0, MEDIATE_GRANT_2_0},
     errors::MediationError,
+    handler::midlw::ensure_jwm_type_is_mediation_request,
     model::stateful::coord::{
         Keylist, KeylistBody, KeylistEntry, KeylistUpdateAction, KeylistUpdateBody,
         KeylistUpdateConfirmation, KeylistUpdateResponseBody, KeylistUpdateResult, MediationDeny,
         MediationGrant, MediationGrantBody,
     },
-    web::handler::midlw::ensure_jwm_type_is_mediation_request,
 };
 use did_utils::{
     crypto::{Ed25519KeyPair, Generate, ToMultikey, X25519KeyPair},
@@ -18,7 +19,6 @@ use keystore::Secrets;
 use mongodb::bson::doc;
 use serde_json::json;
 use shared::{
-    constants::{KEYLIST_2_0, KEYLIST_UPDATE_RESPONSE_2_0, MEDIATE_DENY_2_0, MEDIATE_GRANT_2_0},
     midlw::ensure_transport_return_route_is_decorated_all,
     repository::entity::Connection,
     state::{AppState, AppStateRepository},
@@ -27,9 +27,9 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 /// Process a DIDComm mediate request
-pub async fn process_mediate_request(
+pub(crate) async fn process_mediate_request(
     state: Arc<AppState>,
-    plain_message: &Message,
+    plain_message: Message,
 ) -> Result<Option<Message>, MediationError> {
     // This is to Check message type compliance
     ensure_jwm_type_is_mediation_request(&plain_message)?;
@@ -40,10 +40,7 @@ pub async fn process_mediate_request(
 
     let mediator_did = &state.diddoc.id;
 
-    let sender_did = plain_message
-        .from
-        .as_ref()
-        .expect("should not panic as anonymous requests are rejected earlier");
+    let sender_did = plain_message.from.as_ref().unwrap();
 
     // Retrieve repository to connection entities
 
@@ -53,15 +50,15 @@ pub async fn process_mediate_request(
     } = state
         .repository
         .as_ref()
-        .expect("missing persistence layer");
+        .ok_or(MediationError::InternalServerError)?;
 
     // If there is already mediation, send mediate deny
     if let Some(_connection) = connection_repository
         .find_one_by(doc! { "client_did": sender_did})
         .await
-        .unwrap()
+        .map_err(|_| MediationError::InternalServerError)?
     {
-        println!("Sending mediate deny.");
+        tracing::info!("Sending mediate deny.");
         return Ok(Some(
             Message::build(
                 format!("urn:uuid:{}", Uuid::new_v4()),
@@ -78,7 +75,7 @@ pub async fn process_mediate_request(
         ));
     } else {
         /* Issue mediate grant response */
-        println!("Sending mediate grant.");
+        tracing::info!("Sending mediate grant.");
         // Create routing, store it and send mediation grant
         let (routing_did, auth_keys, agreem_keys) =
             generate_did_peer(state.public_domain.to_string());
@@ -86,16 +83,19 @@ pub async fn process_mediate_request(
         let AppStateRepository { keystore, .. } = state
             .repository
             .as_ref()
-            .expect("missing persistence layer");
+            .ok_or(MediationError::InternalServerError)?;
 
         let diddoc = state
             .did_resolver
             .resolve(&routing_did)
             .await
-            .unwrap()
-            .expect("Could not resolve DID");
+            .map_err(|err| {
+                tracing::error!("Failed to resolve DID: {:?}", err);
+                MediationError::InternalServerError
+            })?
+            .ok_or(MediationError::InternalServerError)?;
 
-        let agreem_keys_jwk: Jwk = agreem_keys.try_into().expect("MediateRequestError");
+        let agreem_keys_jwk: Jwk = agreem_keys.try_into().unwrap();
 
         let agreem_keys_secret = Secrets {
             id: None,
@@ -105,12 +105,12 @@ pub async fn process_mediate_request(
 
         match keystore.store(agreem_keys_secret).await {
             Ok(_stored_connection) => {
-                println!("Successfully stored connection.")
+                tracing::info!("Successfully stored agreement keys.")
             }
-            Err(error) => eprintln!("Error storing connection: {:?}", error),
+            Err(error) => tracing::error!("Error storing agreement keys: {:?}", error),
         }
 
-        let auth_keys_jwk: Jwk = auth_keys.try_into().expect("MediateRequestError");
+        let auth_keys_jwk: Jwk = auth_keys.try_into().unwrap();
 
         let auth_keys_secret = Secrets {
             id: None,
@@ -120,9 +120,9 @@ pub async fn process_mediate_request(
 
         match keystore.store(auth_keys_secret).await {
             Ok(_stored_connection) => {
-                println!("Successfully stored connection.")
+                tracing::info!("Successfully stored authentication keys.")
             }
-            Err(error) => eprintln!("Error storing connection: {:?}", error),
+            Err(error) => tracing::error!("Error storing authentication keys: {:?}", error),
         }
 
         let mediation_grant = create_mediation_grant(&routing_did);
@@ -138,9 +138,9 @@ pub async fn process_mediate_request(
         // Use store_one to store the sample connection
         match connection_repository.store(new_connection).await {
             Ok(_stored_connection) => {
-                println!("Successfully stored connection: ")
+                tracing::info!("Successfully stored connection: ")
             }
-            Err(error) => eprintln!("Error storing connection: {:?}", error),
+            Err(error) => tracing::error!("Error storing connection: {:?}", error),
         }
 
         Ok(Some(
@@ -202,7 +202,7 @@ fn generate_did_peer(service_endpoint: String) -> (String, Ed25519KeyPair, X2551
     )
 }
 
-pub async fn process_plain_keylist_update_message(
+pub(crate) async fn process_plain_keylist_update_message(
     state: Arc<AppState>,
     message: Message,
 ) -> Result<Option<Message>, MediationError> {
@@ -225,7 +225,7 @@ pub async fn process_plain_keylist_update_message(
     } = state
         .repository
         .as_ref()
-        .expect("missing persistence layer");
+        .ok_or(MediationError::InternalServerError)?;
 
     // Find connection for this keylist update
 
@@ -330,7 +330,7 @@ pub async fn process_plain_keylist_update_message(
     ))
 }
 
-pub async fn process_plain_keylist_query_message(
+pub(crate) async fn process_plain_keylist_query_message(
     state: Arc<AppState>,
     message: Message,
 ) -> Result<Option<Message>, MediationError> {
@@ -345,7 +345,7 @@ pub async fn process_plain_keylist_query_message(
     } = state
         .repository
         .as_ref()
-        .expect("missing persistence layer");
+        .ok_or(MediationError::InternalServerError)?;
 
     let connection = connection_repository
         .find_one_by(doc! { "client_did": &sender })

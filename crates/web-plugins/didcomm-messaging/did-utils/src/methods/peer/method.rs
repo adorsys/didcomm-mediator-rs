@@ -227,13 +227,12 @@ impl DidPeer {
         }
 
         match did {
-        s if s.starts_with("did:peer:0") => self.expand_did_peer_0(did).map_err(Into::into),
-        s if s.starts_with("did:peer:2") => self.expand_did_peer_2(did).map_err(Into::into),
-        s if s.starts_with("did:peer:4") => self.expand_did_peer_4(did).map_err(Into::into),
-        _ => Err(DIDResolutionError::MethodNotSupported), 
+            s if s.starts_with("did:peer:0") => self.expand_did_peer_0(did).map_err(Into::into),
+            s if s.starts_with("did:peer:2") => self.expand_did_peer_2(did).map_err(Into::into),
+            s if s.starts_with("did:peer:4") => self.expand_did_peer_4(did).map_err(Into::into),
+            _ => Err(DIDResolutionError::MethodNotSupported),
+        }
     }
-}
-
 
     /// Expands did:peer:0 address
     ///
@@ -814,10 +813,7 @@ mod tests {
         let did_method = DidPeer::default();
 
         let did = "did:peer:1zQmbEB1EqP7PnNVaHiSpXhkatAA6kNyQK9mWkvrMx2eckgq";
-        assert!(matches!(
-            did_method.expand(did).unwrap_err(),
-            DIDResolutionError::MethodNotSupported
-        ));
+        assert!(matches!(did_method.expand(did).unwrap_err(), DIDResolutionError::MethodNotSupported));
     }
 
     #[test]
@@ -983,10 +979,7 @@ mod tests {
     fn test_expand_did_peer_0_fails_on_too_long_did() {
         let did_method = DidPeer::default();
         let did = "did:peer:0zQebt6zPwbE4Vw5GFAjjARHrNXFALofERVv4q6Z4db8cnDRQm";
-        assert!(matches!(
-            did_method.expand(did).unwrap_err(),
-            DIDResolutionError::InvalidPublicKeyLength
-        ));
+        assert!(matches!(did_method.expand(did).unwrap_err(), DIDResolutionError::InvalidPublicKeyLength));
     }
 
     #[test]

@@ -2,12 +2,16 @@ use std::{
     fmt::Debug,
     hash::{Hash, Hasher},
 };
+use thiserror::Error;
 
 use axum::Router;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Error, PartialEq)]
 pub enum PluginError {
-    InitError,
+    #[error("{0}")]
+    InitError(String),
+    #[error("{0}")]
+    Other(String),
 }
 
 pub trait Plugin: Sync + Send {
@@ -21,7 +25,7 @@ pub trait Plugin: Sync + Send {
     fn unmount(&self) -> Result<(), PluginError>;
 
     /// Export managed endpoints
-    fn routes(&self) -> Router;
+    fn routes(&self) -> Result<Router, PluginError>;
 }
 
 impl Eq for dyn Plugin {}

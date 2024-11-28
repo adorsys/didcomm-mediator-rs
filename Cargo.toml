@@ -26,7 +26,6 @@ members = [
     "crates/web-plugins/didcomm-messaging/protocols/*",
 ]
 
-
 [workspace.dependencies]
 database = { path = "./crates/database", version = "0.1.0" }
 filesystem = { path = "./crates/filesystem", version = "0.1.0" }
@@ -37,10 +36,14 @@ oob-messages = { path = "./crates/web-plugins/oob-messages", version = "0.1.0" }
 didcomm-messaging = { path = "./crates/web-plugins/didcomm-messaging", version = "0.1.0" }
 did-utils = { path = "./crates/web-plugins/didcomm-messaging/did-utils", version = "0.1.0" }
 shared = { path = "./crates/web-plugins/didcomm-messaging/shared", version = "0.1.0" }
+message-api = { path = "./crates/web-plugins/didcomm-messaging/message-api", version = "0.1.0" }
 pickup = { path = "./crates/web-plugins/didcomm-messaging/protocols/pickup", version = "0.1.0" }
 forward = { path = "./crates/web-plugins/didcomm-messaging/protocols/forward", version = "0.1.0" }
 trust-ping = { path = "./crates/web-plugins/didcomm-messaging/protocols/trust-ping", version = "0.1.0" }
+basic-message = { path = "./crates/web-plugins/didcomm-messaging/protocols/basic-message", version = "0.1.0" }
+discover-features = { path = "./crates/web-plugins/didcomm-messaging/protocols/discover-features", version = "0.1.0" }
 mediator-coordination = { path = "./crates/web-plugins/didcomm-messaging/protocols/mediator-coordination", version = "0.1.0" }
+
 
 # Other common dependencies
 serde = "1.0"
@@ -62,6 +65,8 @@ url = "2.4.1"
 num-bigint = "0.4.4"
 base64 = "0.13.0"
 hex = "0.4.3"
+eyre = "0.6"
+anyhow = "1"
 subtle = "2.5.0"
 regex = "1.10.2"
 mongodb = "2.7.1"
@@ -93,6 +98,8 @@ plugin-api.workspace = true
 
 axum.workspace = true
 dotenv-flow.workspace = true
+eyre.workspace = true
+thiserror.workspace = true
 tracing.workspace = true
 lazy_static.workspace = true
 serde_json.workspace = true
@@ -100,8 +107,6 @@ hyper.workspace = true
 tokio = { workspace = true, features = ["full"] }
 tracing-subscriber = { workspace = true, features = ["json"] }
 tower-http = { workspace = true, features = ["catch-panic", "trace"] }
-
-# optional dependencies
 chrono = { workspace = true, optional = true }
 did-endpoint = { workspace = true, optional = true }
 oob-messages = { workspace = true, optional = true }
@@ -121,6 +126,12 @@ plugin-index = ["dep:chrono"]
 plugin-did_endpoint = ["dep:did-endpoint"]
 plugin-oob_messages = ["dep:oob-messages"]
 plugin-didcomm_messaging = ["dep:didcomm-messaging"]
+
+routing = ["plugin-didcomm_messaging", "didcomm-messaging/routing"]
+pickup = ["plugin-didcomm_messaging", "didcomm-messaging/pickup"]
+trust-ping = ["plugin-didcomm_messaging", "didcomm-messaging/trust-ping"]
+discover-features = ["plugin-didcomm_messaging", "didcomm-messaging/discover-features"]
+mediator-coordination = ["plugin-didcomm_messaging", "didcomm-messaging/mediator-coordination"]
 
 
 [dev-dependencies]

@@ -1,10 +1,10 @@
 use super::{didgen, web};
 use axum::Router;
 use database::Repository;
+use filesystem::FileSystem;
 use keystore::Secrets;
 use plugin_api::{Plugin, PluginError};
 use std::sync::{Arc, Mutex};
-use filesystem::FileSystem;
 
 #[derive(Default)]
 pub struct DidEndpoint {
@@ -24,14 +24,11 @@ pub(crate) struct DidEndPointState {
 }
 
 fn get_env() -> Result<DidEndpointEnv, PluginError> {
-    let storage_dirpath = std::env::var("STORAGE_DIRPATH").map_err(|_| {
-        tracing::error!("STORAGE_DIRPATH env variable required");
-        PluginError::InitError
-    })?;
+    let storage_dirpath = std::env::var("STORAGE_DIRPATH")
+        .map_err(|_| PluginError::InitError("STORAGE_DIRPATH env variable required".to_owned()))?;
 
     let server_public_domain = std::env::var("SERVER_PUBLIC_DOMAIN").map_err(|_| {
-        tracing::error!("SERVER_PUBLIC_DOMAIN env variable required");
-        PluginError::InitError
+        PluginError::InitError("SERVER_PUBLIC_DOMAIN env variable required".to_owned())
     })?;
 
     Ok(DidEndpointEnv {
@@ -62,8 +59,9 @@ impl Plugin for DidEndpoint {
                 &mut filesystem,
             )
             .map_err(|_| {
-                tracing::error!("failed to generate an initial keystore and its DID document");
-                PluginError::InitError
+                PluginError::InitError(
+                    "failed to generate an initial keystore and its DID document".to_owned(),
+                )
             })?;
         };
 
@@ -80,8 +78,10 @@ impl Plugin for DidEndpoint {
         Ok(())
     }
 
-    fn routes(&self) -> Router {
-        let state = self.state.as_ref().expect("Plugin not mounted");
-        web::routes(Arc::new(state.clone()))
+    fn routes(&self) -> Result<Router, PluginError> {
+        let state = self.state.as_ref().ok_or(PluginError::Other(
+            "missing state, plugin not mounted".to_owned(),
+        ))?;
+        Ok(web::routes(Arc::new(state.clone())))
     }
 }

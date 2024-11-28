@@ -143,14 +143,14 @@ pub(crate) fn retrieve_or_generate_qr_image(
         // Update the cache with the retrieved data
         CACHE
             .lock()
-            .map_err(|e| format!("Cache error: {}", e))?
+            .map_err(|e| format!("Cache error: {:?}", e))?
             .insert(path.clone(), existing_image.clone());
         return Ok(existing_image);
     }
 
     // Generate QR code
     let qr_code = QrCode::new(url.as_bytes())
-        .map_err(|error| format!("Failed to generate QR code: {}", error))?;
+        .map_err(|error| format!("Failed to generate QR code: {:?}", error))?;
 
     let image = qr_code.render::<Luma<u8>>().build();
 
@@ -166,10 +166,10 @@ pub(crate) fn retrieve_or_generate_qr_image(
 
     // Save to file
     fs.write_with_lock(path.as_ref(), &base64_string)
-        .map_err(|e| format!("Error writing: {}", e))?;
+        .map_err(|e| format!("Error writing: {:?}", e))?;
     CACHE
         .lock()
-        .map_err(|e| format!("Cache error: {}", e))?
+        .map_err(|e| format!("Cache error: {:?}", e))?
         .insert(path.clone(), base64_string.clone());
 
     Ok(base64_string)
@@ -178,7 +178,7 @@ pub(crate) fn retrieve_or_generate_qr_image(
 fn to_local_storage(fs: &mut dyn FileSystem, oob_url: &str, storage_dirpath: &str) {
     // Ensure the parent directory ('storage') exists
     if let Err(e) = fs.create_dir_all(storage_dirpath.as_ref()) {
-        tracing::error!("Error creating directory: {}", e);
+        tracing::error!("Error creating directory: {:?}", e);
         return;
     }
 
@@ -186,7 +186,7 @@ fn to_local_storage(fs: &mut dyn FileSystem, oob_url: &str, storage_dirpath: &st
 
     // Attempt to write the string directly to the file
     if let Err(e) = fs.write(file_path.as_ref(), oob_url) {
-        tracing::error!("Error writing to file: {}", e);
+        tracing::error!("Error writing to file: {:?}", e);
     } else {
         tracing::info!("String successfully written to file.");
     }

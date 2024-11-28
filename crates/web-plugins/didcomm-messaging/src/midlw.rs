@@ -10,9 +10,12 @@ use serde_json::Value;
 use std::sync::Arc;
 
 // use super::{error::MediationError, AppState};
-use crate::{did_rotation::did_rotation::did_rotation, error::Error};
-use shared::{
+use crate::{
     constants::{DIDCOMM_ENCRYPTED_MIME_TYPE, DIDCOMM_ENCRYPTED_SHORT_MIME_TYPE},
+    did_rotation::did_rotation::did_rotation,
+    error::Error,
+};
+use shared::{
     state::{AppState, AppStateRepository},
     utils::resolvers::{LocalDIDResolver, LocalSecretsResolver},
 };
@@ -38,10 +41,7 @@ pub async fn unpack_didcomm_message(
     let bytes = match hyper::body::to_bytes(body).await {
         Ok(bytes) => bytes,
         Err(_) => {
-            let response = (
-                StatusCode::BAD_REQUEST,
-                Error::UnparseablePayload.json(),
-            );
+            let response = (StatusCode::BAD_REQUEST, Error::UnparseablePayload.json());
 
             return response.into_response();
         }
@@ -133,10 +133,7 @@ async fn unpack_payload(
     }
 
     if plain_message.from.is_none() || !metadata.authenticated || metadata.anonymous_sender {
-        let response = (
-            StatusCode::BAD_REQUEST,
-            Error::AnonymousPacker.json(),
-        );
+        let response = (StatusCode::BAD_REQUEST, Error::AnonymousPacker.json());
 
         return Err(response.into_response());
     }

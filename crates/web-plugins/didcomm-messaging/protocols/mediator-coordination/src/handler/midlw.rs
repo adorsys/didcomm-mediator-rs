@@ -1,7 +1,9 @@
-use crate::errors::MediationError;
+use crate::{
+    constants::{MEDIATE_REQUEST_2_0, MEDIATE_REQUEST_DIC_1_0},
+    errors::MediationError,
+};
 use didcomm::Message;
 use serde_json::{json, Value};
-use shared::constants::{MEDIATE_REQUEST_2_0, MEDIATE_REQUEST_DIC_1_0};
 /// Validate that JWM's indicative body type is a mediation request
 pub(crate) fn ensure_jwm_type_is_mediation_request(
     message: &Message,
