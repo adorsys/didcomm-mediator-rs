@@ -106,6 +106,8 @@ mod test {
             }"#,
         )
         .unwrap();
+    let secret_material = serde_json::to_string(&secret_material).unwrap();
+    let secret_material = serde_json::to_vec(&secret_material).unwrap();
 
         let secret = Secrets {
             id: None,
@@ -265,7 +267,9 @@ mod test {
                 }"#,
             )
             .unwrap();
-
+        let secret_material = serde_json::to_string(&secret_material).unwrap();
+        let secret_material = serde_json::to_vec(&secret_material).unwrap();
+        
             let secret = Secrets {
                 id: None,
                 kid: secret_id.into(),

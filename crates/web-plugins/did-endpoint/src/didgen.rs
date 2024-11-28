@@ -38,7 +38,6 @@ pub fn didgen<K, F>(
     master_key: [u8; 32],
 ) -> Result<Document, Error>
 where
-    K: Repository<Secrets>,
     K: Material,
     F: FileSystem,
 {
@@ -125,7 +124,7 @@ fn store_key<S>(
     keystore: &S,
 ) -> Result<(), Error>
 where
-    S: Repository<Secrets>,
+    // S: Repository<Secrets>,
     S: Material,
 {
     // Extract key ID from the DID document
@@ -275,18 +274,22 @@ pub(crate) mod tests {
     }
 
     pub(crate) fn setup() -> Secrets {
-        serde_json::from_str(
-            r##"{
-                "kid": "did:peer:123#key-1",
-                "secret_material": {
-                    "kty": "OKP",
+        let secret_material: Jwk = serde_json::from_str(
+            r#"{    "kty": "OKP",
                     "crv": "Ed25519",
                     "x": "PuG2L5um-tAnHlvT29gTm9Wj9fZca16vfBCPKsHB5cA",
                     "d": "af7bypYk00b4sVpSDit1gMGvnmlQI52X4pFBWYXndUA"
-                }
-            }"##,
+                
+            }"#,
         )
-        .unwrap()
+        .unwrap();
+
+        let secret_material: Vec<u8> = serde_json::to_vec(&secret_material).unwrap();
+        Secrets {
+            id: None,
+            kid: "did:peer:123#key-1".to_string(),
+            secret_material,
+        }
     }
 
     // Verifies that the didgen function returns a DID document.
@@ -331,9 +334,22 @@ pub(crate) mod tests {
             _kid: String,
             _master_key: [u8; 32],
         ) -> Result<Option<Secrets>, RepositoryError> {
-            todo!()
+            
+            let mut secret = secrets;
+
+            let seed = &[0; 32];
+            let secret_material = secret.secret_material;
+            let mut cocoon = MiniCocoon::from_key(&master_key, seed);
+
+            let wrapped_key = cocoon.wrap(&secret_material).unwrap();
+
+            secret.secret_material = wrapped_key;
+
+            // Insert the new entity into the database
+            self.keystore.write().unwrap().push(secret.clone());
+            Ok(secret)
         }
-       async fn securestore(
+        async fn securestore(
             &self,
             _secret: Secrets,
             _master_key: [u8; 32],

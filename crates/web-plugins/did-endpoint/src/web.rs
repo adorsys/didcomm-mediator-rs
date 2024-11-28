@@ -130,6 +130,9 @@ async fn didpop(
             },
             ..options.clone()
         };
+        let jwk: Value = serde_json::from_slice(&jwk).unwrap();
+        let jwk = jwk.as_str().unwrap();
+        let jwk: did_utils::jwk::Jwk  = serde_json::from_str(jwk).unwrap();
 
         // Generate proof
         let prover = EdDsaJcs2022 {

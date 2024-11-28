@@ -7,7 +7,7 @@ edition = "2021"
 database.workspace = true
 keystore.workspace = true
 plugin-api.workspace = true
-did-utils.workspace = true
+did-utils = "0.1.0"
 filesystem.workspace = true
 
 cfg-if.workspace = true
@@ -22,6 +22,7 @@ uuid = { workspace = true, features = ["v4"] }
 hyper = { workspace = true, features = ["full"] }
 tokio = { workspace = true, features = ["full"] }
 axum = { workspace = true, features = ["macros"] }
+rand = "0.8.5"
 
 [dev-dependencies]
 async-trait.workspace = true
