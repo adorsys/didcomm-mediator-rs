@@ -21,9 +21,9 @@ async fn main() -> Result<()> {
 
     generic_server_with_graceful_shutdown(addr)
         .await
-        .map_err(|e| {
-            tracing::error!("{:?}", e);
-            e
+        .map_err(|err| {
+            tracing::error!("{err:?}");
+            err
         })?;
 
     Ok(())
