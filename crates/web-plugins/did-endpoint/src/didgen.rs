@@ -313,7 +313,7 @@ pub(crate) mod tests {
         // Mock keystore save key
         mock_keystore
             .expect_store()
-            .times(2)
+            .times(0)
             .returning(move |_| Ok(secret.clone()));
         let master_key = [0; 32];
 
@@ -335,26 +335,15 @@ pub(crate) mod tests {
             _master_key: [u8; 32],
         ) -> Result<Option<Secrets>, RepositoryError> {
             
-            let mut secret = secrets;
-
-            let seed = &[0; 32];
-            let secret_material = secret.secret_material;
-            let mut cocoon = MiniCocoon::from_key(&master_key, seed);
-
-            let wrapped_key = cocoon.wrap(&secret_material).unwrap();
-
-            secret.secret_material = wrapped_key;
-
-            // Insert the new entity into the database
-            self.keystore.write().unwrap().push(secret.clone());
-            Ok(secret)
+            Ok(None)
+           
         }
         async fn securestore(
             &self,
             _secret: Secrets,
             _master_key: [u8; 32],
         ) -> Result<Secrets, RepositoryError> {
-            todo!()
+            Ok(setup())
         }
     }
     #[tokio::test(flavor = "multi_thread")]

@@ -68,7 +68,7 @@ pub(crate) async fn handler(state: Arc<AppState>, message: Message) -> Result<Op
 
 #[cfg(test)]
 mod test {
-    use crate::web::handler::mediator_forward_process;
+  
 
     use super::*;
     use did_utils::jwk::Jwk;
@@ -163,7 +163,7 @@ mod test {
         .await
         .expect("Unable unpack");
 
-        let msg = mediator_forward_process(Arc::new(state.clone()), msg).await.unwrap();
+        let msg = handler(Arc::new(state.clone()), msg).await.unwrap();
 
         println!("Mediator1 is forwarding message \n{:?}\n", msg);
     }
@@ -191,11 +191,13 @@ mod test {
             }"#,
         )
         .unwrap();
+    let secret1 = serde_json::to_string(&secret).unwrap();
+    let secret1 = serde_json::to_vec(&secret1).unwrap();
 
         let test_secret = Secrets {
             id: None,
             kid: secret_id.to_string(),
-            secret_material: secret,
+            secret_material: secret1,
         };
 
         let keystore = Arc::new(MockKeyStore::new(vec![test_secret]));

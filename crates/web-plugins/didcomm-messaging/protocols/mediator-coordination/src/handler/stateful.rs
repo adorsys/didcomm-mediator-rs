@@ -97,6 +97,7 @@ pub async fn process_mediate_request(
 
         let agreem_keys_jwk: Jwk = agreem_keys.try_into().expect("MediateRequestError");
 
+
         let agreem_keys_secret = Secrets {
             id: None,
             kid: diddoc.key_agreement.get(0).unwrap().clone(),
