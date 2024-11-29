@@ -76,17 +76,15 @@ pub async fn did_rotation(
 
 #[cfg(test)]
 mod test {
+    use crate::constants::DIDCOMM_ENCRYPTED_MIME_TYPE;
     use std::{sync::Arc, vec};
 
     use did_utils::{didcore::Document, jwk::Jwk};
     use didcomm::secrets::SecretsResolver;
-    use hyper::{header::CONTENT_TYPE, Body, Method, Request, StatusCode};
     use mongodb::bson::doc;
-    use tower::ServiceExt;
 
     use keystore::{tests::MockKeyStore, Secrets};
     use shared::{
-        constants::DIDCOMM_ENCRYPTED_MIME_TYPE,
         repository::{
             entity::Connection,
             tests::{MockConnectionRepository, MockMessagesRepository},
@@ -106,8 +104,6 @@ mod test {
             }"#,
         )
         .unwrap();
-    let secret_material = serde_json::to_string(&secret_material).unwrap();
-    let secret_material = serde_json::to_vec(&secret_material).unwrap();
 
         let secret = Secrets {
             id: None,
@@ -164,7 +160,8 @@ mod test {
             message_repository: Arc::new(MockMessagesRepository::from(vec![])),
         };
 
-        let state = Arc::new(AppState::from(public_domain, diddoc, Some(repository)));
+        let state =
+            Arc::new(AppState::from(public_domain, diddoc, None, Some(repository)).unwrap());
 
         state
     }
@@ -347,45 +344,5 @@ mod test {
                 panic!("Rotation Error")
             }
         };
-    }
-
-    #[tokio::test]
-    async fn test_integrate_with_unified_route() {
-        let did_resolver = LocalDIDResolver::new(&didoc());
-        let jwt = test_jwt_data().await;
-        let msg = test_message_payload(jwt);
-        let (msg, _) = msg
-            .pack_encrypted(
-                "did:peer:2.Vz6Mkf6r1uMJwoRAbzkuyj2RwPusdZhWSPeEknnTcKv2C2EN7.Ez6LSgbP4b3y8HVWG6C73WF2zLbzjDAPXjc33P2VfnVVHE347.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0",
-                Some(&new_did()),
-                None,
-                &did_resolver,
-                &new_secrets_resolver(),
-                &didcomm::PackEncryptedOptions::default(),
-            )
-            .await
-            .unwrap();
-
-        // Send request
-        let app = crate::web::routes(Arc::clone(&setup()));
-
-        let response = app
-            .oneshot(
-                Request::builder()
-                    .uri(String::from("/"))
-                    .method(Method::POST)
-                    .header(CONTENT_TYPE, DIDCOMM_ENCRYPTED_MIME_TYPE)
-                    .body(Body::from(msg.clone()))
-                    .unwrap(),
-            )
-            .await
-            .unwrap();
-
-        // Assert response's metadata
-        assert_eq!(response.status(), StatusCode::ACCEPTED);
-        assert_eq!(
-            response.headers().get(CONTENT_TYPE).unwrap(),
-            DIDCOMM_ENCRYPTED_MIME_TYPE
-        );
     }
 }

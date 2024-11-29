@@ -1,0 +1,23 @@
+[package]
+name = "discover-features"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+shared.workspace = true
+keystore.workspace = true
+message-api.workspace = true
+
+axum.workspace = true
+didcomm.workspace = true
+uuid.workspace = true
+thiserror.workspace = true
+serde_json.workspace = true
+async-trait.workspace = true
+serde = { workspace = true, features = ["derive"] }
+tokio = { workspace = true, features = ["full", "rt"] }
+
+[dev-dependencies]
+shared = { workspace = true, features = ["test-utils"] }
+keystore = { workspace = true, features = ["test-utils"] }
+did-utils.workspace = true

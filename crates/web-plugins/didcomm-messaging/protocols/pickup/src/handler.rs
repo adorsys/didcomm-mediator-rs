@@ -1,4 +1,5 @@
 use crate::{
+    constants::{MESSAGE_DELIVERY_3_0, PROBLEM_REPORT_2_0, STATUS_RESPONSE_3_0},
     error::PickupError,
     model::{
         BodyDeliveryResponse, BodyLiveDeliveryChange, BodyStatusResponse, DeliveryResponse,
@@ -9,7 +10,6 @@ use didcomm::{Attachment, Message, MessageBuilder};
 use mongodb::bson::{doc, oid::ObjectId};
 use serde_json::Value;
 use shared::{
-    constants::{MESSAGE_DELIVERY_3_0, PROBLEM_REPORT_2_0, STATUS_RESPONSE_3_0},
     midlw::ensure_transport_return_route_is_decorated_all,
     repository::entity::{Connection, RoutedMessage},
     state::{AppState, AppStateRepository},
@@ -18,7 +18,7 @@ use std::{str::FromStr, sync::Arc};
 use uuid::Uuid;
 
 // Process pickup status request
-pub async fn handle_status_request(
+pub(crate) async fn handle_status_request(
     state: Arc<AppState>,
     message: Message,
 ) -> Result<Option<Message>, PickupError> {
@@ -60,7 +60,7 @@ pub async fn handle_status_request(
 }
 
 // Process pickup delivery request
-pub async fn handle_delivery_request(
+pub(crate) async fn handle_delivery_request(
     state: Arc<AppState>,
     message: Message,
 ) -> Result<Option<Message>, PickupError> {
@@ -136,7 +136,7 @@ pub async fn handle_delivery_request(
 }
 
 // Process pickup messages acknowledgement
-pub async fn handle_message_acknowledgement(
+pub(crate) async fn handle_message_acknowledgement(
     state: Arc<AppState>,
     message: Message,
 ) -> Result<Option<Message>, PickupError> {
@@ -200,7 +200,7 @@ pub async fn handle_message_acknowledgement(
 }
 
 // Process live delivery change request
-pub async fn handle_live_delivery_change(
+pub(crate) async fn handle_live_delivery_change(
     state: Arc<AppState>,
     message: Message,
 ) -> Result<Option<Message>, PickupError> {
@@ -333,12 +333,12 @@ async fn client_connection(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::constants::{
+        DELIVERY_REQUEST_3_0, LIVE_MODE_CHANGE_3_0, MESSAGE_DELIVERY_3_0, MESSAGE_RECEIVED_3_0,
+        PROBLEM_REPORT_2_0, STATUS_REQUEST_3_0, STATUS_RESPONSE_3_0,
+    };
     use serde_json::json;
     use shared::{
-        constants::{
-            DELIVERY_REQUEST_3_0, LIVE_MODE_CHANGE_3_0, MESSAGE_DELIVERY_3_0, MESSAGE_RECEIVED_3_0,
-            PROBLEM_REPORT_2_0, STATUS_REQUEST_3_0, STATUS_RESPONSE_3_0,
-        },
         repository::tests::{MockConnectionRepository, MockMessagesRepository},
         utils::tests_utils::tests as global,
     };

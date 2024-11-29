@@ -13,7 +13,7 @@ use didcomm::{
 use keystore::Secrets;
 use mongodb::bson::doc;
 use serde_json::json;
-use std::sync::Arc;
+use std::{collections::HashSet, sync::Arc};
 
 #[derive(Clone)]
 pub struct LocalDIDResolver {
@@ -23,8 +23,7 @@ pub struct LocalDIDResolver {
 impl LocalDIDResolver {
     pub fn new(server_diddoc: &Document) -> Self {
         Self {
-            diddoc: serde_json::from_value(json!(server_diddoc))
-                .expect("Should easily convert between documents representations"),
+            diddoc: serde_json::from_value(json!(server_diddoc)).unwrap_or_default(),
         }
     }
 }
@@ -35,22 +34,18 @@ impl DIDResolver for LocalDIDResolver {
         if did == self.diddoc.id {
             let mut diddoc = self.diddoc.clone();
             prepend_doc_id_to_vm_ids(&mut diddoc);
-            return Ok(Some(serde_json::from_value(json!(diddoc)).expect(
-                "Should easily convert between documents representations",
-            )));
+            return Ok(Some(serde_json::from_value(json!(diddoc))?));
         }
 
         if did.starts_with("did:key") {
             Ok(DidKey::new_full(true, PublicKeyFormat::Jwk)
                 .expand(did)
                 .map(|doc| {
-                    Some(
-                        serde_json::from_value(json!(Document {
-                            service: Some(vec![]),
-                            ..doc
-                        }))
-                        .expect("Should easily convert between documents representations"),
-                    )
+                    serde_json::from_value(json!(Document {
+                        service: Some(vec![]),
+                        ..doc
+                    }))
+                    .ok()
                 })
                 .map_err(|e| Error::new(ErrorKind::DIDNotResolved, e))?)
         } else if did.starts_with("did:peer") {
@@ -58,10 +53,7 @@ impl DIDResolver for LocalDIDResolver {
                 .expand(did)
                 .map(|mut doc| {
                     prepend_doc_id_to_vm_ids(&mut doc);
-                    Some(
-                        serde_json::from_value(json!(doc))
-                            .expect("Should easily convert between documents representations"),
-                    )
+                    serde_json::from_value(json!(doc)).ok()
                 })
                 .map_err(|e| Error::new(ErrorKind::DIDNotResolved, e))?)
         } else {
@@ -128,7 +120,7 @@ impl SecretsResolver for LocalSecretsResolver {
     }
 
     async fn find_secrets<'a>(&self, secret_ids: &'a [&'a str]) -> Result<Vec<&'a str>> {
-        let mut found_secret_ids = Vec::with_capacity(secret_ids.len());
+        let mut found_secret_ids = HashSet::with_capacity(secret_ids.len());
 
         for secret_id in secret_ids.iter() {
             if self
@@ -139,11 +131,11 @@ impl SecretsResolver for LocalSecretsResolver {
                 .map_err(|e| Error::new(ErrorKind::IoError, e))?
                 .is_some()
             {
-                found_secret_ids.push(*secret_id);
+                found_secret_ids.insert(*secret_id);
             }
         }
 
-        Ok(found_secret_ids)
+        Ok(found_secret_ids.into_iter().collect())
     }
 }
 

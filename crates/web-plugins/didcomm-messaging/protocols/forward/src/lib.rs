@@ -1,5 +1,5 @@
+mod constants;
 mod error;
-pub mod web;
+mod handler;
 
-// Re-exports
-pub use error::ForwardError;
+pub mod plugin;

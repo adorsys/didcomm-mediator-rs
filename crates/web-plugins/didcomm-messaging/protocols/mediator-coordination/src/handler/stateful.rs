@@ -96,9 +96,6 @@ pub async fn process_mediate_request(
             .expect("Could not resolve DID");
 
         let agreem_keys_jwk: Jwk = agreem_keys.try_into().expect("MediateRequestError");
-        let agreem_keys_jwk = serde_json::to_string(&agreem_keys_jwk).unwrap();
-        let agreem_keys_jwk = serde_json::to_vec(&agreem_keys_jwk).unwrap();
-
 
         let agreem_keys_secret = Secrets {
             id: None,
@@ -114,8 +111,6 @@ pub async fn process_mediate_request(
         }
 
         let auth_keys_jwk: Jwk = auth_keys.try_into().expect("MediateRequestError");
-        let auth_keys_jwk = serde_json::to_string(&auth_keys_jwk).unwrap();
-        let auth_keys_jwk = serde_json::to_vec(&auth_keys_jwk).unwrap();
 
         let auth_keys_secret = Secrets {
             id: None,
