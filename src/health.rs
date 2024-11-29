@@ -8,8 +8,8 @@ pub async fn health_check() -> impl IntoResponse {
     sys.refresh_all();
 
     // Example: Add specific checks for your application components here
-    let database_status = "healthy"; // Replace with real database health check
-    let keystore_status = "healthy"; // Replace with real keystore health check
+    let database_status = "healthy"; 
+    let keystore_status = "healthy";
 
     let overall_status = if database_status == "healthy" && keystore_status == "healthy" {
         "healthy"
