@@ -3,7 +3,7 @@ use serde::Serialize;
 use thiserror::Error;
 
 #[derive(Debug, Serialize, Error, PartialEq, Eq)]
-pub enum TrustPingError {
+pub(crate) enum TrustPingError {
     #[error("Missing sender DID")]
     MissingSenderDID,
 

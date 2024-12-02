@@ -61,10 +61,17 @@ impl FileSystem for StdFileSystem {
         flock(file.as_raw_fd(), FlockArg::LockExclusive)
             .map_err(|_| IoError::new(ErrorKind::Other, "Error acquiring file lock"))?;
 
-        std::fs::write(path, &content).expect("Error saving base64-encoded image to file");
+        std::fs::write(path, &content).map_err(|_| {
+            IoError::new(
+                ErrorKind::Other,
+                "Error saving base64-encoded image to file",
+            )
+        })?;
 
         // Release the lock after writing to the file
-        flock(file.as_raw_fd(), FlockArg::Unlock).expect("Error releasing file lock");
+        flock(file.as_raw_fd(), FlockArg::Unlock)
+            .map_err(|_| IoError::new(ErrorKind::Other, "Error releasing file lock"))?;
+
         Ok(())
     }
 

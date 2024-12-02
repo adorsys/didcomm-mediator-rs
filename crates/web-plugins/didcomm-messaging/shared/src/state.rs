@@ -24,7 +24,7 @@ pub struct AppState {
     pub repository: Option<AppStateRepository>,
 
     // disclosed protocols `https://org.didcomm.com/{protocol-name}/{version}/{request-type}``
-    pub  supported_protocols: Option<Vec<String>>
+    pub supported_protocols: Option<Vec<String>>,
 }
 
 #[derive(Clone)]
@@ -40,22 +40,22 @@ impl AppState {
         diddoc: Document,
         disclose_protocols: Option<Vec<String>>,
         repository: Option<AppStateRepository>,
-    ) -> Self {
+    ) -> eyre::Result<Self> {
         let did_resolver = LocalDIDResolver::new(&diddoc);
         let keystore = repository
             .as_ref()
-            .expect("Missing persistence layer")
+            .ok_or_else(|| eyre::eyre!("Missing persistence layer"))?
             .keystore
             .clone();
         let secrets_resolver = LocalSecretsResolver::new(keystore);
 
-        Self {
+        Ok(Self {
             public_domain,
             diddoc,
             did_resolver,
             secrets_resolver,
             repository,
             supported_protocols: disclose_protocols,
-        }
+        })
     }
 }

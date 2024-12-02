@@ -2,13 +2,13 @@ use axum::{http::StatusCode, response::IntoResponse, Json};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum DiscoveryError {
+pub(crate) enum DiscoveryError {
     #[error("message body is malformed")]
     MalformedBody,
     #[error("No queries field in body")]
     QueryNotFound,
     #[error("query feature-type not supported try using `protocol`")]
-    FeatureNOTSupported
+    FeatureNOTSupported,
 }
 
 impl IntoResponse for DiscoveryError {

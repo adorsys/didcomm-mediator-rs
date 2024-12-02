@@ -4,7 +4,7 @@ use thiserror::Error;
 
 /// Represents errors that can occur during mediation.
 #[derive(Debug, Error, PartialEq, Eq)]
-pub enum MediationError {
+pub(crate) enum MediationError {
     #[error("No return route all decoration")]
     NoReturnRouteAllDecoration,
     #[error("invalid message type")]
@@ -13,6 +13,8 @@ pub enum MediationError {
     UncoordinatedSender,
     #[error("could not parse into expected message format")]
     UnexpectedMessageFormat,
+    #[error("internal server error")]
+    InternalServerError,
 }
 
 impl IntoResponse for MediationError {
@@ -23,6 +25,7 @@ impl IntoResponse for MediationError {
             }
             MediationError::UncoordinatedSender => StatusCode::UNAUTHORIZED,
             MediationError::UnexpectedMessageFormat => StatusCode::BAD_REQUEST,
+            MediationError::InternalServerError => StatusCode::INTERNAL_SERVER_ERROR,
         };
 
         let body = Json(serde_json::json!({

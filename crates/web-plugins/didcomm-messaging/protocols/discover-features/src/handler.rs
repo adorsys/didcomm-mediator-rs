@@ -1,22 +1,20 @@
-use std::{collections::HashSet, sync::Arc};
-
-use axum::response::{IntoResponse, Response};
-use didcomm::Message;
-use serde_json::json;
-use shared::{constants::DISCOVER_FEATURE, state::AppState};
-use uuid::Uuid;
-
-use super::{
+use crate::{
+    constants::DISCOVER_FEATURE,
     errors::DiscoveryError,
     model::{Disclosures, DisclosuresContent},
 };
+use didcomm::Message;
+use serde_json::json;
+use shared::state::AppState;
+use std::{collections::HashSet, sync::Arc};
+use uuid::Uuid;
 
 // handle discover feature request
 // https://didcomm.org/discover-features/2.0/
-pub fn handle_query_request(
-    message: Message,
+pub(crate) async fn handle_query_request(
     state: Arc<AppState>,
-) -> Result<Option<Message>, Response> {
+    message: Message,
+) -> Result<Option<Message>, DiscoveryError> {
     let mut disclosed_protocols: HashSet<String> = HashSet::new();
     let supported: &Vec<String>;
 
@@ -76,13 +74,13 @@ pub fn handle_query_request(
                                     }
                                 }
 
-                                None => return Err(DiscoveryError::MalformedBody.into_response()),
+                                None => return Err(DiscoveryError::MalformedBody),
                             }
                         } else {
-                            return Err(DiscoveryError::FeatureNOTSupported.into_response());
+                            return Err(DiscoveryError::FeatureNOTSupported);
                         }
                     }
-                    None => return Err(DiscoveryError::MalformedBody.into_response()),
+                    None => return Err(DiscoveryError::MalformedBody),
                 }
             }
 
@@ -90,13 +88,14 @@ pub fn handle_query_request(
             let msg = build_response(disclosed_protocols);
             Ok(Some(msg))
         } else {
-            return Err(DiscoveryError::QueryNotFound.into_response());
+            return Err(DiscoveryError::QueryNotFound);
         }
     } else {
         let msg = build_response(disclosed_protocols);
         Ok(Some(msg))
     }
 }
+
 fn build_response(disclosed_protocols: HashSet<String>) -> Message {
     let mut body = Disclosures::new();
     for id in disclosed_protocols.iter() {
@@ -115,23 +114,21 @@ fn build_response(disclosed_protocols: HashSet<String>) -> Message {
 
     msg
 }
+
 #[cfg(test)]
 mod test {
 
-    use std::{sync::Arc, vec};
-
+    use crate::{constants::QUERY_FEATURE, model::Queries};
     use did_utils::didcore::Document;
     use didcomm::Message;
     use keystore::tests::MockKeyStore;
     use serde_json::json;
     use shared::{
-        constants::QUERY_FEATURE,
         repository::tests::{MockConnectionRepository, MockMessagesRepository},
         state::{AppState, AppStateRepository},
     };
+    use std::{sync::Arc, vec};
     use uuid::Uuid;
-
-    use crate::model::Queries;
 
     use super::handle_query_request;
     const MEDIATION: &str = "https://didcomm.org/coordinate-mediation/2.0";
@@ -147,14 +144,17 @@ mod test {
             keystore: Arc::new(MockKeyStore::new(vec![])),
         };
 
-        let state = Arc::new(AppState::from(
-            public_domain,
-            diddoc,
-            Some(vec![
-                "https://didcomm.org/coordinate-mediation/2.0/mediate-request".to_string(),
-            ]),
-            Some(repository),
-        ));
+        let state = Arc::new(
+            AppState::from(
+                public_domain,
+                diddoc,
+                Some(vec![
+                    "https://didcomm.org/coordinate-mediation/2.0/mediate-request".to_string(),
+                ]),
+                Some(repository),
+            )
+            .unwrap(),
+        );
 
         state
     }
@@ -170,7 +170,7 @@ mod test {
 
         let message = Message::build(id, QUERY_FEATURE.to_string(), json!(body)).finalize();
         let state = setup();
-        match handle_query_request(message, state) {
+        match handle_query_request(state, message).await {
             Ok(result) => {
                 assert!(result.clone().unwrap().body.get("disclosures").is_some());
                 assert!(result
@@ -227,7 +227,7 @@ mod test {
 
         let message = Message::build(id, QUERY_FEATURE.to_string(), json!(body)).finalize();
         let state = setup();
-        match handle_query_request(message, state) {
+        match handle_query_request(state, message).await {
             Ok(result) => {
                 println!("{:#?}", result.clone().unwrap());
                 assert!(result.clone().unwrap().body.get("disclosures").is_some());
@@ -284,7 +284,7 @@ mod test {
 
         let message = Message::build(id, QUERY_FEATURE.to_string(), json!(body)).finalize();
 
-        match handle_query_request(message, state) {
+        match handle_query_request(state, message).await {
             Ok(_) => {
                 panic!("This should'nt occur");
             }
