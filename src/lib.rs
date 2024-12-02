@@ -1,7 +1,5 @@
 pub mod plugins;
 mod health_check;
-mod metrics;
-
 use axum::Router;
 use eyre::{eyre, Result};
 use plugins::manager::PluginContainer;
