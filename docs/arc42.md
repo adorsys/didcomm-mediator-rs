@@ -1,8 +1,4 @@
-Here is an ARC42 architecture document tailored for the Rust-based `didcomm-mediator-rs` project. The document focuses on operational aspects while addressing project-specific nuances.
-
----
-
-# DIDComm Mediator RS - ARC42 Architecture Documentation
+# DIDComm Mediator Architecture Documentation
 
 ## Table of Contents
 1. [Introduction](#1-introduction)
@@ -75,32 +71,19 @@ A microservices approach ensures modularity and scalability. `didcomm-mediator-r
 ### Key Features:
 The `didcomm-mediator-rs` project implements several essential protocols in the DIDComm v2 ecosystem, as outlined below:
 
-| **Feature**                             | **Specification Status** | **Implementation Status** |
-|-----------------------------------------|---------------------------|----------------------------|
-| **Mediator Coordination Protocol**      | Adopted                  | ✅ Implemented             |
-| **Pickup Protocol**                     | Adopted                  | ✅ Implemented             |
-| **DID Rotation**                        | Accepted                 | ✅ Implemented             |
-| **Cross-Domain Messaging/Routing Protocol** | Adopted                  | ✅ Implemented             |
-| **Trust Ping Protocol**                 | Adopted                  | ✅ Implemented             |
-| **Discover Features Protocol**          | Adopted                  | ⚪ In Progress              |
-| **Out-of-Band Messaging**               | Adopted                  | ⚪ In Progress              |
-| **Basic Message Protocol**              | Adopted                  | ⚪ In Progress              |
-| **Acknowledgments (Acks)**              | Adopted                  | ❌ Not Implemented         |
-| **Present Proof Protocol**              | Adopted                  | ❌ Not Implemented         |
+| **Feature**                             | **Specification Status** | 
+|-----------------------------------------|---------------------------|
+| **Mediator Coordination Protocol**      | Adopted                  | 
+| **Pickup Protocol**                     | Adopted                  | 
+| **DID Rotation**                        | Accepted                 |
+| **Cross-Domain Messaging/Routing Protocol** | Adopted                  | 
+| **Trust Ping Protocol**                 | Adopted                  | 
+| **Discover Features Protocol**          | Adopted                  | 
+| **Out-of-Band Messaging**               | Adopted                  | 
+| **Basic Message Protocol**              | Adopted                  | 
+| **Acknowledgments (Acks)**              | Adopted                  | 
+| **Present Proof Protocol**              | Adopted                  | 
 
-### Key Highlights:
-1. **Implemented Protocols**:
-   - The mediator is fully equipped with foundational protocols like **Mediator Coordination**, **Pickup**, and **DID Rotation**, ensuring secure and reliable DIDComm message handling.
-   - **Cross-Domain Messaging** facilitates communication across diverse network boundaries, enhancing interoperability.
-
-2. **In Progress Features**:
-   - **Discover Features Protocol** and **Out-of-Band Messaging** are under development to expand functionality.
-   - **Basic Message Protocol** will enable straightforward message exchanges between agents.
-
-3. **Future Development**:
-   - Support for **Acknowledgments (Acks)** and the **Present Proof Protocol** is planned, targeting comprehensive compliance with DIDComm standards.
-
-This modular and extensible implementation ensures the mediator evolves with the SSI ecosystem while maintaining high standards for security and performance.
 
 ---
 
@@ -112,7 +95,7 @@ The `didcomm-mediator-rs` project utilizes a plugin-based architecture, allowing
 
 1. **Web Plugin Layer**: 
    - Enables plug-and-play of web endpoints.
-   - Currently used to implement features such as DID endpoints, out-of-band messages, and DIDComm messaging.
+   - Currently used to implement features such as **DID Endpoints**, **out-of-band messaging**, and **DIDComm messaging**.
 
 2. **DIDComm Messaging Plugin Layer**:
    - Facilitates incremental addition of DIDComm sub-protocols.
@@ -125,7 +108,7 @@ The `didcomm-mediator-rs` project utilizes a plugin-based architecture, allowing
 At the core is the **Generic Server**, responsible for hosting the overall application and enabling the plugin system. The main components are:
 
 1. **Dispatcher**: Routes incoming requests to the appropriate web plugin.
-2. **Web Plugin Layer**: Hosts modular implementations for endpoint-specific logic (e.g., DID endpoint generation, out-of-band messages).
+2. **Web Plugin Layer**: Hosts modular implementations for endpoint-specific logic (e.g., DID endpoint generation, out-of-band messaging).
 3. **Common DIDComm Processing**: Handles general DIDComm request/response processing applicable across sub-protocols.
 
 #### DIDComm Messaging Plugin Layer
@@ -146,7 +129,7 @@ graph TD
     GenericServer[Generic Server] --> Dispatcher[Dispatcher]
     Dispatcher --> WebPluginLayer[Web Plugin Layer]
     WebPluginLayer --> DIDEndpoint[DID Endpoint]
-    WebPluginLayer --> OOBMessaging[Out-of-Band Messages]
+    WebPluginLayer --> OOBMessaging[Out-of-Band Messaging]
     WebPluginLayer --> DIDCommMessaging[DIDComm Messaging Endpoint]
     DIDCommMessaging --> CommonProcessing[Common DIDComm Processing]
     DIDCommMessaging --> MessagingPlugins[Messaging Plugin Layer]
@@ -416,7 +399,7 @@ To ensure efficient operation and prevent abuse:
 #### 8.1.6 Secure Logging and Monitoring
 
 **Log Handling**:
-- Sensitive data (e.g., private keys, PII) is redacted from logs.
+- Sensitive data (e.g., private keys, Personally Identifiable Information) is redacted from logs.
 - Logs are encrypted at rest and in transit.
 - Access to logs is restricted to authorized personnel.
 
@@ -434,7 +417,7 @@ Incorporating SSDLC practices ensures that vulnerabilities are minimized from in
 
 1. **Static Application Security Testing (SAST)**:
    - Tools like **SonarQube**, **CodeQL**, or **Checkmarx** are used to scan source code for vulnerabilities.
-   - Integrated into CI/CD pipelines to analyze every commit and pull request.
+   - integration of CI/CD pipelines to analyze every commit and pull request.
 
 2. **Dynamic Application Security Testing (DAST)**:
    - Tools like **OWASP ZAP** or **Burp Suite** test the application in running environments.
@@ -697,45 +680,46 @@ This combination integrates **application security** and **SSDLC best practices*
 
 ## 13. Glossary
 
+## 13. Glossary
+
 | **Component**                        | **Definition**                                                                                                                                      |
-|----------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **DID**                          | Decentralized Identifier: A self-sovereign, cryptographically secure identifier independent of centralized authorities.                            |
-| **DIDComm**                      | Messaging Protocol for DIDs: A protocol for secure, private communication between entities using DIDs.                                               |
-| **Mediator**                     | Message Intermediary: A trusted entity that routes messages between parties in DIDComm, often used to bridge communication gaps.                     |
-| **Scalability**                  | The system's ability to handle increasing loads by distributing resources or scaling horizontally.                                                   |
-| **Security**                     | Protection of data through encryption, ensuring confidentiality, integrity, and authenticity of messages.                                            |
-| **Semantic Versioning (SemVer)** | A versioning scheme for software that indicates the nature of changes through `MAJOR.MINOR.PATCH`.                                                   |
-| **Horizontal Scaling**           | Increasing capacity by adding more instances of servers or resources.                                                                               |
-| **Load Balancing**               | Distributing network traffic across multiple servers to avoid overloading a single resource.                                                        |
-| **Kubernetes**                   | A container orchestration platform that automates deployment, scaling, and management of applications.                                               |
-| **Rust**                         | A systems programming language known for memory safety, concurrency, and performance.                                                               |
-| **Actix-web**                    | A Rust-based framework for building fast, asynchronous web applications.                                                                            |
-| **SQLite**                       | A self-contained, serverless database engine used for lightweight, persistent storage.                                                              |
-| **DID Rotation**                 | Changing a DID’s associated cryptographic keys to enhance security while maintaining continuous communication.                                        |
-| **Message Delivery**             | The reliable transmission of messages from sender to recipient, often involving intermediaries.                                                     |
-| **Persistent Storage**           | Data storage that retains information beyond the system’s runtime, ensuring data availability across sessions.                                        |
-| **Encryption**                   | The process of securing data to prevent unauthorized access, ensuring privacy and data integrity.                                                   |
-| **Cloud-First**                  | A strategy where applications are designed to be deployed in the cloud, leveraging cloud services for scalability.                                    |
-| **Transport Agnosticism**        | The capability of a system to support different communication protocols without being reliant on one.                                                |
-| **Retry Logic**                  | A mechanism that attempts to resend failed operations or messages to ensure reliability in communication.                                            |
-| **Public Key Infrastructure (PKI)** | A framework for managing digital keys and certificates for secure communication.                                                                  |
-| **Trust Store**                  | A repository of trusted certificates and keys used to verify the authenticity of communication partners.                                             |
-| **Horizontal Load Balancing**    | Distributing incoming traffic across multiple servers to prevent overloading a single server.                                                       |
-| **Vertical Scaling**             | Increasing a system's capacity by adding more resources (e.g., CPU, RAM) to a single server.                                                        |
-| **TLS (Transport Layer Security)** | A cryptographic protocol designed to provide secure communication over a computer network.                                                          |
-| **REST API**                     | An architectural style for building web services, using HTTP requests to interact with resources (e.g., GET, POST).                                  |
-| **WebSocket**                    | A communication protocol that provides full-duplex communication channels over a single TCP connection.                                              |
-| **Asynchronous Programming**     | A programming model that allows tasks to be performed without blocking the main program flow.                                                        |
-| **Message Acknowledgment**       | A process where the recipient confirms receipt of a message, often to ensure reliability in communication.                                           |
-| **Caching**                      | Storing frequently accessed data in temporary storage for faster retrieval.                                                                          |
-| **Decentralized Identity (DID)** | A self-sovereign identity system that allows individuals to own and control their identifiers without depending on a central authority.              |
-| **Encryption Key Management**    | The process of handling, storing, and rotating encryption keys to ensure the security of encrypted data.                                              |
-| **Zero-Trust Security**          | A security model that assumes no trust is granted to any entity, even inside the network, and requires continuous verification.                       |
-| **Encryption Algorithm**         | A mathematical procedure used to encrypt or decrypt data, ensuring confidentiality and security.                                                     |
-| **Public-Key Cryptography**      | A cryptographic system that uses a pair of keys: a public key for encryption and a private key for decryption.                                        |
-| **Trust Chain**                  | A sequence of certificates that validate the authenticity of a cryptographic key, leading back to a trusted root certificate.                         |
-| **Service Discovery**            | The process of automatically detecting services in a network, allowing components to find and interact with each other dynamically.                   |
+|--------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Actix-web**                        | A Rust-based framework for building fast, asynchronous web applications.                                                                            |
+| **Asynchronous Programming**         | A programming model that allows tasks to be performed without blocking the main program flow.                                                        |
+| **Caching**                          | Storing frequently accessed data in temporary storage for faster retrieval.                                                                          |
+| **Cloud-First**                      | A strategy where applications are designed to be deployed in the cloud, leveraging cloud services for scalability.                                    |
+| **Decentralized Identity (DID)**     | A self-sovereign identity system that allows individuals to own and control their identifiers without depending on a central authority.              |
+| **DID**                              | Decentralized Identifier: A self-sovereign, cryptographically secure identifier independent of centralized authorities.                            |
+| **DIDComm**                          | Messaging Protocol for DIDs: A protocol for secure, private communication between entities using DIDs.                                               |
+| **DID Rotation**                     | Changing a DID’s associated cryptographic keys to enhance security while maintaining continuous communication.                                        |
+| **Encryption**                       | The process of securing data to prevent unauthorized access, ensuring privacy and data integrity.                                                   |
+| **Encryption Algorithm**             | A mathematical procedure used to encrypt or decrypt data, ensuring confidentiality and security.                                                     |
+| **Encryption Key Management**        | The process of handling, storing, and rotating encryption keys to ensure the security of encrypted data.                                              |
+| **GDPR**                             | General Data Protection Regulation: A regulation in EU law focused on the protection of personal data and privacy of individuals within the EU and EEA. |
+| **Horizontal Load Balancing**        | Distributing incoming traffic across multiple servers to prevent overloading a single server.                                                       |
+| **Horizontal Scaling**               | Increasing capacity by adding more instances of servers or resources.                                                                               |
+| **Kubernetes**                       | A container orchestration platform that automates deployment, scaling, and management of applications.                                               |
+| **Load Balancing**                   | Distributing network traffic across multiple servers to avoid overloading a single resource.                                                        |
+| **Mediator**                         | Message Intermediary: A trusted entity that routes messages between parties in DIDComm, often used to bridge communication gaps.                     |
+| **Message Acknowledgment**           | A process where the recipient confirms receipt of a message, often to ensure reliability in communication.                                           |
+| **Message Delivery**                 | The reliable transmission of messages from sender to recipient, often involving intermediaries.                                                     |
+| **Persistent Storage**               | Data storage that retains information beyond the system’s runtime, ensuring data availability across sessions.                                        |
+| **Public Key Infrastructure (PKI)**  | A framework for managing digital keys and certificates for secure communication.                                                                  |
+| **Public-Key Cryptography**          | A cryptographic system that uses a pair of keys: a public key for encryption and a private key for decryption.                                        |
+| **REST API**                         | An architectural style for building web services, using HTTP requests to interact with resources (e.g., GET, POST).                                  |
+| **Retry Logic**                      | A mechanism that attempts to resend failed operations or messages to ensure reliability in communication.                                            |
+| **Rust**                             | A systems programming language known for memory safety, concurrency, and performance.                                                               |
+| **Scalability**                      | The system's ability to handle increasing loads by distributing resources or scaling horizontally.                                                   |
+| **Semantic Versioning (SemVer)**     | A versioning scheme for software that indicates the nature of changes through `MAJOR.MINOR.PATCH`.                                                   |
+| **Security**                         | Protection of data through encryption, ensuring confidentiality, integrity, and authenticity of messages.                                            |
+| **Service Discovery**                | The process of automatically detecting services in a network, allowing components to find and interact with each other dynamically.                   |
+| **SQLite**                           | A self-contained, serverless database engine used for lightweight, persistent storage.                                                              |
+| **TLS (Transport Layer Security)**   | A cryptographic protocol designed to provide secure communication over a computer network.                                                          |
+| **Transport Agnosticism**            | The capability of a system to support different communication protocols without being reliant on one.                                                |
+| **Trust Chain**                      | A sequence of certificates that validate the authenticity of a cryptographic key, leading back to a trusted root certificate.                         |
+| **Trust Store**                      | A repository of trusted certificates and keys used to verify the authenticity of communication partners.                                             |
+| **Vertical Scaling**                 | Increasing a system's capacity by adding more resources (e.g., CPU, RAM) to a single server.                                                        |
+| **WebSocket**                        | A communication protocol that provides full-duplex communication channels over a single TCP connection.                                              |
+| **Zero-Trust Security**              | A security model that assumes no trust is granted to any entity, even inside the network, and requires continuous verification.                       |
 
 ---
-
-This document can be extended with implementation-specific details and diagrams as the project evolves.
