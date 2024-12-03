@@ -38,3 +38,4 @@ shared = { workspace = true, features = ["test-utils"] }
 [features]
 default = ["stateful"]
 stateful = []
+stateless = []
