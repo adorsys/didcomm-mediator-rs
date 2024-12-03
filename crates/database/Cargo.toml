@@ -10,3 +10,5 @@ async-trait.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
+
+retry_util = { path = "../retry_util" }

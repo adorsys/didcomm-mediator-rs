@@ -6,6 +6,7 @@ use mongodb::{
     Client, Collection, Database,
 };
 use once_cell::sync::OnceCell;
+use retry_util::retry_async_operation;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use thiserror::Error;
@@ -71,18 +72,23 @@ where
     fn get_collection(&self) -> Arc<RwLock<Collection<Entity>>>;
 
     async fn find_all(&self) -> Result<Vec<Entity>, RepositoryError> {
-        let mut entities = Vec::new();
-        let collection = self.get_collection();
+        let operation = || {
+            let collection = self.get_collection();
+            async move {
+                let collection = collection.read().await;
+                let mut entities = Vec::new();
+                let mut cursor = collection.find(None, None).await?;
+                while cursor.advance().await? {
+                    entities.push(cursor.deserialize_current()?);
+                }
+                Ok(entities)
+            }
+        };
 
-        // Lock the Mutex and get the Collection
-        let mut cursor = collection.read().await.find(None, None).await?;
-        while cursor.advance().await? {
-            entities.push(cursor.deserialize_current()?);
-        }
-
-        Ok(entities)
+        retry_async_operation(operation, 3).await
     }
 
+    /// Counts all entities by filter.
     /// Counts all entities by filter.
     async fn count_by(&self, filter: BsonDocument) -> Result<usize, RepositoryError> {
         let collection = self.get_collection();
@@ -96,7 +102,18 @@ where
     }
 
     async fn find_one(&self, id: ObjectId) -> Result<Option<Entity>, RepositoryError> {
-        self.find_one_by(doc! {"_id": id}).await
+        let operation = || {
+            let collection = self.get_collection();
+            async move {
+                let collection = collection.read().await;
+                collection
+                    .find_one(doc! {"_id": id}, None)
+                    .await
+                    .map_err(|err| RepositoryError::from(err))
+            }
+        };
+
+        retry_async_operation(operation, 3).await
     }
 
     async fn find_one_by(&self, filter: BsonDocument) -> Result<Option<Entity>, RepositoryError> {
@@ -108,21 +125,21 @@ where
     }
 
     /// Stores a new entity.
-    async fn store(&self, mut entity: Entity) -> Result<Entity, RepositoryError> {
-        let collection = self.get_collection();
+    async fn store(&self, entity: Entity) -> Result<Entity, RepositoryError> {
+        let operation = move || {
+            let collection = self.get_collection();
+            let mut entity = entity.clone();
+            async move {
+                let collection = collection.read().await;
+                let metadata = collection.insert_one(entity.clone(), None).await?;
+                if let Bson::ObjectId(oid) = metadata.inserted_id {
+                    entity.set_id(oid);
+                }
+                Ok(entity)
+            }
+        };
 
-        // Lock the Mutex and get the Collection
-        let collection = collection.read().await;
-
-        // Insert the new entity into the database
-        let metadata = collection.insert_one(entity.clone(), None).await?;
-
-        // Set the ID if it was inserted and return the updated entity
-        if let Bson::ObjectId(oid) = metadata.inserted_id {
-            entity.set_id(oid);
-        }
-
-        Ok(entity)
+        retry_async_operation(operation, 3).await
     }
 
     async fn find_all_by(
@@ -147,40 +164,47 @@ where
     }
 
     async fn delete_one(&self, id: ObjectId) -> Result<(), RepositoryError> {
-        let collection = self.get_collection();
+        let operation = || {
+            let collection = self.get_collection();
+            async move {
+                let collection = collection.read().await;
+                collection
+                    .delete_one(doc! {"_id": id}, None)
+                    .await
+                    .map(|_| ())
+                    .map_err(|err| RepositoryError::from(err))
+            }
+        };
 
-        // Lock the Mutex and get the Collection
-        let collection = collection.read().await;
-
-        // Delete the entity from the database
-        collection.delete_one(doc! {"_id": id}, None).await?;
-
-        Ok(())
+        retry_async_operation(operation, 3).await
     }
 
     async fn update(&self, entity: Entity) -> Result<Entity, RepositoryError> {
         if entity.id().is_none() {
             return Err(RepositoryError::MissingIdentifier);
         }
-        let collection = self.get_collection();
 
-        // Lock the Mutex and get the Collection
-        let collection = collection.read().await;
+        let operation = move || {
+            let collection = self.get_collection();
+            let entity = entity.clone();
+            async move {
+                let collection = collection.read().await;
+                let metadata = collection
+                    .update_one(
+                        doc! {"_id": entity.id().unwrap()},
+                        doc! {"$set": bson::to_document(&entity).map_err(|_| RepositoryError::BsonConversionError)?},
+                        None,
+                    )
+                    .await?;
+                if metadata.matched_count > 0 {
+                    Ok(entity.clone())
+                } else {
+                    Err(RepositoryError::TargetNotFound)
+                }
+            }
+        };
 
-        // Update the entity in the database
-        let metadata = collection
-            .update_one(
-                doc! {"_id": entity.id().unwrap()},
-                doc! {"$set": bson::to_document(&entity).map_err(|_| RepositoryError::BsonConversionError)?},
-                None,
-            )
-            .await?;
-
-        if metadata.matched_count > 0 {
-            Ok(entity)
-        } else {
-            Err(RepositoryError::TargetNotFound)
-        }
+        retry_async_operation(operation, 3).await
     }
 }
 
