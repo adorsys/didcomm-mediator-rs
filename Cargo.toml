@@ -7,10 +7,10 @@ description = "A Rust Mediator for DIDComm messaging, supporting secure and dece
 repository = "https://github.com/adorsys/didcomm-mediator-rs"
 homepage = "https://github.com/adorsys/didcomm-mediator-rs/blob/main/README.md"
 documentation = "https://github.com/adorsys/didcomm-mediator-rs/tree/main/docs"
-keywords = ["DIDComm", "Mediator", "DIDComm Mediator", "DIDComm Mediation", "DIDCOMM Messaging", "Decentralized Identity", "Rust Mediator"]
-categories = ["cryptography", "decentralized-systems"]
+keywords = ["didcomm", "mediator", "didcomm mediator", "didcomm messaging", "rust mediator"]
+categories = ["cryptography"]
 edition = "2021"
-readme = "README.md"
+
 
 
 
