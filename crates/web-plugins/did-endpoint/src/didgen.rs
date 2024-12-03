@@ -19,6 +19,8 @@ use crate::util;
 pub enum Error {
     #[error("Key Generation Error")]
     KeyGenerationError,
+    #[error("Key Storing Error")]
+    KeyStoringError,
     #[error("Key Conversion Error")]
     KeyConversionError,
     #[error("DID Generation Error")]
