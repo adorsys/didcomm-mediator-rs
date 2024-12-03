@@ -1,4 +1,3 @@
-#
 name: Create and publish a Docker image
 
 on:
@@ -11,37 +10,53 @@ on:
 
 env:
   IMAGE_NAME: ${{ github.repository }}
-#
-jobs:
 
+jobs:
   push:
     runs-on: ubuntu-latest
     permissions:
       packages: write
       contents: read
-      #
+
     steps:
+      # Checkout the code
       - uses: actions/checkout@v4
 
-      - name: Build image
-        run: docker build . --tag $IMAGE_NAME --label "runnumber=${GITHUB_RUN_ID}"
+      # Install docker-compose
+      - name: Install Docker Compose
+        run: |
+          sudo curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+          sudo chmod +x /usr/local/bin/docker-compose
 
+      # Build the Docker image
+      - name: Build image
+        run: docker-compose build --tag $IMAGE_NAME --label "runnumber=${GITHUB_RUN_ID}"
+
+      # Log in to GitHub Container Registry
       - name: Log in to registry
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-        #
+
+      # Push the Docker image to GHCR
       - name: Push image
         run: |
           IMAGE_ID=ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME
 
-          # This changes all uppercase characters to lowercase.
+          # Convert image name to lowercase
           IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
-          # This strips the git ref prefix from the version.
+
+          # Extract version from the tag
           VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
-          # This strips the "v" prefix from the tag name.
+          
+          # Strip the "v" prefix from the version if it's a tag
           [[ "${{ github.ref }}" == "refs/tags/"* ]] && VERSION=$(echo $VERSION | sed -e 's/^v//')
-          # This uses the Docker `latest` tag convention.
+          
+          # Use `latest` tag if the ref is `main`
           [ "$VERSION" == "main" ] && VERSION=latest
-          echo IMAGE_ID=$IMAGE_ID
-          echo VERSION=$VERSION
+
+          # Output image ID and version for debugging
+          echo "IMAGE_ID=$IMAGE_ID"
+          echo "VERSION=$VERSION"
+
+          # Tag and push the Docker image
           docker tag $IMAGE_NAME $IMAGE_ID:$VERSION
           docker push $IMAGE_ID:$VERSION
