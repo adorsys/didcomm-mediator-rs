@@ -16,7 +16,7 @@ pub fn app() -> Result<(PluginContainer<'static>, Router)> {
 
     let cors = CorsLayer::new()
         .allow_origin(Any)
-        .allow_methods([Method::GET, Method::POST])
+        .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
         .allow_headers(Any);
 
     let router = Router::new()
