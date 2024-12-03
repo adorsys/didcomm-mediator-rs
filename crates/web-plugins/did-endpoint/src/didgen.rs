@@ -19,6 +19,8 @@ use crate::util;
 pub enum Error {
     #[error("Key Generation Error")]
     KeyGenerationError,
+    #[error("Key Storing Error")]
+    KeyStoringError,
     #[error("Key Conversion Error")]
     KeyConversionError,
     #[error("DID Generation Error")]
@@ -128,13 +130,13 @@ where
 
     // Store the secret in the keystore
     task::block_in_place(move || {
-        Handle::current().block_on(async move {
-            match keystore.store(secret).await {
-                Ok(_) => tracing::info!("Successfully stored secret."),
-                Err(error) => tracing::error!("Error storing secret: {:?}", error),
-            }
-        })
-    });
+        Handle::current().block_on(async move { keystore.store(secret).await })
+    })
+    .map(|_| tracing::info!("Successfully stored secret."))
+    .map_err(|err| {
+        tracing::error!("Error storing secret: {err:?}");
+        Error::KeyStoringError
+    })?;
 
     Ok(())
 }
