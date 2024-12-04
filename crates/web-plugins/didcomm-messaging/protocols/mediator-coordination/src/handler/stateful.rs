@@ -5,7 +5,7 @@ use crate::{
         KeylistUpdateConfirmation, KeylistUpdateResponseBody, KeylistUpdateResult, MediationDeny,
         MediationGrant, MediationGrantBody,
     },
-    web::handler::midlw::ensure_jwm_type_is_mediation_request,
+    handler::midlw::ensure_jwm_type_is_mediation_request,
 };
 use did_utils::{
     crypto::{Ed25519KeyPair, Generate, ToMultikey, X25519KeyPair},
