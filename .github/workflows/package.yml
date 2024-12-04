@@ -9,42 +9,43 @@ on:
   pull_request:
 
 env:
-  IMAGE_NAME: ${{ github.repository }}
-#
-jobs:
+  IMAGE_NAME: ghcr.io/${{ github.repository }}
 
+jobs:
   push:
     runs-on: ubuntu-latest
     permissions:
       packages: write
       contents: read
-      #
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out repository
+        uses: actions/checkout@v4
+
       - name: Install Docker Compose
         run: |
           sudo curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
           sudo chmod +x /usr/local/bin/docker-compose
 
-      - name: Build image
-        run: docker-compose build --tag $IMAGE_ID --label "runnumber=${GITHUB_RUN_ID}"
-
-      - name: Log in to registry
+      - name: Log in to GitHub Container Registry
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-        #
-      - name: Push image
-        run: |
-         IMAGE_ID=ghcr.io/${{ github.repository }}
 
-          # This changes all uppercase characters to lowercase.
-          IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
-          # This strips the git ref prefix from the version.
+      - name: Build Docker image
+        run: |
           VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
-          # This strips the "v" prefix from the tag name.
+          # Use `latest` for specific branch builds, or use tags for versioning.
+          [[ "${{ github.ref }}" == "refs/heads/main" ]] && VERSION=latest
           [[ "${{ github.ref }}" == "refs/tags/"* ]] && VERSION=$(echo $VERSION | sed -e 's/^v//')
-          # This uses the Docker `latest` tag convention.
-          [ "$VERSION" == "0.1.0" ] && VERSION=latest
-          echo IMAGE_ID=$IMAGE_ID
-          echo VERSION=$VERSION
-          docker tag $IMAGE_NAME $IMAGE_ID:$VERSION
-          docker push $IMAGE_ID:$VERSION
+
+          echo "Building image with version: $VERSION"
+          docker-compose build
+          docker tag ${IMAGE_NAME} ${IMAGE_NAME}:${VERSION}
+
+      - name: Push Docker image
+        run: |
+          VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
+          [[ "${{ github.ref }}" == "refs/heads/main" ]] && VERSION=latest
+          [[ "${{ github.ref }}" == "refs/tags/"* ]] && VERSION=$(echo $VERSION | sed -e 's/^v//')
+
+          echo "Pushing image ${IMAGE_NAME}:${VERSION}"
+          docker push ${IMAGE_NAME}:${VERSION}
