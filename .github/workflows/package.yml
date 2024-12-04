@@ -34,13 +34,14 @@ jobs:
 
       - name: Build Docker image
         run: |
+          cat .env
           VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
           # Use `latest` for specific branch builds, or use tags for versioning.
           [[ "${{ github.ref }}" == "refs/heads/main" ]] && VERSION=latest
           [[ "${{ github.ref }}" == "refs/tags/"* ]] && VERSION=$(echo $VERSION | sed -e 's/^v//')
 
           echo "Building image with version: $VERSION"
-           docker-compose --env-file .env build
+           docker-compose build
           docker tag ${IMAGE_NAME} ${IMAGE_NAME}:${VERSION}
 
       - name: Push Docker image
