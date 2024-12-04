@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - 245-integration-environment-for-didcomm-mediator-server-deployment-e6
     tags:
       - v*
   pull_request:
