@@ -40,7 +40,7 @@ jobs:
           [[ "${{ github.ref }}" == "refs/tags/"* ]] && VERSION=$(echo $VERSION | sed -e 's/^v//')
 
           echo "Building image with version: $VERSION"
-          docker-compose build
+           docker-compose --env-file .env build
           docker tag ${IMAGE_NAME} ${IMAGE_NAME}:${VERSION}
 
       - name: Push Docker image
