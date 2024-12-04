@@ -1,4 +1,4 @@
-name: Create and publish a Docker image
+name: Build and Publish Docker Image
 
 on:
   push:
@@ -12,7 +12,7 @@ env:
   IMAGE_NAME: ghcr.io/${{ github.repository }}
 
 jobs:
-  push:
+  build-and-push:
     runs-on: ubuntu-latest
     permissions:
       packages: write
@@ -21,28 +21,19 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
-        # with:
-        #   path: .
-
-      - name: Install Docker Compose
-        run: |
-          sudo curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-          sudo chmod +x /usr/local/bin/docker-compose
 
       - name: Log in to GitHub Container Registry
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-      - name: Build Docker image
+      - name: Build and tag Docker Compose images
         run: |
-          cat .env
           VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
-          # Use `latest` for specific branch builds, or use tags for versioning.
           [[ "${{ github.ref }}" == "refs/heads/main" ]] && VERSION=latest
           [[ "${{ github.ref }}" == "refs/tags/"* ]] && VERSION=$(echo $VERSION | sed -e 's/^v//')
 
-          echo "Building image with version: $VERSION"
-           docker-compose build
-          docker tag ${IMAGE_NAME} ${IMAGE_NAME}:${VERSION}
+          echo "Building and tagging image: ${IMAGE_NAME}:${VERSION}"
+          docker-compose build
+          docker tag ghcr.io/adorsys/didcomm-mediator-rs:latest ${IMAGE_NAME}:${VERSION}
 
       - name: Push Docker image
         run: |
