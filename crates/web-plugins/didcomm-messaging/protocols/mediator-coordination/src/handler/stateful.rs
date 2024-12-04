@@ -1,3 +1,4 @@
+use serde_json;
 use crate::{
     errors::MediationError,
     model::stateful::coord::{
@@ -18,13 +19,17 @@ use keystore::Secrets;
 use mongodb::bson::doc;
 use serde_json::json;
 use shared::{
-    constants::{KEYLIST_2_0, KEYLIST_UPDATE_RESPONSE_2_0, MEDIATE_DENY_2_0, MEDIATE_GRANT_2_0},
     midlw::ensure_transport_return_route_is_decorated_all,
     repository::entity::Connection,
     state::{AppState, AppStateRepository},
 };
 use std::sync::Arc;
 use uuid::Uuid;
+
+const KEYLIST_2_0: &str = "keylist/2.0";
+const KEYLIST_UPDATE_RESPONSE_2_0: &str = "keylist-update-response/2.0";
+const MEDIATE_DENY_2_0: &str = "mediate-deny/2.0";
+const MEDIATE_GRANT_2_0: &str = "mediate-grant/2.0";
 
 /// Process a DIDComm mediate request
 pub async fn process_mediate_request(
@@ -99,25 +104,28 @@ pub async fn process_mediate_request(
 
 
         let agreem_keys_secret = Secrets {
-            id: None,
-            kid: diddoc.key_agreement.get(0).unwrap().clone(),
-            secret_material: agreem_keys_jwk,
-        };
+           id: None,
+           kid: diddoc.key_agreement.get(0).unwrap().clone(),
+           secret_material: serde_json::to_vec(&agreem_keys_jwk)
+           .expect("Failed to serialize Jwk to Vec<u8>"),
+       };
 
         match keystore.store(agreem_keys_secret).await {
-            Ok(_stored_connection) => {
-                println!("Successfully stored connection.")
-            }
-            Err(error) => eprintln!("Error storing connection: {:?}", error),
+           Ok(_stored_connection) => {
+           println!("Successfully stored connection.")
         }
+    Err(error) => eprintln!("Error storing connection: {:?}", error),
+     }
 
         let auth_keys_jwk: Jwk = auth_keys.try_into().expect("MediateRequestError");
 
         let auth_keys_secret = Secrets {
-            id: None,
-            kid: diddoc.authentication.get(0).unwrap().clone(),
-            secret_material: auth_keys_jwk,
-        };
+        id: None,
+        kid: diddoc.authentication.get(0).unwrap().clone(),
+        secret_material: serde_json::to_vec(&auth_keys_jwk)
+        .expect("Failed to serialize Jwk to Vec<u8>"),
+       };
+
 
         match keystore.store(auth_keys_secret).await {
             Ok(_stored_connection) => {
