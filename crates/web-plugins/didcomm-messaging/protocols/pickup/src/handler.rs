@@ -12,9 +12,10 @@ use serde_json::Value;
 use shared::{
     midlw::ensure_transport_return_route_is_decorated_all,
     repository::entity::{Connection, RoutedMessage},
+    retry::{retry_async, RetryOptions},
     state::{AppState, AppStateRepository},
 };
-use std::{str::FromStr, sync::Arc};
+use std::{str::FromStr, sync::Arc, time::Duration};
 use uuid::Uuid;
 
 // Process pickup status request
@@ -160,21 +161,27 @@ pub(crate) async fn handle_message_acknowledgement(
         })?;
 
     for id in message_id_list {
-        let msg_id = ObjectId::from_str(id);
-        if msg_id.is_err() {
-            return Err(PickupError::MalformedRequest(format!(
-                "Invalid message id: {id}"
-            )));
-        }
-        repository
-            .message_repository
-            .delete_one(msg_id.unwrap())
-            .await
-            .map_err(|_| {
-                PickupError::InternalError(
-                    "Failed to process the request. Please try again later.".to_owned(),
-                )
-            })?;
+        let msg_id = ObjectId::from_str(id)
+            .map_err(|_| PickupError::MalformedRequest(format!("Invalid message id: {id}")))?;
+
+        retry_async(
+            || {
+                let message_repository = repository.message_repository.clone();
+                let msg_id = msg_id.clone();
+
+                async move { message_repository.delete_one(msg_id).await.map_err(|_| ()) }
+            },
+            RetryOptions::new()
+                .retries(5)
+                .exponential_backoff(Duration::from_millis(100))
+                .max_delay(Duration::from_secs(1)),
+        )
+        .await
+        .map_err(|_| {
+            PickupError::InternalError(
+                "Failed to process the request. Please try again later.".to_owned(),
+            )
+        })?;
     }
 
     let message_count = count_messages(repository, None, connection).await?;
@@ -247,17 +254,29 @@ async fn count_messages(
 ) -> Result<usize, PickupError> {
     let recipients = recipients(recipient_did, &connection);
 
-    let count = repository
-        .message_repository
-        .count_by(doc! { "recipient_did": { "$in": recipients } })
-        .await
-        .map_err(|_| {
-            PickupError::InternalError(
-                "Failed to process the request. Please try again later.".to_owned(),
-            )
-        })?;
+    retry_async(
+        || {
+            let message_repository = repository.message_repository.clone();
+            let recipients = recipients.clone();
 
-    Ok(count)
+            async move {
+                message_repository
+                    .count_by(doc! { "recipient_did": { "$in": recipients } })
+                    .await
+                    .map_err(|_| ())
+            }
+        },
+        RetryOptions::new()
+            .retries(5)
+            .exponential_backoff(Duration::from_millis(100))
+            .max_delay(Duration::from_secs(1)),
+    )
+    .await
+    .map_err(|_| {
+        PickupError::InternalError(
+            "Failed to process the request. Please try again later.".to_owned(),
+        )
+    })
 }
 
 async fn messages(
@@ -268,20 +287,32 @@ async fn messages(
 ) -> Result<Vec<RoutedMessage>, PickupError> {
     let recipients = recipients(recipient_did, &connection);
 
-    let routed_messages = repository
-        .message_repository
-        .find_all_by(
-            doc! { "recipient_did": { "$in": recipients } },
-            Some(limit as i64),
-        )
-        .await
-        .map_err(|_| {
-            PickupError::InternalError(
-                "Failed to process the request. Please try again later.".to_owned(),
-            )
-        })?;
+    retry_async(
+        || {
+            let message_repository = repository.message_repository.clone();
+            let recipients = recipients.clone();
 
-    Ok(routed_messages)
+            async move {
+                message_repository
+                    .find_all_by(
+                        doc! { "recipient_did": { "$in": recipients } },
+                        Some(limit as i64),
+                    )
+                    .await
+                    .map_err(|_| ())
+            }
+        },
+        RetryOptions::new()
+            .retries(5)
+            .exponential_backoff(Duration::from_millis(100))
+            .max_delay(Duration::from_secs(1)),
+    )
+    .await
+    .map_err(|_| {
+        PickupError::InternalError(
+            "Failed to process the request. Please try again later.".to_owned(),
+        )
+    })
 }
 
 #[inline]

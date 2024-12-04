@@ -5,9 +5,11 @@ use mongodb::bson::doc;
 use serde_json::{json, Value};
 use shared::{
     repository::entity::{Connection, RoutedMessage},
+    retry::{retry_async, RetryOptions},
     state::{AppState, AppStateRepository},
 };
 use std::sync::Arc;
+use std::time::Duration;
 
 /// Mediator receives forwarded messages, extract the next field in the message body, and the attachments in the message
 /// then stores the attachment with the next field as key for pickup
@@ -36,14 +38,28 @@ pub(crate) async fn mediator_forward_process(
             AttachmentData::Base64 { value: data } => json!(data.base64),
             AttachmentData::Links { value: data } => json!(data.links),
         };
-        message_repository
-            .store(RoutedMessage {
-                id: None,
-                message: attached,
-                recipient_did: next.as_ref().unwrap().to_owned(),
-            })
-            .await
-            .map_err(|_| ForwardError::InternalServerError)?;
+        retry_async(
+            || {
+                let attached = attached.clone();
+                let recipient_did = next.as_ref().unwrap().to_owned();
+
+                async move {
+                    message_repository
+                        .store(RoutedMessage {
+                            id: None,
+                            message: attached,
+                            recipient_did,
+                        })
+                        .await
+                }
+            },
+            RetryOptions::new()
+                .retries(5)
+                .exponential_backoff(Duration::from_millis(100))
+                .max_delay(Duration::from_secs(1)),
+        )
+        .await
+        .map_err(|_| ForwardError::InternalServerError)?;
     }
     Ok(None)
 }

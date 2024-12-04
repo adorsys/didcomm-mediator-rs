@@ -24,7 +24,6 @@ members = [
     "crates/web-plugins/didcomm-messaging/did-utils",
     "crates/web-plugins/didcomm-messaging/shared",
     "crates/web-plugins/didcomm-messaging/protocols/*",
-    "crates/retry_util",
 ]
 
 [workspace.dependencies]
