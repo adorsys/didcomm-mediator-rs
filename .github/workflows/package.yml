@@ -1,4 +1,4 @@
-name: Build and Publish Docker Image
+name: Create and publish a Docker image
 
 on:
   push:
@@ -9,10 +9,10 @@ on:
   pull_request:
 
 env:
-  IMAGE_NAME: ghcr.io/${{ github.repository }}
+  IMAGE_NAME: ghcr.io/adorsys/didcomm-mediator-rs
 
 jobs:
-  build-and-push:
+  push:
     runs-on: ubuntu-latest
     permissions:
       packages: write
@@ -22,18 +22,31 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Install Docker Compose
+        run: |
+          sudo curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+          sudo chmod +x /usr/local/bin/docker-compose
+
       - name: Log in to GitHub Container Registry
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-      - name: Build and tag Docker Compose images
+      - name: Build Docker image
         run: |
+          echo "Checking for .env file..."
+          if [ -f .env ]; then
+            echo ".env file exists."
+          else
+            echo ".env file does not exist."
+            exit 1
+          fi
+
           VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
           [[ "${{ github.ref }}" == "refs/heads/main" ]] && VERSION=latest
           [[ "${{ github.ref }}" == "refs/tags/"* ]] && VERSION=$(echo $VERSION | sed -e 's/^v//')
 
-          echo "Building and tagging image: ${IMAGE_NAME}:${VERSION}"
+          echo "Building image with version: $VERSION"
           docker-compose build
-          docker tag ghcr.io/adorsys/didcomm-mediator-rs:latest ${IMAGE_NAME}:${VERSION}
+          docker tag ${IMAGE_NAME}:latest ${IMAGE_NAME}:${VERSION}
 
       - name: Push Docker image
         run: |
