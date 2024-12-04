@@ -50,7 +50,7 @@ spec:
                 configMapKeyRef:
                   key: STORAGE_DIRPATH
                   name: env
-          image: mediator
+          image: ghcr.io/adorsys/didcomm-mediator-rs:merge
           name: didcomm-mediator
           ports:
             - containerPort: 8080
