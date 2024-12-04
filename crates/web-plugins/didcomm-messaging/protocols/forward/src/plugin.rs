@@ -17,7 +17,7 @@ impl MessageHandler for ForwardHandler {
         state: Arc<AppState>,
         msg: Message,
     ) -> Result<Option<Message>, Response> {
-        crate::handler::mediator_forward_process(state, msg)
+        crate::handler::handler(state, msg)
             .await
             .map_err(|e| e.into_response())
     }

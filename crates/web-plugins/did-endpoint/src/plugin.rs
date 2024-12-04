@@ -1,9 +1,9 @@
 use super::{didgen, web};
 use axum::Router;
 use database::Repository;
-use filesystem::FileSystem;
 use keystore::Secrets;
 use plugin_api::{Plugin, PluginError};
+use rand::Rng;
 use std::sync::{Arc, Mutex};
 
 #[derive(Default)]
@@ -45,7 +45,10 @@ impl Plugin for DidEndpoint {
     fn mount(&mut self) -> Result<(), PluginError> {
         let env = get_env()?;
         let mut filesystem = filesystem::StdFileSystem;
+      
+        let master_key = rand::thread_rng().gen::<[u8; 32]>();
         let keystore = keystore::KeyStore::get();
+        let secretstore = SecretStore::new();
 
         if didgen::validate_diddoc(env.storage_dirpath.as_ref(), &keystore, &mut filesystem)
             .is_err()
@@ -55,8 +58,9 @@ impl Plugin for DidEndpoint {
             didgen::didgen(
                 env.storage_dirpath.as_ref(),
                 &env.server_public_domain,
-                &keystore,
+                &secretstore,
                 &mut filesystem,
+                master_key,
             )
             .map_err(|_| {
                 PluginError::InitError(

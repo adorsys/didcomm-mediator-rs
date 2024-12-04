@@ -1,13 +1,16 @@
+#![allow(unused_imports)]
+
 use async_trait::async_trait;
+use cocoon::MiniCocoon;
 use mongodb::{
     bson::{self, doc, oid::ObjectId, Bson, Document as BsonDocument},
     error::Error as MongoError,
-    options::{ClientOptions, FindOptions},
+    options::{ClientOptions, CountOptions, FindOptions},
     Client, Collection, Database,
 };
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
+use std::{borrow::Borrow, f64::consts::E, sync::Arc};
 use thiserror::Error;
 use tokio::sync::RwLock;
 
@@ -60,13 +63,14 @@ pub fn get_or_init_database() -> Arc<RwLock<Database>> {
         .clone()
 }
 
-/// Definition of a trait for repository operations.
+/// Definition of a trait for secure repository operations.
 #[async_trait]
 pub trait Repository<Entity>: Sync + Send
 where
     Entity: Sized + Clone + Send + Sync + 'static,
     Entity: Identifiable + Unpin,
     Entity: Serialize + for<'de> Deserialize<'de>,
+
 {
     fn get_collection(&self) -> Arc<RwLock<Collection<Entity>>>;
 

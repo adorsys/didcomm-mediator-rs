@@ -93,6 +93,28 @@ mod test {
         utils::resolvers::{LocalDIDResolver, LocalSecretsResolver},
     };
 
+    pub fn new_secrets_resolver() -> impl SecretsResolver {
+        let secret_id = "did:key:z6MkqvgpxveKbuygKXnoRcD3jtLTJLgv7g6asLGLsoC4sUEp#z6LSeQmJnBaXhHz81dCGNDeTUUdMcX1a8p5YSVacaZEDdscp";
+        let secret_material: Jwk = serde_json::from_str(
+            r#"{
+                "kty": "OKP",
+                "crv": "X25519",
+                "d": "EIR1SxQ67uhVaeUd__sJZ_9pLLgtbVTq12Km8FI5TWY",
+                "x": "KKBfakcXdzmJ3hhL0mVDg8OIwhTr9rPg_gvc-kPQpCU"
+            }"#,
+        )
+        .unwrap();
+
+        let secret = Secrets {
+            id: None,
+            kid: secret_id.to_string(),
+            secret_material,
+        };
+
+        let keystore = MockKeyStore::new(vec![secret]);
+        LocalSecretsResolver::new(Arc::new(keystore))
+    }
+
     pub fn prev_did() -> String {
         "did:key:z6MkrQT3VKYGkbPaYuJeBv31gNgpmVtRWP5yTocLDBgPpayM".to_string()
     }
@@ -242,7 +264,9 @@ mod test {
                 }"#,
             )
             .unwrap();
-
+        let secret_material = serde_json::to_string(&secret_material).unwrap();
+        let secret_material = serde_json::to_vec(&secret_material).unwrap();
+        
             let secret = Secrets {
                 id: None,
                 kid: secret_id.into(),

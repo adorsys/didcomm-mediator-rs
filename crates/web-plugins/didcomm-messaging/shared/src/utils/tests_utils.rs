@@ -10,6 +10,7 @@ pub mod tests {
         error::Error as DidcommError, secrets::SecretsResolver, Message, PackEncryptedOptions,
         UnpackOptions,
     };
+    use json_canon::to_vec;
     use keystore::{tests::MockKeyStore, Secrets};
     use std::sync::Arc;
 
@@ -80,6 +81,7 @@ pub mod tests {
             }"#,
         )
         .unwrap();
+        let secret = to_vec(&secret).unwrap();
 
         let mediator_secret = Secrets {
             id: None,
@@ -118,6 +120,7 @@ pub mod tests {
             }"#,
         )
         .unwrap();
+        let secret = to_vec(&secret).unwrap();
 
         let test_secret = Secrets {
             id: None,
@@ -140,6 +143,7 @@ pub mod tests {
             }"#,
         )
         .unwrap();
+        let secret = to_vec(&secret).unwrap();
 
         let test_secret = Secrets {
             id: None,

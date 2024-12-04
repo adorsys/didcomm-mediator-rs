@@ -19,7 +19,7 @@ impl MessageHandler for MediateRequestHandler {
         state: Arc<AppState>,
         msg: Message,
     ) -> Result<Option<Message>, Response> {
-        crate::handler::stateful::process_mediate_request(state, msg)
+        crate::handler::stateful::process_mediate_request(state, &msg)
             .await
             .map_err(|e| e.into_response())
     }
