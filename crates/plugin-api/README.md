@@ -51,9 +51,9 @@ impl Plugin for MyPlugin {
         Ok(())
     }
 
-    fn routes(&self) -> Router {
+    fn routes(&self) -> Result<Router, PluginError> {
         // Define and return routes here
-        Router::new().route("/myplugin", get(my_plugin_handler))
+        Router::new().route("/myplugin", get(my_plugin_handler))?
     }
 }
 

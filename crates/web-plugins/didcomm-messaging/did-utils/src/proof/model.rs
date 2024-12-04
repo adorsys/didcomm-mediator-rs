@@ -4,64 +4,74 @@ use serde_json::Value;
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
+/// Represents the cryptographic proof of a verifiable credential
 pub struct Proof {
-    // An optional identifier for the proof.
+    /// An optional identifier for the proof.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub id: Option<String>,
 
-    // A specified set of cryptographic primitives bundled together into a cryptographic suite
-    // See https://www.w3.org/TR/vc-data-integrity/#dfn-proof-type
+    /// A specified set of cryptographic primitives bundled together into a cryptographic suite.
+    /// See [proof type]
+    ///
+    /// [proof type]: https://www.w3.org/TR/vc-data-integrity/#dfn-proof-type
     #[serde(rename = "type")]
     pub proof_type: String,
 
-    // A string value that identifies the cryptographic suite used to create the proof
-    // Only required when type=DataIntegrityProof
+    /// A string value that identifies the cryptographic suite used to create the proof.
+    /// Only required when type=DataIntegrityProof
     pub cryptosuite: Option<String>,
 
-    // See https://www.w3.org/TR/vc-data-integrity/#dfn-proof-purpose
+    /// The [purpose] of the proof.
+    ///
+    /// [purpose]: https://www.w3.org/TR/vc-data-integrity/#dfn-proof-purpose
     pub proof_purpose: String,
 
-    // See https://www.w3.org/TR/vc-data-integrity/#dfn-verification-method
+    /// A set of parameters that can be used together with a process to independently verify a proof.
+    /// See [verification method][vm]
+    ///
+    /// [vm]: https://www.w3.org/TR/vc-data-integrity/#dfn-verification-method
     pub verification_method: String,
 
-    // The date and time the proof was created
+    /// The date and time the proof was created
     #[serde(skip_serializing_if = "Option::is_none")]
     pub created: Option<DateTime<Utc>>,
 
-    // The date and time that the proof expires
+    /// The date and time that the proof expires
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expires: Option<DateTime<Utc>>,
 
-    // One or more security domains in which the proof is meant to be used
+    /// One or more security domains in which the proof is meant to be used
     #[serde(skip_serializing_if = "Option::is_none")]
     pub domain: Option<Domain>,
 
-    // A string value that SHOULD be included in a proof if a domain is specified
-    // The value is used once for a particular domain and window of time
-    // This value is used to mitigate replay attacks.
+    /// A string value that SHOULD be included in a proof if a domain is specified.
+    /// The value is used once for a particular domain and window of time.
+    /// This value is used to mitigate replay attacks.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub challenge: Option<String>,
 
-    // Data necessary to verify the digital proof using the verificationMethod specified
-    // The contents of the value MUST be a [MULTIBASE]-encoded binary value
+    /// Data necessary to verify the digital proof using the verificationMethod specified
+    /// The contents of the value MUST be a multibase-encoded binary value
     #[serde(skip_serializing_if = "Option::is_none")]
     pub proof_value: Option<String>,
 
-    // Each value identifies another data integrity proof that
-    // MUST verify before the current proof is processed
+    /// Each value identifies another data integrity proof that
+    /// MUST verify before the current proof is processed
     // See https://www.w3.org/TR/vc-data-integrity/#proof-chains
     #[serde(skip_serializing_if = "Option::is_none")]
     pub previous_proof: Option<PreviousProofs>,
 
-    // A string value supplied by the proof creator that is unique to the proof
-    // One use of this field is to increase privacy by decreasing linkability
-    // that is the result of deterministically generated signatures
+    /// A string value supplied by the proof creator that is unique to the proof.
+    /// One use of this field is to increase privacy by decreasing linkability
+    /// that is the result of deterministically generated signatures
     #[serde(skip_serializing_if = "Option::is_none")]
     pub nonce: Option<String>,
 }
 
 #[derive(Serialize, Debug, Clone, PartialEq, Deserialize)]
 #[serde(untagged)]
+#[allow(missing_docs)]
+/// The domain in which the proof is meant to be used
 pub enum Domain {
     SingleString(String),
     SetOfString(Vec<String>),
@@ -69,6 +79,8 @@ pub enum Domain {
 
 #[derive(Serialize, Debug, Clone, PartialEq, Deserialize)]
 #[serde(untagged)]
+#[allow(missing_docs)]
+/// The previous proofs in the proof chain
 pub enum PreviousProofs {
     SingleString(String),
     SetOfString(Vec<String>),
@@ -76,6 +88,8 @@ pub enum PreviousProofs {
 
 #[derive(Serialize, Debug, Clone, PartialEq, Deserialize)]
 #[serde(untagged)]
+#[allow(missing_docs)]
+/// The set of proofs
 pub enum Proofs {
     SingleProof(Box<Proof>),
     SetOfProofs(Box<Vec<Proof>>),
@@ -83,12 +97,13 @@ pub enum Proofs {
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
+/// The unsecured document
 pub struct UnsecuredDocument {
-    // The document to be secured
+    /// The document to be secured
     #[serde(flatten)]
     pub content: Value,
 
-    // Set of proofs
+    /// Set of proofs
     pub proof: Proofs,
 }
 

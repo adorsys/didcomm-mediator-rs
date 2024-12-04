@@ -27,7 +27,7 @@ pub trait DIDMethod: DIDResolver {
 
 /// Abstract contract for DID resolution.
 ///
-/// [See DID Resolution Specification](https://w3c.github.io/did-resolution)
+/// See [DID Resolution Specification](https://w3c.github.io/did-resolution)
 #[async_trait]
 pub trait DIDResolver {
     /// Resolves a DID address into its corresponding DID document.

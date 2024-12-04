@@ -11,48 +11,50 @@ use crate::{didcore::Proofs, ldmodel::Context};
 #[serde(rename_all = "camelCase")]
 pub struct VerifiableCredential {
     #[serde(rename = "@context")]
+    /// The @context property defines the vocabulary used in the JSON-LD document.
     pub context: Context,
 
-    // Identifier of this credential.
-    // WARNING: This is not the identifier of the subject of the credential.
-    // WARNING: This is not the identifier of the holder of the credential.
+    /// Identifier of this credential.
+    /// WARNING: This is not the identifier of the subject of the credential.
     // Optional globally unique identifiers enable
     // others to express statements about the same thing
     // https://www.w3.org/TR/vc-data-model-2.0/#identifiers
     #[serde(skip_serializing_if = "Option::is_none")]
     pub id: Option<String>,
 
-    // see https://www.w3.org/TR/vc-data-model-2.0/#types
+    /// The type of this credential.
     #[serde(rename = "type")]
     pub cred_type: Vec<String>,
 
-    // see https://www.w3.org/TR/vc-data-model-2.0/#issuer
+    /// The issuer of this credential.
     pub issuer: Issuers,
 
-    // The date and time the proof was created
+    /// The date and time the proof was created
     #[serde(skip_serializing_if = "Option::is_none")]
     pub valid_from: Option<DateTime<Utc>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    /// The date and time the proof expires
     pub valid_until: Option<DateTime<Utc>>,
 
-    // See https://www.w3.org/TR/vc-data-model-2.0/#credential-subject
+    /// The credential subject
     pub credential_subject: CredentialSubject,
 
-    // laguage tag
+    /// laguage tag
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<Names>,
 
-    // text direction string
+    /// text direction string
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<Descriptions>,
 
     // === Properties Map===
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(flatten)]
+    /// Dynamic properties of the credential
     pub additional_properties: Option<HashMap<String, Value>>,
 
-    // Set of proofs
+    /// Set of proofs
     // We allow a vc to created without the proof block.
     // Event though it is required. As we want to produce
     // the unsecured vesion before proof production or proof
@@ -61,39 +63,49 @@ pub struct VerifiableCredential {
     pub proof: Option<Proofs>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    /// The credential status
     pub credential_status: Option<CredentialStatus>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    /// The credential schema
     pub credential_schemas: Option<CredentialSchemas>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    /// The related resource
     pub related_resource: Option<Vec<RelatedResource>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    /// The refresh service
     pub refresh_service: Option<RefreshService>,
 }
 
 #[derive(Serialize, Debug, Clone, PartialEq, Deserialize)]
 #[serde(untagged)]
+#[allow(missing_docs)]
+/// The issuers of the credential.
 pub enum Issuers {
     Single(Box<Issuer>),
-    SetOf(Vec<Issuer>),
+    SetOf(Box<Vec<Issuer>>),
 }
 
 #[derive(Serialize, Debug, Clone, PartialEq, Deserialize)]
 #[serde(untagged)]
+#[allow(missing_docs)]
+/// The issuer of the credential.
 pub enum Issuer {
     SingleString(String),
     IssuerObject,
 }
 
 #[derive(Serialize, Debug, Clone, PartialEq, Deserialize)]
+/// The issuer object
 pub struct IssuerObject {
+    /// The identifier of the issuer
     pub id: String,
-    // laguage tag
+    /// The laguage tag
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<Names>,
-    // text direction string
+    /// The text direction string
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<Descriptions>,
 }
@@ -107,10 +119,11 @@ pub enum CredentialSubjects {
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
+/// The credential subject
 pub struct CredentialSubject {
-    // Identifies the subject of the verifiable credential
-    // (the thing the claims are about) and
-    // uses a decentralized identifier, also known as a DID
+    /// Identifies the subject of the verifiable credential
+    /// (the thing the claims are about) and
+    /// uses a decentralized identifier, also known as a DID
     // see https://www.w3.org/TR/vc-data-model-2.0/#identifiers
     #[serde(skip_serializing_if = "Option::is_none")]
     pub id: Option<String>,
@@ -118,6 +131,7 @@ pub struct CredentialSubject {
     // === Properties Map===
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(flatten)]
+    /// Dynamic properties
     pub additional_properties: Option<HashMap<String, Value>>,
 }
 
@@ -136,13 +150,15 @@ pub enum Name {
 }
 
 #[derive(Serialize, Debug, Clone, PartialEq, Deserialize)]
+/// The name object
 pub struct NameObject {
+    /// The name
     pub value: String,
-    // laguage tag
+    /// The laguage tag
     // see https://www.rfc-editor.org/rfc/rfc5646
     #[serde(skip_serializing_if = "Option::is_none")]
     pub lang: Option<String>,
-    // text direction string
+    /// The text direction string
     #[serde(skip_serializing_if = "Option::is_none")]
     pub dir: Option<String>,
 }
@@ -162,33 +178,40 @@ pub enum Description {
 }
 
 #[derive(Serialize, Debug, Clone, PartialEq, Deserialize)]
+/// The description object
 pub struct DescriptionObject {
+    /// The description
     pub value: String,
-    // laguage tag
+    /// The laguage tag
     // see https://www.rfc-editor.org/rfc/rfc5646
     #[serde(skip_serializing_if = "Option::is_none")]
     pub lang: Option<String>,
-    // text direction string
+    /// The text direction string
     #[serde(skip_serializing_if = "Option::is_none")]
     pub dir: Option<String>,
 }
 
 #[derive(Serialize, Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
+/// The credential status
 pub struct CredentialStatus {
+    /// The identifier of the credential status
     pub id: String,
 
-    // see https://www.w3.org/TR/vc-data-model-2.0/#types
+    /// The type of the credential status
     #[serde(rename = "type")]
     pub status_type: Vec<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    /// The purpose of the credential
     pub status_purpose: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    /// The index of the status
     pub status_list_index: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    /// The index of the credential status
     pub status_list_credential: Option<String>,
 }
 
@@ -202,14 +225,16 @@ pub enum CredentialSchemas {
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
+/// The credential schema
 pub struct CredentialSchema {
     #[serde(rename = "@context")]
+    /// The @context property defines the vocabulary used in the JSON-LD document.
     pub context: Context,
 
-    // https://www.w3.org/TR/vc-data-model-2.0/#identifiers
+    /// See <https://www.w3.org/TR/vc-data-model-2.0/#identifiers>
     pub id: String,
 
-    // see https://www.w3.org/TR/vc-data-model-2.0/#types
+    /// see <https://www.w3.org/TR/vc-data-model-2.0/#types>
     #[serde(rename = "type")]
     pub schema_type: String,
 }
@@ -217,56 +242,68 @@ pub struct CredentialSchema {
 // see https://www.w3.org/TR/vc-data-model-2.0/#integrity-of-related-resources
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
+/// Represents the integrity of related resources
 pub struct RelatedResource {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "@context")]
+    /// The @context property defines the vocabulary used in the JSON-LD document.
     pub context: Option<Context>,
 
-    // https://www.w3.org/TR/vc-data-model-2.0/#identifiers
+    /// The identifier for the resource
     pub id: String,
 
     #[serde(rename = "digestSRI")]
+    /// Cryptographic digest
     pub digest_sri: Option<String>,
 
+    /// Cryptographic digest
     pub digest_multibase: Option<String>,
 
+    /// The media type of the resource
     pub media_type: Option<String>,
 }
 
 #[derive(Serialize, Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
+/// Represents the refresh service
 pub struct RefreshService {
+    /// The identifier
     pub id: String,
 
-    // see https://www.w3.org/TR/vc-data-model-2.0/#types
+    /// The type of the service
     #[serde(rename = "type")]
     pub rs_type: String,
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
+/// Represents a verifiable presentation as defined [here].
+///
+/// [here]: https://www.w3.org/TR/vc-data-model-2.0/#verifiable-presentations
 pub struct VerifiablePresentation {
     #[serde(rename = "@context")]
+    /// The @context property defines the vocabulary used in the JSON-LD document.
     pub context: Context,
 
-    // Optional globally unique identifiers enable
-    // others to express statements about the same thing
+    /// Optional globally unique identifiers enable
+    /// others to express statements about the same thing.
     // https://www.w3.org/TR/vc-data-model-2.0/#identifiers
     #[serde(skip_serializing_if = "Option::is_none")]
     pub id: Option<String>,
 
+    /// The list of verifiable credentials
     pub verifiable_credential: Vec<VerifiableCredential>,
 
-    // see https://www.w3.org/TR/vc-data-model-2.0/#types
+    /// Used to express the type of verifiable presentation
     #[serde(rename = "type")]
     pub pres_type: Vec<String>,
 
-    // Identifies the presenter
+    /// Identifies the presenter
     // https://www.w3.org/TR/vc-data-model-2.0/#identifiers
     #[serde(skip_serializing_if = "Option::is_none")]
     pub holder: Option<String>,
 
-    // Set of proofs
+    /// Set of proofs
     // We allow a VP to created without the proof block.
     // Event though it is required. As we want to produce
     // the unsecured vesion before proof production or proof
