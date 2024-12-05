@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fluentd-config
+data:
+  fluent.conf: |
+    <match **>
+      @type elasticsearch
+      host elasticsearch.default.svc.cluster.local
+      port 9200
+      logstash_format true
+    </match>

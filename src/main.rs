@@ -6,16 +6,15 @@ use std::net::SocketAddr;
 #[tokio::main]
 async fn main() -> Result<()> {
     // Load dotenv-flow variables
-    dotenv_flow::dotenv_flow().ok();
+    dotenv_flow::dotenv_flow()?;
 
     // Enable logging
     config_tracing();
 
     // Start server
     let port = std::env::var("SERVER_LOCAL_PORT").unwrap_or("3000".to_owned());
-    let addr: SocketAddr = format!("0.0.0.0:{port}")
-        .parse()
-        .context("failed to parse address")?;
+    let ip = std::env::var("SERVER_PUBLIC_IP").unwrap_or("0.0.0.0".to_owned());
+    let addr: SocketAddr = format!("{ip}:{port}").parse().unwrap();
 
     tracing::debug!("listening on {}", addr);
 
