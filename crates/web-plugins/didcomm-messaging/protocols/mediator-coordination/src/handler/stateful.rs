@@ -21,9 +21,10 @@ use serde_json::json;
 use shared::{
     midlw::ensure_transport_return_route_is_decorated_all,
     repository::entity::Connection,
+    retry::{retry_async, RetryOptions},
     state::{AppState, AppStateRepository},
 };
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 use uuid::Uuid;
 
 /// Process a DIDComm mediate request
@@ -53,10 +54,24 @@ pub(crate) async fn process_mediate_request(
         .ok_or(MediationError::InternalServerError)?;
 
     // If there is already mediation, send mediate deny
-    if let Some(_connection) = connection_repository
-        .find_one_by(doc! { "client_did": sender_did})
-        .await
-        .map_err(|_| MediationError::InternalServerError)?
+    if let Some(_connection) = retry_async(
+        || {
+            let sender_did = sender_did.clone();
+            let connection_repository = connection_repository.clone();
+
+            async move {
+                connection_repository
+                    .find_one_by(doc! { "client_did": sender_did })
+                    .await
+            }
+        },
+        RetryOptions::new()
+            .retries(5)
+            .exponential_backoff(Duration::from_millis(100))
+            .max_delay(Duration::from_secs(1)),
+    )
+    .await
+    .map_err(|_| MediationError::InternalServerError)?
     {
         tracing::info!("Sending mediate deny.");
         return Ok(Some(
@@ -85,15 +100,24 @@ pub(crate) async fn process_mediate_request(
             .as_ref()
             .ok_or(MediationError::InternalServerError)?;
 
-        let diddoc = state
-            .did_resolver
-            .resolve(&routing_did)
-            .await
-            .map_err(|err| {
-                tracing::error!("Failed to resolve DID: {:?}", err);
-                MediationError::InternalServerError
-            })?
-            .ok_or(MediationError::InternalServerError)?;
+        let diddoc = retry_async(
+            || {
+                let did_resolver = state.did_resolver.clone();
+                let routing_did = routing_did.clone();
+
+                async move { did_resolver.resolve(&routing_did).await.map_err(|_| ()) }
+            },
+            RetryOptions::new()
+                .retries(5)
+                .exponential_backoff(Duration::from_millis(100))
+                .max_delay(Duration::from_secs(1)),
+        )
+        .await
+        .map_err(|err| {
+            tracing::error!("Failed to resolve DID: {:?}", err);
+            MediationError::InternalServerError
+        })?
+        .ok_or(MediationError::InternalServerError)?;
 
         let agreem_keys_jwk: Jwk = agreem_keys.try_into().unwrap();
 
@@ -229,11 +253,29 @@ pub(crate) async fn process_plain_keylist_update_message(
 
     // Find connection for this keylist update
 
-    let connection = connection_repository
-        .find_one_by(doc! { "client_did": &sender })
-        .await
-        .unwrap()
-        .ok_or_else(|| MediationError::UncoordinatedSender)?;
+    let connection = retry_async(
+        || {
+            let connection_repository = connection_repository.clone();
+            let sender = sender.clone();
+
+            async move {
+                connection_repository
+                    .find_one_by(doc! { "client_did": &sender })
+                    .await
+                    .map_err(|_| ())
+            }
+        },
+        RetryOptions::new()
+            .retries(5)
+            .exponential_backoff(Duration::from_millis(100))
+            .max_delay(Duration::from_secs(1)),
+    )
+    .await
+    .map_err(|err| {
+        tracing::error!("Failed to find connection after retries: {:?}", err);
+        MediationError::InternalServerError
+    })?
+    .ok_or_else(|| MediationError::UncoordinatedSender)?;
 
     // Prepare handles to relevant collections
 
@@ -347,11 +389,29 @@ pub(crate) async fn process_plain_keylist_query_message(
         .as_ref()
         .ok_or(MediationError::InternalServerError)?;
 
-    let connection = connection_repository
-        .find_one_by(doc! { "client_did": &sender })
-        .await
-        .unwrap()
-        .ok_or_else(|| MediationError::UncoordinatedSender)?;
+    let connection = retry_async(
+        || {
+            let connection_repository = connection_repository.clone();
+            let sender = sender.clone();
+
+            async move {
+                connection_repository
+                    .find_one_by(doc! { "client_did": &sender })
+                    .await
+                    .map_err(|_| ())
+            }
+        },
+        RetryOptions::new()
+            .retries(5)
+            .exponential_backoff(Duration::from_millis(100))
+            .max_delay(Duration::from_secs(1)),
+    )
+    .await
+    .map_err(|err| {
+        tracing::error!("Failed to find connection after retries: {:?}", err);
+        MediationError::InternalServerError
+    })?
+    .ok_or_else(|| MediationError::UncoordinatedSender)?;
 
     println!("keylist: {:?}", connection);
 
