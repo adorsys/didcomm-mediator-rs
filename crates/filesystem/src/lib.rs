@@ -8,7 +8,7 @@ use std::{
 
 #[doc(hidden)]
 // Define a trait for file system operations
-pub trait FileSystem: Send + 'static {
+pub trait FileSystem: Send + Sync + 'static {
     fn read_to_string(&self, path: &Path) -> IoResult<String>;
     fn write(&mut self, path: &Path, content: &str) -> IoResult<()>;
     fn read_dir_files(&self, path: &Path) -> IoResult<Vec<String>>;

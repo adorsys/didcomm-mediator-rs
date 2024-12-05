@@ -8,7 +8,8 @@ use multibase::Base::Base64Url;
 use qrcode::QrCode;
 use serde::{Deserialize, Serialize};
 use serde_json::to_string;
-use std::{collections::HashMap, sync::Mutex};
+use std::collections::HashMap;
+use std::sync::RwLock;
 
 #[cfg(test)]
 use std::io::Result as IoResult;
@@ -20,8 +21,8 @@ use std::io::Result as IoResult;
 // The out-of-band protocol consists in a single message that is sent by the sender.
 
 // This is the first step in the interaction with the Mediator. The following one is the mediation coordination where a 'request mediation' request is created and performed.
-/// e.g.:
-/// ```
+// e.g.:
+// ```
 // {
 //     "type": "https://didcomm.org/out-of-band/2.0/invitation",
 //     "id": "0a2c57a5-5662-48a8-bca8-78275cef3c80",
@@ -35,7 +36,7 @@ use std::io::Result as IoResult;
 //       ]
 //     }
 //   }
-/// ```
+// ```
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct OobMessage {
@@ -83,12 +84,15 @@ impl OobMessage {
 }
 
 // Receives server path/port and local storage path and returns a String with the OOB URL.
-pub(crate) fn retrieve_or_generate_oob_inv<'a>(
-    fs: &mut dyn FileSystem,
+pub(crate) fn retrieve_or_generate_oob_inv<F>(
+    fs: &mut F,
     server_public_domain: &str,
     server_local_port: &str,
     storage_dirpath: &str,
-) -> Result<String, String> {
+) -> Result<String, String>
+where
+    F: FileSystem + ?Sized,
+{
     // Construct the file path
     let file_path = format!("{}/oob_invitation.txt", storage_dirpath);
 
@@ -104,35 +108,38 @@ pub(crate) fn retrieve_or_generate_oob_inv<'a>(
     let diddoc: Document = fs
         .read_to_string(diddoc_path.as_ref())
         .map(|content| serde_json::from_str(&content).unwrap())
-        .map_err(|e| format!("Failed to read DID document: {}", e))?;
+        .map_err(|err| format!("Failed to read DID document: {err}"))?;
 
     let did = diddoc.id.clone();
     let oob_message = OobMessage::new(&did);
     let url: &String = &format!("{}:{}", server_public_domain, server_local_port);
     let oob_url = OobMessage::serialize_oob_message(&oob_message, url)
-        .map_err(|e| format!("Serialization error: {}", e))?;
+        .map_err(|err| format!("Serialization error: {err}"))?;
 
     // Attempt to create the file and write the string
-    to_local_storage(fs, &oob_url, storage_dirpath);
+    to_local_storage(fs, &oob_url, storage_dirpath)?;
 
     Ok(oob_url)
 }
 
 lazy_static! {
-    static ref CACHE: Mutex<HashMap<String, String>> = Mutex::new(HashMap::new());
+    static ref CACHE: RwLock<HashMap<String, String>> = RwLock::new(HashMap::new());
 }
 
 // Function to generate and save a QR code image with caching
-pub(crate) fn retrieve_or_generate_qr_image(
-    fs: &mut dyn FileSystem,
+pub(crate) fn retrieve_or_generate_qr_image<F>(
+    fs: &mut F,
     base_path: &str,
     url: &str,
-) -> Result<String, String> {
+) -> Result<String, String>
+where
+    F: FileSystem + ?Sized,
+{
     let path = format!("{}/qrcode.txt", base_path);
 
     // Check the cache first
     {
-        let cache = CACHE.lock().map_err(|e| format!("Cache error: {}", e))?;
+        let cache = CACHE.read().map_err(|err| format!("Cache error: {err}"))?;
         if let Some(existing_image) = cache.get(&path) {
             return Ok(existing_image.clone());
         }
@@ -142,15 +149,15 @@ pub(crate) fn retrieve_or_generate_qr_image(
     if let Ok(existing_image) = fs.read_to_string(path.as_ref()) {
         // Update the cache with the retrieved data
         CACHE
-            .lock()
-            .map_err(|e| format!("Cache error: {:?}", e))?
+            .write()
+            .map_err(|err| format!("Cache error: {err}"))?
             .insert(path.clone(), existing_image.clone());
         return Ok(existing_image);
     }
 
     // Generate QR code
     let qr_code = QrCode::new(url.as_bytes())
-        .map_err(|error| format!("Failed to generate QR code: {:?}", error))?;
+        .map_err(|error| format!("Failed to generate QR code: {error:?}"))?;
 
     let image = qr_code.render::<Luma<u8>>().build();
 
@@ -159,37 +166,38 @@ pub(crate) fn retrieve_or_generate_qr_image(
     let mut buffer = Vec::new();
     dynamic_image
         .write_to(&mut buffer, image::ImageOutputFormat::Png)
-        .expect("Error encoding image to PNG");
+        .map_err(|err| format!("Error encoding image to PNG: {err}"))?;
 
     // Save the PNG-encoded byte vector as a base64-encoded string
     let base64_string = encode_config(&buffer, STANDARD);
 
     // Save to file
     fs.write_with_lock(path.as_ref(), &base64_string)
-        .map_err(|e| format!("Error writing: {:?}", e))?;
+        .map_err(|err| format!("Error writing: {err:?}"))?;
     CACHE
-        .lock()
-        .map_err(|e| format!("Cache error: {:?}", e))?
+        .write()
+        .map_err(|err| format!("Cache error: {err:?}"))?
         .insert(path.clone(), base64_string.clone());
 
     Ok(base64_string)
 }
 
-fn to_local_storage(fs: &mut dyn FileSystem, oob_url: &str, storage_dirpath: &str) {
+fn to_local_storage<F>(fs: &mut F, oob_url: &str, storage_dirpath: &str) -> Result<(), String>
+where
+    F: FileSystem + ?Sized,
+{
     // Ensure the parent directory ('storage') exists
-    if let Err(e) = fs.create_dir_all(storage_dirpath.as_ref()) {
-        tracing::error!("Error creating directory: {:?}", e);
-        return;
-    }
+    fs.create_dir_all(storage_dirpath.as_ref())
+        .map_err(|err| format!("Error creating directory: {err}"))?;
 
     let file_path = format!("{}/oob_invitation.txt", storage_dirpath);
 
     // Attempt to write the string directly to the file
-    if let Err(e) = fs.write(file_path.as_ref(), oob_url) {
-        tracing::error!("Error writing to file: {:?}", e);
-    } else {
-        tracing::info!("String successfully written to file.");
-    }
+    fs.write(file_path.as_ref(), oob_url)
+        .map_err(|err| format!("Error writing to file: {err}"))?;
+    tracing::info!("String successfully written to file.");
+
+    Ok(())
 }
 
 #[cfg(test)]
