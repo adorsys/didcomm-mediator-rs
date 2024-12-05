@@ -31,9 +31,13 @@ use Algorithm::*;
 impl Algorithm {
     /// Returns the multicodec prefix associated with the algorithm.
     ///
-    /// # Returns
+    /// # Example
     ///
-    /// A two-byte array representing the multicodec prefix.
+    /// ```rust
+    /// use did_utils::crypto::Algorithm;
+    ///
+    /// let prefix = Algorithm::Ed25519.muticodec_prefix();
+    /// ```
     pub fn muticodec_prefix(&self) -> [u8; 2] {
         match self {
             Ed25519 => [0xed, 0x01],
@@ -47,15 +51,20 @@ impl Algorithm {
         }
     }
 
-    /// Creates an `Algorithm` enum variant from the given multicodec prefix.
+    /// Returns the corresponding `Algorithm` variant from a multicodec prefix.
     ///
-    /// # Parameters
+    /// # Example
     ///
-    /// - `prefix`: A two-byte array representing the multicodec prefix.
+    /// ```rust
+    /// use did_utils::crypto::Algorithm;
     ///
-    /// # Returns
+    /// # fn example() -> Option<Algorithm> {
+    /// let alg = Algorithm::from_muticodec_prefix(&[0xed, 0x01])?;
+    /// assert_eq!(alg, Algorithm::Ed25519);
     ///
-    /// An `Option` containing the corresponding `Algorithm` variant.
+    /// # Some(alg)
+    /// # }
+    /// ```
     pub fn from_muticodec_prefix(prefix: &[u8; 2]) -> Option<Self> {
         match prefix {
             [0xed, 0x01] => Some(Ed25519),
@@ -72,9 +81,18 @@ impl Algorithm {
 
     /// Returns the length of the public key for the algorithm, if known.
     ///
-    /// # Returns
+    /// # Example
     ///
-    /// An `Option` containing the length of the public key in bytes.
+    /// ```
+    /// use did_utils::crypto::Algorithm;
+    ///
+    /// # fn example() -> Option<usize> {
+    /// let length = Algorithm::Ed25519.public_key_length()?;
+    /// assert_eq!(length, 32);
+    ///
+    /// # Some(length)
+    /// # }
+    /// ```
     pub fn public_key_length(&self) -> Option<usize> {
         match self {
             Ed25519 => Some(32),
@@ -90,13 +108,18 @@ impl Algorithm {
 
     /// Builds a JSON Web Key from raw public key bytes.
     ///
-    /// # Parameters
+    /// # Example
     ///
-    /// - `raw_public_key_bytes`: The raw public key bytes.
+    /// ```
+    /// use did_utils::crypto::Algorithm;
+    /// # use did_utils::crypto::Error;
+    /// #
+    /// # fn example() -> Result<(), Error> {
+    /// let jwk = Algorithm::Ed25519.build_jwk(&[1u8; 32])?;
     ///
-    /// # Returns
-    ///
-    /// A `Result` containing the constructed `Jwk` or a `CryptoError`.
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn build_jwk(&self, raw_public_key_bytes: &[u8]) -> Result<Jwk, CryptoError> {
         match self {
             Ed25519 => Ok(Jwk {
@@ -144,15 +167,7 @@ impl Algorithm {
         }
     }
 
-    /// Uncompresses a compressed public key.
-    ///
-    /// # Parameters
-    ///
-    /// - `compressed_key_bytes`: The compressed public key bytes.
-    ///
-    /// # Returns
-    ///
-    /// The bytes representing the uncompressed key or a `CryptoError`.
+    // Uncompresses a compressed public key.
     pub fn uncompress_public_key(&self, compressed_key_bytes: &[u8]) -> Result<Vec<u8>, CryptoError> {
         if let Some(required_length) = self.public_key_length() {
             if required_length != compressed_key_bytes.len() {

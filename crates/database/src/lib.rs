@@ -68,8 +68,10 @@ where
     Entity: Identifiable + Unpin,
     Entity: Serialize + for<'de> Deserialize<'de>,
 {
+    /// Get a handle to a collection.
     fn get_collection(&self) -> Arc<RwLock<Collection<Entity>>>;
 
+    /// Retrieve all entities from the database.
     async fn find_all(&self) -> Result<Vec<Entity>, RepositoryError> {
         let mut entities = Vec::new();
         let collection = self.get_collection();
@@ -83,7 +85,7 @@ where
         Ok(entities)
     }
 
-    /// Counts all entities by filter.
+    /// Gets the number of documents matching `filter`.
     async fn count_by(&self, filter: BsonDocument) -> Result<usize, RepositoryError> {
         let collection = self.get_collection();
         // Lock the Mutex and get the Collection
@@ -95,10 +97,12 @@ where
             .map_err(|_| RepositoryError::Generic("count overflow".to_owned()))?)
     }
 
+    /// Find an entity by `id`.
     async fn find_one(&self, id: ObjectId) -> Result<Option<Entity>, RepositoryError> {
         self.find_one_by(doc! {"_id": id}).await
     }
 
+    /// Find an entity matching `filter`.
     async fn find_one_by(&self, filter: BsonDocument) -> Result<Option<Entity>, RepositoryError> {
         let collection = self.get_collection();
 
@@ -125,6 +129,8 @@ where
         Ok(entity)
     }
 
+    /// Find all entities matching `filter`.
+    /// If `limit` is set, only the first `limit` entities are returned.
     async fn find_all_by(
         &self,
         filter: BsonDocument,
@@ -146,6 +152,7 @@ where
         Ok(entities)
     }
 
+    /// Deletes an entity by `id`.
     async fn delete_one(&self, id: ObjectId) -> Result<(), RepositoryError> {
         let collection = self.get_collection();
 
@@ -158,6 +165,7 @@ where
         Ok(())
     }
 
+    /// Updates an entity.
     async fn update(&self, entity: Entity) -> Result<Entity, RepositoryError> {
         if entity.id().is_none() {
             return Err(RepositoryError::MissingIdentifier);

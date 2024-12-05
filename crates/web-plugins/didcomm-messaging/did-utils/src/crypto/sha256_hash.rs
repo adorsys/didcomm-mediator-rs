@@ -3,13 +3,14 @@ use sha2::{Digest, Sha256};
 
 /// Compute the SHA256 hash of a given input.
 ///
-/// # Arguments
+/// # Example
 ///
-/// * `bytes` - The input to compute the hash from.
+/// ```rust
+/// use did_utils::crypto::sha256_hash;
 ///
-/// # Returns
-///
-/// The SHA256 hash as a byte array of length 32.
+/// let bytes = b"Hello, world!";
+/// let hash = sha256_hash(bytes);
+/// ```
 pub fn sha256_hash(bytes: &[u8]) -> [u8; 32] {
     // Create a new Sha256 hasher
     let mut hasher = Sha256::new();
@@ -21,13 +22,13 @@ pub fn sha256_hash(bytes: &[u8]) -> [u8; 32] {
     hash.as_slice()[..32].try_into().unwrap()
 }
 
-/// Compute SHA256 hash of a given input and return it as a multibase-encoded string.
-///  
+/// Compute SHA256 hash of a given input and return it as a multihash Base58 encoded string.
+///
 /// # Example
-///  
+///
 /// ```rust
 /// use did_utils::crypto::sha256_multihash;
-///  
+///
 /// let bytes = b"Hello, world!";
 /// let hash = sha256_multihash(bytes);
 /// ```

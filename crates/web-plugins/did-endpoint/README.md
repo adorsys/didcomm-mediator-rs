@@ -1,20 +1,11 @@
 # did-endpoint
 
-The `did-endpoint` crate provides tools and functionalities for generating and managing Decentralized Identifiers (DIDs) and web-based interactions.
+The `did-endpoint` plugin crate provides a set of tools for generating and validating a DID document. It is a part of the [Didcomm Mediator](https://github.com/adorsys/didcomm-mediator-rs/) project.
 
 ## Features
 
-- **Generates keys and forward them for DID generation:**
 - **Builds and persists DID document:**
 - **Validates the integrity of the persisted DID document**
-
-## Usage
-
-To use `did-endpoint` in your project, add the following to your **Cargo.toml**:
-
-```toml
-did-endpoint = "0.1.0"
-```
 
 ### Example
 
@@ -22,11 +13,23 @@ Here’s a simple example of how you can generate and validate a DID document:
 
 ```rust
 use did_endpoint::{didgen, validate_diddoc};
+use filesystem::{FileSystem, StdFileSystem};
+use keystore::KeyStore;
 
-let (storage_dirpath, server_public_domain) = ("target/storage", "https://example.com");
+let storage_dirpath = std::env::var("STORAGE_DIRPATH").unwrap(),
+let server_public_domain = std::env::var("SERVER_PUBLIC_DOMAIN").unwrap();
 
-// generate and persist a did document
-didgen(&storage_dirpath, &server_public_domain)?;
-// validate the generated did document
-assert!(validate_diddoc(&storage_dirpath).is_ok());
+let mut filesystem = filesystem::StdFileSystem;
+let keystore = keystore::KeyStore::get();
+
+// Generate and persist a new DID document
+didgen::didgen(
+    storage_dirpath,
+    server_public_domain,
+    &keystore,
+    &mut filesystem,
+)?;
+
+// Validate the integrity of the persisted DID document
+didgen::validate_diddoc(storage_dirpath, &keystore, &mut filesystem)?;
 ```

@@ -6,6 +6,7 @@ use message_api::{MessageHandler, MessagePlugin, MessageRouter};
 use shared::state::AppState;
 use std::sync::Arc;
 
+/// Represents the routing protocol plugin.
 pub struct RoutingProtocol;
 
 struct ForwardHandler;

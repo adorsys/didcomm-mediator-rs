@@ -49,18 +49,7 @@ impl<C> DidWeb<C>
 where
     C: Connect + Send + Sync + Clone + 'static,
 {
-    /// Fetches a DID document from the given URL.
-    ///
-    /// This method performs an HTTP GET request to the provided URL
-    /// and attempts to returns the response body as a string.
-    ///
-    /// # Arguments
-    ///
-    /// * `url` - The URL to fetch the DID document from.
-    ///
-    /// # Returns
-    ///
-    /// A `Result` containing the DID document as a string or a `DidWebError`.
+    /// Fetches a DID document from the given URL
     async fn fetch_did_document(&self, url: Uri) -> Result<String, DidWebError> {
         let res = self.client.get(url).await?;
 
@@ -74,18 +63,6 @@ where
     }
 
     /// Fetches and parses a DID document for the given DID.
-    ///
-    /// This method first parses the DID Web URL format from the given DID and then constructs
-    /// an URI based on the scheme, domain name, and path. It then fetches the DID document and
-    /// parses the response body.
-    ///
-    /// # Arguments
-    ///
-    /// * `did` - The DID to resolve.
-    ///
-    /// # Returns
-    ///
-    /// A `Result` containing the resolved `DIDDocument` or a `DidWebError`.
     async fn resolver_fetcher(&self, did: &str) -> Result<DIDDocument, DidWebError> {
         let (path, domain_name) = parse_did_web_url(did).map_err(|err| DidWebError::RepresentationNotSupported(err.to_string()))?;
 
@@ -112,14 +89,6 @@ where
 }
 
 /// Parses a DID Web URL and returns the path and domain name.
-///
-/// # Arguments
-///
-/// * `did` - The DID to parse.
-///
-/// # Returns
-///
-/// A `Result` containing the path and domain name or a `DidWebError`.
 fn parse_did_web_url(did: &str) -> Result<(String, String), DidWebError> {
     let mut parts = did.split(':').peekable();
     let domain_name = match (parts.next(), parts.next(), parts.next()) {
@@ -144,16 +113,21 @@ impl<C> DIDResolver for DidWeb<C>
 where
     C: Connect + Send + Sync + Clone + 'static,
 {
-    /// Resolves a DID to a DID document.
+    /// Resolves a `did:web` address to a DID document.
     ///
-    /// # Arguments
+    /// # Example
     ///
-    /// * `did` - The DID to resolve.
-    /// * `_options` - The options for DID resolution.
+    /// ```
+    /// use did_utils::methods::{DIDResolver, DidWeb, DIDResolutionOptions};
     ///
-    /// # Returns
-    ///
-    /// A `ResolutionOutput` containing the resolved DID document and metadata.
+    /// # async fn example_resolve_did_web() {
+    /// // create new web did resolver
+    /// let did_web_resolver = DidWeb::new();
+    /// let did = "did:web:example.com";
+    /// // resolve the did
+    /// let output = did_web_resolver.resolve(did, &DIDResolutionOptions::default()).await;
+    /// # }
+    /// ```
     async fn resolve(&self, did: &str, _options: &DIDResolutionOptions) -> ResolutionOutput {
         let context = Context::SingleString(String::from("https://w3id.org/did-resolution/v1"));
 

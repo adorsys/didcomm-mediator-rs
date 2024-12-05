@@ -12,7 +12,21 @@ use crate::{
 
 #[async_trait]
 impl DIDResolver for DidPeer {
-    /// Resolves a DID address into its corresponding DID document.
+    /// Resolves a `did:peer` address to a DID document.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use did_utils::methods::{DIDResolver, DidPeer, DIDResolutionOptions};
+    ///
+    /// # async fn example_resolve_did_peer() {
+    /// // create new peer did resolver
+    /// let did_peer_resolver = DidPeer::new();
+    /// let did = "did:peer:2.Vz6Mkj3PUd1WjvaDhNZhhhXQdz5UnZXmS7ehtx8bsPpD47kKc";
+    /// // resolve the did
+    /// let output = did_peer_resolver.resolve(did, &DIDResolutionOptions::default()).await;
+    /// # }
+    /// ```
     async fn resolve(&self, did: &str, _options: &DIDResolutionOptions) -> ResolutionOutput {
         let context = Context::SingleString(String::from("https://w3id.org/did-resolution/v1"));
 

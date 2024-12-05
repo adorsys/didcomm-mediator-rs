@@ -21,59 +21,70 @@ use crate::{jwk::Jwk, ldmodel::Context, proof::Proof};
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Document {
-    // The @context property defines the vocabulary used in the JSON-LD document.
-    // It provides a way to map the keys in the JSON structure to specific terms,
-    // properties, and classes from external vocabularies. In the context of a
-    // DID Document, the @context property is used to define the vocabulary for
-    // the various properties within the document, such as id, publicKey, service, and others.
+    /// The @context property defines the vocabulary used in the JSON-LD document.
+    /// It provides a way to map the keys in the JSON structure to specific terms,
+    /// properties, and classes from external vocabularies. In the context of a
+    /// DID Document, the @context property is used to define the vocabulary for
+    /// the various properties within the document, such as id, publicKey, service, and others.
     #[serde(rename = "@context")]
     pub context: Context,
 
     // === Identifier ===
-
-    // Identifier property is mandatory in a did document.
+    /// Identifier property is mandatory in a did document.
     // see https://www.w3.org/TR/did-core/#dfn-id
     #[serde(default = "String::new")]
     pub id: String,
 
-    // See https://www.w3.org/TR/did-core/#dfn-controller
+    /// The controller of the DID Document.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub controller: Option<Controller>,
 
-    // See https://www.w3.org/TR/did-core/#dfn-alsoknownas
+    /// Other identifiers of the DID Document.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub also_known_as: Option<Vec<String>>,
 
     // === Verification Methods ===
     #[serde(skip_serializing_if = "Option::is_none")]
+    /// Express verification methods than can be used to authenticate
+    /// or authorize interactions with the DID subject.
     pub verification_method: Option<Vec<VerificationMethod>>,
 
     // === Verification Relationships ===
     #[serde(skip_serializing_if = "Option::is_none")]
+    /// Used to specify how DID subject is expected to be authenticated.
     pub authentication: Option<Vec<VerificationMethodType>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    /// Used to specify how the DID subject is expected to express claims.
     pub assertion_method: Option<Vec<VerificationMethodType>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    /// used to specify a mechanism that might be used by the DID subject
+    /// to delegate a cryptographic capability to another party.
     pub capability_delegation: Option<Vec<VerificationMethodType>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    /// Used to specify a verification method that might be used by
+    /// the DID subject to invoke a cryptographic capability.
     pub capability_invocation: Option<Vec<VerificationMethodType>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    /// Used to specify how an entity can generate encryption material in order
+    /// to transmit confidential information intended for the DID subject.
     pub key_agreement: Option<Vec<VerificationMethodType>>,
 
     // === Services ===
     #[serde(skip_serializing_if = "Option::is_none")]
+    /// Express ways of communicating with the DID subject.
     pub service: Option<Vec<Service>>,
 
     // === Dynamic Properties ===
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(flatten)]
+    /// Dynamic properties
     pub additional_properties: Option<HashMap<String, Value>>,
 
-    // === Proof ===
+    /// The proof of the DID Document.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub proof: Option<Proofs>,
 }

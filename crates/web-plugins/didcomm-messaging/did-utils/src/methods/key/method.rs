@@ -10,6 +10,7 @@ use crate::{
     methods::{errors::DIDResolutionError, traits::DIDMethod},
 };
 
+/// A struct for resolving DID Key documents.
 #[derive(Default)]
 pub struct DidKey {
     /// Key format to consider during DID expansion into a DID document
@@ -39,13 +40,41 @@ impl DidKey {
         }
     }
 
-    /// Generates did:key address ex nihilo, off self-generated Ed25519 key pair
+    /// Generates a new DID key from an Ed25519 key pair.
+    ///
+    /// This function creates a new Ed25519 key pair and converts it into a DID key.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use did_utils::methods::DidKey;
+    ///
+    /// # fn example() -> Result<(), did_utils::crypto::Error> {
+    /// let did_key = DidKey::generate()?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn generate() -> Result<String, CryptoError> {
         let keypair = Ed25519KeyPair::new()?;
         Self::from_ed25519_keypair(&keypair)
     }
 
-    /// Computes did:key address corresponding to Ed25519 key pair
+    /// Converts an Ed25519 key pair into a DID key.
+    ///
+    /// This function takes an existing Ed25519 key pair and returns the corresponding DID key.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use did_utils::crypto::{Ed25519KeyPair, Generate};
+    /// use did_utils::methods::DidKey;
+    ///
+    /// # fn example() -> Result<(), did_utils::crypto::Error> {
+    /// let keypair = Ed25519KeyPair::new()?;
+    /// let did_key = DidKey::from_ed25519_keypair(&keypair)?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn from_ed25519_keypair(keypair: &Ed25519KeyPair) -> Result<String, CryptoError> {
         let multibase_value = multibase::encode(
             Base58Btc,
@@ -55,7 +84,26 @@ impl DidKey {
         Ok(format!("did:key:{}", multibase_value))
     }
 
-    /// Computes did:key address corresponding to raw public key bytes
+    /// Converts a raw public key into a DID key.
+    ///
+    /// This function takes a raw public key and an algorithm type, and returns the corresponding DID key.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use did_utils::methods::DidKey;
+    /// use did_utils::methods::Algorithm;
+    ///
+    /// # fn example() -> Result<(), did_utils::crypto::Error> {
+    /// let bytes = [0u8; 32];
+    /// let did_key = DidKey::from_raw_public_key(Algorithm::Ed25519, &bytes)?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// This function returns an error if the length of the raw public key does not match the algorithm's expected length.
     pub fn from_raw_public_key(alg: Algorithm, bytes: &[u8]) -> Result<String, CryptoError> {
         if let Some(required_length) = alg.public_key_length() {
             if required_length != bytes.len() {
@@ -68,7 +116,7 @@ impl DidKey {
         Ok(format!("did:key:{}", multibase_value))
     }
 
-    /// Expands did:key address into DID document
+    /// Expands `did:key` address into DID document
     ///
     /// See [Create a did key](https://w3c-ccg.github.io/did-method-key/#create)
     pub fn expand(&self, did: &str) -> Result<DIDDocument, DIDResolutionError> {
