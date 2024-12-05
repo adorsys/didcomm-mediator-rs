@@ -6,7 +6,7 @@ use std::net::SocketAddr;
 #[tokio::main]
 async fn main() -> Result<()> {
     // Load dotenv-flow variables
-    dotenv_flow::dotenv_flow().ok();
+    dotenv_flow::dotenv_flow()?;
 
     // Enable logging
     config_tracing();
