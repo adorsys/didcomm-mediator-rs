@@ -3,12 +3,11 @@ name: Publish Docker Image
 on:
   push:
     branches:
-      - main # Adjust to the branch you want to trigger the workflow
-  workflow_dispatch: # Allows manual triggering of the workflow
+      - main
+  workflow_dispatch:
 
 env:
-  DOCKER_IMAGE: ghcr.io/adorsys/didcomm-mediator-rs:latest
-  DOCKER_USERNAME: ${{ secrets.GITHUB_ACTOR }} # Automatically set to the GitHub actor
+  DOCKER_IMAGE: ghcr.io/adorsys/didcomm-mediator-rs
 
 jobs:
   build-and-push:
@@ -18,14 +17,17 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
 
-    - name: Log in to GitHub Container Registry
-      run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $DOCKER_USERNAME --password-stdin
-
-    - name: Build Docker Image
+    - name: Install Docker Compose
       run: |
-        docker compose \
-          --env-file "${{ github.event.inputs.env_file || '.env' }}" \
-          build mediator
+        sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+        sudo chmod +x /usr/local/bin/docker-compose
+        docker-compose --version
 
-    - name: Push Docker Image
-      run: docker push $DOCKER_IMAGE
+    - name: Log in to GitHub Container Registry
+      run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ secrets.GITHUB_ACTOR }} --password-stdin
+
+    - name: Build and Push Docker Image
+      run: |
+        docker-compose -f docker-compose.yml build mediator --no-cache
+        docker tag ${DOCKER_IMAGE}:merge ${DOCKER_IMAGE}:latest
+        docker push ${DOCKER_IMAGE}:latest
