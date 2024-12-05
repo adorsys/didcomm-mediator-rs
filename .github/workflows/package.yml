@@ -1,25 +1,22 @@
-
 name: Publish Image
 
 on:
   push:
     branches:
-      - main
-      
+      - '**' # Triggers on all branches
     tags:
-      - v*
+      - 'v*' # Triggers on tags starting with "v"
 
 env:
   IMAGE_NAME: ghcr.io/adorsys/didcomm-mediator-rs
-#
-jobs:
 
+jobs:
   push:
     runs-on: ubuntu-latest
     permissions:
       packages: write
       contents: read
-      #
+
     steps:
       - uses: actions/checkout@v4
 
@@ -28,18 +25,18 @@ jobs:
 
       - name: Log in to registry
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-        #
+
       - name: Push image
         run: |
           IMAGE_ID=ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME
 
-          # This changes all uppercase characters to lowercase.
+          # Ensure all uppercase characters are converted to lowercase
           IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
-          # This strips the git ref prefix from the version.
+          # Strip the git ref prefix from the version
           VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
-          # This strips the "v" prefix from the tag name.
+          # Remove the "v" prefix from the tag name
           [[ "${{ github.ref }}" == "refs/tags/"* ]] && VERSION=$(echo $VERSION | sed -e 's/^v//')
-          # This uses the Docker `latest` tag convention.
+          # Use "latest" tag for the main branch
           [ "$VERSION" == "main" ] && VERSION=latest
           echo IMAGE_ID=$IMAGE_ID
           echo VERSION=$VERSION
