@@ -1,6 +1,7 @@
 # Database crate
 
-A lightweight library for managing MongoDB operations. This library provides an interface, the `Repository` trait with default implementations for interacting with MongoDB collections. It is used by all the plugins in the workspace that require database access.
+A lightweight library for managing MongoDB operations. This library provides an interface, the `Repository` trait with default implementations for interacting with MongoDB collections. It is used by the plugins in the workspace that require database access.
+This crate is part of the [DIDComm mediator](https://github.com/adorsys/didcomm-mediator-rs) project.
 
 ## Usage
 
@@ -9,7 +10,7 @@ A lightweight library for managing MongoDB operations. This library provides an 
 * [MongoDB](https://www.mongodb.com) server instance
 * Environment variables:
   * `MONGO_URI`: MongoDB connection string
-  * `MONGO_DB`: Database name
+  * `MONGO_DBN`: Database name
 
 ### Example
 

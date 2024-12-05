@@ -1,6 +1,6 @@
 # Server plugin API
 
-The server used for this project provides a system for building versatile applications by integrating functionalities offered by configurable plugins via the plugin API.
+An interface that can be used by a generic server to build versatile applications by integrating functionalities offered by configurable plugins via the plugin API. It is part of the [Didcomm Mediator](https://github.com/adorsys/didcomm-mediator-rs/) project.
 
 ## Features
 
