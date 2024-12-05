@@ -1,0 +1,22 @@
+version: "3.8"
+services:
+  mediator:
+    build:
+      context: .
+    container_name: didcomm-mediator
+    image: ghcr.io/adorsys/didcomm-mediator-rs:latest
+    ports:
+      - 3000:8080
+    env_file:
+      - .env
+    depends_on:
+      - mongodb
+  mongodb:
+    image: mongo:latest
+    container_name: mongodb
+    env_file:
+      - .env
+    volumes:
+      - mongo-data:/data/db
+volumes:
+  mongo-data: null
