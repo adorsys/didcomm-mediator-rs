@@ -1,33 +1,58 @@
-name: Publish Docker Image
+name: Create and publish a Docker image
 
 on:
   push:
     branches:
       - main
-  workflow_dispatch:
+    tags:
+      - v*
+  pull_request:
 
 env:
-  DOCKER_IMAGE: ghcr.io/adorsys/didcomm-mediator-rs
+  IMAGE_NAME: ghcr.io/adorsys/didcomm-mediator-rs
 
 jobs:
-  build-and-push:
+  push:
     runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+      - name: Check out repository
+        uses: actions/checkout@v4
 
-    - name: Install Docker Compose
-      run: |
-        sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-        sudo chmod +x /usr/local/bin/docker-compose
-        docker-compose --version
+      - name: Install Docker Compose
+        run: |
+          sudo curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+          sudo chmod +x /usr/local/bin/docker-compose
 
-    - name: Log in to GitHub Container Registry
-      run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ secrets.GITHUB_ACTOR }} --password-stdin
+      - name: Log in to GitHub Container Registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-    - name: Build and Push Docker Image
-      run: |
-        docker-compose -f docker-compose.yml build mediator --no-cache
-        docker tag ${DOCKER_IMAGE}:merge ${DOCKER_IMAGE}:latest
-        docker push ${DOCKER_IMAGE}:latest
+      - name: Build Docker image
+        run: |
+          echo "Checking for .env file..."
+          if [ -f .env ]; then
+            echo ".env file exists."
+          else
+            echo ".env file does not exist."
+            exit 1
+          fi
+
+          VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
+          [[ "${{ github.ref }}" == "refs/heads/main" ]] && VERSION=latest
+          [[ "${{ github.ref }}" == "refs/tags/"* ]] && VERSION=$(echo $VERSION | sed -e 's/^v//')
+
+          echo "Building image with version: $VERSION"
+          docker-compose build
+          docker tag ${IMAGE_NAME}:latest ${IMAGE_NAME}:${VERSION}
+
+      - name: Push Docker image
+        run: |
+          VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
+          [[ "${{ github.ref }}" == "refs/heads/main" ]] && VERSION=latest
+          [[ "${{ github.ref }}" == "refs/tags/"* ]] && VERSION=$(echo $VERSION | sed -e 's/^v//')
+
+          echo "Pushing image ${IMAGE_NAME}:${VERSION}"
+          docker push ${IMAGE_NAME}:${VERSION}
