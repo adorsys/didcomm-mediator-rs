@@ -16,9 +16,9 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
 
-      - name: Set up Rust
-        uses: actions/setup-rust@v1
-        with:
-          rust-version: stable
+    - name: Set up Rust
+      uses: actions/setup-rust@v1
+      with:
+        rust-version: stable
 
       # Deploy to AWS EC2 Or another instance
