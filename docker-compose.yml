@@ -1,10 +1,8 @@
 version: "3.8"
 services:
   mediator:
-    build:
-      context: .
     container_name: didcomm-mediator
-    image: ghcr.io/adorsys/didcomm-mediator-rs:latest
+    image: ghcr.io/adorsys/didcomm-mediator-rs:merge
     ports:
       - 3000:8080
     env_file:

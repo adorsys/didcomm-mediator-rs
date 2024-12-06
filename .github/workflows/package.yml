@@ -1,12 +1,11 @@
-name: Create and publish a Docker image
+name: Publish Image
 
 on:
   push:
     branches:
-      - main
+      - '**' # Triggers on all branches
     tags:
-      - v*
-  pull_request:
+      - 'v*' # Triggers on tags starting with "v"
 
 env:
   IMAGE_NAME: ghcr.io/adorsys/didcomm-mediator-rs
@@ -19,40 +18,27 @@ jobs:
       contents: read
 
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Install Docker Compose
-        run: |
-          sudo curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-          sudo chmod +x /usr/local/bin/docker-compose
+      - name: Build image
+        run: docker build . --file Dockerfile --tag $IMAGE_NAME --label "runnumber=${GITHUB_RUN_ID}"
 
-      - name: Log in to GitHub Container Registry
+      - name: Log in to registry
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-      - name: Build Docker image
+      - name: Push image
         run: |
-          echo "Checking for .env file..."
-          if [ -f .env ]; then
-            echo ".env file exists."
-          else
-            echo ".env file does not exist."
-            exit 1
-          fi
+          IMAGE_ID=ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME
 
-          VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
-          [[ "${{ github.ref }}" == "refs/heads/main" ]] && VERSION=latest
+          # Ensure all uppercase characters are converted to lowercase
+          IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
+          # Strip the git ref prefix from the version
+          VERSION=latest
+          # Remove the "v" prefix from the tag name
           [[ "${{ github.ref }}" == "refs/tags/"* ]] && VERSION=$(echo $VERSION | sed -e 's/^v//')
-
-          echo "Building image with version: $VERSION"
-          docker-compose build
-          docker tag ${IMAGE_NAME}:latest ${IMAGE_NAME}:${VERSION}
-
-      - name: Push Docker image
-        run: |
-          VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
-          [[ "${{ github.ref }}" == "refs/heads/main" ]] && VERSION=latest
-          [[ "${{ github.ref }}" == "refs/tags/"* ]] && VERSION=$(echo $VERSION | sed -e 's/^v//')
-
-          echo "Pushing image ${IMAGE_NAME}:${VERSION}"
-          docker push ${IMAGE_NAME}:${VERSION}
+          # Use "latest" tag for the main branch
+          [ "$VERSION" == "main" ] && VERSION=latest
+          echo IMAGE_ID=$IMAGE_ID
+          echo VERSION=$VERSION
+          docker tag $IMAGE_NAME $IMAGE_ID:$VERSION
+          docker push $IMAGE_ID:$VERSION
