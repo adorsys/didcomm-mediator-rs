@@ -34,6 +34,7 @@ jobs:
       uses: actions-rust-lang/setup-rust-toolchain@v1
       with:
         toolchain: stable
+        rustflags:
 
     - name: Install Nextest test runner
       uses: taiki-e/install-action@nextest
@@ -70,4 +71,4 @@ jobs:
       uses: taiki-e/install-action@nextest
 
     - name: Run Reliability Tests
-      run: cargo nextest run --workspace --all-features --filterset 'test(| ignore = "reliability")'
+      run: cargo nextest run --workspace --all-features --filterset reliability
