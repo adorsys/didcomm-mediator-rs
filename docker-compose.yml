@@ -11,6 +11,8 @@ services:
       - .env
     depends_on:
       - mongodb
+    network_mode: host # Use the host's networking stack for the mediator container
+
   mongodb:
     image: mongo:latest
     container_name: mongodb
@@ -18,5 +20,7 @@ services:
       - .env
     volumes:
       - mongo-data:/data/db
+    network_mode: bridge # Keep MongoDB container in the default bridge network
+
 volumes:
   mongo-data: null
