@@ -21,4 +21,7 @@ jobs:
       with:
         rust-version: stable
 
-      # Deploy to AWS EC2 Or another instance
+    - name: Deploy to AWS EC2
+      run: |
+        echo "Deploying application to AWS EC2..."
+        # Add your deployment script here
