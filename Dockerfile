@@ -21,7 +21,7 @@ ENV STORAGE_DIRPATH="crates/generic-server/target/storage"
 COPY --from=builder /app/target/release/didcomm-mediator /usr/local/bin/didcomm-mediator
 
 # Copy the default .env file
-COPY .env /app/.env
+COPY .env ./.env
 
 # Expose the necessary port
 EXPOSE 8080
