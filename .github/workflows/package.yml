@@ -33,7 +33,7 @@ jobs:
           # Ensure all uppercase characters are converted to lowercase
           IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
           # Strip the git ref prefix from the version
-          VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
+          VERSION=latest
           # Remove the "v" prefix from the tag name
           [[ "${{ github.ref }}" == "refs/tags/"* ]] && VERSION=$(echo $VERSION | sed -e 's/^v//')
           # Use "latest" tag for the main branch
