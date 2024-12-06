@@ -66,4 +66,8 @@ jobs:
       with:
         toolchain: stable
 
-    
+    - name: Install Nextest test runner
+      uses: taiki-e/install-action@nextest
+
+    - name: Run Reliability Tests
+      run: cargo nextest run --workspace --all-features --filter reliability
