@@ -20,11 +20,9 @@ ENV STORAGE_DIRPATH="crates/generic-server/target/storage"
 # Copy the built binary
 COPY --from=builder /app/target/release/didcomm-mediator /usr/local/bin/didcomm-mediator
 
-# Copy the default .env file
-COPY .env ./.env
 
 # Expose the necessary port
 EXPOSE 8080
 
 # Set an entrypoint script to handle the environment file
-ENTRYPOINT ["/bin/sh", "-c", "env $(cat ${ENV_FILE:-/app/.env} | xargs) didcomm-mediator"]
+ENTRYPOINT ["didcomm-mediator"]
