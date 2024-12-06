@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert -f ../docker-compose.yml
+    kompose.version: 1.27.0 (b0ed6a2c9)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: mongodb
+  name: mongodb
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: mongodb
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert -f ../docker-compose.yml
+        kompose.version: 1.27.0 (b0ed6a2c9)
+      creationTimestamp: null
+      labels:
+        io.kompose.service: mongodb
+    spec:
+      containers:
+        - env:
+            - name: MONGO_DBN
+              valueFrom:
+                configMapKeyRef:
+                  key: MONGO_DBN
+                  name: env
+            - name: MONGO_URI
+              valueFrom:
+                configMapKeyRef:
+                  key: MONGO_URI
+                  name: env
+            - name: SERVER_LOCAL_PORT
+              valueFrom:
+                configMapKeyRef:
+                  key: SERVER_LOCAL_PORT
+                  name: env
+            - name: SERVER_PUBLIC_DOMAIN
+              valueFrom:
+                configMapKeyRef:
+                  key: SERVER_PUBLIC_DOMAIN
+                  name: env
+            - name: STORAGE_DIRPATH
+              valueFrom:
+                configMapKeyRef:
+                  key: STORAGE_DIRPATH
+                  name: env
+          image: mongo:latest
+          name: mongodb
+          ports:
+            - containerPort: 27017
+          resources: {}
+          volumeMounts:
+            - mountPath: /data/db
+              name: mongo-data
+      restartPolicy: Always
+      volumes:
+        - name: mongo-data
+          persistentVolumeClaim:
+            claimName: mongo-data
+status: {}
