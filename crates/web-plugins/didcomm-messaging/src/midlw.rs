@@ -148,7 +148,7 @@ pub async fn pack_response_message(
     secrets_resolver: &LocalSecretsResolver,
 ) -> Result<Value, Response> {
     let from = msg.from.as_ref();
-    let to = msg.to.as_ref().and_then(|v| v.get(0));
+    let to = msg.to.as_ref().and_then(|v| v.first());
 
     if from.is_none() || to.is_none() {
         let response = (

@@ -40,6 +40,12 @@ where
     collection: Collection<T>,
 }
 
+impl Default for KeyStore<Secrets> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl KeyStore<Secrets> {
     /// Create a new keystore with default Secrets type.
     ///
@@ -52,10 +58,7 @@ impl KeyStore<Secrets> {
                     let db_lock = db.write().await;
                     db_lock.collection::<Secrets>("secrets").clone()
                 };
-                let collection = tokio::task::block_in_place(|| {
-                    tokio::runtime::Handle::current().block_on(task)
-                });
-                collection
+                tokio::task::block_in_place(|| tokio::runtime::Handle::current().block_on(task))
             })
             .clone();
 

@@ -36,7 +36,7 @@ async fn diddoc(State(state): State<Arc<DidEndPointState>>) -> Result<Json<Value
     let did_path = Path::new(&storage_dirpath).join("did.json");
 
     match filesystem.read_to_string(&did_path).as_ref() {
-        Ok(content) => Ok(Json(serde_json::from_str(&content).map_err(|_| {
+        Ok(content) => Ok(Json(serde_json::from_str(content).map_err(|_| {
             tracing::error!("Unparseable did.json");
             StatusCode::NOT_FOUND
         })?)),
@@ -56,7 +56,7 @@ async fn didpop(
     let diddoc: Document = serde_json::from_value(diddoc_value.clone()).unwrap();
 
     let did_address = diddoc.id.clone();
-    let methods = diddoc.verification_method.clone().unwrap_or(vec![]);
+    let methods = diddoc.verification_method.clone().unwrap_or_default();
 
     // Build verifiable credential (VC)
     let vc: VerifiableCredential = serde_json::from_value(json!({
@@ -157,15 +157,15 @@ async fn didpop(
 fn inspect_vm_relationship(diddoc: &Document, vm_id: &str) -> Option<String> {
     let vrel = [
         (
-            json!(diddoc.authentication.clone().unwrap_or(vec![])),
+            json!(diddoc.authentication.clone().unwrap_or_default()),
             String::from("authentication"),
         ),
         (
-            json!(diddoc.assertion_method.clone().unwrap_or(vec![])),
+            json!(diddoc.assertion_method.clone().unwrap_or_default()),
             String::from("assertionMethod"),
         ),
         (
-            json!(diddoc.key_agreement.clone().unwrap_or(vec![])),
+            json!(diddoc.key_agreement.clone().unwrap_or_default()),
             String::from("keyAgreement"),
         ),
     ];

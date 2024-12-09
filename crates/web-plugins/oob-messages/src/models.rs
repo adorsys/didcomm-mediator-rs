@@ -83,7 +83,7 @@ impl OobMessage {
 }
 
 // Receives server path/port and local storage path and returns a String with the OOB URL.
-pub(crate) fn retrieve_or_generate_oob_inv<'a>(
+pub(crate) fn retrieve_or_generate_oob_inv(
     fs: &mut dyn FileSystem,
     server_public_domain: &str,
     server_local_port: &str,
