@@ -86,12 +86,10 @@ pub(crate) async fn handle_delivery_request(
     let connection = client_connection(&repository, sender_did).await?;
 
     let messages = messages(repository, recipient_did, connection, limit as usize).await?;
-
-    let response_builder: MessageBuilder;
     let id = Uuid::new_v4().urn().to_string();
 
-    if messages.is_empty() {
-        response_builder = StatusResponse {
+    let response_builder: MessageBuilder = if messages.is_empty() {
+        StatusResponse {
             id: id.as_str(),
             type_: STATUS_RESPONSE_3_0,
             body: BodyStatusResponse {
@@ -101,7 +99,7 @@ pub(crate) async fn handle_delivery_request(
                 ..Default::default()
             },
         }
-        .into();
+        .into()
     } else {
         let mut attachments: Vec<Attachment> = Vec::with_capacity(messages.len());
 
@@ -117,15 +115,15 @@ pub(crate) async fn handle_delivery_request(
             attachments.push(attached);
         }
 
-        response_builder = DeliveryResponse {
+        DeliveryResponse {
             id: id.as_str(),
             thid: id.as_str(),
             type_: MESSAGE_DELIVERY_3_0,
             body: BodyDeliveryResponse { recipient_did },
             attachments,
         }
-        .into();
-    }
+        .into()
+    };
 
     let response = response_builder
         .to(sender_did.to_owned())
@@ -299,11 +297,7 @@ fn recipients<'a>(recipient_did: Option<&'a str>, connection: &'a Connection) ->
 
 #[inline]
 fn sender_did(message: &Message) -> Result<&str, PickupError> {
-    message
-        .from
-        .as_ref()
-        .map(|did| did.as_str())
-        .ok_or(PickupError::MissingSenderDID)
+    message.from.as_deref().ok_or(PickupError::MissingSenderDID)
 }
 
 #[inline]

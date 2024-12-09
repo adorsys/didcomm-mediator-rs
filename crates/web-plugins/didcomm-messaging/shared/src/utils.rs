@@ -63,7 +63,7 @@ macro_rules! extract_key_from_diddoc {
 ///
 /// if present, return its verification method ID and JWK representation.
 pub fn extract_authentication_key(diddoc: &Document) -> Option<(String, Jwk)> {
-    let method = diddoc.authentication.as_ref()?.get(0)?;
+    let method = diddoc.authentication.as_ref()?.first()?;
     extract_key_from_diddoc!(VerificationMethodType)(diddoc, method)
 }
 
@@ -71,7 +71,7 @@ pub fn extract_authentication_key(diddoc: &Document) -> Option<(String, Jwk)> {
 ///
 /// if present, return its verification method ID and JWK representation.
 pub fn extract_agreement_key(diddoc: &Document) -> Option<(String, Jwk)> {
-    let method = diddoc.key_agreement.as_ref()?.get(0)?;
+    let method = diddoc.key_agreement.as_ref()?.first()?;
     extract_key_from_diddoc!(VerificationMethodType)(diddoc, method)
 }
 

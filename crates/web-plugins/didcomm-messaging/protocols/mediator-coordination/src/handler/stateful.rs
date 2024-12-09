@@ -59,20 +59,19 @@ pub(crate) async fn process_mediate_request(
         .map_err(|_| MediationError::InternalServerError)?
     {
         tracing::info!("Sending mediate deny.");
-        return Ok(Some(
+        Ok(Some(
             Message::build(
                 format!("urn:uuid:{}", Uuid::new_v4()),
                 MEDIATE_DENY_2_0.to_string(),
                 json!(MediationDeny {
                     id: format!("urn:uuid:{}", Uuid::new_v4()),
                     message_type: MEDIATE_DENY_2_0.to_string(),
-                    ..Default::default()
                 }),
             )
             .to(sender_did.clone())
             .from(mediator_did.clone())
             .finalize(),
-        ));
+        ))
     } else {
         /* Issue mediate grant response */
         tracing::info!("Sending mediate grant.");
@@ -99,7 +98,7 @@ pub(crate) async fn process_mediate_request(
 
         let agreem_keys_secret = Secrets {
             id: None,
-            kid: diddoc.key_agreement.get(0).unwrap().clone(),
+            kid: diddoc.key_agreement.first().unwrap().clone(),
             secret_material: agreem_keys_jwk,
         };
 
@@ -114,7 +113,7 @@ pub(crate) async fn process_mediate_request(
 
         let auth_keys_secret = Secrets {
             id: None,
-            kid: diddoc.authentication.get(0).unwrap().clone(),
+            kid: diddoc.authentication.first().unwrap().clone(),
             secret_material: auth_keys_jwk,
         };
 
@@ -132,7 +131,7 @@ pub(crate) async fn process_mediate_request(
             client_did: sender_did.to_string(),
             mediator_did: mediator_did.to_string(),
             keylist: vec!["".to_string()],
-            routing_did: routing_did,
+            routing_did,
         };
 
         // Use store_one to store the sample connection
@@ -163,7 +162,6 @@ fn create_mediation_grant(routing_did: &str) -> MediationGrant {
         body: MediationGrantBody {
             routing_did: routing_did.to_string(),
         },
-        ..Default::default()
     }
 }
 
@@ -233,7 +231,7 @@ pub(crate) async fn process_plain_keylist_update_message(
         .find_one_by(doc! { "client_did": &sender })
         .await
         .unwrap()
-        .ok_or_else(|| MediationError::UncoordinatedSender)?;
+        .ok_or(MediationError::UncoordinatedSender)?;
 
     // Prepare handles to relevant collections
 
@@ -351,7 +349,7 @@ pub(crate) async fn process_plain_keylist_query_message(
         .find_one_by(doc! { "client_did": &sender })
         .await
         .unwrap()
-        .ok_or_else(|| MediationError::UncoordinatedSender)?;
+        .ok_or(MediationError::UncoordinatedSender)?;
 
     println!("keylist: {:?}", connection);
 
@@ -371,7 +369,7 @@ pub(crate) async fn process_plain_keylist_query_message(
     let keylist_object = Keylist {
         id: format!("urn:uuid:{}", Uuid::new_v4()),
         message_type: KEYLIST_2_0.to_string(),
-        body: body,
+        body,
         additional_properties: None,
     };
 

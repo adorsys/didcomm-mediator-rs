@@ -14,10 +14,12 @@ message-api.workspace = true
 mongodb.workspace = true
 multibase.workspace = true
 serde.workspace = true
+paste.workspace = true
 async-trait.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
+cfg-if.workspace = true
 json-canon.workspace = true
 didcomm = { workspace = true, features = ["uniffi"] }
 tokio = { workspace = true, features = ["full"] }
@@ -38,3 +40,4 @@ shared = { workspace = true, features = ["test-utils"] }
 [features]
 default = ["stateful"]
 stateful = []
+stateless = []

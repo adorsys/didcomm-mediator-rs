@@ -32,15 +32,14 @@ pub(crate) async fn handle_query_request(
                                 Some(id) => {
                                     let id = id.as_str().unwrap_or_default();
 
-                                    if !id
+                                    if id
                                         .ends_with(".*")
                                         .then(|| {
                                             supported
-                                                .into_iter()
-                                                .find(|protocol| protocol.contains(&id.to_string()))
-                                                .is_some()
+                                                .iter()
+                                                .any(|protocol| protocol.contains(&id.to_string()))
                                         })
-                                        .is_some()
+                                        .is_none()
                                     {
                                         disclosed_protocols.insert(id.to_owned());
                                     }
@@ -50,13 +49,13 @@ pub(crate) async fn handle_query_request(
                                         // stores the full protocol obtained when we have a match with wildcard
                                         let mut container: String = Default::default();
 
-                                        if let Some(id) = parts.get(0) {
+                                        if let Some(id) = parts.first() {
                                             supported
-                                                .into_iter()
+                                                .iter()
                                                 .find(|protocol| protocol.contains(&id.to_string()))
                                                 .is_some_and(|protocol| {
                                                     container = protocol.to_string();
-                                                    return true;
+                                                    true
                                                 })
                                                 .then(|| {
                                                     let parts: Vec<&str> =
@@ -88,7 +87,7 @@ pub(crate) async fn handle_query_request(
             let msg = build_response(disclosed_protocols);
             Ok(Some(msg))
         } else {
-            return Err(DiscoveryError::QueryNotFound);
+            Err(DiscoveryError::QueryNotFound)
         }
     } else {
         let msg = build_response(disclosed_protocols);
@@ -110,9 +109,7 @@ fn build_response(disclosed_protocols: HashSet<String>) -> Message {
     }
 
     let id = Uuid::new_v4().urn().to_string();
-    let msg = Message::build(id, DISCOVER_FEATURE.to_string(), json!(body)).finalize();
-
-    msg
+    Message::build(id, DISCOVER_FEATURE.to_string(), json!(body)).finalize()
 }
 
 #[cfg(test)]

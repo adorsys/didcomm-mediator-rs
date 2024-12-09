@@ -65,7 +65,7 @@ impl From<DIDPeerMethodError> for DIDResolutionError {
 
 impl std::fmt::Display for DIDPeerMethodError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self) // Customize this to format the error as desired
+        write!(f, "{:?}", self)
     }
 }
 

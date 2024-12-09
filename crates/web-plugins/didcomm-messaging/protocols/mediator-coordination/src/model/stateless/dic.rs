@@ -67,6 +67,7 @@ pub struct DDICPayload {
 
 /// Can sign payloads into JWTs
 pub trait JwtAssertable: Serialize {
+    #[allow(unused)]
     /// Sign into JWT
     fn sign(&self, jwk: &Jwk, kid: Option<String>) -> Result<String, JwsError>;
 
@@ -122,7 +123,7 @@ impl CompactDIC {
 
 macro_rules! compact_dic_variant_serder {
     ($S: ident) => {
-        paste::paste! {
+        paste::item! {
             fn [<serialize_ $S _variant>]<S>(value: &String, serializer: S) -> Result<S::Ok, S::Error>
             where
                 S: Serializer,
@@ -153,17 +154,18 @@ impl CompactDIC {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::util::{self, MockFileSystem};
     use did_utils::crypto::ToPublic;
 
     fn setup() -> Jwk {
-        let mut mock_fs = MockFileSystem;
-
-        let diddoc = util::read_diddoc(&mock_fs, "").unwrap();
-        let (_, pubkey) = util::extract_assertion_key(&diddoc).unwrap();
-
-        let keystore = util::read_keystore(&mut mock_fs, "").unwrap();
-        keystore.find_keypair(&pubkey).unwrap()
+        serde_json::from_str(
+            r#"{
+                "kty": "OKP",
+                "crv": "Ed25519",
+                "x": "Z0GqpN71rMcnAkky6_J6Bfknr8B-TBsekG3qdI0EQX4",
+                "d": "fI1u4riKKd99eox08GlThknq-vEJXcKBI28aiUqArLo"
+            }"#,
+        )
+        .unwrap()
     }
 
     #[test]
