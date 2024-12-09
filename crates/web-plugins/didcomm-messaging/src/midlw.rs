@@ -12,7 +12,7 @@ use std::sync::Arc;
 // use super::{error::MediationError, AppState};
 use crate::{
     constants::{DIDCOMM_ENCRYPTED_MIME_TYPE, DIDCOMM_ENCRYPTED_SHORT_MIME_TYPE},
-    did_rotation::did_rotation::did_rotation,
+    did_rotation::did_rotation,
     error::Error,
 };
 use shared::{
