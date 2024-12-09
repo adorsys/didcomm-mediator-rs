@@ -14,24 +14,12 @@ struct KeylistQueryHandler;
 
 #[async_trait]
 impl MessageHandler for MediateRequestHandler {
-    #[cfg(feature = "stateful")]
     async fn handle(
         &self,
         state: Arc<AppState>,
         msg: Message,
     ) -> Result<Option<Message>, Response> {
         crate::handler::stateful::process_mediate_request(state, msg)
-            .await
-            .map_err(|e| e.into_response())
-    }
-
-    #[cfg(feature = "stateless")]
-    async fn handle(
-        &self,
-        state: Arc<AppState>,
-        msg: Message,
-    ) -> Result<Option<Message>, Response> {
-        crate::handler::stateless::process_plain_mediation_request_over_dics(state, message)
             .await
             .map_err(|e| e.into_response())
     }

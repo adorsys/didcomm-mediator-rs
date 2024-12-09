@@ -19,6 +19,7 @@ async-trait.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
+cfg-if.workspace = true
 json-canon.workspace = true
 didcomm = { workspace = true, features = ["uniffi"] }
 tokio = { workspace = true, features = ["full"] }

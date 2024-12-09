@@ -1,10 +1,8 @@
-pub mod errors;
-
+use super::errors::RotationError;
 use axum::response::{IntoResponse, Response};
 use database::{Repository, RepositoryError};
 use did_utils::didcore::Document as DidDocument;
 use didcomm::{FromPrior, Message};
-use errors::RotationError;
 use mongodb::bson::doc;
 use shared::{repository::entity::Connection, utils::resolvers::LocalDIDResolver};
 use std::sync::Arc;
@@ -28,7 +26,7 @@ pub async fn did_rotation(
     let prev = from_prior.iss;
 
     // validate if did is  known
-    match connection_repos
+    let _ = match connection_repos
         .find_one_by(doc! {"client_did": &prev})
         .await
         .unwrap()
@@ -47,8 +45,8 @@ pub async fn did_rotation(
 
             let did_index = connection.keylist.iter().position(|did| did == &prev);
 
-            if let Some(did_index) = did_index {
-                connection.keylist.swap_remove(did_index);
+            if did_index.is_some() {
+                connection.keylist.swap_remove(did_index.unwrap());
 
                 connection.keylist.push(new.clone());
             } else {
@@ -78,6 +76,7 @@ pub async fn did_rotation(
 
 #[cfg(test)]
 mod test {
+    use crate::constants::DIDCOMM_ENCRYPTED_MIME_TYPE;
     use std::{sync::Arc, vec};
 
     use did_utils::{didcore::Document, jwk::Jwk};

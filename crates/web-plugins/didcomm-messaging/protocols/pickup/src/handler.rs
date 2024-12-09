@@ -297,10 +297,7 @@ fn recipients<'a>(recipient_did: Option<&'a str>, connection: &'a Connection) ->
 
 #[inline]
 fn sender_did(message: &Message) -> Result<&str, PickupError> {
-    message
-        .from
-        .as_deref()
-        .ok_or(PickupError::MissingSenderDID)
+    message.from.as_deref().ok_or(PickupError::MissingSenderDID)
 }
 
 #[inline]

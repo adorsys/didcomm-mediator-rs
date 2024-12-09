@@ -19,6 +19,7 @@ use shared::{
 };
 use uuid::Uuid;
 
+#[allow(dead_code)]
 /// Process a DIC-wise mediation request
 pub(crate) async fn process_plain_mediation_request_over_dics(
     state: Arc<AppState>,
