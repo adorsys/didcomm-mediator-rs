@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: didcomm-mediator-ingress
+  namespace: default
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: "/" # Rewrite paths if necessary
+spec:
+  ingressClassName: nginx # Specifies the NGINX Ingress Controller
+  rules:
+  - host: didcomm-mediator.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: mediator
+            port:
+              number: 8080
+  tls:
+  - hosts:
+    - mediator.example.com # Same as the host in rules
+    secretName: mediator-tls # Replace with your TLS secret name for HTTPS
