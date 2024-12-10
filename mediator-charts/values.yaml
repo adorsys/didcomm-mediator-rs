@@ -1,0 +1,21 @@
+replicaCount: 1
+
+mongodb:
+  databaseName: mongodb
+
+mediator:
+  image:
+    repository: didcomm-mediator
+    pullPolicy: IfNotPresent
+    tag: latest
+
+mongoVolume:
+  persistentVolumeClaim:
+    storageSize: 10Gi  
+
+  persistentVolume:
+    storageSize: 10Gi  
+    pathOnHost: /var/lib/mongodb 
+
+
+  mountPath: /var/lib/mongodb

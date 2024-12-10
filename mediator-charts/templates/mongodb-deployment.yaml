@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-mongodb-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-mongodb
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-mongodb
+    spec:
+     containers:
+        - env:
+            - name: MONGO_DBN
+              valueFrom:
+                configMapKeyRef:
+                  key: MONGO_DBN
+                  name: env
+            - name: MONGO_PASSWORD
+                valueFrom:
+                  secretKeyRef:
+                    name: {{ .Release.Name }}-mongo-password
+                    key: password
+          image: mongo:latest
+          name: mongodb
+          ports:
+            - containerPort: 27018
+          resources: {}
+           volumeMounts:
+              - name: {{ .Release.Name }}-mongo-persistent-storage
+                mountPath: {{ .Values.mongoVolume.mountPath }}
+      restartPolicy: Always
+      volumes:
+        - name: {{ .Release.Name }}-mongo-persistent-storage
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-mongo-pvc
