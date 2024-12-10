@@ -6,6 +6,8 @@ use axum::{
 };
 use std::sync::{Arc, Mutex};
 use sysinfo::System;
+use std::net::SocketAddr;
+use tracing::info;
 
 #[derive(Debug)]
 struct AppMetrics {
@@ -15,7 +17,7 @@ struct AppMetrics {
 impl AppMetrics {
     fn new() -> Self {
         let mut system = System::new_all();
-        system.refresh_all();
+        system.refresh_all(); 
         AppMetrics { system }
     }
 
@@ -24,7 +26,8 @@ impl AppMetrics {
     }
 }
 
-async fn health_check() -> impl IntoResponse {
+
+pub(crate) async fn health_check() -> impl IntoResponse {
     "Server is healthy"
 }
 
@@ -45,7 +48,26 @@ async fn system_metrics(State(metrics): State<Arc<Mutex<AppMetrics>>>) -> impl I
 pub fn create_router() -> Router {
     let metrics = Arc::new(Mutex::new(AppMetrics::new()));
     Router::new()
-        .route("/health", get(health_check))
-        .route("/health/metrics", get(system_metrics))
+        .route("/health", get(health_check)) 
+        .route("/health/metrics", get(system_metrics)) 
         .with_state(metrics)
+}
+
+#[tokio::main]
+async fn main() {
+    // Set up tracing
+    tracing_subscriber::fmt::init();
+
+    // Create the application router
+    let app = create_router();
+
+    // Define the server address
+    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
+    info!("Server running at http://{}", addr);
+
+    // Start the server
+    axum::Server::bind(&addr)
+        .serve(app.into_make_service())
+        .await
+        .unwrap();
 }
