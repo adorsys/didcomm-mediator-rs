@@ -17,7 +17,7 @@ spec:
           image: {{ .Values.mediator.image.repository }}:{{ .Values.mediator.image.tag }}
           imagePullPolicy: {{ .Values.mediator.image.pullPolicy }}
           ports:
-            - containerPort: 8080
+            - containerPort: 3000
           env:
             - name: MONGO_DBN
               valueFrom:

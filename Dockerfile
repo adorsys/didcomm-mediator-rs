@@ -23,7 +23,7 @@ COPY --from=builder /app/target/release/didcomm-mediator /usr/local/bin/didcomm-
 COPY .env .env
 
 # Expose the necessary port
-EXPOSE 8080
+EXPOSE 3000
 
 # Set an entrypoint script to handle the environment file
 ENTRYPOINT ["didcomm-mediator"]

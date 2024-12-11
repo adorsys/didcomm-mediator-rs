@@ -15,6 +15,6 @@ spec:
         pathType: Prefix
         backend:
           service:
-            name: mediator
+            name: {{ .Release.Name }}-mediator-service
             port:
               number: 8080
