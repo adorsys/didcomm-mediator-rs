@@ -35,7 +35,19 @@ pub(crate) async fn handle_status_request(
     let sender_did = sender_did(&message)?;
 
     let repository = repository(state.clone())?;
-    let connection = client_connection(&repository, sender_did).await?;
+
+    let connection = retry_async(
+        || {
+            let repository = repository.clone();
+            async move { client_connection(&repository, sender_did).await }
+        },
+        RetryOptions::new()
+            .retries(5)
+            .exponential_backoff(Duration::from_millis(100))
+            .max_delay(Duration::from_secs(2)),
+    )
+    .await
+    .map_err(|_| PickupError::InternalError("Failed to retrieve client connection".to_owned()))?;
 
     let message_count = count_messages(repository, recipient_did, connection).await?;
 
@@ -76,15 +88,40 @@ pub(crate) async fn handle_delivery_request(
         .and_then(|val| val.as_str());
     let sender_did = sender_did(&message)?;
 
-    // Get the messages limit
-    let limit = message
-        .body
-        .get("limit")
-        .and_then(Value::as_u64)
-        .ok_or_else(|| PickupError::MalformedRequest("Invalid \"limit\" specifier".to_owned()))?;
+    let message_body = message.body.clone();
+
+    let limit = retry_async(
+        || {
+            let message_body = message_body.clone();
+            async move {
+                message_body
+                    .get("limit")
+                    .and_then(Value::as_u64)
+                    .ok_or_else(|| {
+                        PickupError::MalformedRequest("Invalid \"limit\" specifier".to_owned())
+                    })
+            }
+        },
+        RetryOptions::new()
+            .retries(5)
+            .exponential_backoff(Duration::from_millis(100))
+            .max_delay(Duration::from_secs(1)),
+    )
+    .await?;
 
     let repository = repository(state.clone())?;
-    let connection = client_connection(&repository, sender_did).await?;
+    let connection = retry_async(
+        || {
+            let repository = repository.clone();
+            async move { client_connection(&repository, sender_did).await }
+        },
+        RetryOptions::new()
+            .retries(5)
+            .exponential_backoff(Duration::from_millis(100))
+            .max_delay(Duration::from_secs(2)),
+    )
+    .await
+    .map_err(|_| PickupError::InternalError("Failed to retrieve client connection".to_owned()))?;
 
     let messages = messages(repository, recipient_did, connection, limit as usize).await?;
 

@@ -4,3 +4,4 @@ pub mod repository;
 pub mod retry;
 pub mod state;
 pub mod utils;
+pub mod CircuitBreaker;

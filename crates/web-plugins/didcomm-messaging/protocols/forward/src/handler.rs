@@ -26,6 +26,11 @@ pub(crate) async fn mediator_forward_process(
         .as_ref()
         .ok_or_else(|| ForwardError::InternalServerError)?;
 
+    let circuit_breaker = state.circuit_breaker.clone();
+    if circuit_breaker.is_open() {
+        return Err(ForwardError::CircuitOpen);
+    }
+
     let next = match checks(&message, connection_repository).await.ok() {
         Some(next) => Ok(next),
         None => Err(ForwardError::InternalServerError),
@@ -38,7 +43,8 @@ pub(crate) async fn mediator_forward_process(
             AttachmentData::Base64 { value: data } => json!(data.base64),
             AttachmentData::Links { value: data } => json!(data.links),
         };
-        retry_async(
+
+        let result = retry_async(
             || {
                 let attached = attached.clone();
                 let recipient_did = next.as_ref().unwrap().to_owned();
@@ -58,9 +64,17 @@ pub(crate) async fn mediator_forward_process(
                 .exponential_backoff(Duration::from_millis(100))
                 .max_delay(Duration::from_secs(1)),
         )
-        .await
-        .map_err(|_| ForwardError::InternalServerError)?;
+        .await;
+
+        match result {
+            Ok(_) => circuit_breaker.record_success(),
+            Err(_) => {
+                circuit_breaker.record_failure();
+                return Err(ForwardError::InternalServerError);
+            }
+        };
     }
+
     Ok(None)
 }
 
