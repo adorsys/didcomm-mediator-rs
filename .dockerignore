@@ -1,0 +1,8 @@
+.github
+.git
+.idea
+mediator-server
+target
+test
+.env.example
+Cargo.lock
