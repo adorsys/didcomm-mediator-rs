@@ -23,7 +23,7 @@ members = [
     "crates/web-plugins/*",
     "crates/web-plugins/didcomm-messaging/did-utils",
     "crates/web-plugins/didcomm-messaging/shared",
-    "crates/web-plugins/didcomm-messaging/protocols/*",
+    "crates/web-plugins/didcomm-messaging/protocols/*", "crates/circuit-breaker",
 ]
 
 [workspace.dependencies]
