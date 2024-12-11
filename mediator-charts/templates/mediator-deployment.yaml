@@ -13,29 +13,26 @@ spec:
         app: {{ .Release.Name }}-mediator
     spec:
       containers:
-          - name: {{ .Release.Name }}-mediator-container
-            image: {{ .Values.mediator.image.repository}}:{{ .Values.mediator.image.tag}}
-            imagePullPolicy: {{ .Values.mediator.image.pullPolicy}}
-            ports:
-              - containerPort: 8080
-          - env:
+        - name: {{ .Release.Name }}-mediator-container
+          image: {{ .Values.mediator.image.repository }}:{{ .Values.mediator.image.tag }}
+          imagePullPolicy: {{ .Values.mediator.image.pullPolicy }}
+          ports:
+            - containerPort: 8080
+          env:
             - name: MONGO_DBN
               valueFrom:
                 configMapKeyRef:
                   key: MONGO_DBN
                   name: env
-             - name: MONGO_PASSWORD
-                valueFrom:
-                  secretKeyRef:
-                    name: {{ .Release.Name }}-mongo-password
-                    key: password
-             - name: MONGO_USERNAME
-                valueFrom:
-                  secretKeyRef:
-                    name: {{ .Release.Name }}-mongo-username
-                    key: username
+            - name: MONGO_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-mongo-password
+                  key: password
+            - name: MONGO_HOST
+              value: {{ .Release.Name }}-mongodb-service
             - name: MONGO_URI
-              value: "mongodb://$(MONGO_USERNAME):$(MONGO_PASSWORD)@mongodb:27018"
+              value: "mongodb://{{ .Release.Name }}-mongodb-service:27017"
             - name: SERVER_LOCAL_PORT
               valueFrom:
                 configMapKeyRef:

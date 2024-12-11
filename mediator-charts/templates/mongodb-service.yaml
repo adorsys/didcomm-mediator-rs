@@ -7,6 +7,8 @@ spec:
     app: {{ .Release.Name }}-mongodb
   ports:
       - protocol: TCP
-        port: 27018
-        targetPort: 27018
+        port: 27017
+        targetPort: 27017
   type: ClusterIP
+
+  

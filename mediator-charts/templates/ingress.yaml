@@ -18,7 +18,3 @@ spec:
             name: mediator
             port:
               number: 8080
-  tls:
-  - hosts:
-    - mediator.example.com # Same as the host in rules
-    secretName: mediator-tls # Replace with your TLS secret name for HTTPS

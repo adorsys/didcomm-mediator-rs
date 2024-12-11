@@ -1,7 +1,7 @@
 apiVersion: v1
 data:
   MONGO_DBN: mediator-coordination
-  MONGO_URI: mongodb://mongodb:27018
+  MONGO_URI: mongodb://mongodb:27017
   SERVER_LOCAL_PORT: "3000"
   SERVER_PUBLIC_DOMAIN: http://alice-mediator.com
   STORAGE_DIRPATH: crates/generic-server/target/storage

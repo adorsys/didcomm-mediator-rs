@@ -23,7 +23,7 @@ services:
     networks:
       - mediator-network
     ports:
-      - "27018:27018" 
+      - "27017:27017" 
 
 networks:
   mediator-network:

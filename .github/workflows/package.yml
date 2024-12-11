@@ -3,12 +3,12 @@ name: Publish Image
 on:
   push:
     branches:
-      - '**' # Triggers on all branches
+      - main
     tags:
-      - 'v*' # Triggers on tags starting with "v"
+      - 'v*'
 
 env:
-  IMAGE_NAME: ghcr.io/adorsys/didcomm-mediator-rs
+  IMAGE_NAME: didcomm-mediator-rs
   
 jobs:
   push:
