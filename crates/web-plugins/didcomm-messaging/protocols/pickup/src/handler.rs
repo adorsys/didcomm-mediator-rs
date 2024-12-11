@@ -556,9 +556,9 @@ mod tests {
         let error = handle_status_request(state, invalid_request)
             .await
             .unwrap_err();
-
-        assert_eq!(error, PickupError::MissingClientConnection);
-    }
+    
+        assert_eq!(error.to_string(), "Failed to retrieve client connection");
+    }    
 
     #[tokio::test]
     async fn test_handle_delivery_request_with_recipient_did_in_keylist() {
