@@ -20,6 +20,7 @@ serde = { workspace = true, features = ["derive"] }
 uuid = { workspace = true, features = ["fast-rng", "v4"] }
 
 [dev-dependencies]
+filesystem = { workspace = true, features = ["test-utils"] }
 mockall = "0.13.0"
 tokio = { version = "1.30.0", features = ["full"] }
 tower = "0.4"
