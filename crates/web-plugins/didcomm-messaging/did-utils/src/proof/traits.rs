@@ -1,8 +1,6 @@
-use serde_json::Value;
-
-use crate::crypto::Error;
-
 use super::model::Proof;
+use crate::crypto::Error;
+use serde_json::Value;
 
 /// A trait to be implemented by every crypto suite
 pub trait CryptoProof {
