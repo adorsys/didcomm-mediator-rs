@@ -5,7 +5,7 @@ mongodb:
 
 mediator:
   image:
-    repository: didcomm-mediator
+    repository: ghcr.io/adorsys/didcomm-mediator-rs
     pullPolicy: IfNotPresent
     tag: latest
 
