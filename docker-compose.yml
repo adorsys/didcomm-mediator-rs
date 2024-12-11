@@ -1,6 +1,12 @@
+networks:
+  app-network:
+    driver: bridge
+
 services:
-  mediator_server:
+  myapp:
     container_name: didcomm-mediator
+    networks:
+      - app-network
     build:
       context: .
       dockerfile: Dockerfile
@@ -13,13 +19,13 @@ services:
 
   mongodb:
     image: mongo:8.0
+    networks:
+      - app-network
     container_name: mongodb
     ports:
       - "27017:27017"
     volumes:
       - mongodb_data:/data/db
-    env_file:
-      - .env
 
 volumes:
   mongodb_data:
