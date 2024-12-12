@@ -7,7 +7,6 @@ edition = "2021"
 keystore.workspace = true
 shared.workspace = true
 database.workspace = true
-filesystem.workspace = true
 message-api.workspace = true
 
 mongodb.workspace = true

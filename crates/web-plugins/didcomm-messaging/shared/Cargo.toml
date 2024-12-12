@@ -15,15 +15,11 @@ serde.workspace = true
 serde_json.workspace = true
 async-trait.workspace = true
 mongodb.workspace = true
-tracing.workspace = true
 eyre.workspace = true
-hyper = { workspace = true, features = ["full"] }
 tokio = { workspace = true, features = ["full"] }
-axum = { workspace = true, features = ["macros"] }
 didcomm = { workspace = true, features = ["uniffi"] }
 
 [dev-dependencies]
-hyper = "0.14.27"
 tokio = { version = "1.27.0", default-features = false, features = [
     "macros",
     "rt",

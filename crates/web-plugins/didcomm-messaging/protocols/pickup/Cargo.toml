@@ -5,10 +5,7 @@ edition = "2021"
 
 [dependencies]
 shared.workspace = true
-filesystem.workspace = true
 message-api.workspace = true
-keystore.workspace = true
-database.workspace = true
 
 serde.workspace = true
 didcomm.workspace = true
@@ -20,7 +17,6 @@ uuid = { workspace = true, features = ["v4"] }
 axum = { workspace = true, features = ["macros"] }
 
 [dev-dependencies]
-hyper = "0.14.27"
 shared = { workspace = true, features = ["test-utils"] }
 tokio = { version = "1.27.0", default-features = false, features = [
     "macros",
