@@ -105,7 +105,7 @@ pub(crate) async fn handle_delivery_request(
         RetryOptions::new()
             .retries(5)
             .exponential_backoff(Duration::from_millis(100))
-            .max_delay(Duration::from_secs(1)),
+            .max_delay(Duration::from_secs(2)),
     )
     .await?;
 
@@ -211,7 +211,7 @@ pub(crate) async fn handle_message_acknowledgement(
             RetryOptions::new()
                 .retries(5)
                 .exponential_backoff(Duration::from_millis(100))
-                .max_delay(Duration::from_secs(1)),
+                .max_delay(Duration::from_secs(2)),
         )
         .await
         .map_err(|_| {

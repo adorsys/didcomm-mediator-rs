@@ -23,6 +23,7 @@ use shared::{
     repository::entity::Connection,
     retry::{retry_async, RetryOptions},
     state::{AppState, AppStateRepository},
+    CircuitBreaker::CircuitBreaker,
 };
 use std::{sync::Arc, time::Duration};
 use uuid::Uuid;
@@ -110,7 +111,7 @@ pub(crate) async fn process_mediate_request(
             RetryOptions::new()
                 .retries(5)
                 .exponential_backoff(Duration::from_millis(100))
-                .max_delay(Duration::from_secs(1)),
+                .max_delay(Duration::from_secs(2)),
         )
         .await
         .map_err(|err| {
@@ -268,7 +269,7 @@ pub(crate) async fn process_plain_keylist_update_message(
         RetryOptions::new()
             .retries(5)
             .exponential_backoff(Duration::from_millis(100))
-            .max_delay(Duration::from_secs(1)),
+            .max_delay(Duration::from_secs(2)),
     )
     .await
     .map_err(|err| {
@@ -404,7 +405,7 @@ pub(crate) async fn process_plain_keylist_query_message(
         RetryOptions::new()
             .retries(5)
             .exponential_backoff(Duration::from_millis(100))
-            .max_delay(Duration::from_secs(1)),
+            .max_delay(Duration::from_secs(2)),
     )
     .await
     .map_err(|err| {

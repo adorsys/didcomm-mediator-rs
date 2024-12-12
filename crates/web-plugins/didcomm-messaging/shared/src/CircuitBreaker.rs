@@ -73,30 +73,3 @@ impl CircuitBreaker {
         Ok(Some(result))
     }
 }
-
-// pub fn request(dice: u32) -> Result<u32, String> {
-//     if dice > 6 {
-//         Err("400: Bad request.".to_string())
-//     } else {
-//         Ok(dice)
-//     }
-// }
-
-// // Example usage
-// fn main() {
-//     let breaker = CircuitBreaker::new(3, Duration::from_secs(5));
-
-//     for i in 1..=10 {
-//         let result = breaker.call(|| request(i));
-
-//         match result {
-//             Ok(Some(Ok(value))) => println!("Request succeeded with value: {}", value),
-//             Ok(Some(Err(err))) => println!("Request failed: {}", err),
-//             Ok(None) => println!("Circuit breaker is open."),
-//             Err(err) => println!("Error: {}", err),
-//         }
-
-//         // Simulate a delay between requests
-//         thread::sleep(Duration::from_millis(500));
-//     }
-// }
