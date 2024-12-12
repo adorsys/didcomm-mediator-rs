@@ -9,6 +9,7 @@ use tokio::sync::RwLock;
 
 static SECRETS_COLLECTION: OnceCell<Collection<Secrets>> = OnceCell::new();
 
+/// Represents a cryptographic secret stored in the keystore.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct Secrets {
     #[serde(rename = "_id")]
@@ -30,6 +31,7 @@ impl Identifiable for Secrets {
     }
 }
 
+/// A keystore for managing cryptographic secrets.
 #[derive(Debug, Clone)]
 pub struct KeyStore<T>
 where
