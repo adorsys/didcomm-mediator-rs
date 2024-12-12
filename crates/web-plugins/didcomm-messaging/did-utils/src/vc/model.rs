@@ -85,7 +85,7 @@ pub struct VerifiableCredential {
 /// The issuers of the credential.
 pub enum Issuers {
     Single(Box<Issuer>),
-    SetOf(Box<Vec<Issuer>>),
+    SetOf(Vec<Issuer>),
 }
 
 #[derive(Serialize, Debug, Clone, PartialEq, Deserialize)]
