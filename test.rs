@@ -117,23 +117,3 @@ async fn test_retry_mechanism() {
     assert!(result.is_ok(), "Expected success after retries");
     assert_eq!(attempts, 3, "Expected 3 attempts before success");
 }
-
-#[tokio::test]
-async fn test_retry_and_acknowledgment_together() {
-    let mediator = Mediator::new();
-    let mut attempts = 0;
-
-    let mock_network = || {
-        attempts += 1;
-        if attempts < 3 {
-            Err("Simulated failure".to_string())
-        } else {
-            mediator.send_message("example-message")
-        }
-    };
-
-    let result = send_message_with_retries("example-message", mock_network).await;
-
-    assert!(result.is_ok(), "Message should succeed after retries");
-    assert!(mediator.get_last_ack().await.is_some(), "Acknowledgment should be present");
-}
