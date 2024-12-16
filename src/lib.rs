@@ -1,4 +1,5 @@
 pub mod plugins;
+
 use axum::Router;
 use eyre::{eyre, Result};
 use hyper::Method;

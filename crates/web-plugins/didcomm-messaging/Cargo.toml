@@ -19,7 +19,6 @@ pickup = { workspace = true, optional = true }
 trust-ping = { workspace = true, optional = true }
 discover-features = { workspace = true, optional = true }
 mediator-coordination = { workspace = true, optional = true }
-health = { workspace = true, optional = true }
 
 mongodb.workspace = true
 didcomm.workspace = true
