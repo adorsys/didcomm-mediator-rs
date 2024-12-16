@@ -2,6 +2,7 @@ use axum::Server;
 use didcomm_mediator::app;
 use eyre::{Result, WrapErr};
 use std::net::SocketAddr;
+use health::create_router;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -31,10 +32,13 @@ async fn main() -> Result<()> {
 
 async fn generic_server_with_graceful_shutdown(addr: SocketAddr) -> Result<()> {
     // Load plugins
-    let (mut plugin_container, router) = app()?;
+    let (mut plugin_container, mut router) = app()?;
+
+    // Integrate health routes
+    let health_router = create_router();
+    router = router.merge(health_router);
 
     // Spawn task for server
-
     Server::bind(&addr)
         .serve(router.into_make_service())
         .await

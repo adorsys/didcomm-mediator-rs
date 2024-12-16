@@ -21,7 +21,7 @@ members = [
     "crates/keystore",
     "crates/plugin-api",
     "crates/web-plugins/*",
-    "crates/web-plugins/health",
+    "crates/health",
     "crates/web-plugins/didcomm-messaging/did-utils",
     "crates/web-plugins/didcomm-messaging/shared",
     "crates/web-plugins/didcomm-messaging/protocols/*",
@@ -32,7 +32,7 @@ database = { path = "./crates/database", version = "0.1.0" }
 filesystem = { path = "./crates/filesystem", version = "0.1.0" }
 keystore = { path = "./crates/keystore", version = "0.1.0" }
 plugin-api = { path = "./crates/plugin-api", version = "0.1.0" }
-health = { path = "./crates/web-plugins/health", version = "0.1.0" }
+health = { path = "./crates/health", version = "0.1.0" }
 did-endpoint = { path = "./crates/web-plugins/did-endpoint", version = "0.1.0" }
 oob-messages = { path = "./crates/web-plugins/oob-messages", version = "0.1.0" }
 didcomm-messaging = { path = "./crates/web-plugins/didcomm-messaging", version = "0.1.0" }
@@ -112,7 +112,6 @@ chrono = { workspace = true, optional = true }
 did-endpoint = { workspace = true, optional = true }
 oob-messages = { workspace = true, optional = true }
 didcomm-messaging = { workspace = true, optional = true }
-
 
 
 [features]
