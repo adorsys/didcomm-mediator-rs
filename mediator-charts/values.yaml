@@ -1,4 +1,5 @@
 replicaCount: 1
+namespace: didcomm-mediator
 
 mongodb:
   databaseName: mongodb
@@ -19,3 +20,9 @@ mongoVolume:
 
 
   mountPath: /var/lib/mongodb
+
+envConfig: 
+  MONGO_DBN: mediator-coordination
+  MONGO_URI: mongodb://mongodb:27017
+  SERVER_LOCAL_PORT: "3000"
+  SERVER_PUBLIC_DOMAIN: http://alice-mediator.com

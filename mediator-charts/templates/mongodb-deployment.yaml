@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ .Release.Name }}-mongodb-deployment
+  namespace: {{ .Values.namespace }}
 spec:
   replicas: 1
   selector:
@@ -27,7 +28,7 @@ spec:
             - name: MONGO_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Release.Name }}-mongo-password
+                  name: {{ .Release.Name }}-secret
                   key: password
           volumeMounts:
             - name: {{ .Release.Name }}-mongo-persistent-storage
