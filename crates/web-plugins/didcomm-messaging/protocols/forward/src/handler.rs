@@ -9,12 +9,30 @@ use shared::{
 };
 use std::sync::Arc;
 
-/// Mediator receives forwarded messages, extract the next field in the message body, and the attachments in the message
-/// then stores the attachment with the next field as key for pickup
-pub(crate) async fn mediator_forward_process(
-    state: Arc<AppState>,
-    message: Message,
-) -> Result<Option<Message>, ForwardError> {
+async fn checks(
+    message: &Message,
+    connection_repository: &Arc<dyn Repository<Connection>>,
+) -> Result<String, ForwardError> {
+    let next = message.body.get("next").and_then(Value::as_str);
+    match next {
+        Some(next) => next,
+        None => return Err(ForwardError::MalformedBody),
+    };
+
+    // Check if the client's did in mediator's keylist
+    let _connection = match connection_repository
+        .find_one_by(doc! {"keylist": doc!{ "$elemMatch": { "$eq": &next}}})
+        .await
+        .map_err(|_| ForwardError::InternalServerError)?
+    {
+        Some(connection) => connection,
+        None => return Err(ForwardError::UncoordinatedSender),
+    };
+
+    Ok(next.unwrap().to_string())
+}
+
+pub(crate) async fn handler(state: Arc<AppState>, message: Message) -> Result<Option<Message>, ForwardError> {
     let AppStateRepository {
         message_repository,
         connection_repository,
@@ -48,31 +66,10 @@ pub(crate) async fn mediator_forward_process(
     Ok(None)
 }
 
-async fn checks(
-    message: &Message,
-    connection_repository: &Arc<dyn Repository<Connection>>,
-) -> Result<String, ForwardError> {
-    let next = message.body.get("next").and_then(Value::as_str);
-    match next {
-        Some(next) => next,
-        None => return Err(ForwardError::MalformedBody),
-    };
-
-    // Check if the client's did in mediator's keylist
-    let _connection = match connection_repository
-        .find_one_by(doc! {"keylist": doc!{ "$elemMatch": { "$eq": &next}}})
-        .await
-        .map_err(|_| ForwardError::InternalServerError)?
-    {
-        Some(connection) => connection,
-        None => return Err(ForwardError::UncoordinatedSender),
-    };
-
-    Ok(next.unwrap().to_string())
-}
-
 #[cfg(test)]
 mod test {
+  
+
     use super::*;
     use did_utils::jwk::Jwk;
     use didcomm::{
@@ -166,9 +163,7 @@ mod test {
         .await
         .expect("Unable unpack");
 
-        let msg = mediator_forward_process(Arc::new(state.clone()), msg)
-            .await
-            .unwrap();
+        let msg = handler(Arc::new(state.clone()), msg).await.unwrap();
 
         println!("Mediator1 is forwarding message \n{:?}\n", msg);
     }
@@ -196,11 +191,13 @@ mod test {
             }"#,
         )
         .unwrap();
+    let secret1 = serde_json::to_string(&secret).unwrap();
+    let secret1 = serde_json::to_vec(&secret1).unwrap();
 
         let test_secret = Secrets {
             id: None,
             kid: secret_id.to_string(),
-            secret_material: secret,
+            secret_material: secret1,
         };
 
         let keystore = Arc::new(MockKeyStore::new(vec![test_secret]));
