@@ -71,4 +71,5 @@ jobs:
       uses: taiki-e/install-action@nextest
 
     - name: Run Reliability Tests
-      run: cargo nextest run --workspace --all-features --filterset reliability --verbose
+      run: cargo nextest run --workspace --all-features --filter test(reliability) --verbose
+
