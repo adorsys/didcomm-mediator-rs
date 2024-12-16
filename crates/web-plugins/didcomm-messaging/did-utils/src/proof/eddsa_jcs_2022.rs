@@ -4,9 +4,12 @@ use crate::crypto::{sha256_hash, CoreSign, Ed25519KeyPair, Error};
 
 use super::{model::Proof, traits::CryptoProof};
 
+/// The crypto suite for EdDSA-JCS-2022
 pub const CRYPRO_SUITE_EDDSA_JCS_2022: &str = "eddsa-jcs-2022";
+/// The proof type for DataIntegrityProof
 pub const PROOF_TYPE_DATA_INTEGRITY_PROOF: &str = "DataIntegrityProof";
 
+/// Proof object for EdDSA-JCS-2022
 pub struct EdDsaJcs2022 {
     /// The proof object
     ///
