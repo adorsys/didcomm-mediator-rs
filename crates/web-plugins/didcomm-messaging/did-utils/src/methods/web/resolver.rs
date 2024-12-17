@@ -1,11 +1,19 @@
 use crate::methods::resolution::{DIDResolutionMetadata, DIDResolutionOptions, MediaType, ResolutionOutput};
 use async_trait::async_trait;
+use http_body_util::{BodyExt, Full};
 use hyper::{
-    client::{connect::Connect, HttpConnector},
+    body::Bytes,
     http::uri::{self, Scheme},
-    Body, Client, Uri,
+    Uri,
 };
 use hyper_tls::HttpsConnector;
+use hyper_util::{
+    client::legacy::{
+        connect::{Connect, HttpConnector},
+        Client,
+    },
+    rt::TokioExecutor,
+};
 
 use crate::ldmodel::Context;
 use crate::methods::{errors::DidWebError, traits::DIDResolver};
@@ -17,7 +25,7 @@ pub struct DidWeb<C>
 where
     C: Connect + Send + Sync + Clone + 'static,
 {
-    client: Client<C>,
+    client: Client<C, Full<Bytes>>,
 }
 
 impl DidWeb<HttpConnector> {
@@ -25,7 +33,7 @@ impl DidWeb<HttpConnector> {
     #[cfg(test)]
     pub fn http() -> DidWeb<HttpConnector> {
         DidWeb {
-            client: Client::builder().build::<_, Body>(HttpConnector::new()),
+            client: Client::builder(TokioExecutor::new()).build_http(),
         }
     }
 }
@@ -40,7 +48,7 @@ impl DidWeb<HttpsConnector<HttpConnector>> {
     /// Creates a new `DidWeb` resolver.
     pub fn new() -> DidWeb<HttpsConnector<HttpConnector>> {
         DidWeb {
-            client: Client::builder().build::<_, Body>(HttpsConnector::new()),
+            client: Client::builder(TokioExecutor::new()).build::<_, Full<Bytes>>(HttpsConnector::new()),
         }
     }
 }
@@ -57,9 +65,9 @@ where
             return Err(DidWebError::NonSuccessResponse(res.status()));
         }
 
-        let body = hyper::body::to_bytes(res.into_body()).await?;
+        let body = BodyExt::collect(res.into_body()).await?;
 
-        String::from_utf8(body.to_vec()).map_err(|err| err.into())
+        String::from_utf8(body.to_bytes().to_vec()).map_err(|err| err.into())
     }
 
     /// Fetches and parses a DID document for the given DID.
@@ -158,16 +166,12 @@ where
 mod tests {
     use super::*;
 
-    use hyper::{
-        service::{make_service_fn, service_fn},
-        Body, Request, Response, Server,
-    };
-
+    use axum::{body::Body, extract::Request, response::Response, routing::get};
     use serde_json::Value;
-    use std::convert::Infallible;
-    use std::net::SocketAddr;
+    use std::{convert::Infallible, net::SocketAddr};
+    use tokio::net::TcpListener;
 
-    async fn mock_server_handler(req: Request<Body>) -> Result<Response<Body>, Infallible> {
+    async fn mock_server_handler(req: Request) -> Result<Response, Infallible> {
         const DID_JSON: &str = r#"
             {"@context": "https://www.w3.org/ns/did/v1",
             "id": "did:web:localhost",
@@ -194,13 +198,13 @@ mod tests {
     }
 
     async fn create_mock_server(port: u16) -> String {
-        let make_svc = make_service_fn(|_conn| async { Ok::<_, Infallible>(service_fn(mock_server_handler)) });
-
         let addr = SocketAddr::from(([127, 0, 0, 1], port));
-        let server = Server::bind(&addr).serve(make_svc);
+        let listener = TcpListener::bind(addr).await.unwrap();
+
+        let app = axum::Router::new().route("/.well-known/did.json", get(mock_server_handler));
 
         tokio::spawn(async move {
-            server.await.unwrap();
+            axum::serve(listener, app).await.unwrap();
         });
 
         "localhost".to_string()

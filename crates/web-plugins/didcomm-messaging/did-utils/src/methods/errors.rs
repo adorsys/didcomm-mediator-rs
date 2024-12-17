@@ -66,6 +66,8 @@ pub enum DidWebError {
     #[error("Parsing error: {0}")]
     ParsingError(#[from] ParsingErrorSource),
     #[error("URL parsing error: {0}")]
+    HttpClientError(#[from] hyper_util::client::legacy::Error),
+    #[error("URL parsing error: {0}")]
     HttpError(#[from] hyper::Error),
     #[error("Non-success server response: {0}")]
     NonSuccessResponse(StatusCode),

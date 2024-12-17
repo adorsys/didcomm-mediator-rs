@@ -27,6 +27,7 @@ mod tests {
         body::Body,
         http::{Request, StatusCode},
     };
+    use http_body_util::BodyExt;
     use serde_json::Value;
     use tower::util::ServiceExt;
 
@@ -46,8 +47,8 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::OK);
 
-        let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
-        let body: Value = serde_json::from_slice(&body).unwrap();
+        let body = BodyExt::collect(response.into_body()).await.unwrap();
+        let body: Value = serde_json::from_slice(&body.to_bytes()).unwrap();
 
         assert_eq!(body.get("app").unwrap(), &crate_name());
     }

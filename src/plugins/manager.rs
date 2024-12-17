@@ -44,7 +44,7 @@ impl<'a> PluginContainer<'a> {
     pub fn find_plugin(&self, name: &str) -> Option<Arc<Mutex<dyn Plugin>>> {
         self.plugins.iter().find_map(|arc_plugin| {
             let plugin = arc_plugin.lock().unwrap();
-            (plugin.name() == name).then_some(Arc::clone(&arc_plugin))
+            (plugin.name() == name).then_some(Arc::clone(arc_plugin))
         })
     }
 
