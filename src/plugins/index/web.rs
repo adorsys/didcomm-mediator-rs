@@ -27,9 +27,9 @@ mod tests {
         body::Body,
         http::{Request, StatusCode},
     };
+    use http_body_util::BodyExt;
     use serde_json::Value;
     use tower::util::ServiceExt;
-    use http_body_util::BodyExt;
 
     #[tokio::test]
     async fn index() {

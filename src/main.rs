@@ -1,6 +1,6 @@
-use std::net::SocketAddr;
 use didcomm_mediator::app;
 use eyre::{Result, WrapErr};
+use std::net::SocketAddr;
 use tokio::net::TcpListener;
 
 #[tokio::main]
