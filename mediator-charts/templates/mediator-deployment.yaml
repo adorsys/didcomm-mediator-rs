@@ -44,8 +44,4 @@ spec:
                 configMapKeyRef:
                   key: SERVER_PUBLIC_DOMAIN
                   name: env
-            - name: STORAGE_DIRPATH
-              valueFrom:
-                configMapKeyRef:
-                  key: STORAGE_DIRPATH
-                  name: env
+    

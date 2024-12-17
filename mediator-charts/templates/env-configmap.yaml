@@ -1,9 +1,9 @@
 apiVersion: v1
 data:
-  MONGO_DBN: {{ .Values.envConfig.MONGO_DBN }}
-  MONGO_URI: {{ .Values.envConfig.MONGO_URI }}
-  SERVER_LOCAL_PORT: {{ .Values.envConfig.SERVER_LOCAL_PORT }}
-  SERVER_PUBLIC_DOMAIN: {{ .Values.envConfig.SERVER_PUBLIC_DOMAIN }}
+  MONGO_DBN: mediatorDB
+  MONGO_URI: mongodb://mongodb:27017
+  SERVER_LOCAL_PORT: "3000"
+  SERVER_PUBLIC_DOMAIN: http://alice-mediator.com
   
 kind: ConfigMap
 metadata:
