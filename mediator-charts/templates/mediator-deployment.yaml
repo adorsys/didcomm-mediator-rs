@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-mediator-deployment
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-mediator
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-mediator
+    spec:
+      containers:
+        - name: {{ .Release.Name }}-mediator-container
+          image: {{ .Values.mediator.image.repository }}:{{ .Values.mediator.image.tag }}
+          imagePullPolicy: {{ .Values.mediator.image.pullPolicy }}
+          ports:
+            - containerPort: 3000
+          env:
+            - name: MONGO_DBN
+              valueFrom:
+                configMapKeyRef:
+                  key: MONGO_DBN
+                  name: env
+            - name: MONGO_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secret
+                  key: password
+            - name: MONGO_HOST
+              value: {{ .Release.Name }}-mongodb-service
+            - name: MONGO_URI
+              value: "mongodb://{{ .Release.Name }}-mongodb-service:27017"
+            - name: SERVER_LOCAL_PORT
+              valueFrom:
+                configMapKeyRef:
+                  key: SERVER_LOCAL_PORT
+                  name: env
+            - name: SERVER_PUBLIC_DOMAIN
+              valueFrom:
+                configMapKeyRef:
+                  key: SERVER_PUBLIC_DOMAIN
+                  name: env
+    

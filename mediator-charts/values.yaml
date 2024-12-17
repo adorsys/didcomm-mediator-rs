@@ -1,0 +1,22 @@
+replicaCount: 1
+namespace: didcomm-mediator
+
+mongodb:
+  databaseName: mongodb
+
+mediator:
+  image:
+    repository: ghcr.io/adorsys/didcomm-mediator-rs
+    pullPolicy: IfNotPresent
+    tag: latest
+
+mongoVolume:
+  persistentVolumeClaim:
+    storageSize: 10Gi  
+
+  persistentVolume:
+    storageSize: 10Gi  
+    pathOnHost: /var/lib/mongodb 
+
+
+  mountPath: /var/lib/mongodb
