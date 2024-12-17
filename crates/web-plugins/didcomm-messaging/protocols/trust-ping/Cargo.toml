@@ -17,7 +17,7 @@ axum = { workspace = true, features = ["macros"] }
 
 [dev-dependencies]
 shared = { workspace = true, features = ["test-utils"] }
-tokio = { version = "1.27.0", default-features = false, features = [
+tokio = { version = "1.42.0", default-features = false, features = [
     "macros",
     "rt",
 ] }

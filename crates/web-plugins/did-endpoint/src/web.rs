@@ -199,6 +199,7 @@ mod tests {
         proof::{CryptoProof, EdDsaJcs2022},
         vc::VerifiablePresentation,
     };
+    use http_body_util::BodyExt;
     use serde_json::json;
     use tower::util::ServiceExt;
 
@@ -284,8 +285,8 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::OK);
 
-        let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
-        let vp: VerifiablePresentation = serde_json::from_slice(&body).unwrap();
+        let body = BodyExt::collect(response.into_body()).await.unwrap();
+        let vp: VerifiablePresentation = serde_json::from_slice(&body.to_bytes()).unwrap();
 
         let vc = vp.verifiable_credential.get(0).unwrap();
         let diddoc = serde_json::from_value(json!(vc.credential_subject)).unwrap();

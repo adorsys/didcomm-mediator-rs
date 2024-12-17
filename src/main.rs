@@ -1,7 +1,7 @@
-use axum::Server;
+use std::net::SocketAddr;
 use didcomm_mediator::app;
 use eyre::{Result, WrapErr};
-use std::net::SocketAddr;
+use tokio::net::TcpListener;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -11,15 +11,17 @@ async fn main() -> Result<()> {
     // Enable logging
     config_tracing();
 
-    // Start server
+    // Configure server
     let port = std::env::var("SERVER_LOCAL_PORT").unwrap_or("3000".to_owned());
-    let addr: SocketAddr = format!("0.0.0.0:{port}")
-        .parse()
+    let port = port.parse().context("failed to parse port")?;
+    let addr = SocketAddr::from(([0, 0, 0, 0], port));
+    let listener = TcpListener::bind(addr)
+        .await
         .context("failed to parse address")?;
 
-    tracing::debug!("listening on {}", addr);
+    tracing::debug!("listening on {addr}");
 
-    generic_server_with_graceful_shutdown(addr)
+    generic_server_with_graceful_shutdown(listener)
         .await
         .map_err(|err| {
             tracing::error!("{err:?}");
@@ -29,14 +31,12 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-async fn generic_server_with_graceful_shutdown(addr: SocketAddr) -> Result<()> {
+async fn generic_server_with_graceful_shutdown(listener: TcpListener) -> Result<()> {
     // Load plugins
     let (mut plugin_container, router) = app()?;
 
-    // Spawn task for server
-
-    Server::bind(&addr)
-        .serve(router.into_make_service())
+    // Start server
+    axum::serve(listener, router)
         .await
         .context("failed to start server")?;
 

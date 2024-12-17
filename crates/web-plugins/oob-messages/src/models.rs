@@ -1,5 +1,6 @@
 use crate::constants::OOB_INVITATION_2_0;
-use base64::{encode_config, STANDARD};
+use base64::engine::general_purpose::STANDARD;
+use base64::Engine;
 use did_utils::didcore::Document;
 use filesystem::FileSystem;
 use image::{DynamicImage, Luma};
@@ -9,6 +10,7 @@ use qrcode::QrCode;
 use serde::{Deserialize, Serialize};
 use serde_json::to_string;
 use std::collections::HashMap;
+use std::io::Cursor;
 use std::sync::RwLock;
 
 #[cfg(test)]
@@ -163,13 +165,16 @@ where
 
     // Convert the image to a PNG-encoded byte vector
     let dynamic_image = DynamicImage::ImageLuma8(image);
-    let mut buffer = Vec::new();
+    let mut buffer = Cursor::new(Vec::new());
     dynamic_image
-        .write_to(&mut buffer, image::ImageOutputFormat::Png)
+        .write_to(&mut buffer, image::ImageFormat::Png)
         .map_err(|err| format!("Error encoding image to PNG: {err}"))?;
 
+    // Get the encoded bytes from the cursor
+    let buffer = buffer.into_inner();
+
     // Save the PNG-encoded byte vector as a base64-encoded string
-    let base64_string = encode_config(&buffer, STANDARD);
+    let base64_string = STANDARD.encode(&buffer);
 
     // Save to file
     fs.write_with_lock(path.as_ref(), &base64_string)

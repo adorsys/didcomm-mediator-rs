@@ -1,14 +1,13 @@
-use nix::fcntl::{flock, FlockArg};
+use nix::fcntl::{Flock, FlockArg};
 use std::{
     fs::OpenOptions,
     io::{Error as IoError, ErrorKind, Result as IoResult},
-    os::unix::io::AsRawFd,
     path::Path,
 };
 
 #[doc(hidden)]
 // Define a trait for file system operations
-pub trait FileSystem: Send + Sync + 'static {
+pub trait FileSystem: Send + 'static {
     fn read_to_string(&self, path: &Path) -> IoResult<String>;
     fn write(&mut self, path: &Path, content: &str) -> IoResult<()>;
     fn read_dir_files(&self, path: &Path) -> IoResult<Vec<String>>;
@@ -59,7 +58,7 @@ impl FileSystem for StdFileSystem {
             .open(path)?;
 
         // Acquire an exclusive lock before writing to the file
-        flock(file.as_raw_fd(), FlockArg::LockExclusive)
+        let file = Flock::lock(file, FlockArg::LockExclusive)
             .map_err(|_| IoError::new(ErrorKind::Other, "Error acquiring file lock"))?;
 
         std::fs::write(path, content).map_err(|_| {
@@ -70,7 +69,7 @@ impl FileSystem for StdFileSystem {
         })?;
 
         // Release the lock after writing to the file
-        flock(file.as_raw_fd(), FlockArg::Unlock)
+        file.unlock()
             .map_err(|_| IoError::new(ErrorKind::Other, "Error releasing file lock"))?;
 
         Ok(())

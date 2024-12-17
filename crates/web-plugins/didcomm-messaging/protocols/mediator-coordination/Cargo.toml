@@ -25,9 +25,9 @@ uuid = { workspace = true, features = ["v4"] }
 hyper = { workspace = true, features = ["full"] }
 
 [dev-dependencies]
-hyper = "0.14.27"
+hyper = "1.5.2"
 json-canon = "0.1.3"
-tokio = { version = "1.27.0", default-features = false, features = [
+tokio = { version = "1.42.0", default-features = false, features = [
     "macros",
     "rt",
 ] }

@@ -20,7 +20,7 @@ tokio = { workspace = true, features = ["full"] }
 didcomm = { workspace = true, features = ["uniffi"] }
 
 [dev-dependencies]
-tokio = { version = "1.27.0", default-features = false, features = [
+tokio = { version = "1.42.0", default-features = false, features = [
     "macros",
     "rt",
 ] }
