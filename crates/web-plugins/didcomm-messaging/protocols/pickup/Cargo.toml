@@ -18,6 +18,7 @@ thiserror.workspace = true
 async-trait.workspace = true
 uuid = { workspace = true, features = ["v4"] }
 axum = { workspace = true, features = ["macros"] }
+tokio = "1.27.0"
 
 [dev-dependencies]
 hyper = "0.14.27"

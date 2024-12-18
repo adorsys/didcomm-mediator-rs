@@ -4,78 +4,84 @@ use didcomm::{AttachmentData, Message};
 use mongodb::bson::doc;
 use serde_json::{json, Value};
 use shared::{
+    circuit_breaker::CircuitBreaker,
     repository::entity::{Connection, RoutedMessage},
     retry::{retry_async, RetryOptions},
     state::{AppState, AppStateRepository},
 };
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::Mutex;
 
 /// Mediator receives forwarded messages, extract the next field in the message body, and the attachments in the message
 /// then stores the attachment with the next field as key for pickup
 pub(crate) async fn mediator_forward_process(
     state: Arc<AppState>,
     message: Message,
+    circuit_breaker: Arc<Mutex<CircuitBreaker>>,
 ) -> Result<Option<Message>, ForwardError> {
-    let AppStateRepository {
-        message_repository,
-        connection_repository,
-        ..
-    } = state
-        .repository
-        .as_ref()
-        .ok_or_else(|| ForwardError::InternalServerError)?;
+    let mut cb = circuit_breaker.lock().await;
 
-    let circuit_breaker = state.circuit_breaker.clone();
-    if circuit_breaker.is_open() {
-        return Err(ForwardError::CircuitOpen);
-    }
+    let result = cb
+        .call_async(|| {
+            let state = Arc::clone(&state);
+            let message = message.clone();
+            async move {
+                let AppStateRepository {
+                    message_repository,
+                    connection_repository,
+                    ..
+                } = state
+                    .repository
+                    .as_ref()
+                    .ok_or_else(|| ForwardError::InternalServerError)?;
 
-    let next = match checks(&message, connection_repository).await.ok() {
-        Some(next) => Ok(next),
-        None => Err(ForwardError::InternalServerError),
-    };
+                let next = match checks(&message, connection_repository).await.ok() {
+                    Some(next) => Ok(next),
+                    None => Err(ForwardError::InternalServerError),
+                }?;
 
-    let attachments = message.attachments.unwrap_or_default();
-    for attachment in attachments {
-        let attached = match attachment.data {
-            AttachmentData::Json { value: data } => data.json,
-            AttachmentData::Base64 { value: data } => json!(data.base64),
-            AttachmentData::Links { value: data } => json!(data.links),
-        };
+                let attachments = message.attachments.unwrap_or_default();
+                for attachment in attachments {
+                    let attached = match attachment.data {
+                        AttachmentData::Json { value: data } => data.json,
+                        AttachmentData::Base64 { value: data } => json!(data.base64),
+                        AttachmentData::Links { value: data } => json!(data.links),
+                    };
+                    retry_async(
+                        || {
+                            let attached = attached.clone();
+                            let recipient_did = next.to_owned();
 
-        let result = retry_async(
-            || {
-                let attached = attached.clone();
-                let recipient_did = next.as_ref().unwrap().to_owned();
-
-                async move {
-                    message_repository
-                        .store(RoutedMessage {
-                            id: None,
-                            message: attached,
-                            recipient_did,
-                        })
-                        .await
+                            async move {
+                                message_repository
+                                    .store(RoutedMessage {
+                                        id: None,
+                                        message: attached,
+                                        recipient_did,
+                                    })
+                                    .await
+                            }
+                        },
+                        RetryOptions::new()
+                            .retries(5)
+                            .exponential_backoff(Duration::from_millis(100))
+                            .max_delay(Duration::from_secs(1)),
+                    )
+                    .await
+                    .map_err(|_| ForwardError::InternalServerError)?;
                 }
-            },
-            RetryOptions::new()
-                .retries(5)
-                .exponential_backoff(Duration::from_millis(100))
-                .max_delay(Duration::from_secs(1)),
-        )
+                Ok::<Option<Message>, ForwardError>(None)
+            }
+        })
         .await;
 
-        match result {
-            Ok(_) => circuit_breaker.record_success(),
-            Err(_) => {
-                circuit_breaker.record_failure();
-                return Err(ForwardError::InternalServerError);
-            }
-        };
+    match result {
+        Some(Ok(None)) => Ok(None),
+        Some(Ok(Some(_))) => Err(ForwardError::InternalServerError),
+        Some(Err(err)) => Err(err),
+        None => Err(ForwardError::CircuitOpen),
     }
-
-    Ok(None)
 }
 
 async fn checks(
@@ -113,6 +119,7 @@ mod test {
     use keystore::Secrets;
     use serde_json::json;
     use shared::{
+        circuit_breaker,
         repository::{
             entity::Connection,
             tests::{MockConnectionRepository, MockMessagesRepository},
@@ -196,9 +203,16 @@ mod test {
         .await
         .expect("Unable unpack");
 
-        let msg = mediator_forward_process(Arc::new(state.clone()), msg)
-            .await
-            .unwrap();
+        // Wrap the CircuitBreaker in Arc and Mutex
+        let circuit_breaker = circuit_breaker::CircuitBreaker::new(3, Duration::from_secs(3));
+
+        let msg: Option<Message> = mediator_forward_process(
+            Arc::new(state.clone()),
+            msg,
+            Arc::new(circuit_breaker.into()),
+        )
+        .await
+        .unwrap();
 
         println!("Mediator1 is forwarding message \n{:?}\n", msg);
     }

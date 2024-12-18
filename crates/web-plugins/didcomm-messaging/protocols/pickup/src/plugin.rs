@@ -5,8 +5,9 @@ use async_trait::async_trait;
 use axum::response::{IntoResponse, Response};
 use didcomm::Message;
 use message_api::{MessageHandler, MessagePlugin, MessageRouter};
-use shared::state::AppState;
-use std::sync::Arc;
+use shared::{circuit_breaker::CircuitBreaker, state::AppState};
+use std::{sync::Arc, time::Duration};
+use tokio::sync::Mutex;
 
 pub struct PickupProtocol;
 
@@ -22,7 +23,12 @@ impl MessageHandler for StatusRequestHandler {
         state: Arc<AppState>,
         msg: Message,
     ) -> Result<Option<Message>, Response> {
-        crate::handler::handle_status_request(state, msg)
+        let circuit_breaker = Arc::new(Mutex::new(CircuitBreaker::new(
+            2,
+            Duration::from_millis(5000),
+        )));
+
+        crate::handler::handle_status_request(state, msg, circuit_breaker)
             .await
             .map_err(|e| e.into_response())
     }
@@ -35,7 +41,12 @@ impl MessageHandler for DeliveryRequestHandler {
         state: Arc<AppState>,
         msg: Message,
     ) -> Result<Option<Message>, Response> {
-        crate::handler::handle_delivery_request(state, msg)
+        let circuit_breaker = Arc::new(Mutex::new(CircuitBreaker::new(
+            2,
+            Duration::from_millis(5000),
+        )));
+
+        crate::handler::handle_delivery_request(state, msg, circuit_breaker)
             .await
             .map_err(|e| e.into_response())
     }
@@ -48,7 +59,12 @@ impl MessageHandler for MessageReceivedHandler {
         state: Arc<AppState>,
         msg: Message,
     ) -> Result<Option<Message>, Response> {
-        crate::handler::handle_message_acknowledgement(state, msg)
+        let circuit_breaker = Arc::new(Mutex::new(CircuitBreaker::new(
+            2,
+            Duration::from_millis(5000),
+        )));
+
+        crate::handler::handle_message_acknowledgement(state, msg, circuit_breaker)
             .await
             .map_err(|e| e.into_response())
     }

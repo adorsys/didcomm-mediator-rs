@@ -1,4 +1,4 @@
-pub mod CircuitBreaker;
+pub mod circuit_breaker;
 pub mod errors;
 pub mod midlw;
 pub mod repository;
