@@ -39,13 +39,14 @@ use std::io::Result as IoResult;
 // ```
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-struct OobMessage {
+pub(crate) struct OobMessage {
     #[serde(rename = "type")]
     oob_type: String,
     id: String,
     from: String,
     body: Body,
 }
+type Ooburl = String;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename = "use")]
@@ -55,7 +56,11 @@ struct Body {
     label: String,
     accept: Vec<String>,
 }
-
+impl Default for OobMessage {
+    fn default() -> Self {
+        OobMessage::new("")
+    }
+}
 impl OobMessage {
     fn new(did: &str) -> Self {
         let id = uuid::Uuid::new_v4().to_string();
@@ -74,12 +79,14 @@ impl OobMessage {
         }
     }
 
-    fn serialize_oob_message(oob_message: &OobMessage, url: &str) -> Result<String, String> {
+    fn serialize_oob_message(oob_message: &OobMessage, url: &str) -> Result<Ooburl, String> {
         let plaintext =
             to_string(oob_message).map_err(|e| format!("Serialization error: {}", e))?;
         let encoded_jwm = Base64Url.encode(plaintext.as_bytes());
 
-        Ok(format!("{}?_oob={}", url, encoded_jwm))
+        let ooburl = format!("{}/_oob{}", url, encoded_jwm);
+
+        Ok(ooburl)
     }
 }
 
@@ -87,7 +94,6 @@ impl OobMessage {
 pub(crate) fn retrieve_or_generate_oob_inv<F>(
     fs: &mut F,
     server_public_domain: &str,
-    server_local_port: &str,
     storage_dirpath: &str,
 ) -> Result<String, String>
 where
@@ -112,7 +118,7 @@ where
 
     let did = diddoc.id.clone();
     let oob_message = OobMessage::new(&did);
-    let url: &String = &format!("{}:{}", server_public_domain, server_local_port);
+    let url: &String = &format!("http://{}", server_public_domain);
     let oob_url = OobMessage::serialize_oob_message(&oob_message, url)
         .map_err(|err| format!("Serialization error: {err}"))?;
 
@@ -205,8 +211,10 @@ use std::path::Path;
 
 #[cfg(test)]
 mod tests {
+
     use super::*;
     use mockall::{predicate::*, *};
+    use multibase::Base::Base64Url;
 
     mock! {
         pub FileSystem {}
@@ -217,6 +225,15 @@ mod tests {
             fn create_dir_all(&mut self, path: &Path) -> IoResult<()>;
             fn write_with_lock(&self, path: &Path, content: &str) -> IoResult<()>;
         }
+    }
+    fn test_serialize_oobmessage() -> String {
+        let did = "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7#z6LSbuUXWSgPfpiDBjUK6E7yiCKMN2eKJsXn5b55ZgqGz6Mr";
+        let oobmessage = OobMessage::new(did);
+        let server_public_domain = "https://example.com";
+
+        let url = format!("{}", server_public_domain);
+        let encoded_oob = OobMessage::serialize_oob_message(&oobmessage, &url).unwrap();
+        encoded_oob
     }
 
     #[test]
@@ -249,15 +266,23 @@ mod tests {
             .unwrap_or_else(|err| panic!("Failed to serialize oob message: {}", err));
 
         assert!(!oob_url.is_empty());
-        assert!(oob_url.starts_with(&format!("{}?_oob=", url)));
-        assert!(oob_url.contains("_oob="));
+        assert!(oob_url.starts_with(&format!("{}/_oob", url)));
+        assert!(oob_url.contains("_oob"));
     }
-
+    #[test]
+    fn test_deserialize_oob_message() {
+        let did = "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7#z6LSbuUXWSgPfpiDBjUK6E7yiCKMN2eKJsXn5b55ZgqGz6Mr";
+        let serialized_msg = test_serialize_oobmessage();
+        let oobmessage: Vec<&str> = serialized_msg.split("/_oob").collect();
+        let oobmessage = oobmessage.get(1).unwrap().to_string();
+        let decode_msg = Base64Url.decode(oobmessage).unwrap();
+        let oobmessage: OobMessage = serde_json::from_slice(&decode_msg).unwrap();
+        assert_eq!(oobmessage.from, did);
+    }
     #[test]
     fn test_retrieve_or_generate_oob_inv() {
         // Test data
         let server_public_domain = "https://example.com";
-        let server_local_port = "8080";
         let storage_dirpath = "testpath";
 
         let mut mock_fs = MockFileSystem::new();
@@ -295,12 +320,8 @@ mod tests {
             .withf(|path, _content| path == Path::new("testpath/oob_invitation.txt"))
             .returning(|_, _| Ok(()));
 
-        let result = retrieve_or_generate_oob_inv(
-            &mut mock_fs,
-            server_public_domain,
-            server_local_port,
-            storage_dirpath,
-        );
+        let result =
+            retrieve_or_generate_oob_inv(&mut mock_fs, server_public_domain, storage_dirpath);
 
         assert!(result.is_ok());
     }
