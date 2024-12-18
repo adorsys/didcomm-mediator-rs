@@ -4,7 +4,9 @@ use keystore::Secrets;
 use std::{sync::Arc, time::Duration};
 
 use crate::{
-    circuit_breaker::CircuitBreaker, repository::entity::{Connection, RoutedMessage}, utils::resolvers::{LocalDIDResolver, LocalSecretsResolver}
+    circuit_breaker::CircuitBreaker,
+    repository::entity::{Connection, RoutedMessage},
+    utils::resolvers::{LocalDIDResolver, LocalSecretsResolver},
 };
 
 #[derive(Clone)]
