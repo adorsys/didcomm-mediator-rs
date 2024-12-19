@@ -211,26 +211,9 @@ The deployment of the `didcomm-mediator-rs` project leverages a scalable, distri
 
 ---
 
-### 7.2 Deployment Models
+### 7.2 Deployment Model
 
-#### 1. **Single Instance Deployment (Minimal Setup)**
-
-**Use Case**: Suitable for development or testing environments.
-
-- A single mediator instance handles all requests and routing.
-- Simplifies deployment but lacks fault tolerance and scalability.
-
-**Advantages**:
-- Minimal resource usage.
-- Easy to configure and maintain.
-
-**Disadvantages**:
-- No fault tolerance: if the mediator fails, the service becomes unavailable.
-- Limited scalability.
-
----
-
-#### 2. **Distributed Deployment with Load Balancer (Recommended)**
+#### 1. **Distributed Deployment with Load Balancer **
 
 **Use Case**: Ideal for production environments requiring high availability and scalability.
 
@@ -252,27 +235,7 @@ The deployment of the `didcomm-mediator-rs` project leverages a scalable, distri
 
 Below is a component diagram showcasing the deployment with multiple mediators and a load balancer:
 
-```mermaid
-graph TD
-    subgraph Internet
-        User1[Recipient Agent]
-        User2[Sender Agent]
-    end
-
-    User1 --> LB[Load Balancer]
-    User2 --> LB
-
-    subgraph Mediator Cluster
-        Mediator1[Mediator Instance 1]
-        Mediator2[Mediator Instance 2]
-    end
-
-    LB --> Mediator1
-    LB --> Mediator2
-
-    Mediator1 --> DB1[Message Storage DB]
-    Mediator2 --> DB1
-```
+![alt text](deployment.png)
 
 ---
 
@@ -638,7 +601,7 @@ This combination integrates **application security** and **SSDLC best practices*
 
 #### **Tech Stack**
 - **Programming Language:** Rust, chosen for its high performance, memory safety, and robust concurrency support, ensuring efficient and reliable message routing.  
-- **Web Framework:** Actix-web, selected for its asynchronous capabilities, enabling scalable handling of concurrent DIDComm messages.  
+- **Web Framework:** Axum, selected for its asynchronous capabilities, enabling scalable handling of concurrent DIDComm messages.  
 - **Database:** MongoDB, a NoSQL database chosen for its:  
   - **Scalability:** Seamlessly handles large volumes of data with horizontal scaling.  
   - **Flexibility:** Supports dynamic schema for evolving DIDComm message formats.  
@@ -684,7 +647,6 @@ This combination integrates **application security** and **SSDLC best practices*
 
 | **Component**                        | **Definition**                                                                                                                                      |
 |--------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **Actix-web**                        | A Rust-based framework for building fast, asynchronous web applications.                                                                            |
 | **Asynchronous Programming**         | A programming model that allows tasks to be performed without blocking the main program flow.                                                        |
 | **Caching**                          | Storing frequently accessed data in temporary storage for faster retrieval.                                                                          |
 | **Cloud-First**                      | A strategy where applications are designed to be deployed in the cloud, leveraging cloud services for scalability.                                    |
