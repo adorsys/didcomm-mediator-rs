@@ -1,9 +1,10 @@
 use database::Repository;
 use did_utils::didcore::Document;
 use keystore::Secrets;
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use crate::{
+    circuit_breaker::CircuitBreaker,
     repository::entity::{Connection, RoutedMessage},
     utils::resolvers::{LocalDIDResolver, LocalSecretsResolver},
 };
@@ -22,6 +23,8 @@ pub struct AppState {
 
     // Persistence layer
     pub repository: Option<AppStateRepository>,
+
+    pub circuit_breaker: Arc<CircuitBreaker>,
 
     // disclosed protocols `https://org.didcomm.com/{protocol-name}/{version}/{request-type}``
     pub supported_protocols: Option<Vec<String>>,
@@ -55,6 +58,7 @@ impl AppState {
             did_resolver,
             secrets_resolver,
             repository,
+            circuit_breaker: Arc::new(CircuitBreaker::new(3, Duration::from_secs(10))),
             supported_protocols: disclose_protocols,
         })
     }

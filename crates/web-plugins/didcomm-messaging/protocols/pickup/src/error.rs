@@ -14,6 +14,9 @@ pub(crate) enum PickupError {
 
     #[error("Malformed request. {0}")]
     MalformedRequest(String),
+
+    #[error("Service unavailable")]
+    CircuitOpen,
 }
 
 impl IntoResponse for PickupError {
@@ -22,6 +25,7 @@ impl IntoResponse for PickupError {
             PickupError::MissingSenderDID | PickupError::MalformedRequest(_) => {
                 StatusCode::BAD_REQUEST
             }
+            PickupError::CircuitOpen => StatusCode::SERVICE_UNAVAILABLE,
             PickupError::InternalError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             PickupError::MissingClientConnection => StatusCode::UNAUTHORIZED,
         };

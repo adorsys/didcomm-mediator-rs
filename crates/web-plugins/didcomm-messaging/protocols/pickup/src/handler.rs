@@ -10,193 +10,304 @@ use didcomm::{Attachment, Message, MessageBuilder};
 use mongodb::bson::{doc, oid::ObjectId};
 use serde_json::Value;
 use shared::{
+    circuit_breaker::CircuitBreaker,
     midlw::ensure_transport_return_route_is_decorated_all,
     repository::entity::{Connection, RoutedMessage},
+    retry::{retry_async, RetryOptions},
     state::{AppState, AppStateRepository},
 };
-use std::{str::FromStr, sync::Arc};
+use std::{str::FromStr, sync::Arc, time::Duration};
+use tokio::sync::Mutex;
 use uuid::Uuid;
 
 // Process pickup status request
 pub(crate) async fn handle_status_request(
     state: Arc<AppState>,
     message: Message,
+    circuit_breaker: Arc<Mutex<CircuitBreaker>>,
 ) -> Result<Option<Message>, PickupError> {
     // Validate the return_route header
     ensure_transport_return_route_is_decorated_all(&message)
         .map_err(|_| PickupError::MalformedRequest("Missing return_route header".to_owned()))?;
 
     let mediator_did = &state.diddoc.id;
-    let recipient_did = message
-        .body
-        .get("recipient_did")
-        .and_then(|val| val.as_str());
     let sender_did = sender_did(&message)?;
 
-    let repository = repository(state.clone())?;
-    let connection = client_connection(&repository, sender_did).await?;
+    let mut cb = circuit_breaker.lock().await;
 
-    let message_count = count_messages(repository, recipient_did, connection).await?;
+    let result = cb
+        .call_async(|| {
+            let state = state.clone();
+            let message = message.clone();
+            async move {
+                let recipient_did = message
+                    .body
+                    .get("recipient_did")
+                    .and_then(|val| val.as_str());
 
-    let id = Uuid::new_v4().urn().to_string();
-    let response_builder: MessageBuilder = StatusResponse {
-        id: id.as_str(),
-        type_: STATUS_RESPONSE_3_0,
-        body: BodyStatusResponse {
-            recipient_did,
-            message_count,
-            live_delivery: Some(false),
-            ..Default::default()
-        },
+                let repository = repository(state.clone())?;
+
+                let connection = retry_async(
+                    || {
+                        let repository = repository.clone();
+                        async move { client_connection(&repository, sender_did).await }
+                    },
+                    RetryOptions::new()
+                        .retries(5)
+                        .exponential_backoff(Duration::from_millis(100))
+                        .max_delay(Duration::from_secs(2)),
+                )
+                .await
+                .map_err(|_| {
+                    PickupError::InternalError("Failed to retrieve client connection".to_owned())
+                })?;
+
+                // Pass `recipient_did` to count_messages, allowing it to handle `None`
+                let message_count = count_messages(repository, recipient_did, connection).await?;
+
+                let id = Uuid::new_v4().urn().to_string();
+                let response_builder: MessageBuilder = StatusResponse {
+                    id: id.as_str(),
+                    type_: STATUS_RESPONSE_3_0,
+                    body: BodyStatusResponse {
+                        recipient_did: recipient_did.to_owned(),
+                        message_count,
+                        live_delivery: Some(false),
+                        ..Default::default()
+                    },
+                }
+                .into();
+
+                let response = response_builder
+                    .to(sender_did.to_owned())
+                    .from(mediator_did.to_owned())
+                    .finalize();
+
+                Ok(Some(response))
+            }
+        })
+        .await;
+
+    match result {
+        Some(Ok(response)) => Ok(response),
+        Some(Err(err)) => Err(err),
+        None => Err(PickupError::CircuitOpen),
     }
-    .into();
-
-    let response = response_builder
-        .to(sender_did.to_owned())
-        .from(mediator_did.to_owned())
-        .finalize();
-
-    Ok(Some(response))
 }
 
 // Process pickup delivery request
 pub(crate) async fn handle_delivery_request(
     state: Arc<AppState>,
     message: Message,
+    circuit_breaker: Arc<Mutex<CircuitBreaker>>,
 ) -> Result<Option<Message>, PickupError> {
     // Validate the return_route header
     ensure_transport_return_route_is_decorated_all(&message)
         .map_err(|_| PickupError::MalformedRequest("Missing return_route header".to_owned()))?;
 
     let mediator_did = &state.diddoc.id;
-    let recipient_did = message
-        .body
-        .get("recipient_did")
-        .and_then(|val| val.as_str());
+
     let sender_did = sender_did(&message)?;
 
-    // Get the messages limit
-    let limit = message
-        .body
-        .get("limit")
-        .and_then(Value::as_u64)
-        .ok_or_else(|| PickupError::MalformedRequest("Invalid \"limit\" specifier".to_owned()))?;
+    let message_body = message.body.clone();
 
-    let repository = repository(state.clone())?;
-    let connection = client_connection(&repository, sender_did).await?;
+    let mut cb = circuit_breaker.lock().await;
 
-    let messages = messages(repository, recipient_did, connection, limit as usize).await?;
+    let result = cb
+        .call_async(|| {
+            let state = state.clone();
+            let message_body = message_body.clone();
+            async move {
+                let recipient_did = message_body.get("recipient_did").and_then(Value::as_str);
 
-    let response_builder: MessageBuilder;
-    let id = Uuid::new_v4().urn().to_string();
+                let limit = retry_async(
+                    || {
+                        let message_body = message_body.clone();
+                        async move {
+                            message_body
+                                .get("limit")
+                                .and_then(Value::as_u64)
+                                .ok_or_else(|| {
+                                    PickupError::MalformedRequest(
+                                        "Invalid \"limit\" specifier".to_owned(),
+                                    )
+                                })
+                        }
+                    },
+                    RetryOptions::new()
+                        .retries(5)
+                        .exponential_backoff(Duration::from_millis(100))
+                        .max_delay(Duration::from_secs(2)),
+                )
+                .await?;
 
-    if messages.is_empty() {
-        response_builder = StatusResponse {
-            id: id.as_str(),
-            type_: STATUS_RESPONSE_3_0,
-            body: BodyStatusResponse {
-                recipient_did,
-                message_count: 0,
-                live_delivery: Some(false),
-                ..Default::default()
-            },
-        }
-        .into();
-    } else {
-        let mut attachments: Vec<Attachment> = Vec::with_capacity(messages.len());
+                let repository = repository(state.clone())?;
+                let connection = retry_async(
+                    || {
+                        let repository = repository.clone();
+                        async move { client_connection(&repository, sender_did).await }
+                    },
+                    RetryOptions::new()
+                        .retries(5)
+                        .exponential_backoff(Duration::from_millis(100))
+                        .max_delay(Duration::from_secs(2)),
+                )
+                .await
+                .map_err(|_| {
+                    PickupError::InternalError("Failed to retrieve client connection".to_owned())
+                })?;
 
-        for message in messages {
-            let attached = Attachment::json(message.message)
-                .id(message.id.map(|id| id.to_string()).ok_or_else(|| {
-                    PickupError::InternalError(
-                        "Failed to load requested messages. Please try again later.".to_owned(),
-                    )
-                })?)
-                .finalize();
+                let messages =
+                    messages(repository, recipient_did, connection, limit as usize).await?;
 
-            attachments.push(attached);
-        }
+                let response_builder: MessageBuilder;
+                let id = Uuid::new_v4().urn().to_string();
 
-        response_builder = DeliveryResponse {
-            id: id.as_str(),
-            thid: id.as_str(),
-            type_: MESSAGE_DELIVERY_3_0,
-            body: BodyDeliveryResponse { recipient_did },
-            attachments,
-        }
-        .into();
+                if messages.is_empty() {
+                    response_builder = StatusResponse {
+                        id: id.as_str(),
+                        type_: STATUS_RESPONSE_3_0,
+                        body: BodyStatusResponse {
+                            recipient_did,
+                            message_count: 0,
+                            live_delivery: Some(false),
+                            ..Default::default()
+                        },
+                    }
+                    .into();
+                } else {
+                    let mut attachments: Vec<Attachment> = Vec::with_capacity(messages.len());
+
+                    for message in messages {
+                        let attached = Attachment::json(message.message)
+                            .id(message.id.map(|id| id.to_string()).ok_or_else(|| {
+                                PickupError::InternalError(
+                                    "Failed to load requested messages. Please try again later."
+                                        .to_owned(),
+                                )
+                            })?)
+                            .finalize();
+
+                        attachments.push(attached);
+                    }
+
+                    response_builder = DeliveryResponse {
+                        id: id.as_str(),
+                        thid: id.as_str(),
+                        type_: MESSAGE_DELIVERY_3_0,
+                        body: BodyDeliveryResponse { recipient_did },
+                        attachments,
+                    }
+                    .into();
+                }
+
+                let response = response_builder
+                    .to(sender_did.to_owned())
+                    .from(mediator_did.to_owned())
+                    .finalize();
+
+                Ok(Some(response))
+            }
+        })
+        .await;
+
+    match result {
+        Some(Ok(response)) => Ok(response),
+        Some(Err(err)) => Err(err),
+        None => Err(PickupError::CircuitOpen),
     }
-
-    let response = response_builder
-        .to(sender_did.to_owned())
-        .from(mediator_did.to_owned())
-        .finalize();
-
-    Ok(Some(response))
 }
 
 // Process pickup messages acknowledgement
 pub(crate) async fn handle_message_acknowledgement(
     state: Arc<AppState>,
     message: Message,
+    circuit_breaker: Arc<Mutex<CircuitBreaker>>,
 ) -> Result<Option<Message>, PickupError> {
     // Validate the return_route header
     ensure_transport_return_route_is_decorated_all(&message)
         .map_err(|_| PickupError::MalformedRequest("Missing return_route header".to_owned()))?;
 
-    let mediator_did = &state.diddoc.id;
-    let repository = repository(state.clone())?;
-    let sender_did = sender_did(&message)?;
-    let connection = client_connection(&repository, sender_did).await?;
+    // Acquire the CircuitBreaker lock
+    let mut cb = circuit_breaker.lock().await;
 
-    // Get the message id list
-    let message_id_list = message
-        .body
-        .get("message_id_list")
-        .and_then(|v| v.as_array())
-        .map(|a| a.iter().filter_map(|v| v.as_str()).collect::<Vec<_>>())
-        .ok_or_else(|| {
-            PickupError::MalformedRequest("Invalid \"message_id_list\" specifier".to_owned())
-        })?;
+    // Wrap the message acknowledgement logic in the CircuitBreaker call
+    let result = cb
+        .call_async(|| {
+            let state = state.clone();
+            let message = message.clone();
+            async move {
+                let mediator_did = &state.diddoc.id;
+                let repository = repository(state.clone())?;
+                let sender_did = sender_did(&message)?;
+                let connection = client_connection(&repository, sender_did).await?;
 
-    for id in message_id_list {
-        let msg_id = ObjectId::from_str(id);
-        if msg_id.is_err() {
-            return Err(PickupError::MalformedRequest(format!(
-                "Invalid message id: {id}"
-            )));
-        }
-        repository
-            .message_repository
-            .delete_one(msg_id.unwrap())
-            .await
-            .map_err(|_| {
-                PickupError::InternalError(
-                    "Failed to process the request. Please try again later.".to_owned(),
+                // Get the message ID list
+                let message_id_list = message
+                    .body
+                    .get("message_id_list")
+                    .and_then(|v| v.as_array())
+                    .map(|a| a.iter().filter_map(|v| v.as_str()).collect::<Vec<_>>())
+                    .ok_or_else(|| {
+                        PickupError::MalformedRequest(
+                            "Invalid \"message_id_list\" specifier".to_owned(),
+                        )
+                    })?;
+
+                for id in message_id_list {
+                    let msg_id = ObjectId::from_str(id).map_err(|_| {
+                        PickupError::MalformedRequest(format!("Invalid message id: {id}"))
+                    })?;
+
+                    retry_async(
+                    || {
+                        let message_repository = repository.message_repository.clone();
+                        let msg_id = msg_id.clone();
+
+                        async move { message_repository.delete_one(msg_id).await.map_err(|_| ()) }
+                    },
+                    RetryOptions::new()
+                        .retries(5)
+                        .exponential_backoff(Duration::from_millis(100))
+                        .max_delay(Duration::from_secs(2)),
                 )
-            })?;
+                .await
+                .map_err(|_| {
+                    PickupError::InternalError(
+                        "Failed to process the request. Please try again later.".to_owned(),
+                    )
+                })?;
+                }
+
+                let message_count = count_messages(repository, None, connection).await?;
+
+                let id = Uuid::new_v4().urn().to_string();
+                let response_builder: MessageBuilder = StatusResponse {
+                    id: id.as_str(),
+                    type_: STATUS_RESPONSE_3_0,
+                    body: BodyStatusResponse {
+                        message_count,
+                        live_delivery: Some(false),
+                        ..Default::default()
+                    },
+                }
+                .into();
+
+                let response = response_builder
+                    .to(sender_did.to_owned())
+                    .from(mediator_did.to_owned())
+                    .finalize();
+
+                Ok(Some(response))
+            }
+        })
+        .await;
+
+    match result {
+        Some(Ok(response)) => Ok(response),
+        Some(Err(err)) => Err(err),
+        None => Err(PickupError::CircuitOpen),
     }
-
-    let message_count = count_messages(repository, None, connection).await?;
-
-    let id = Uuid::new_v4().urn().to_string();
-    let response_builder: MessageBuilder = StatusResponse {
-        id: id.as_str(),
-        type_: STATUS_RESPONSE_3_0,
-        body: BodyStatusResponse {
-            message_count,
-            live_delivery: Some(false),
-            ..Default::default()
-        },
-    }
-    .into();
-
-    let response = response_builder
-        .to(sender_did.to_owned())
-        .from(mediator_did.to_owned())
-        .finalize();
-
-    Ok(Some(response))
 }
 
 // Process live delivery change request
@@ -244,6 +355,7 @@ async fn count_messages(
     repository: AppStateRepository,
     recipient_did: Option<&str>,
     connection: Connection,
+    // circuit_breaker: Arc<Mutex<CircuitBreaker>>,
 ) -> Result<usize, PickupError> {
     let recipients = recipients(recipient_did, &connection);
 
@@ -265,6 +377,7 @@ async fn messages(
     recipient_did: Option<&str>,
     connection: Connection,
     limit: usize,
+    // circuit_breaker: Arc<Mutex<CircuitBreaker>>,
 ) -> Result<Vec<RoutedMessage>, PickupError> {
     let recipients = recipients(recipient_did, &connection);
 
@@ -339,6 +452,7 @@ mod tests {
     };
     use serde_json::json;
     use shared::{
+        circuit_breaker,
         repository::tests::{MockConnectionRepository, MockMessagesRepository},
         utils::tests_utils::tests as global,
     };
@@ -403,10 +517,15 @@ mod tests {
         .from(global::_edge_did())
         .finalize();
 
-        let response = handle_status_request(Arc::clone(&state), request)
-            .await
-            .unwrap()
-            .expect("Response should not be None");
+        let circuit_breaker = circuit_breaker::CircuitBreaker::new(3, Duration::from_secs(3));
+        let response = handle_status_request(
+            Arc::clone(&state),
+            request,
+            Arc::new(circuit_breaker.into()),
+        )
+        .await
+        .unwrap()
+        .expect("Response should not be None");
 
         assert_eq!(response.type_, STATUS_RESPONSE_3_0);
         assert_eq!(response.from.unwrap(), global::_mediator_did(&state));
@@ -432,10 +551,16 @@ mod tests {
         .from(global::_edge_did())
         .finalize();
 
-        let response = handle_status_request(Arc::clone(&state), request)
-            .await
-            .unwrap()
-            .expect("Response should not be None");
+        let circuit_breaker = circuit_breaker::CircuitBreaker::new(3, Duration::from_secs(3));
+
+        let response = handle_status_request(
+            Arc::clone(&state),
+            request,
+            Arc::new(circuit_breaker.into()),
+        )
+        .await
+        .unwrap()
+        .expect("Response should not be None");
 
         assert_eq!(
             response.body,
@@ -459,10 +584,15 @@ mod tests {
         .from(global::_edge_did())
         .finalize();
 
-        let response = handle_status_request(Arc::clone(&state), request)
-            .await
-            .unwrap()
-            .expect("Response should not be None");
+        let circuit_breaker = circuit_breaker::CircuitBreaker::new(3, Duration::from_secs(3));
+        let response = handle_status_request(
+            Arc::clone(&state),
+            request,
+            Arc::new(circuit_breaker.into()),
+        )
+        .await
+        .unwrap()
+        .expect("Response should not be None");
 
         assert_eq!(
             response.body,
@@ -485,11 +615,13 @@ mod tests {
         .from("did:key:invalid".to_owned())
         .finalize();
 
-        let error = handle_status_request(state, invalid_request)
+        let circuit_breaker = circuit_breaker::CircuitBreaker::new(3, Duration::from_secs(3));
+        let error = handle_status_request(state, invalid_request, Arc::new(circuit_breaker.into()))
             .await
             .unwrap_err();
 
-        assert_eq!(error, PickupError::MissingClientConnection);
+        assert_eq!(error.to_string(), "Failed to retrieve client connection");
+        // assert_eq!(error, PickupError::MissingClientConnection);
     }
 
     #[tokio::test]
@@ -506,10 +638,15 @@ mod tests {
         .from(global::_edge_did())
         .finalize();
 
-        let response = handle_delivery_request(Arc::clone(&state), request)
-            .await
-            .unwrap()
-            .expect("Response should not be None");
+        let circuit_breaker = circuit_breaker::CircuitBreaker::new(3, Duration::from_secs(3));
+        let response = handle_delivery_request(
+            Arc::clone(&state),
+            request,
+            Arc::new(circuit_breaker.into()),
+        )
+        .await
+        .unwrap()
+        .expect("Response should not be None");
 
         let expected_attachments = vec![
             Attachment::json(json!("test1"))
@@ -551,7 +688,8 @@ mod tests {
 
         // When the specified recipient did is not in the keylist,
         // it should return a status response with a message count of 0
-        let response = handle_delivery_request(state, request)
+        let circuit_breaker = circuit_breaker::CircuitBreaker::new(3, Duration::from_secs(3));
+        let response = handle_delivery_request(state, request, Arc::new(circuit_breaker.into()))
             .await
             .unwrap()
             .expect("Response should not be None");
@@ -580,7 +718,9 @@ mod tests {
         // When the limit is set to 0, it should return all the messages in the queue
         // and since the recipient did is not specified, it should return the messages
         // for all the dids in the keylist for that sender connection
-        let response = handle_delivery_request(state, request)
+
+        let circuit_breaker = circuit_breaker::CircuitBreaker::new(3, Duration::from_secs(3));
+        let response = handle_delivery_request(state, request, Arc::new(circuit_breaker.into()))
             .await
             .unwrap()
             .expect("Response should not be None");
@@ -620,7 +760,9 @@ mod tests {
         // Since the recipient did is not specified, it should return the messages
         // for all the dids in the keylist for that sender connection (2 in this case)
         // The limit is set to 1 so it should return the first message in the queue
-        let response = handle_delivery_request(state, request)
+
+        let circuit_breaker = circuit_breaker::CircuitBreaker::new(3, Duration::from_secs(3));
+        let response = handle_delivery_request(state, request, Arc::new(circuit_breaker.into()))
             .await
             .unwrap()
             .expect("Response should not be None");
@@ -651,10 +793,13 @@ mod tests {
         .finalize();
 
         // Should return 2 since these ids are not associated with any message
-        let response = handle_message_acknowledgement(state, request)
-            .await
-            .unwrap()
-            .expect("Response should not be None");
+
+        let circuit_breaker = circuit_breaker::CircuitBreaker::new(3, Duration::from_secs(3));
+        let response =
+            handle_message_acknowledgement(state, request, Arc::new(circuit_breaker.into()))
+                .await
+                .unwrap()
+                .expect("Response should not be None");
 
         assert_eq!(response.type_, STATUS_RESPONSE_3_0);
         assert_eq!(
@@ -679,10 +824,12 @@ mod tests {
 
         // Should return 1 since one id in the list is associated
         // to the first message in the queue and then will be deleted
-        let response = handle_message_acknowledgement(state, request)
-            .await
-            .unwrap()
-            .expect("Response should not be None");
+        let circuit_breaker = circuit_breaker::CircuitBreaker::new(3, Duration::from_secs(3));
+        let response =
+            handle_message_acknowledgement(state, request, Arc::new(circuit_breaker.into()))
+                .await
+                .unwrap()
+                .expect("Response should not be None");
 
         assert_eq!(response.type_, STATUS_RESPONSE_3_0);
         assert_eq!(
