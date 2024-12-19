@@ -60,7 +60,7 @@ where
 
         match operation().await {
             Ok(result) => return Ok(result),
-            Err(err) if attempt <= retries => {
+            Err(_err) if attempt <= retries => {
                 if let Some(fixed) = fixed_backoff {
                     sleep(fixed).await;
                 } else if delay > Duration::ZERO {
@@ -69,7 +69,7 @@ where
                     delay = (delay * 2).min(max_delay);
                 }
             }
-            Err(err) => return Err(err),
+            Err(_err) => return Err(_err),
         }
     }
 }

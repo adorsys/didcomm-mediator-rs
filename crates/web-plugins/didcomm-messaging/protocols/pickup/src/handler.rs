@@ -39,7 +39,6 @@ pub(crate) async fn handle_status_request(
         .call_async(|| {
             let state = state.clone();
             let message = message.clone();
-            let circuit_breaker = circuit_breaker.clone();
             async move {
                 let recipient_did = message
                     .body
@@ -64,13 +63,7 @@ pub(crate) async fn handle_status_request(
                 })?;
 
                 // Pass `recipient_did` to count_messages, allowing it to handle `None`
-                let message_count = count_messages(
-                    repository,
-                    recipient_did,
-                    connection,
-                    circuit_breaker.clone(),
-                )
-                .await?;
+                let message_count = count_messages(repository, recipient_did, connection).await?;
 
                 let id = Uuid::new_v4().urn().to_string();
                 let response_builder: MessageBuilder = StatusResponse {
@@ -124,7 +117,6 @@ pub(crate) async fn handle_delivery_request(
         .call_async(|| {
             let state = state.clone();
             let message_body = message_body.clone();
-            let circuit_breaker = circuit_breaker.clone();
             async move {
                 let recipient_did = message_body.get("recipient_did").and_then(Value::as_str);
 
@@ -165,14 +157,8 @@ pub(crate) async fn handle_delivery_request(
                     PickupError::InternalError("Failed to retrieve client connection".to_owned())
                 })?;
 
-                let messages = messages(
-                    repository,
-                    recipient_did,
-                    connection,
-                    limit as usize,
-                    circuit_breaker.clone(),
-                )
-                .await?;
+                let messages =
+                    messages(repository, recipient_did, connection, limit as usize).await?;
 
                 let response_builder: MessageBuilder;
                 let id = Uuid::new_v4().urn().to_string();
@@ -250,7 +236,6 @@ pub(crate) async fn handle_message_acknowledgement(
         .call_async(|| {
             let state = state.clone();
             let message = message.clone();
-            let circuit_breaker = circuit_breaker.clone();
             async move {
                 let mediator_did = &state.diddoc.id;
                 let repository = repository(state.clone())?;
@@ -294,8 +279,7 @@ pub(crate) async fn handle_message_acknowledgement(
                 })?;
                 }
 
-                let message_count =
-                    count_messages(repository, None, connection, circuit_breaker).await?;
+                let message_count = count_messages(repository, None, connection).await?;
 
                 let id = Uuid::new_v4().urn().to_string();
                 let response_builder: MessageBuilder = StatusResponse {
@@ -371,50 +355,21 @@ async fn count_messages(
     repository: AppStateRepository,
     recipient_did: Option<&str>,
     connection: Connection,
-    circuit_breaker: Arc<Mutex<CircuitBreaker>>,
+    // circuit_breaker: Arc<Mutex<CircuitBreaker>>,
 ) -> Result<usize, PickupError> {
     let recipients = recipients(recipient_did, &connection);
 
-    let mut cb = circuit_breaker.lock().await;
+    let count = repository
+        .message_repository
+        .count_by(doc! { "recipient_did": { "$in": recipients } })
+        .await
+        .map_err(|_| {
+            PickupError::InternalError(
+                "Failed to process the request. Please try again later.".to_owned(),
+            )
+        })?;
 
-    let result = cb
-        .call_async(|| {
-            let message_repository = repository.message_repository.clone();
-            let recipients = recipients.clone();
-
-            async move {
-                retry_async(
-                    || {
-                        let message_repository = message_repository.clone();
-                        let recipients = recipients.clone();
-
-                        async move {
-                            message_repository
-                                .count_by(doc! { "recipient_did": { "$in": recipients } })
-                                .await
-                                .map_err(|_| ())
-                        }
-                    },
-                    RetryOptions::new()
-                        .retries(5)
-                        .exponential_backoff(Duration::from_millis(100))
-                        .max_delay(Duration::from_secs(2)),
-                )
-                .await
-                .map_err(|_| {
-                    PickupError::InternalError(
-                        "Failed to process the request. Please try again later.".to_owned(),
-                    )
-                })
-            }
-        })
-        .await;
-
-    match result {
-        Some(Ok(count)) => Ok(count),
-        Some(Err(err)) => Err(err),
-        None => Err(PickupError::CircuitOpen),
-    }
+    Ok(count)
 }
 
 async fn messages(
@@ -422,53 +377,24 @@ async fn messages(
     recipient_did: Option<&str>,
     connection: Connection,
     limit: usize,
-    circuit_breaker: Arc<Mutex<CircuitBreaker>>,
+    // circuit_breaker: Arc<Mutex<CircuitBreaker>>,
 ) -> Result<Vec<RoutedMessage>, PickupError> {
     let recipients = recipients(recipient_did, &connection);
 
-    let mut cb = circuit_breaker.lock().await;
+    let routed_messages = repository
+        .message_repository
+        .find_all_by(
+            doc! { "recipient_did": { "$in": recipients } },
+            Some(limit as i64),
+        )
+        .await
+        .map_err(|_| {
+            PickupError::InternalError(
+                "Failed to process the request. Please try again later.".to_owned(),
+            )
+        })?;
 
-    let result = cb
-        .call_async(|| {
-            let message_repository = repository.message_repository.clone();
-            let recipients = recipients.clone();
-
-            async move {
-                retry_async(
-                    || {
-                        let message_repository = message_repository.clone();
-                        let recipients = recipients.clone();
-
-                        async move {
-                            message_repository
-                                .find_all_by(
-                                    doc! { "recipient_did": { "$in": recipients } },
-                                    Some(limit as i64),
-                                )
-                                .await
-                                .map_err(|_| ())
-                        }
-                    },
-                    RetryOptions::new()
-                        .retries(5)
-                        .exponential_backoff(Duration::from_millis(100))
-                        .max_delay(Duration::from_secs(1)),
-                )
-                .await
-                .map_err(|_| {
-                    PickupError::InternalError(
-                        "Failed to retrieve messages. Please try again later.".to_owned(),
-                    )
-                })
-            }
-        })
-        .await;
-
-    match result {
-        Some(Ok(messages)) => Ok(messages),
-        Some(Err(err)) => Err(err),
-        None => Err(PickupError::CircuitOpen),
-    }
+    Ok(routed_messages)
 }
 
 #[inline]
