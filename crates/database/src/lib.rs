@@ -68,14 +68,16 @@ where
     Entity: Identifiable + Unpin,
     Entity: Serialize + for<'de> Deserialize<'de>,
 {
+    /// Get a handle to a collection.
     fn get_collection(&self) -> Arc<RwLock<Collection<Entity>>>;
 
+    /// Retrieve all entities from the database.
     async fn find_all(&self) -> Result<Vec<Entity>, RepositoryError> {
         let mut entities = Vec::new();
         let collection = self.get_collection();
 
         // Lock the Mutex and get the Collection
-        let mut cursor = collection.read().await.find(None, None).await?;
+        let mut cursor = collection.read().await.find(doc! {}).await?;
         while cursor.advance().await? {
             entities.push(cursor.deserialize_current()?);
         }
@@ -83,28 +85,30 @@ where
         Ok(entities)
     }
 
-    /// Counts all entities by filter.
+    /// Gets the number of documents matching `filter`.
     async fn count_by(&self, filter: BsonDocument) -> Result<usize, RepositoryError> {
         let collection = self.get_collection();
         // Lock the Mutex and get the Collection
         let collection = collection.read().await;
         Ok(collection
-            .count_documents(filter, None)
+            .count_documents(filter)
             .await?
             .try_into()
             .map_err(|_| RepositoryError::Generic("count overflow".to_owned()))?)
     }
 
+    /// Find an entity by `id`.
     async fn find_one(&self, id: ObjectId) -> Result<Option<Entity>, RepositoryError> {
         self.find_one_by(doc! {"_id": id}).await
     }
 
+    /// Find an entity matching `filter`.
     async fn find_one_by(&self, filter: BsonDocument) -> Result<Option<Entity>, RepositoryError> {
         let collection = self.get_collection();
 
         // Lock the Mutex and get the Collection
         let collection = collection.read().await;
-        Ok(collection.find_one(filter, None).await?)
+        Ok(collection.find_one(filter).await?)
     }
 
     /// Stores a new entity.
@@ -115,7 +119,7 @@ where
         let collection = collection.read().await;
 
         // Insert the new entity into the database
-        let metadata = collection.insert_one(entity.clone(), None).await?;
+        let metadata = collection.insert_one(entity.clone()).await?;
 
         // Set the ID if it was inserted and return the updated entity
         if let Bson::ObjectId(oid) = metadata.inserted_id {
@@ -125,6 +129,8 @@ where
         Ok(entity)
     }
 
+    /// Find all entities matching `filter`.
+    /// If `limit` is set, only the first `limit` entities are returned.
     async fn find_all_by(
         &self,
         filter: BsonDocument,
@@ -138,7 +144,7 @@ where
         let collection = collection.read().await;
 
         // Retrieve all entities from the database
-        let mut cursor = collection.find(filter, find_options).await?;
+        let mut cursor = collection.find(filter).with_options(find_options).await?;
         while cursor.advance().await? {
             entities.push(cursor.deserialize_current()?);
         }
@@ -146,6 +152,7 @@ where
         Ok(entities)
     }
 
+    /// Deletes an entity by `id`.
     async fn delete_one(&self, id: ObjectId) -> Result<(), RepositoryError> {
         let collection = self.get_collection();
 
@@ -153,11 +160,12 @@ where
         let collection = collection.read().await;
 
         // Delete the entity from the database
-        collection.delete_one(doc! {"_id": id}, None).await?;
+        collection.delete_one(doc! {"_id": id}).await?;
 
         Ok(())
     }
 
+    /// Updates an entity.
     async fn update(&self, entity: Entity) -> Result<Entity, RepositoryError> {
         if entity.id().is_none() {
             return Err(RepositoryError::MissingIdentifier);
@@ -171,8 +179,7 @@ where
         let metadata = collection
             .update_one(
                 doc! {"_id": entity.id().unwrap()},
-                doc! {"$set": bson::to_document(&entity).map_err(|_| RepositoryError::BsonConversionError)?},
-                None,
+                doc! {"$set": bson::to_document(&entity).map_err(|_| RepositoryError::BsonConversionError)?}
             )
             .await?;
 

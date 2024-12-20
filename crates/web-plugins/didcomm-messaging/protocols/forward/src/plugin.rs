@@ -7,6 +7,7 @@ use shared::{circuit_breaker::CircuitBreaker, state::AppState};
 use std::{sync::Arc, time::Duration};
 use tokio::sync::Mutex;
 
+/// Represents the routing protocol plugin.
 pub struct RoutingProtocol;
 
 struct ForwardHandler;

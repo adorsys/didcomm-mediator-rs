@@ -156,13 +156,11 @@ pub(crate) async fn handle_delivery_request(
                 .map_err(|_| {
                     PickupError::InternalError("Failed to retrieve client connection".to_owned())
                 })?;
-
                 let messages =
                     messages(repository, recipient_did, connection, limit as usize).await?;
 
                 let response_builder: MessageBuilder;
                 let id = Uuid::new_v4().urn().to_string();
-
                 if messages.is_empty() {
                     response_builder = StatusResponse {
                         id: id.as_str(),
@@ -412,11 +410,7 @@ fn recipients<'a>(recipient_did: Option<&'a str>, connection: &'a Connection) ->
 
 #[inline]
 fn sender_did(message: &Message) -> Result<&str, PickupError> {
-    message
-        .from
-        .as_ref()
-        .map(|did| did.as_str())
-        .ok_or(PickupError::MissingSenderDID)
+    message.from.as_deref().ok_or(PickupError::MissingSenderDID)
 }
 
 #[inline]

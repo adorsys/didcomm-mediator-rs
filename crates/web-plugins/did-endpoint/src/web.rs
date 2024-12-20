@@ -36,7 +36,7 @@ async fn diddoc(State(state): State<Arc<DidEndPointState>>) -> Result<Json<Value
     let did_path = Path::new(&storage_dirpath).join("did.json");
 
     match filesystem.read_to_string(&did_path).as_ref() {
-        Ok(content) => Ok(Json(serde_json::from_str(&content).map_err(|_| {
+        Ok(content) => Ok(Json(serde_json::from_str(content).map_err(|_| {
             tracing::error!("Unparseable did.json");
             StatusCode::NOT_FOUND
         })?)),
@@ -56,7 +56,7 @@ async fn didpop(
     let diddoc: Document = serde_json::from_value(diddoc_value.clone()).unwrap();
 
     let did_address = diddoc.id.clone();
-    let methods = diddoc.verification_method.clone().unwrap_or(vec![]);
+    let methods = diddoc.verification_method.clone().unwrap_or_default();
 
     // Build verifiable credential (VC)
     let vc: VerifiableCredential = serde_json::from_value(json!({
@@ -157,15 +157,15 @@ async fn didpop(
 fn inspect_vm_relationship(diddoc: &Document, vm_id: &str) -> Option<String> {
     let vrel = [
         (
-            json!(diddoc.authentication.clone().unwrap_or(vec![])),
+            json!(diddoc.authentication.clone().unwrap_or_default()),
             String::from("authentication"),
         ),
         (
-            json!(diddoc.assertion_method.clone().unwrap_or(vec![])),
+            json!(diddoc.assertion_method.clone().unwrap_or_default()),
             String::from("assertionMethod"),
         ),
         (
-            json!(diddoc.key_agreement.clone().unwrap_or(vec![])),
+            json!(diddoc.key_agreement.clone().unwrap_or_default()),
             String::from("keyAgreement"),
         ),
     ];
@@ -199,6 +199,7 @@ mod tests {
         proof::{CryptoProof, EdDsaJcs2022},
         vc::VerifiablePresentation,
     };
+    use http_body_util::BodyExt;
     use serde_json::json;
     use tower::util::ServiceExt;
 
@@ -284,8 +285,8 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::OK);
 
-        let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
-        let vp: VerifiablePresentation = serde_json::from_slice(&body).unwrap();
+        let body = BodyExt::collect(response.into_body()).await.unwrap();
+        let vp: VerifiablePresentation = serde_json::from_slice(&body.to_bytes()).unwrap();
 
         let vc = vp.verifiable_credential.get(0).unwrap();
         let diddoc = serde_json::from_value(json!(vc.credential_subject)).unwrap();

@@ -75,7 +75,6 @@ pub(crate) async fn process_mediate_request(
                     || {
                         let sender_did = sender_did.clone();
                         let connection_repository = connection_repository.clone();
-
                         async move {
                             connection_repository
                                 .find_one_by(doc! { "client_did": sender_did })
@@ -215,7 +214,6 @@ fn create_mediation_grant(routing_did: &str) -> MediationGrant {
         body: MediationGrantBody {
             routing_did: routing_did.to_string(),
         },
-        ..Default::default()
     }
 }
 

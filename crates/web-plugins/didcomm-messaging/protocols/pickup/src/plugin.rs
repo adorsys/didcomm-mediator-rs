@@ -9,6 +9,7 @@ use shared::{circuit_breaker::CircuitBreaker, state::AppState};
 use std::{sync::Arc, time::Duration};
 use tokio::sync::Mutex;
 
+/// Represents the pickup protocol plugin.
 pub struct PickupProtocol;
 
 struct StatusRequestHandler;

@@ -1,8 +1,7 @@
-use nix::fcntl::{flock, FlockArg};
+use nix::fcntl::{Flock, FlockArg};
 use std::{
     fs::OpenOptions,
     io::{Error as IoError, ErrorKind, Result as IoResult},
-    os::unix::io::AsRawFd,
     path::Path,
 };
 
@@ -54,14 +53,15 @@ impl FileSystem for StdFileSystem {
         let file = OpenOptions::new()
             .read(true)
             .write(true)
+            .truncate(true)
             .create(true)
-            .open(&path)?;
+            .open(path)?;
 
         // Acquire an exclusive lock before writing to the file
-        flock(file.as_raw_fd(), FlockArg::LockExclusive)
+        let file = Flock::lock(file, FlockArg::LockExclusive)
             .map_err(|_| IoError::new(ErrorKind::Other, "Error acquiring file lock"))?;
 
-        std::fs::write(path, &content).map_err(|_| {
+        std::fs::write(path, content).map_err(|_| {
             IoError::new(
                 ErrorKind::Other,
                 "Error saving base64-encoded image to file",
@@ -69,7 +69,7 @@ impl FileSystem for StdFileSystem {
         })?;
 
         // Release the lock after writing to the file
-        flock(file.as_raw_fd(), FlockArg::Unlock)
+        file.unlock()
             .map_err(|_| IoError::new(ErrorKind::Other, "Error releasing file lock"))?;
 
         Ok(())
