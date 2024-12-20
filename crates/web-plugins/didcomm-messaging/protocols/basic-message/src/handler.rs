@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 // https://didcomm.org/basicmessage/2.0/
 pub fn handle_basic_message(_state: Arc<AppState>, message: Message) -> Response {
-    if message.extra_headers.get("lang").is_none() {
+    if !message.extra_headers.contains_key("lang") {
         return (StatusCode::BAD_REQUEST, "Language is required").into_response();
     }
 

@@ -77,7 +77,7 @@ where
         let collection = self.get_collection();
 
         // Lock the Mutex and get the Collection
-        let mut cursor = collection.read().await.find(None, None).await?;
+        let mut cursor = collection.read().await.find(doc! {}).await?;
         while cursor.advance().await? {
             entities.push(cursor.deserialize_current()?);
         }
@@ -91,7 +91,7 @@ where
         // Lock the Mutex and get the Collection
         let collection = collection.read().await;
         Ok(collection
-            .count_documents(filter, None)
+            .count_documents(filter)
             .await?
             .try_into()
             .map_err(|_| RepositoryError::Generic("count overflow".to_owned()))?)
@@ -108,7 +108,7 @@ where
 
         // Lock the Mutex and get the Collection
         let collection = collection.read().await;
-        Ok(collection.find_one(filter, None).await?)
+        Ok(collection.find_one(filter).await?)
     }
 
     /// Stores a new entity.
@@ -119,7 +119,7 @@ where
         let collection = collection.read().await;
 
         // Insert the new entity into the database
-        let metadata = collection.insert_one(entity.clone(), None).await?;
+        let metadata = collection.insert_one(entity.clone()).await?;
 
         // Set the ID if it was inserted and return the updated entity
         if let Bson::ObjectId(oid) = metadata.inserted_id {
@@ -144,7 +144,7 @@ where
         let collection = collection.read().await;
 
         // Retrieve all entities from the database
-        let mut cursor = collection.find(filter, find_options).await?;
+        let mut cursor = collection.find(filter).with_options(find_options).await?;
         while cursor.advance().await? {
             entities.push(cursor.deserialize_current()?);
         }
@@ -160,7 +160,7 @@ where
         let collection = collection.read().await;
 
         // Delete the entity from the database
-        collection.delete_one(doc! {"_id": id}, None).await?;
+        collection.delete_one(doc! {"_id": id}).await?;
 
         Ok(())
     }
@@ -179,8 +179,7 @@ where
         let metadata = collection
             .update_one(
                 doc! {"_id": entity.id().unwrap()},
-                doc! {"$set": bson::to_document(&entity).map_err(|_| RepositoryError::BsonConversionError)?},
-                None,
+                doc! {"$set": bson::to_document(&entity).map_err(|_| RepositoryError::BsonConversionError)?}
             )
             .await?;
 

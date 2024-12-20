@@ -49,7 +49,7 @@ impl DIDResolver for DidPeer {
                     error: Some(if !did.starts_with("did:peer:") {
                         DIDResolutionError::MethodNotSupported
                     } else {
-                        err.into()
+                        err
                     }),
                     content_type: None,
                     additional_properties: None,
