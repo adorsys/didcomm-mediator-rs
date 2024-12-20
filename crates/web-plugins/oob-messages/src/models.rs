@@ -118,7 +118,7 @@ where
 
     let did = diddoc.id.clone();
     let oob_message = OobMessage::new(&did);
-    let url: &String = &format!("http://{}", server_public_domain);
+    let url: &String = &format!("{}", server_public_domain);
     let oob_url = OobMessage::serialize_oob_message(&oob_message, url)
         .map_err(|err| format!("Serialization error: {err}"))?;
 
