@@ -1,6 +1,10 @@
 replicaCount: 1
 namespace: didcomm-mediator
+externalDnsHostname: didcomm-mediator.eudi-adorsys.com
+certificateArn: arn:aws:acm:{region}:{user id}:certificate/{id}
 
+ 
+ 
 mongodb:
   databaseName: mongodb
 
