@@ -1,81 +1,154 @@
-
 # **Application Deployment Documentation**
 
 ## **1. Prerequisites**
+
 - **Tools and Software Required**:
-  - Helm version (e.g., `Helm 3.x`)
-  - Kubernetes version (e.g., `1.25+`)
-  - Minikube/Cluster setup
-  - Other dependencies (e.g., Docker, kubectl, etc.)
+  - Helm (e.g., `Helm 3.x`)
+  - Kubernetes (e.g., `1.25+`)
+  - Minikube or any other Kubernetes cluster setup
+  - Other dependencies (e.g., Docker, kubectl)
+
 - **Environment Setup**:
-  - Access to the Kubernetes cluster
-  - Required configurations or credentials
+  - Access to a Kubernetes cluster
+  - Required credentials or configurations (e.g., kubeconfig, Helm setup)
 
 
-## **3. Helm Chart Structure**
+## **2. Development Deployment**
+
+To run the application in a development environment, use Docker Compose:
+
+```bash
+docker-compose up --build
+```
+
+## **3. Production Deployment**
+
+In production, deploy the application using Helm, as outlined in the next section. This involves setting up and configuring the necessary Helm charts.
+
+## **4. Helm Chart Structure**
+
 - **Chart Overview**:  
-  - Structure of the Helm chart (values.yaml, templates, etc.).
-  - Purpose of critical templates (e.g., Deployment, Service, ConfigMap).  
-  - Default vs. custom configurations.  
-- **Customization**:  
-  - How to override values.yaml using custom configurations.  
-    Example:
-    ```bash
-    helm install mediator ./mediator-charts --values custom-values.yaml
-    ```
-  - mandatory values are;
-  
-  **MONGO_DBN**,
-  **MONGO_URI**, 
-  **SERVER_LOCAL_PORT** and 
-  **SERVER_PUBLIC_DOMAIN**
+  This section explains the layout of the Helm chart and its components.
+  - `values.yaml`: Contains default configurations.
+  - `templates/`: Includes critical resources like Deployment, Service, ConfigMap, etc.
+  - **Critical Templates**:
+    - **Deployment**: Specifies the application container settings.
+    - **Service**: Defines the Kubernetes service for networking.
+    - **ConfigMap**: Used for configuration management.
 
+- **Customization**:
+  You can override the default `values.yaml` by providing your own custom configurations. Example:
 
-## **4. Deployment Guide**
-- **Steps to Deploy**:
-  1. Clone the repository:
-     ```bash
-     git clone https://github.com/adorsys/didcomm-mediator-rs.git
-     ```
-  2. Install dependencies:
-     ```bash
-     helm dependency update mediator-charts
-     ```
-  3. Deploy using Helm:
-     ```bash
-     helm install mediator mediator-charts --namespace didcomm-mediator
-     ```
-  4. Verify deployment status:
-     ```bash
-     kubectl get pods -n didcomm-mediator
-     kubectl get services -n didcomm-mediator
-     ```
-- **Notes on Namespaces**:
-  - Importance of creating and using the correct namespace.
-- **Rollback Instructions**:
-  - How to roll back to a previous release:
-    ```bash
-    helm rollback my-app <revision>
-    ```
+  ```bash
+  helm install mediator ./mediator-charts --values custom-values.yaml
+  ```
+
+  - **Mandatory values** to override in `custom-values.yaml`:
+    - `MONGO_DBN`
+    - `MONGO_URI`
+    - `SERVER_LOCAL_PORT`
+    - `SERVER_PUBLIC_DOMAIN`
+
+## **5. Deployment Guide**
+
+Follow these steps to deploy the application:
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/adorsys/didcomm-mediator-rs.git
+   ```
+   
+2. Install dependencies:
+   ```bash
+   helm dependency update mediator-charts
+   ```
+
+3. Deploy using Helm:
+   ```bash
+   helm install mediator mediator-charts --namespace didcomm-mediator
+   ```
+
+4. Verify the deployment status:
+   ```bash
+   kubectl get pods -n didcomm-mediator
+   kubectl get services -n didcomm-mediator
+   ```
 
 ---
 
-## **5. Accessing the Application**
-- **Port Forwarding**:
-  - Steps to forward the service ports locally for testing:
-    ```bash
-    kubectl port-forward service/<service-name> 8080:<target-port>
-    ```
-- **Ingress/LoadBalancer Details**:
-  - Steps to access the application if exposed via Ingress or LoadBalancer.
+### **5.1 Notes on Namespaces**
+
+- It is crucial to use the correct namespace when deploying to Kubernetes. Ensure that the namespace (`didcomm-mediator` in this case) exists, or create it manually:
+  ```bash
+  kubectl create namespace didcomm-mediator
+  ```
+
+---
+
+### **5.2 Rollback Instructions**
+
+To roll back to a previous release, use the following command:
+
+```bash
+helm rollback mediator <revision>
+```
+
+You can find the available revisions by running:
+
+```bash
+helm history mediator
+```
+
+---
+
+## **6. Accessing the Application**
+
+### **6.1 Port Forwarding**
+
+To forward the application service ports locally for testing, use:
+
+```bash
+kubectl port-forward service/<service-name> 8080:<target-port>
+```
+
+### **6.2 Ingress/LoadBalancer Details**
+
+If the application is exposed via Ingress or LoadBalancer, follow these steps to access it:
+- Verify the external IP or URL:
+  ```bash
+  kubectl get ingress -n didcomm-mediator
+  ```
+
+---
 
 ## **7. Monitoring and Debugging**
-- **Logs**:
-  - How to fetch logs for debugging:
-    ```bash
-    kubectl logs <pod-name> -n didcomm-mediator
-    ```
-- **Monitoring Tools**:
-  - Mention tools used (e.g., Prometheus, Grafana, ELK Stack).
-  - Steps to configure and access monitoring dashboards.
 
+### **7.1 Logs**
+
+To fetch logs for a specific pod:
+
+```bash
+kubectl logs <pod-name> -n didcomm-mediator
+```
+
+Use `kubectl get pods -n didcomm-mediator` to find the pod names.
+
+### **7.2 Monitoring Tools**
+
+- **Prometheus/Grafana**: These tools can be set up to monitor your application's performance.
+- **ELK Stack**: If configured, you can use ELK for centralized logging and monitoring.
+  
+**Steps to configure and access monitoring dashboards**:
+- Install the monitoring tools (e.g., Prometheus, Grafana).
+- Access Grafana dashboards using the provided URLs or port forwarding.
+
+---
+
+## **8. Additional Notes**
+
+- **Helm Chart Upgrades**: To upgrade your release with new changes from the chart repository:
+  ```bash
+  helm upgrade mediator mediator-charts --namespace didcomm-mediator
+  ```
+
+- **Custom Values**: If you have custom values that should be applied to the Helm chart, always include them with the `--values` flag as shown earlier.

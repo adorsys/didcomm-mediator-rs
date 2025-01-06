@@ -22,9 +22,7 @@ services:
       - mongo-data:/data/db
     networks:
       - mediator-network
-    ports:
-      - "27017:27017" 
-
+   
 networks:
   mediator-network:
     driver: bridge
