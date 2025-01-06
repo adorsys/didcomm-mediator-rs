@@ -1,3 +1,5 @@
+//! Provides Linked Data models for representing DIDs and related data.
+
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -8,7 +10,10 @@ use serde_json::Value;
 // It provides a way to map the keys in the JSON structure to specific terms,
 // properties, and classes from external vocabularies.
 pub enum Context {
+    /// A single string value.
     SingleString(String),
+    /// A set of string values.
     SetOfString(Vec<String>),
+    /// A JSON object.
     JsonObject(Value),
 }

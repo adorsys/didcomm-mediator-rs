@@ -1,25 +1,34 @@
-use async_trait::async_trait;
-
 use crate::{
     ldmodel::Context,
-    methods::{errors::DIDResolutionError, traits::DIDResolver},
+    methods::{
+        errors::DIDResolutionError,
+        resolution::{DIDResolutionMetadata, DIDResolutionOptions, MediaType, ResolutionOutput},
+        traits::DIDResolver,
+        DidKey,
+    },
 };
-
-use crate::methods::resolution::{DIDResolutionMetadata, DIDResolutionOptions, MediaType, ResolutionOutput};
-
-use crate::methods::DidKey;
+use async_trait::async_trait;
 
 #[async_trait]
 impl DIDResolver for DidKey {
-    /// Resolves a DID using the did:key method.
+    /// Resolves a `did:key` address to a DID document.
     ///
-    /// # Arguments
+    /// # Example
     ///
-    /// * `did` - The DID address to resolve.
+    /// ```
+    /// use did_utils::methods::{DIDResolver, DidKey, DIDResolutionOptions};
+    /// # use did_utils::crypto::Error;
     ///
-    /// # Returns
-    ///
-    /// A `ResolutionOutput` struct containing the resolved DID document and metadata.
+    /// # async fn example_resolve_did_key() -> Result<(), Error> {
+    /// // create new key did resolver
+    /// let did_key_resolver = DidKey::new();
+    /// // generate a new did:key
+    /// let did = DidKey::generate()?;
+    /// // resolve the did
+    /// let output = did_key_resolver.resolve(&did, &DIDResolutionOptions::default()).await;
+    /// # Ok(())
+    /// # }
+    /// ```
     async fn resolve(&self, did: &str, _options: &DIDResolutionOptions) -> ResolutionOutput {
         let context = Context::SingleString(String::from("https://w3id.org/did-resolution/v1"));
 

@@ -22,7 +22,7 @@ pub(crate) async fn mediator_forward_process(
     } = state
         .repository
         .as_ref()
-        .ok_or_else(|| ForwardError::InternalServerError)?;
+        .ok_or(ForwardError::InternalServerError)?;
 
     let next = match checks(&message, connection_repository).await.ok() {
         Some(next) => Ok(next),

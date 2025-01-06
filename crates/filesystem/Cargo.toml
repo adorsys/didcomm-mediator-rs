@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-nix.workspace = true
+nix ={ workspace = true, features = ["fs"] }
 
 [features]
 test-utils = []

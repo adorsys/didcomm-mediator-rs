@@ -154,7 +154,7 @@ where
 
     // Create directory and write the DID document
     filesystem
-        .create_dir_all(&storage_dirpath)
+        .create_dir_all(storage_dirpath)
         .map_err(|_| Error::PersistenceError)?;
     filesystem
         .write(&storage_dirpath.join("did.json"), &pretty_diddoc)
