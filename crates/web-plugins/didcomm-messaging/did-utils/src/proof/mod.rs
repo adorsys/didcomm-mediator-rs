@@ -1,21 +1,20 @@
-//! This module provides utilities for creating and verifying proofs.
+//! This module contains various components for implementing cryptographic proofs.
 //!
-//! See [RFC 7807](https://tools.ietf.org/html/rfc7807) for details.
+//! # Basic usage
 //!
-//! # Examples
-//!
-//! ```no run
+//! ```
+//! use did_utils::proof::{EdDsaJcs2022, Proof, Domain, UnsecuredDocument, Proofs, PreviousProofs, CryptoProof};
 //! # use chrono::TimeZone;
 //! # use serde_json::json;
+//! # use multibase::Base;
+//! # use serde_json::Value;
+//! # use did_utils::crypto::{Ed25519KeyPair, Generate, KeyMaterial};
 //!
-//! # use crate::crypto::Ed25519KeyPair;
-//!
-//! # use crate::*;
-//!
+//! #  fn example() -> Result<(), did_utils::crypto::Error> {
 //! let my_string = String::from("Sample seed bytes of thirtytwo!b");
 //! let seed: &[u8] = my_string.as_bytes();
 //! let key_pair = Ed25519KeyPair::new_with_seed(seed)?;
-//! let public_key = &key_pair.public_key.clone();
+//! let public_key = &key_pair.public_key_bytes()?;
 //!
 //! let proof = Proof {
 //!     id: None,
@@ -25,7 +24,7 @@
 //!     verification_method: "https://di.example/issuer#z6MkjLrk3gKS2nnkeWcmcxiZPGskmesDpuwRBorgHxUXfxnG".to_string(),
 //!     created: Some(chrono::Utc.with_ymd_and_hms(2023, 3, 5, 19, 23, 24).unwrap()),
 //!     expires: None,
-//!     domain: Some(crate::proof::model::Domain::SingleString("vc-demo.adorsys.com".to_string())),
+//!     domain: Some(Domain::SingleString("vc-demo.adorsys.com".to_string())),
 //!     challenge: Some("523452345234asfdasdfasdfa".to_string()),
 //!     proof_value: None,
 //!     previous_proof: None,
@@ -49,20 +48,22 @@
 //!
 //! let secure_doc = UnsecuredDocument {
 //!     content: payload,
-//!     proof: crate::proof::model::Proofs::SingleProof(Box::new(secured_proof.clone())),
+//!     proof: Proofs::SingleProof(Box::new(secured_proof.clone())),
 //! };
 //!
 //! // Serialize the struct into a serde_json::Value
-//! let secure_doc_json_value: Value = serde_json::to_value(&secure_doc)?;
+//! let secure_doc_json_value: Value = serde_json::to_value(&secure_doc).unwrap();
 //!
 //! let ed_dsa_jcs_2022_verifier = EdDsaJcs2022 {
 //!     proof: secured_proof,
-//!     key_pair: Ed25519KeyPair::from_public_key(public_key.as_bytes())?,
+//!     key_pair: Ed25519KeyPair::from_public_key(public_key)?,
 //!     proof_value_codec: None,
 //! };
 //!
 //! // Verify the proof
 //! ed_dsa_jcs_2022_verifier.verify(secure_doc_json_value)?;
+//! # Ok(())
+//! # }
 //!```
 mod eddsa_jcs_2022;
 mod model;

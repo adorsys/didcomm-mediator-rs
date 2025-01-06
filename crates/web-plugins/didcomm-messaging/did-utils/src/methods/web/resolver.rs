@@ -1,11 +1,19 @@
 use crate::methods::resolution::{DIDResolutionMetadata, DIDResolutionOptions, MediaType, ResolutionOutput};
 use async_trait::async_trait;
+use http_body_util::{BodyExt, Full};
 use hyper::{
-    client::{connect::Connect, HttpConnector},
+    body::Bytes,
     http::uri::{self, Scheme},
-    Body, Client, Uri,
+    Uri,
 };
 use hyper_tls::HttpsConnector;
+use hyper_util::{
+    client::legacy::{
+        connect::{Connect, HttpConnector},
+        Client,
+    },
+    rt::TokioExecutor,
+};
 
 use crate::ldmodel::Context;
 use crate::methods::{errors::DidWebError, traits::DIDResolver};
@@ -17,7 +25,7 @@ pub struct DidWeb<C>
 where
     C: Connect + Send + Sync + Clone + 'static,
 {
-    client: Client<C>,
+    client: Client<C, Full<Bytes>>,
 }
 
 impl DidWeb<HttpConnector> {
@@ -25,7 +33,7 @@ impl DidWeb<HttpConnector> {
     #[cfg(test)]
     pub fn http() -> DidWeb<HttpConnector> {
         DidWeb {
-            client: Client::builder().build::<_, Body>(HttpConnector::new()),
+            client: Client::builder(TokioExecutor::new()).build_http(),
         }
     }
 }
@@ -40,7 +48,7 @@ impl DidWeb<HttpsConnector<HttpConnector>> {
     /// Creates a new `DidWeb` resolver.
     pub fn new() -> DidWeb<HttpsConnector<HttpConnector>> {
         DidWeb {
-            client: Client::builder().build::<_, Body>(HttpsConnector::new()),
+            client: Client::builder(TokioExecutor::new()).build::<_, Full<Bytes>>(HttpsConnector::new()),
         }
     }
 }
@@ -49,18 +57,7 @@ impl<C> DidWeb<C>
 where
     C: Connect + Send + Sync + Clone + 'static,
 {
-    /// Fetches a DID document from the given URL.
-    ///
-    /// This method performs an HTTP GET request to the provided URL
-    /// and attempts to returns the response body as a string.
-    ///
-    /// # Arguments
-    ///
-    /// * `url` - The URL to fetch the DID document from.
-    ///
-    /// # Returns
-    ///
-    /// A `Result` containing the DID document as a string or a `DidWebError`.
+    /// Fetches a DID document from the given URL
     async fn fetch_did_document(&self, url: Uri) -> Result<String, DidWebError> {
         let res = self.client.get(url).await?;
 
@@ -68,24 +65,12 @@ where
             return Err(DidWebError::NonSuccessResponse(res.status()));
         }
 
-        let body = hyper::body::to_bytes(res.into_body()).await?;
+        let body = BodyExt::collect(res.into_body()).await?;
 
-        String::from_utf8(body.to_vec()).map_err(|err| err.into())
+        String::from_utf8(body.to_bytes().to_vec()).map_err(|err| err.into())
     }
 
     /// Fetches and parses a DID document for the given DID.
-    ///
-    /// This method first parses the DID Web URL format from the given DID and then constructs
-    /// an URI based on the scheme, domain name, and path. It then fetches the DID document and
-    /// parses the response body.
-    ///
-    /// # Arguments
-    ///
-    /// * `did` - The DID to resolve.
-    ///
-    /// # Returns
-    ///
-    /// A `Result` containing the resolved `DIDDocument` or a `DidWebError`.
     async fn resolver_fetcher(&self, did: &str) -> Result<DIDDocument, DidWebError> {
         let (path, domain_name) = parse_did_web_url(did).map_err(|err| DidWebError::RepresentationNotSupported(err.to_string()))?;
 
@@ -112,14 +97,6 @@ where
 }
 
 /// Parses a DID Web URL and returns the path and domain name.
-///
-/// # Arguments
-///
-/// * `did` - The DID to parse.
-///
-/// # Returns
-///
-/// A `Result` containing the path and domain name or a `DidWebError`.
 fn parse_did_web_url(did: &str) -> Result<(String, String), DidWebError> {
     let mut parts = did.split(':').peekable();
     let domain_name = match (parts.next(), parts.next(), parts.next()) {
@@ -144,16 +121,21 @@ impl<C> DIDResolver for DidWeb<C>
 where
     C: Connect + Send + Sync + Clone + 'static,
 {
-    /// Resolves a DID to a DID document.
+    /// Resolves a `did:web` address to a DID document.
     ///
-    /// # Arguments
+    /// # Example
     ///
-    /// * `did` - The DID to resolve.
-    /// * `_options` - The options for DID resolution.
+    /// ```
+    /// use did_utils::methods::{DIDResolver, DidWeb, DIDResolutionOptions};
     ///
-    /// # Returns
-    ///
-    /// A `ResolutionOutput` containing the resolved DID document and metadata.
+    /// # async fn example_resolve_did_web() {
+    /// // create new web did resolver
+    /// let did_web_resolver = DidWeb::new();
+    /// let did = "did:web:example.com";
+    /// // resolve the did
+    /// let output = did_web_resolver.resolve(did, &DIDResolutionOptions::default()).await;
+    /// # }
+    /// ```
     async fn resolve(&self, did: &str, _options: &DIDResolutionOptions) -> ResolutionOutput {
         let context = Context::SingleString(String::from("https://w3id.org/did-resolution/v1"));
 
@@ -184,16 +166,12 @@ where
 mod tests {
     use super::*;
 
-    use hyper::{
-        service::{make_service_fn, service_fn},
-        Body, Request, Response, Server,
-    };
-
+    use axum::{body::Body, extract::Request, response::Response, routing::get};
     use serde_json::Value;
-    use std::convert::Infallible;
-    use std::net::SocketAddr;
+    use std::{convert::Infallible, net::SocketAddr};
+    use tokio::net::TcpListener;
 
-    async fn mock_server_handler(req: Request<Body>) -> Result<Response<Body>, Infallible> {
+    async fn mock_server_handler(req: Request) -> Result<Response, Infallible> {
         const DID_JSON: &str = r#"
             {"@context": "https://www.w3.org/ns/did/v1",
             "id": "did:web:localhost",
@@ -220,13 +198,13 @@ mod tests {
     }
 
     async fn create_mock_server(port: u16) -> String {
-        let make_svc = make_service_fn(|_conn| async { Ok::<_, Infallible>(service_fn(mock_server_handler)) });
-
         let addr = SocketAddr::from(([127, 0, 0, 1], port));
-        let server = Server::bind(&addr).serve(make_svc);
+        let listener = TcpListener::bind(addr).await.unwrap();
+
+        let app = axum::Router::new().route("/.well-known/did.json", get(mock_server_handler));
 
         tokio::spawn(async move {
-            server.await.unwrap();
+            axum::serve(listener, app).await.unwrap();
         });
 
         "localhost".to_string()

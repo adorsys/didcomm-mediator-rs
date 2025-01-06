@@ -8,6 +8,7 @@ use message_api::{MessageHandler, MessagePlugin, MessageRouter};
 use shared::state::AppState;
 use std::sync::Arc;
 
+/// Represents the pickup protocol plugin.
 pub struct PickupProtocol;
 
 struct StatusRequestHandler;
