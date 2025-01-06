@@ -113,7 +113,6 @@ oob-messages = { workspace = true, optional = true }
 didcomm-messaging = { workspace = true, optional = true }
 
 
-
 [features]
 default = [
     "plugin-index",

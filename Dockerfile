@@ -16,7 +16,6 @@ VOLUME /app
 
 # Ensure the binary is built and available
 CMD cargo build --release && \
-    ls -lh target/release && \
     cp target/release/didcomm-mediator /usr/local/bin/didcomm-mediator
 
 # Stage 2: Runtime
