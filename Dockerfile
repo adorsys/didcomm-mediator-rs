@@ -17,13 +17,16 @@ WORKDIR /app
 # Set the storage directory path
 ENV STORAGE_DIRPATH="crates/generic-server/target/storage"
 
+# Install dependencies for Prometheus metrics
+RUN apt-get update && apt-get install -y curl
+
 # Copy the built binary
 COPY --from=builder /app/target/release/didcomm-mediator /usr/local/bin/didcomm-mediator
 
 COPY .env .env
 
 # Expose the necessary port
-EXPOSE 3000
+EXPOSE 3000 9100
 
 # Set an entrypoint script to handle the environment file
 ENTRYPOINT ["didcomm-mediator"]

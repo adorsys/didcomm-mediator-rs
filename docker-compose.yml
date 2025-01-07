@@ -1,18 +1,24 @@
 version: "3.8"
+
 services:
+  # DIDComm Mediator Service
   mediator:
     build: 
       context: .
     container_name: didcomm-mediator
     ports:
-      - "8080:8080"
+      - "8080:8080"  # Expose the server port
+      - "9100:9100"  # Expose port for Prometheus metrics
     env_file:
       - .env
     depends_on:
       - mongodb
+      - prometheus
+      - grafana
     networks:
       - mediator-network
- 
+
+  # MongoDB Service
   mongodb:
     image: mongo:latest
     container_name: mongodb
@@ -23,7 +29,34 @@ services:
     networks:
       - mediator-network
     ports:
-      - "27017:27017" 
+      - "27018:27017"  # Expose MongoDB port
+
+  # Prometheus Service
+  prometheus:
+    image: prom/prometheus latest
+    container_name: prometheus
+    ports:
+      - "9091:9090"  # Prometheus web interface
+    command: --config.file=/etc/prometheus/prometheus.yml # Use Prometheus config file
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml  # Mount Prometheus config file
+    networks:
+      - mediator-network
+    restart: unless-stopped
+
+  # Grafana Service
+  grafana:
+    image: grafana/grafana latest
+    container_name: grafana
+    ports:
+      - "3001:3000"  # Expose Grafana web interface on port 3001
+    depends_on:
+      - prometheus
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin  # Set Grafana admin password
+    networks:
+      - mediator-network
+    restart: unless-stopped
 
 networks:
   mediator-network:

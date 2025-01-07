@@ -111,6 +111,8 @@ chrono = { workspace = true, optional = true }
 did-endpoint = { workspace = true, optional = true }
 oob-messages = { workspace = true, optional = true }
 didcomm-messaging = { workspace = true, optional = true }
+prometheus = "0.13.4"
+actix-web = "4.9.0"
 
 
 

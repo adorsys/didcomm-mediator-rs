@@ -1,0 +1,9 @@
+global:
+  scrape_interval: 15s  # Scrape every 15 seconds
+evolution_interval: 30s
+
+scrape_configs:
+  - job_name: 'didcomm-mediator'
+    honor_labels: true  # Fixed indentation and spelling
+    static_configs:
+      - targets: ['mediator:9100']  # Scrape the metrics from the mediator service
