@@ -213,7 +213,7 @@ The deployment of the `didcomm-mediator-rs` project leverages a scalable, distri
 
 ### 7.2 Deployment Model
 
-#### 1. **Distributed Deployment with Load Balancer **
+#### 1. Distributed Deployment with Load Balancer 
 
 **Use Case**: Ideal for production environments requiring high availability and scalability.
 
@@ -640,8 +640,6 @@ This combination integrates **application security** and **SSDLC best practices*
 - **Rollback Plan:** Supports quick rollback to previous stable versions in case of critical issues during deployment.  
 
 ---
-
-## 13. Glossary
 
 ## 13. Glossary
 
