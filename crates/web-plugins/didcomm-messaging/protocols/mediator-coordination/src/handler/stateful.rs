@@ -101,8 +101,10 @@ pub(crate) async fn process_mediate_request(
             kid: diddoc.key_agreement.first().unwrap().clone(),
             secret_material: agreem_keys_jwk,
         };
+        // Dummy master key
+        let master_key = [0;32];
 
-        match keystore.store(agreem_keys_secret).await {
+        match keystore.secure_store(agreem_keys_secret.into(), master_key).await {
             Ok(_stored_connection) => {
                 tracing::info!("Successfully stored agreement keys.")
             }
@@ -116,8 +118,10 @@ pub(crate) async fn process_mediate_request(
             kid: diddoc.authentication.first().unwrap().clone(),
             secret_material: auth_keys_jwk,
         };
+        // Dummy master key
+        let master_key = [0; 32];
 
-        match keystore.store(auth_keys_secret).await {
+        match keystore.secure_store(auth_keys_secret.into(), master_key).await {
             Ok(_stored_connection) => {
                 tracing::info!("Successfully stored authentication keys.")
             }

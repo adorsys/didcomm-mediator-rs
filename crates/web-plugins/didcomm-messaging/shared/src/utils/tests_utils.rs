@@ -10,8 +10,8 @@ pub mod tests {
         error::Error as DidcommError, secrets::SecretsResolver, Message, PackEncryptedOptions,
         UnpackOptions,
     };
-    use keystore::{tests::MockKeyStore, Secrets};
-    use std::sync::Arc;
+    use keystore::{tests::MockKeyStore, Secrets, WrapSecret};
+    use std::sync::{Arc, RwLock};
 
     pub fn setup() -> Arc<AppState> {
         let public_domain = String::from("http://alice-mediator.com");
@@ -81,16 +81,17 @@ pub mod tests {
         )
         .unwrap();
 
-        let mediator_secret = Secrets {
+        let mediator_secret= Secrets {
             id: None,
             kid: secret_id.to_string(),
             secret_material: secret,
         };
+        let keystore: RwLock<Vec<WrapSecret>> = MockKeyStore::new(vec![mediator_secret]);
 
         let repository = AppStateRepository {
             connection_repository: Arc::new(MockConnectionRepository::from(vec![])),
             message_repository: Arc::new(MockMessagesRepository::from(vec![])),
-            keystore: Arc::new(MockKeyStore::new(vec![mediator_secret])),
+            keystore: Arc::new(keystore),
         };
 
         Arc::new(AppState::from(public_domain, diddoc, None, Some(repository)).unwrap())

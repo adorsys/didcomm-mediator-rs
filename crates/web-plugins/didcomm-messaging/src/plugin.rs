@@ -57,8 +57,11 @@ impl Plugin for DidcommMessaging {
         let keystore = keystore::KeyStore::get();
 
         // Expect DID document from file system
+
+        // dummy master key
+        let master_key = [0;32];
         if let Err(err) =
-            did_endpoint::validate_diddoc(env.storage_dirpath.as_ref(), &keystore, &mut filesystem)
+            did_endpoint::validate_diddoc(env.storage_dirpath.as_ref(), &keystore, &mut filesystem, master_key)
         {
             return Err(PluginError::InitError(format!(
                 "DID document validation failed: {:?}",

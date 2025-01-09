@@ -10,7 +10,7 @@ use didcomm::{
     error::{Error, ErrorKind, Result},
     secrets::{Secret, SecretMaterial, SecretType, SecretsResolver},
 };
-use keystore::Secrets;
+use keystore::{Secrets, SecureRepository, WrapSecret};
 use mongodb::bson::doc;
 use serde_json::json;
 use std::{collections::HashSet, sync::Arc};
@@ -88,22 +88,23 @@ fn prepend_doc_id_to_vm_ids(diddoc: &mut Document) {
 
 #[derive(Clone)]
 pub struct LocalSecretsResolver {
-    keystore: Arc<dyn Repository<Secrets>>,
+    keystore: Arc<dyn SecureRepository<WrapSecret>>,
 }
 
 impl LocalSecretsResolver {
-    pub fn new(keystore: Arc<dyn Repository<Secrets>>) -> Self {
+    pub fn new(keystore: Arc<dyn SecureRepository<WrapSecret>>) -> Self {
         Self { keystore }
     }
 }
-
 #[async_trait]
 impl SecretsResolver for LocalSecretsResolver {
     async fn get_secret(&self, secret_id: &str) -> Result<Option<Secret>> {
+        // dummy master_key
+        let master_key = [0;32];
         let secret = self
             .keystore
             .clone()
-            .find_one_by(doc! {"kid": secret_id})
+            .find_key_by(doc! {"kid": secret_id}, master_key)
             .await
             .map(|s| {
                 s.map(|s| Secret {
@@ -116,17 +117,20 @@ impl SecretsResolver for LocalSecretsResolver {
             })
             .map_err(|e| Error::new(ErrorKind::IoError, e))?;
 
+
         Ok(secret)
     }
 
     async fn find_secrets<'a>(&self, secret_ids: &'a [&'a str]) -> Result<Vec<&'a str>> {
         let mut found_secret_ids = HashSet::with_capacity(secret_ids.len());
+        // dummy master_key
+        let master_key = [0; 32];
 
         for secret_id in secret_ids.iter() {
             if self
                 .keystore
                 .clone()
-                .find_one_by(doc! {"kid": *secret_id})
+                .find_key_by(doc! {"kid": *secret_id}, master_key)
                 .await
                 .map_err(|e| Error::new(ErrorKind::IoError, e))?
                 .is_some()

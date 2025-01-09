@@ -2,7 +2,7 @@ use super::{didgen, web};
 use axum::Router;
 use database::Repository;
 use filesystem::FileSystem;
-use keystore::Secrets;
+use keystore::{Secrets, SecureRepository, WrapSecret};
 use plugin_api::{Plugin, PluginError};
 use std::sync::{Arc, Mutex};
 
@@ -19,7 +19,7 @@ struct DidEndpointEnv {
 
 #[derive(Clone)]
 pub(crate) struct DidEndPointState {
-    pub(crate) keystore: Arc<dyn Repository<Secrets>>,
+    pub(crate) keystore: Arc<dyn SecureRepository<WrapSecret>>,
     pub(crate) filesystem: Arc<Mutex<dyn FileSystem>>,
 }
 
@@ -46,8 +46,11 @@ impl Plugin for DidEndpoint {
         let env = get_env()?;
         let mut filesystem = filesystem::StdFileSystem;
         let keystore = keystore::KeyStore::get();
+        
+        // dummy master key
+        let master_key = [0; 32];
 
-        if didgen::validate_diddoc(env.storage_dirpath.as_ref(), &keystore, &mut filesystem)
+        if didgen::validate_diddoc(env.storage_dirpath.as_ref(), &keystore, &mut filesystem, master_key)
             .is_err()
         {
             tracing::debug!("diddoc validation failed, will generate one");

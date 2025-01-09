@@ -28,6 +28,10 @@ pub enum RepositoryError {
     MissingIdentifier,
     #[error("target not found")]
     TargetNotFound,
+    #[error("decryption error")]
+    DecryptionError,
+    #[error("error deserializing to jwk")]
+    DeserializationError
 }
 
 static MONGO_DB: OnceCell<Arc<RwLock<Database>>> = OnceCell::new();

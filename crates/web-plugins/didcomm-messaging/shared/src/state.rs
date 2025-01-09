@@ -1,6 +1,6 @@
 use database::Repository;
 use did_utils::didcore::Document;
-use keystore::Secrets;
+use keystore::{Secrets, SecureRepository, WrapSecret};
 use std::sync::Arc;
 
 use crate::{
@@ -31,7 +31,7 @@ pub struct AppState {
 pub struct AppStateRepository {
     pub connection_repository: Arc<dyn Repository<Connection>>,
     pub message_repository: Arc<dyn Repository<RoutedMessage>>,
-    pub keystore: Arc<dyn Repository<Secrets>>,
+    pub keystore: Arc<dyn SecureRepository<WrapSecret>>,
 }
 
 impl AppState {
@@ -47,6 +47,7 @@ impl AppState {
             .ok_or_else(|| eyre::eyre!("Missing persistence layer"))?
             .keystore
             .clone();
+
         let secrets_resolver = LocalSecretsResolver::new(keystore);
 
         Ok(Self {

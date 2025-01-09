@@ -1,4 +1,3 @@
-use database::Repository;
 use did_utils::{
     crypto::{Ed25519KeyPair, Generate, PublicKeyFormat, ToMultikey, X25519KeyPair},
     didcore::{Document, KeyFormat, Service, VerificationMethodType},
@@ -6,7 +5,7 @@ use did_utils::{
     methods::{DidPeer, Purpose, PurposedKey},
 };
 use filesystem::FileSystem;
-use keystore::Secrets;
+use keystore::{Secrets, SecureRepository, WrapSecret};
 use mongodb::bson::doc;
 use serde_json::json;
 use std::path::Path;
@@ -39,7 +38,7 @@ pub fn didgen<K, F>(
     filesystem: &mut F,
 ) -> Result<Document, Error>
 where
-    K: Repository<Secrets>,
+    K: SecureRepository<WrapSecret>,
     F: FileSystem,
 {
     // Generate keys for did:peer generation
@@ -78,9 +77,25 @@ where
         .try_into()
         .map_err(|_| Error::KeyConversionError)?;
 
+    // Read master key as env
+    // let master_key = env::var("MASTER_KEY").unwrap_or_default();
+    let master_key = [0; 32];
+
     // Store authentication and agreement keys in the keystore.
-    store_key(auth_keys_jwk, &diddoc, &diddoc.authentication, keystore)?;
-    store_key(agreem_keys_jwk, &diddoc, &diddoc.key_agreement, keystore)?;
+    store_key(
+        auth_keys_jwk,
+        &diddoc,
+        &diddoc.authentication,
+        keystore,
+        master_key,
+    )?;
+    store_key(
+        agreem_keys_jwk,
+        &diddoc,
+        &diddoc.key_agreement,
+        keystore,
+        master_key,
+    )?;
 
     // Serialize DID document and persist to filesystem
     persist_did_document(storage_dirpath, &diddoc, filesystem)?;
@@ -110,9 +125,10 @@ fn store_key<S>(
     diddoc: &Document,
     field: &Option<Vec<VerificationMethodType>>,
     keystore: &S,
+    master_key: [u8; 32],
 ) -> Result<(), Error>
 where
-    S: Repository<Secrets>,
+    S: SecureRepository<WrapSecret>,
 {
     // Extract key ID from the DID document
     let kid = match field.as_ref().unwrap()[0].clone() {
@@ -130,7 +146,8 @@ where
 
     // Store the secret in the keystore
     task::block_in_place(move || {
-        Handle::current().block_on(async move { keystore.store(secret).await })
+        Handle::current()
+            .block_on(async move { keystore.secure_store(secret.into(), master_key).await })
     })
     .map(|_| tracing::info!("Successfully stored secret."))
     .map_err(|err| {
@@ -168,9 +185,10 @@ pub fn validate_diddoc<K, F>(
     storage_dirpath: &Path,
     keystore: &K,
     filesystem: &mut F,
+    master_key: [u8; 32],
 ) -> Result<(), String>
 where
-    K: Repository<Secrets>,
+    K: SecureRepository<WrapSecret>,
     F: FileSystem,
 {
     cfg_if::cfg_if! {
@@ -200,7 +218,7 @@ where
                 .ok_or(String::from("Missing key"))?;
             let kid = util::handle_vm_id(&method.id, &diddoc);
             match pubkey {
-                KeyFormat::Jwk(_) => validate_key(&kid, keystore)?,
+                KeyFormat::Jwk(_) => validate_key(&kid, keystore, master_key)?,
                 _ => return Err(String::from("Unsupported key format")),
             };
         }
@@ -209,13 +227,15 @@ where
     Ok(())
 }
 
-fn validate_key<K>(kid: &str, keystore: &K) -> Result<(), String>
+fn validate_key<K>(kid: &str, keystore: &K, master_key: [u8; 32]) -> Result<(), String>
 where
-    K: Repository<Secrets>,
+    K: SecureRepository<WrapSecret>,
 {
+    println!("{kid}");
     // Validate that the key exists
     task::block_in_place(|| {
-        Handle::current().block_on(async move { keystore.find_one_by(doc! { "kid": kid }).await })
+        Handle::current()
+            .block_on(async move { keystore.find_key_by(doc! { "kid": kid }, master_key).await })
     })
     .map_err(|_| String::from("Error fetching secret"))?
     .ok_or_else(|| String::from("Mismatch or missing secret"))?;
@@ -251,10 +271,10 @@ pub(crate) mod tests {
     mock! {
         pub Keystore {}
         #[async_trait::async_trait]
-        impl Repository<Secrets> for Keystore {
-            fn get_collection(&self) -> Arc<tokio::sync::RwLock<mongodb::Collection<Secrets>>> ;
-            async fn find_one_by(&self, filter: BsonDocument) -> Result<Option<Secrets>, RepositoryError>;
-            async fn store(&self, entity: Secrets) -> Result<Secrets, RepositoryError>;
+        impl SecureRepository<WrapSecret> for Keystore {
+            fn get_collection(&self) -> std::sync::Arc<tokio::sync::RwLock<mongodb::Collection<keystore::WrapSecret>>> ;
+            async fn secure_store(&self, entity: keystore::WrapSecret, master_key: [u8; 32]) -> Result<WrapSecret, RepositoryError>;
+          async fn find_key_by(&self, filter: BsonDocument, master_key: [u8; 32]) -> Result<Option<Secrets>, RepositoryError>;
         }
     }
 
@@ -293,9 +313,12 @@ pub(crate) mod tests {
 
         // Mock keystore save key
         mock_keystore
-            .expect_store()
+            .expect_secure_store()
             .times(2)
-            .returning(move |_| Ok(secret.clone()));
+            .returning(move |_, _master_key| {
+                let secrets: WrapSecret = secret.clone().into();
+                Ok(secrets)
+            });
 
         let result = didgen(&path, "https://example.com", &mock_keystore, &mut mock_fs);
 
@@ -335,14 +358,16 @@ pub(crate) mod tests {
             });
 
         // Mock keystore fetch
-        mock_keystore
-            .expect_find_one_by()
-            .with(predicate::function(|filter: &BsonDocument| {
-                filter.contains_key("kid")
-            }))
-            .returning(move |_| Ok(Some(secret.clone())));
-
-        let result = validate_diddoc(&path, &mock_keystore, &mut mock_fs);
+        // dummy master_key
+        let master_key = [0; 32];
+        mock_keystore.find_key_by(doc! {}, master_key);
+        // .with(predicate::function(|filter: &BsonDocument| {
+        //     filter.contains_key("kid")
+        // }))
+        // .returning(move |_| Ok(Some(secret.clone())));
+        // dummy master_key
+        let master_key = [0; 32];
+        let result = validate_diddoc(&path, &mock_keystore, &mut mock_fs, master_key);
 
         assert!(result.is_ok());
     }

@@ -12,6 +12,7 @@ use did_utils::{
     vc::{VerifiableCredential, VerifiablePresentation},
 };
 use hyper::StatusCode;
+use keystore::Secrets;
 use mongodb::bson::doc;
 use multibase::Base;
 use serde_json::{json, Value};
@@ -99,18 +100,21 @@ async fn didpop(
             .expect("Verification methods should embed public keys.");
 
         let kid = util::handle_vm_id(&method.id, &diddoc);
+        // dummy master key
+        let master_key = [0;32];
 
         let jwk = match pubkey {
             KeyFormat::Jwk(_) => {
                 let secret = task::block_in_place(|| {
                     Handle::current().block_on(async {
                         keystore
-                            .find_one_by(doc! { "kid": kid.as_ref() })
+                            .find_key_by(doc! { "kid": kid.as_ref() }, master_key)
                             .await
                             .expect("Error fetching secret")
                             .expect("Missing key")
                     })
                 });
+                let secret: Secrets = secret.into();
                 secret.secret_material
             }
             _ => panic!("Unexpected key format"),
@@ -200,6 +204,7 @@ mod tests {
         vc::VerifiablePresentation,
     };
     use http_body_util::BodyExt;
+    use keystore::WrapSecret;
     use serde_json::json;
     use tower::util::ServiceExt;
 
@@ -259,9 +264,9 @@ mod tests {
 
         // Mock the keystore to return the secret for key-1
         mock_keystore
-            .expect_find_one_by()
-            .withf(|filter| filter.get_str("kid").unwrap() == "did:peer:123#key-1")
-            .returning(move |_| Ok(Some(secret.clone())));
+            .expect_find_key_by()
+            .withf(|filter, _| filter.get_str("kid").unwrap() == "did:peer:123#key-1")
+            .returning(move |_, _| {let secrets: WrapSecret = secret.clone().into(); Ok(Some(secrets.into()))});
 
         // Setup state with mocks
         let state = DidEndPointState {
