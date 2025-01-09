@@ -53,7 +53,7 @@ where
 
     let mut attempt = 0;
     let mut delay = exponential_backoff.unwrap_or_default();
-    let max_delay = max_delay.unwrap_or_else(|| Duration::from_secs(60)); // Default max delay of 60 seconds
+    let max_delay = max_delay.unwrap_or_else(|| Duration::from_secs(60));
 
     loop {
         attempt += 1;
