@@ -58,11 +58,11 @@ services:
     depends_on:
       - prometheus
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin           # Set admin password (optional, can be removed)
+      - GF_SECURITY_ADMIN_PASSWORD=admin           # Set admin password
       - GF_AUTH_ANONYMOUS_ENABLED=true              # Enable anonymous access
       - GF_AUTH_ANONYMOUS_ORG_NAME="Main Org."     # Specify organization name for anonymous users
-      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer           # Set role for anonymous users (e.g., Viewer)
-      - GF_AUTH_DISABLE_LOGIN_FORM=true              # Disable the login form (optional)
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer           # Set role for anonymous users 
+      - GF_AUTH_DISABLE_LOGIN_FORM=true             
     networks:
       - mediator-network
     restart: unless-stopped
