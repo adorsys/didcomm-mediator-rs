@@ -1,5 +1,4 @@
 pub mod plugins;
-mod health_metrics;
 
 use axum::Router;
 use eyre::{eyre, Result};

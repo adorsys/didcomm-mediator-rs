@@ -17,6 +17,11 @@ services:
       - grafana
     networks:
       - mediator-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   # MongoDB Service
   mongodb:
@@ -33,7 +38,7 @@ services:
 
   # Prometheus Service
   prometheus:
-    image: prom/prometheus latest
+    image: prom/prometheus:latest
     container_name: prometheus
     ports:
       - "9091:9090"  # Prometheus web interface
@@ -44,16 +49,20 @@ services:
       - mediator-network
     restart: unless-stopped
 
-  # Grafana Service
+  # Grafana Service with Anonymous Access Enabled
   grafana:
-    image: grafana/grafana latest
+    image: grafana/grafana:latest
     container_name: grafana
     ports:
       - "3001:3000"  # Expose Grafana web interface on port 3001
     depends_on:
       - prometheus
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin  # Set Grafana admin password
+      - GF_SECURITY_ADMIN_PASSWORD=admin           # Set admin password (optional, can be removed)
+      - GF_AUTH_ANONYMOUS_ENABLED=true              # Enable anonymous access
+      - GF_AUTH_ANONYMOUS_ORG_NAME="Main Org."     # Specify organization name for anonymous users
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer           # Set role for anonymous users (e.g., Viewer)
+      - GF_AUTH_DISABLE_LOGIN_FORM=true              # Disable the login form (optional)
     networks:
       - mediator-network
     restart: unless-stopped

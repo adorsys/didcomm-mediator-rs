@@ -41,7 +41,10 @@ async fn generic_server_with_graceful_shutdown(
     // Load plugins and get the application router
     let (mut plugin_container, app_router) = app()?;
 
-    // Add a `/metrics` route
+    // Add a `/health` route for health checks
+    let health_router = Router::new().route("/health", get(health_check));
+
+    // Add a `/metrics` route for Prometheus metrics
     let metrics_router = Router::new().route(
         "/metrics",
         get({
@@ -50,8 +53,8 @@ async fn generic_server_with_graceful_shutdown(
         }),
     );
 
-    // Combine the app router with the metrics router
-    let app_router = app_router.merge(metrics_router);
+    // Combine the app router with the health and metrics routers
+    let app_router = app_router.merge(health_router).merge(metrics_router);
 
     // Run the server
     Server::bind(&addr)
@@ -71,6 +74,11 @@ async fn generic_server_with_graceful_shutdown(
     };
 
     Ok(())
+}
+
+/// Health check handler
+async fn health_check() -> String {
+    String::from("{\"status\": \"healthy\"}")
 }
 
 /// Expose Prometheus metrics
