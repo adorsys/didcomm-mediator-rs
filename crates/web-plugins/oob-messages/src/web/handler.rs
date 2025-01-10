@@ -9,7 +9,7 @@ use std::{error::Error, sync::Arc};
 
 pub(crate) async fn handler_oob_inv(State(state): State<Arc<OOBMessagesState>>) -> Response {
     let mut fs = state.filesystem.lock().unwrap();
-    let (server_public_domain, server_local_port, storage_dirpath) =
+    let (server_public_domain, storage_dirpath) =
         match get_environment_variables() {
             Ok(result) => result,
             Err(err) => {
@@ -19,10 +19,9 @@ pub(crate) async fn handler_oob_inv(State(state): State<Arc<OOBMessagesState>>) 
             }
         };
 
-    let html_content = match retrieve_or_generate_oob_inv(
+    let content = match retrieve_or_generate_oob_inv(
         &mut *fs,
         &server_public_domain,
-        &server_local_port,
         &storage_dirpath,
     ) {
         Ok(oob_inv) => oob_inv,
@@ -53,7 +52,7 @@ pub(crate) async fn handler_oob_inv(State(state): State<Arc<OOBMessagesState>>) 
         </body>
         </html>
             "#,
-        html_content
+        content
     );
 
     Html(html_content).into_response()
@@ -61,7 +60,7 @@ pub(crate) async fn handler_oob_inv(State(state): State<Arc<OOBMessagesState>>) 
 
 pub(crate) async fn handler_oob_qr(State(state): State<Arc<OOBMessagesState>>) -> Response {
     let mut fs = state.filesystem.lock().unwrap();
-    let (server_public_domain, server_local_port, storage_dirpath) =
+    let (server_public_domain, storage_dirpath) =
         match get_environment_variables() {
             Ok(result) => result,
             Err(err) => {
@@ -74,7 +73,6 @@ pub(crate) async fn handler_oob_qr(State(state): State<Arc<OOBMessagesState>>) -
     let oob_inv = match retrieve_or_generate_oob_inv(
         &mut *fs,
         &server_public_domain,
-        &server_local_port,
         &storage_dirpath,
     ) {
         Ok(oob_inv) => oob_inv,
@@ -126,7 +124,7 @@ pub(crate) async fn handler_landing_page_oob(
     State(state): State<Arc<OOBMessagesState>>,
 ) -> Response {
     let mut fs = state.filesystem.lock().unwrap();
-    let (server_public_domain, server_local_port, storage_dirpath) =
+    let (server_public_domain, storage_dirpath) =
         match get_environment_variables() {
             Ok(result) => result,
             Err(err) => {
@@ -139,7 +137,6 @@ pub(crate) async fn handler_landing_page_oob(
     let oob_inv = match retrieve_or_generate_oob_inv(
         &mut *fs,
         &server_public_domain,
-        &server_local_port,
         &storage_dirpath,
     ) {
         Ok(oob_inv) => oob_inv,
@@ -200,15 +197,12 @@ pub(crate) async fn handler_landing_page_oob(
         .into_response()
 }
 
-fn get_environment_variables() -> Result<(String, String, String), Box<dyn Error>> {
+fn get_environment_variables() -> Result<(String, String), Box<dyn Error>> {
     let server_public_domain = std::env::var("SERVER_PUBLIC_DOMAIN")
         .map_err(|_| "SERVER_PUBLIC_DOMAIN env variable required")?;
-
-    let server_local_port = std::env::var("SERVER_LOCAL_PORT")
-        .map_err(|_| "SERVER_LOCAL_PORT env variable required")?;
 
     let storage_dirpath =
         std::env::var("STORAGE_DIRPATH").map_err(|_| "STORAGE_DIRPATH env variable required")?;
 
-    Ok((server_public_domain, server_local_port, storage_dirpath))
+    Ok((server_public_domain, storage_dirpath))
 }

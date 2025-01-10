@@ -25,6 +25,11 @@ spec:
                 configMapKeyRef:
                   name: env
                   key: MONGO_DBN
+            - name: MONGO_USERNAME
+              valueFrom:
+                configMapKeyRef:
+                  name: env
+                  key: MONGO_USERNAME
             - name: MONGO_PASSWORD
               valueFrom:
                 secretKeyRef:

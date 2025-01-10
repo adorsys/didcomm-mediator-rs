@@ -34,11 +34,6 @@ spec:
               value: {{ .Release.Name }}-mongodb-service
             - name: MONGO_URI
               value: "mongodb://{{ .Release.Name }}-mongodb-service:27017"
-            - name: SERVER_LOCAL_PORT
-              valueFrom:
-                configMapKeyRef:
-                  key: SERVER_LOCAL_PORT
-                  name: env
             - name: SERVER_PUBLIC_DOMAIN
               valueFrom:
                 configMapKeyRef:
