@@ -1,4 +1,3 @@
-version: "3.8"
 services:
   mediator:
     build: 
@@ -7,22 +6,31 @@ services:
     ports:
       - "8080:8080"
     env_file:
-      - .env
+      - .env  # Reference the .env file
     depends_on:
-      - mongodb
+      mongodb:
+        condition: service_healthy
     networks:
       - mediator-network
- 
+
   mongodb:
     image: mongo:latest
     container_name: mongodb
     env_file:
-      - .env
+      - .env  # Reference the same .env file
     volumes:
       - mongo-data:/data/db
     networks:
       - mediator-network
-   
+    healthcheck:  
+      test: ["CMD", "mongo", "--eval", "db.adminCommand('ping')", "--quiet"]
+      interval: 10s  
+      timeout: 5s  
+      retries: 5  
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+
 networks:
   mediator-network:
     driver: bridge

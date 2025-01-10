@@ -1,3 +1,7 @@
 target/
 **/target/
 .idea/
+.debug/
+.github/
+.cargo/
+mediator-charts/
