@@ -91,8 +91,10 @@ pub(crate) async fn process_plain_mediation_request_over_dics(
         })?;
 
     // Extract assertion key
+    //dummy master_key
+    let master_key = [0; 32];
     let jwk = keystore
-        .find_one_by(doc! { "kid": kid.clone() })
+        .find_key_by(doc! { "kid": kid.clone() }, master_key)
         .await
         .map_err(|err| {
             tracing::error!("Error fetching secret: {err:?}");
