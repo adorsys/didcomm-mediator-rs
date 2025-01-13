@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-use database::Repository;
 use did_utils::{
     crypto::PublicKeyFormat,
     didcore::{Document, VerificationMethodType},
@@ -10,10 +9,10 @@ use didcomm::{
     error::{Error, ErrorKind, Result},
     secrets::{Secret, SecretMaterial, SecretType, SecretsResolver},
 };
-use keystore::{Secrets, SecureRepository, WrapSecret};
+use keystore::{SecureRepository, WrapSecret};
 use mongodb::bson::doc;
 use serde_json::json;
-use std::{collections::HashSet, sync::Arc};
+use std::{collections::HashSet, env, sync::Arc};
 
 #[derive(Clone)]
 pub struct LocalDIDResolver {
@@ -99,8 +98,13 @@ impl LocalSecretsResolver {
 #[async_trait]
 impl SecretsResolver for LocalSecretsResolver {
     async fn get_secret(&self, secret_id: &str) -> Result<Option<Secret>> {
-        // dummy master_key
-        let master_key = [0;32];
+        // read master_key
+
+        let master_key = env::var("MASTER_KEY")
+            .unwrap()
+            .as_bytes()
+            .try_into()
+            .unwrap();
         let secret = self
             .keystore
             .clone()
@@ -117,14 +121,18 @@ impl SecretsResolver for LocalSecretsResolver {
             })
             .map_err(|e| Error::new(ErrorKind::IoError, e))?;
 
-
         Ok(secret)
     }
 
     async fn find_secrets<'a>(&self, secret_ids: &'a [&'a str]) -> Result<Vec<&'a str>> {
         let mut found_secret_ids = HashSet::with_capacity(secret_ids.len());
-        // dummy master_key
-        let master_key = [0; 32];
+        // read master_key
+
+        let master_key = env::var("MASTER_KEY")
+            .unwrap()
+            .as_bytes()
+            .try_into()
+            .unwrap();
 
         for secret_id in secret_ids.iter() {
             if self
@@ -149,7 +157,7 @@ mod tests {
 
     use super::*;
     use did_utils::jwk::Jwk;
-    use keystore::tests::MockKeyStore;
+    use keystore::{tests::MockKeyStore, Secrets};
     use serde_json::Value;
 
     fn setup() -> Document {

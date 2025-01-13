@@ -36,6 +36,7 @@ pub fn didgen<K, F>(
     server_public_domain: &str,
     keystore: &K,
     filesystem: &mut F,
+    master_key: [u8; 32],
 ) -> Result<Document, Error>
 where
     K: SecureRepository<WrapSecret>,
@@ -76,10 +77,6 @@ where
     let agreem_keys_jwk: Jwk = agreem_keys
         .try_into()
         .map_err(|_| Error::KeyConversionError)?;
-
-    // Read master key as env
-    // let master_key = env::var("MASTER_KEY").unwrap_or_default();
-    let master_key = [0; 32];
 
     // Store authentication and agreement keys in the keystore.
     store_key(
@@ -253,7 +250,7 @@ pub(crate) mod tests {
         predicate::{self, *},
     };
     use mongodb::bson::Document as BsonDocument;
-    use std::{io::Result as IoResult, sync::Arc};
+    use std::io::Result as IoResult;
 
     // Mock the FileSystem trait
     mock! {
@@ -320,7 +317,16 @@ pub(crate) mod tests {
                 Ok(secrets)
             });
 
-        let result = didgen(&path, "https://example.com", &mock_keystore, &mut mock_fs);
+        // master_key
+        let master_key = [0; 32];
+
+        let result = didgen(
+            &path,
+            "https://example.com",
+            &mock_keystore,
+            &mut mock_fs,
+            master_key,
+        );
 
         assert!(result.is_ok());
     }
@@ -328,9 +334,8 @@ pub(crate) mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn test_did_validation() {
         let mut mock_fs = MockFileSystem::new();
-        let mut mock_keystore = MockKeystore::new();
+        let mock_keystore = MockKeystore::new();
         let path = Path::new("/mock/dir");
-        let secret = setup();
 
         // Mock read from filesystem
         mock_fs
@@ -360,13 +365,13 @@ pub(crate) mod tests {
         // Mock keystore fetch
         // dummy master_key
         let master_key = [0; 32];
-        mock_keystore.find_key_by(doc! {}, master_key);
+        let _ = mock_keystore.find_key_by(doc! {}, master_key);
         // .with(predicate::function(|filter: &BsonDocument| {
         //     filter.contains_key("kid")
         // }))
         // .returning(move |_| Ok(Some(secret.clone())));
         // dummy master_key
-        let master_key = [0; 32];
+
         let result = validate_diddoc(&path, &mock_keystore, &mut mock_fs, master_key);
 
         assert!(result.is_ok());

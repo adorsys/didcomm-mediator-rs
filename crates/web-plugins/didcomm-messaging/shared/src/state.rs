@@ -1,6 +1,6 @@
 use database::Repository;
 use did_utils::didcore::Document;
-use keystore::{Secrets, SecureRepository, WrapSecret};
+use keystore::{SecureRepository, WrapSecret};
 use std::sync::Arc;
 
 use crate::{
