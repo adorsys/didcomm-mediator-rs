@@ -228,7 +228,6 @@ fn validate_key<K>(kid: &str, keystore: &K, master_key: [u8; 32]) -> Result<(), 
 where
     K: SecureRepository<WrapSecret>,
 {
-    println!("{kid}");
     // Validate that the key exists
     task::block_in_place(|| {
         Handle::current()
