@@ -1,5 +1,6 @@
 use crate::{manager::MessagePluginContainer, web};
 use axum::Router;
+use did_endpoint::plugin::get_master_key;
 use filesystem::StdFileSystem;
 use mongodb::Database;
 use once_cell::sync::OnceCell;
@@ -52,14 +53,14 @@ impl Plugin for DidcommMessaging {
 
     fn mount(&mut self) -> Result<(), PluginError> {
         let env = load_plugin_env()?;
+        let master_key = get_master_key()?;
+        let master_key = master_key.as_bytes().try_into().expect("Could not parse master key");
 
         let mut filesystem = filesystem::StdFileSystem;
         let keystore = keystore::KeyStore::get();
 
         // Expect DID document from file system
 
-        // dummy master key
-        let master_key = [0;32];
         if let Err(err) =
             did_endpoint::validate_diddoc(env.storage_dirpath.as_ref(), &keystore, &mut filesystem, master_key)
         {

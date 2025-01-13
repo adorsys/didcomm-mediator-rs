@@ -35,6 +35,18 @@ fn get_env() -> Result<DidEndpointEnv, PluginError> {
         server_public_domain,
     })
 }
+pub fn get_master_key<'a>() -> Result<String, PluginError> {
+    let master_key = std::env::var("MASTER_KEY").expect("Secrets Mastet_KEY env variable required");
+
+    // validate master key
+    if master_key.len() != 32 {
+        Err(PluginError::InitError(
+            "MASTER_KEY must be of length 32".to_owned(),
+        ))
+    } else {
+        Ok(master_key)
+    }
+}
 
 impl Plugin for DidEndpoint {
     fn name(&self) -> &'static str {
@@ -43,14 +55,19 @@ impl Plugin for DidEndpoint {
 
     fn mount(&mut self) -> Result<(), PluginError> {
         let env = get_env()?;
+        let master_key = get_master_key()?;
+        let master_key = master_key.as_bytes().try_into().unwrap();
+
         let mut filesystem = filesystem::StdFileSystem;
         let keystore = keystore::KeyStore::get();
-        
-        // dummy master key
-        let master_key = [0; 32];
 
-        if didgen::validate_diddoc(env.storage_dirpath.as_ref(), &keystore, &mut filesystem, master_key)
-            .is_err()
+        if didgen::validate_diddoc(
+            env.storage_dirpath.as_ref(),
+            &keystore,
+            &mut filesystem,
+            master_key,
+        )
+        .is_err()
         {
             tracing::debug!("diddoc validation failed, will generate one");
 
@@ -59,6 +76,7 @@ impl Plugin for DidEndpoint {
                 &env.server_public_domain,
                 &keystore,
                 &mut filesystem,
+                master_key,
             )
             .map_err(|_| {
                 PluginError::InitError(

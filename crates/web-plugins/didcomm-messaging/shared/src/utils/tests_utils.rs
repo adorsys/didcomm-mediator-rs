@@ -81,7 +81,7 @@ pub mod tests {
         )
         .unwrap();
 
-        let mediator_secret= Secrets {
+        let mediator_secret = Secrets {
             id: None,
             kid: secret_id.to_string(),
             secret_material: secret,

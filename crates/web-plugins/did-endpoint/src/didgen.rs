@@ -36,6 +36,7 @@ pub fn didgen<K, F>(
     server_public_domain: &str,
     keystore: &K,
     filesystem: &mut F,
+    master_key: [u8; 32],
 ) -> Result<Document, Error>
 where
     K: SecureRepository<WrapSecret>,
@@ -76,10 +77,6 @@ where
     let agreem_keys_jwk: Jwk = agreem_keys
         .try_into()
         .map_err(|_| Error::KeyConversionError)?;
-
-    // Read master key as env
-    // let master_key = env::var("MASTER_KEY").unwrap_or_default();
-    let master_key = [0; 32];
 
     // Store authentication and agreement keys in the keystore.
     store_key(
@@ -320,7 +317,16 @@ pub(crate) mod tests {
                 Ok(secrets)
             });
 
-        let result = didgen(&path, "https://example.com", &mock_keystore, &mut mock_fs);
+        // master_key
+        let master_key = [0; 32];
+
+        let result = didgen(
+            &path,
+            "https://example.com",
+            &mock_keystore,
+            &mut mock_fs,
+            master_key,
+        );
 
         assert!(result.is_ok());
     }
@@ -365,7 +371,7 @@ pub(crate) mod tests {
         // }))
         // .returning(move |_| Ok(Some(secret.clone())));
         // dummy master_key
-        let master_key = [0; 32];
+
         let result = validate_diddoc(&path, &mock_keystore, &mut mock_fs, master_key);
 
         assert!(result.is_ok());
