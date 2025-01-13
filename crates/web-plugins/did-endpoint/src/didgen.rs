@@ -253,7 +253,7 @@ pub(crate) mod tests {
         predicate::{self, *},
     };
     use mongodb::bson::Document as BsonDocument;
-    use std::{io::Result as IoResult, sync::Arc};
+    use std::io::Result as IoResult;
 
     // Mock the FileSystem trait
     mock! {
@@ -328,9 +328,8 @@ pub(crate) mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn test_did_validation() {
         let mut mock_fs = MockFileSystem::new();
-        let mut mock_keystore = MockKeystore::new();
+        let mock_keystore = MockKeystore::new();
         let path = Path::new("/mock/dir");
-        let secret = setup();
 
         // Mock read from filesystem
         mock_fs
@@ -360,7 +359,7 @@ pub(crate) mod tests {
         // Mock keystore fetch
         // dummy master_key
         let master_key = [0; 32];
-        mock_keystore.find_key_by(doc! {}, master_key);
+        let _ = mock_keystore.find_key_by(doc! {}, master_key);
         // .with(predicate::function(|filter: &BsonDocument| {
         //     filter.contains_key("kid")
         // }))

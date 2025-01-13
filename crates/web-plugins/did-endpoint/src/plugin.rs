@@ -1,8 +1,7 @@
 use super::{didgen, web};
 use axum::Router;
-use database::Repository;
 use filesystem::FileSystem;
-use keystore::{Secrets, SecureRepository, WrapSecret};
+use keystore::{SecureRepository, WrapSecret};
 use plugin_api::{Plugin, PluginError};
 use std::sync::{Arc, Mutex};
 

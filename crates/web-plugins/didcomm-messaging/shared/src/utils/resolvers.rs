@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-use database::Repository;
 use did_utils::{
     crypto::PublicKeyFormat,
     didcore::{Document, VerificationMethodType},
@@ -10,7 +9,7 @@ use didcomm::{
     error::{Error, ErrorKind, Result},
     secrets::{Secret, SecretMaterial, SecretType, SecretsResolver},
 };
-use keystore::{Secrets, SecureRepository, WrapSecret};
+use keystore::{SecureRepository, WrapSecret};
 use mongodb::bson::doc;
 use serde_json::json;
 use std::{collections::HashSet, sync::Arc};
@@ -149,7 +148,7 @@ mod tests {
 
     use super::*;
     use did_utils::jwk::Jwk;
-    use keystore::tests::MockKeyStore;
+    use keystore::{tests::MockKeyStore, Secrets};
     use serde_json::Value;
 
     fn setup() -> Document {
