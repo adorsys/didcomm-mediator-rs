@@ -43,6 +43,8 @@ USER appuser
 # Copy the compiled binary
 COPY --from=build /bin/server /bin/
 
+COPY .env .env
+
 # Expose application port
 EXPOSE 3000
 
