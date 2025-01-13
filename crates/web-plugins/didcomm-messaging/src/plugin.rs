@@ -54,16 +54,22 @@ impl Plugin for DidcommMessaging {
     fn mount(&mut self) -> Result<(), PluginError> {
         let env = load_plugin_env()?;
         let master_key = get_master_key()?;
-        let master_key = master_key.as_bytes().try_into().expect("Could not parse master key");
+        let master_key = master_key
+            .as_bytes()
+            .try_into()
+            .expect("Could not parse master key");
 
         let mut filesystem = filesystem::StdFileSystem;
         let keystore = keystore::KeyStore::get();
 
         // Expect DID document from file system
 
-        if let Err(err) =
-            did_endpoint::validate_diddoc(env.storage_dirpath.as_ref(), &keystore, &mut filesystem, master_key)
-        {
+        if let Err(err) = did_endpoint::validate_diddoc(
+            env.storage_dirpath.as_ref(),
+            &keystore,
+            &mut filesystem,
+            master_key,
+        ) {
             return Err(PluginError::InitError(format!(
                 "DID document validation failed: {:?}",
                 err

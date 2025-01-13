@@ -8,6 +8,7 @@ use crate::{
         MediationGrant, MediationGrantBody,
     },
 };
+use did_endpoint::plugin::get_master_key;
 use did_utils::{
     crypto::{Ed25519KeyPair, Generate, ToMultikey, X25519KeyPair},
     didcore::Service,
@@ -102,9 +103,12 @@ pub(crate) async fn process_mediate_request(
             secret_material: agreem_keys_jwk,
         };
         // Dummy master key
-        let master_key = [0;32];
+        let master_key = get_master_key().unwrap().as_bytes().try_into().unwrap();
 
-        match keystore.secure_store(agreem_keys_secret.into(), master_key).await {
+        match keystore
+            .secure_store(agreem_keys_secret.into(), master_key)
+            .await
+        {
             Ok(_stored_connection) => {
                 tracing::info!("Successfully stored agreement keys.")
             }
@@ -121,7 +125,10 @@ pub(crate) async fn process_mediate_request(
         // Dummy master key
         let master_key = [0; 32];
 
-        match keystore.secure_store(auth_keys_secret.into(), master_key).await {
+        match keystore
+            .secure_store(auth_keys_secret.into(), master_key)
+            .await
+        {
             Ok(_stored_connection) => {
                 tracing::info!("Successfully stored authentication keys.")
             }

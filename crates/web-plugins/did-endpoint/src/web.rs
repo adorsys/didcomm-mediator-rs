@@ -1,4 +1,7 @@
-use crate::{plugin::DidEndPointState, util};
+use crate::{
+    plugin::{get_master_key, DidEndPointState},
+    util,
+};
 use axum::{
     extract::{Query, State},
     response::Json,
@@ -100,8 +103,8 @@ async fn didpop(
             .expect("Verification methods should embed public keys.");
 
         let kid = util::handle_vm_id(&method.id, &diddoc);
-        // dummy master key
-        let master_key = [0;32];
+
+        let master_key = get_master_key().unwrap().as_bytes().try_into().unwrap();
 
         let jwk = match pubkey {
             KeyFormat::Jwk(_) => {
@@ -266,7 +269,10 @@ mod tests {
         mock_keystore
             .expect_find_key_by()
             .withf(|filter, _| filter.get_str("kid").unwrap() == "did:peer:123#key-1")
-            .returning(move |_, _| {let secrets: WrapSecret = secret.clone().into(); Ok(Some(secrets.into()))});
+            .returning(move |_, _| {
+                let secrets: WrapSecret = secret.clone().into();
+                Ok(Some(secrets.into()))
+            });
 
         // Setup state with mocks
         let state = DidEndPointState {

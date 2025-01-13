@@ -23,6 +23,7 @@ tokio = { workspace = true, features = ["full"] }
 axum = { workspace = true, features = ["macros"] }
 uuid = { workspace = true, features = ["v4"] }
 hyper = { workspace = true, features = ["full"] }
+did-endpoint.workspace = true
 
 [dev-dependencies]
 hyper = "1.5.2"
