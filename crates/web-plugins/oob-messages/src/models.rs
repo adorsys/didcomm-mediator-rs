@@ -298,11 +298,8 @@ mod tests {
             .withf(|path, _content| path == Path::new("testpath/oob_invitation.txt"))
             .returning(|_, _| Ok(()));
 
-        let result = retrieve_or_generate_oob_inv(
-            &mut mock_fs,
-            server_public_domain,
-            storage_dirpath,
-        );
+        let result =
+            retrieve_or_generate_oob_inv(&mut mock_fs, server_public_domain, storage_dirpath);
 
         assert!(result.is_ok());
     }

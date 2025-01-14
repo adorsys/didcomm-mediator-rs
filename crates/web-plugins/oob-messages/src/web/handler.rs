@@ -9,31 +9,26 @@ use std::{error::Error, sync::Arc};
 
 pub(crate) async fn handler_oob_inv(State(state): State<Arc<OOBMessagesState>>) -> Response {
     let mut fs = state.filesystem.lock().unwrap();
-    let (server_public_domain, storage_dirpath) =
-        match get_environment_variables() {
-            Ok(result) => result,
+    let (server_public_domain, storage_dirpath) = match get_environment_variables() {
+        Ok(result) => result,
+        Err(err) => {
+            tracing::error!("Error: {err:?}");
+            return (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error").into_response();
+        }
+    };
+
+    let content =
+        match retrieve_or_generate_oob_inv(&mut *fs, &server_public_domain, &storage_dirpath) {
+            Ok(oob_inv) => oob_inv,
             Err(err) => {
-                tracing::error!("Error: {err:?}");
-                return (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error")
+                tracing::error!("Failed to retrieve or generate oob invitation: {err:?}");
+                return (
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "Could not process request at this time. Please try again later",
+                )
                     .into_response();
             }
         };
-
-    let content = match retrieve_or_generate_oob_inv(
-        &mut *fs,
-        &server_public_domain,
-        &storage_dirpath,
-    ) {
-        Ok(oob_inv) => oob_inv,
-        Err(err) => {
-            tracing::error!("Failed to retrieve or generate oob invitation: {err:?}");
-            return (
-                StatusCode::SERVICE_UNAVAILABLE,
-                "Could not process request at this time. Please try again later",
-            )
-                .into_response();
-        }
-    };
 
     let html_content = format!(
         r#"
@@ -60,31 +55,26 @@ pub(crate) async fn handler_oob_inv(State(state): State<Arc<OOBMessagesState>>) 
 
 pub(crate) async fn handler_oob_qr(State(state): State<Arc<OOBMessagesState>>) -> Response {
     let mut fs = state.filesystem.lock().unwrap();
-    let (server_public_domain, storage_dirpath) =
-        match get_environment_variables() {
-            Ok(result) => result,
+    let (server_public_domain, storage_dirpath) = match get_environment_variables() {
+        Ok(result) => result,
+        Err(err) => {
+            tracing::error!("Error: {err:?}");
+            return (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error").into_response();
+        }
+    };
+
+    let oob_inv =
+        match retrieve_or_generate_oob_inv(&mut *fs, &server_public_domain, &storage_dirpath) {
+            Ok(oob_inv) => oob_inv,
             Err(err) => {
-                tracing::error!("Error: {err:?}");
-                return (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error")
+                tracing::error!("Failed to retrieve or generate oob invitation: {err:?}");
+                return (
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "Could not process request at this time. Please try again later",
+                )
                     .into_response();
             }
         };
-
-    let oob_inv = match retrieve_or_generate_oob_inv(
-        &mut *fs,
-        &server_public_domain,
-        &storage_dirpath,
-    ) {
-        Ok(oob_inv) => oob_inv,
-        Err(err) => {
-            tracing::error!("Failed to retrieve or generate oob invitation: {err:?}");
-            return (
-                StatusCode::SERVICE_UNAVAILABLE,
-                "Could not process request at this time. Please try again later",
-            )
-                .into_response();
-        }
-    };
 
     let image_data = match retrieve_or_generate_qr_image(&mut *fs, &storage_dirpath, &oob_inv) {
         Ok(data) => data,
@@ -124,31 +114,26 @@ pub(crate) async fn handler_landing_page_oob(
     State(state): State<Arc<OOBMessagesState>>,
 ) -> Response {
     let mut fs = state.filesystem.lock().unwrap();
-    let (server_public_domain, storage_dirpath) =
-        match get_environment_variables() {
-            Ok(result) => result,
+    let (server_public_domain, storage_dirpath) = match get_environment_variables() {
+        Ok(result) => result,
+        Err(err) => {
+            tracing::error!("Error: {err:?}");
+            return (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error").into_response();
+        }
+    };
+
+    let oob_inv =
+        match retrieve_or_generate_oob_inv(&mut *fs, &server_public_domain, &storage_dirpath) {
+            Ok(oob_inv) => oob_inv,
             Err(err) => {
-                tracing::error!("Error: {err:?}");
-                return (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error")
+                tracing::error!("Failed to retrieve or generate oob invitation: {err:?}");
+                return (
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "Could not process request at this time. Please try again later",
+                )
                     .into_response();
             }
         };
-
-    let oob_inv = match retrieve_or_generate_oob_inv(
-        &mut *fs,
-        &server_public_domain,
-        &storage_dirpath,
-    ) {
-        Ok(oob_inv) => oob_inv,
-        Err(err) => {
-            tracing::error!("Failed to retrieve or generate oob invitation: {err:?}");
-            return (
-                StatusCode::SERVICE_UNAVAILABLE,
-                "Could not process request at this time. Please try again later",
-            )
-                .into_response();
-        }
-    };
 
     let image_data = match retrieve_or_generate_qr_image(&mut *fs, &storage_dirpath, &oob_inv) {
         Ok(data) => data,
