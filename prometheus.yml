@@ -6,11 +6,11 @@ scrape_configs:
   - job_name: 'didcomm-mediator'
     static_configs:
       - targets:
-          - 'didcomm-mediator:9100'  # Scrape the metrics from the mediator service
+          - 'localhost:8080'  # Scrape the metrics from the mediator service
 
   - job_name: 'mongodb'
     static_configs:
-      - targets: ['mongodb:27017'] 
+      - targets: ['mongodb:27019'] 
 
   - job_name: 'node-exporter'
     static_configs:

@@ -34,7 +34,7 @@ services:
     networks:
       - mediator-network
     ports:
-      - "27018:27017"  # Expose MongoDB port
+      - "27019:27019"  # Expose MongoDB port
 
   # Prometheus Service
   prometheus:
