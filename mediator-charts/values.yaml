@@ -1,10 +1,7 @@
 replicaCount: 1
 namespace: didcomm-mediator
 externalDnsHostname: didcomm-mediator.eudi-adorsys.com
-certificateArn: arn:aws:acm:eu-central-1:982081049921:certificate/3a8bd330-f7a6-4e0e-87c0-dcd30ac067ba #arn:aws:acm:{region}:{user id}:certificate/{id}
 
- 
- 
 mongodb:
   databaseName: mongodb
 
@@ -13,6 +10,11 @@ mediator:
     repository: ghcr.io/adorsys/didcomm-mediator-rs
     pullPolicy: IfNotPresent
     tag: latest
+  ingress:
+    secretName: eudi-adorsys-tls
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-prod
+
 
 mongoVolume:
   persistentVolumeClaim:

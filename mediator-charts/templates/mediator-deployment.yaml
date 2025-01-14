@@ -38,7 +38,7 @@ spec:
             - name: MONGO_HOST
               value: {{ .Release.Name }}-mongodb-service
             - name: MONGO_URI
-              value: "mongodb://{{MONGO_USERNAME}}:{{MONGO_PASSWORD}}:{{ .Release.Name }}-mongodb-service:27017"
+              value: "mongodb:root:root:{{ .Release.Name }}-service:27017"
             - name: SERVER_PUBLIC_DOMAIN
               valueFrom:
                 configMapKeyRef:
