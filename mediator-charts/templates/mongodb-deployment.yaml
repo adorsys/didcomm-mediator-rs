@@ -25,16 +25,16 @@ spec:
                 configMapKeyRef:
                   name: env
                   key: MONGO_DBN
-            - name: MONGO_INITDB_ROOT_USERNAME
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Release.Name }}-secret
-                  key: username
-            - name: MONGO_INITDB_ROOT_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Release.Name }}-secret
-                  key: password
+            # - name: MONGO_INITDB_ROOT_USERNAME
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: {{ .Release.Name }}-secret
+            #       key: username
+            # - name: MONGO_INITDB_ROOT_PASSWORD
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: {{ .Release.Name }}-secret
+            #       key: password
           volumeMounts:
             - name: {{ .Release.Name }}-mongo-persistent-storage
               mountPath: {{ .Values.mongoVolume.mountPath }}
