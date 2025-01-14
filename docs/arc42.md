@@ -201,6 +201,21 @@ sequenceDiagram
 
 This interaction ensures that messages intended for the recipient are appropriately routed through the mediator, enhancing communication reliability and security.  
 
+### 6.3 Pickup Protocol
+The pickup process allows agents to retrieve messages stored by the mediator. The mediator securely holds messages on behalf of the recipient agents, ensuring their safe and timely retrieval. This process is essential to ensuring reliable message delivery, even when the recipient agent is temporarily unavailable.
+
+1. **Message Storage**
+When a message is sent to an agent that is not immediately available to receive it, the mediator stores the message. The message remains encrypted using DIDComm standards to ensure that only the intended recipient can decrypt and read the content. Key aspects include:
+
+- Encrypted Storage: Messages are stored in an encrypted format, ensuring the mediator has no access to the content.
+- Indexed Storage: Messages are indexed based on the recipient's DID to facilitate efficient lookup and retrieval.
+
+2. **Pickup Request**
+The recipient agent initiates the pickup process by sending a pickup request to the mediator. The request must be signed with the agent’s private key to ensure authenticity and prevent unauthorized access. The pickup request contains:
+
+- Recipient DID: To identify which messages are being retrieved.
+- Authentication Signature: A cryptographic signature to validate the agent’s identity and access rights.
+
 ---
 
 ## 7. Deployment View
