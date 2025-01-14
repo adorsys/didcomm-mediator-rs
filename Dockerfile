@@ -1,52 +1,42 @@
-ARG RUST_VERSION=1.83.0
-ARG APP_NAME=didcomm-mediator
+# Stage 1: Builder
+FROM rust:1.80 as builder  
 
-# Build stage
-FROM rust:${RUST_VERSION}-alpine AS build
-
-# Arguments and working directory
-ARG APP_NAME
 WORKDIR /app
 
-# Install required dependencies
-RUN apk add --no-cache clang lld musl-dev gcc g++ git build-base pkgconf openssl-dev openssl-libs-static
+# Copy Cargo files and crates (this helps with caching dependencies)
+COPY Cargo.toml Cargo.lock ./
+COPY src ./src
+COPY crates ./crates
 
-# Add MUSL target
-RUN rustup target add x86_64-unknown-linux-musl
+# Pre-cache dependencies and build the project
+RUN cargo fetch && cargo build --release
 
-# Build the application
-RUN --mount=type=bind,source=src,target=src \
-    --mount=type=bind,source=crates,target=crates \
-    --mount=type=bind,source=Cargo.toml,target=Cargo.toml \
-    --mount=type=bind,source=Cargo.lock,target=Cargo.lock \
-    --mount=type=cache,target=/app/target/ \
-    --mount=type=cache,target=/usr/local/cargo/git/db \
-    --mount=type=cache,target=/usr/local/cargo/registry/ \
-cargo build --locked --release --target=x86_64-unknown-linux-musl && \
-cp ./target/x86_64-unknown-linux-musl/release/${APP_NAME} /bin/server
+# Dynamically mount source code during build for easy updates
+VOLUME /app
 
-# Final stage
-FROM alpine:3.18 AS final
+# Ensure the binary is built and available
+CMD cargo build --release && \
+    cp target/release/didcomm-mediator /usr/local/bin/didcomm-mediator
 
-# Create a non-root user
-ARG UID=10001
-RUN adduser \
-    --disabled-password \
-    --gecos "" \
-    --home "/nonexistent" \
-    --shell "/sbin/nologin" \
-    --no-create-home \
-    --uid "${UID}" \
-    appuser
-USER appuser
+# Stage 2: Runtime
+FROM ubuntu:22.04  
 
-# Copy the compiled binary
-COPY --from=build /bin/server /bin/
+# Install necessary runtime dependencies
+RUN apt update && apt install -y libpq5 && rm -rf /var/lib/apt/lists/*
 
+WORKDIR /app
+
+# Set the storage directory path
+ENV STORAGE_DIRPATH="./storage"
+
+# Copy the built binary from the builder stage
+COPY --from=builder /app/target/release/didcomm-mediator /usr/local/bin/didcomm-mediator
+
+# Copy runtime configurations
 COPY .env .env
 
-# Expose application port
+# Expose the port the app will listen on
 EXPOSE 3000
 
-# Command to run the application
-CMD ["/bin/server"]
+# Set the entrypoint for the application
+ENTRYPOINT ["didcomm-mediator"]

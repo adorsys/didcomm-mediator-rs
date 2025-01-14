@@ -25,15 +25,20 @@ spec:
                 configMapKeyRef:
                   key: MONGO_DBN
                   name: env
-            - name: MONGO_PASSWORD
+            - name: MONGO_INITDB_ROOT_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: {{ .Release.Name }}-secret
                   key: password
+            - name: MONGO_INITDB_ROOT_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secret
+                  key: username
             - name: MONGO_HOST
               value: {{ .Release.Name }}-mongodb-service
             - name: MONGO_URI
-              value: "mongodb://{{ .Release.Name }}-mongodb-service:27017"
+              value: "mongodb://{{MONGO_USERNAME}}:{{MONGO_PASSWORD}}:{{ .Release.Name }}-mongodb-service:27017"
             - name: SERVER_PUBLIC_DOMAIN
               valueFrom:
                 configMapKeyRef:
