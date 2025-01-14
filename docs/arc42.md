@@ -19,7 +19,8 @@
 
 ## 1. Introduction
 ### 1.1 Document Goals
-This document outlines the architecture of the `didcomm-mediator-rs`, a Rust-based implementation of a DIDComm v2 mediator. Its purpose is to ensure secure, efficient, and reliable routing of DIDComm messages while providing clarity to stakeholders, architects, and developers.
+This document outlines the architecture of didcomm-mediator-rs, a Rust-based implementation of a DIDComm v2 mediator. The primary purpose of this mediator is to enable secure, efficient, and reliable routing of DIDComm messages, acting as a critical component in decentralized identity communication. This document serves as a comprehensive guide for stakeholders, architects, and developers, providing the necessary clarity for implementation, integration, and ongoing support of the system.
+
 
 ### 1.2 Stakeholders
 - **Product Owners**: Define feature requirements.
@@ -34,7 +35,7 @@ This document outlines the architecture of the `didcomm-mediator-rs`, a Rust-bas
 
 ### 2.1 Technical Constraints
 - **Rust Programming Language**: Ensures high performance and memory safety.
-- **Transport Agnosticism**: Supports various protocols (HTTP, Bluetooth, etc.).
+- **Transport Agnosticism**: Supports various protocols 
 - **No External State**: Minimal reliance on external systems for scalability.
 
 ### 2.2 Regulatory Constraints
