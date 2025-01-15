@@ -118,8 +118,10 @@ Nested within the DIDComm Messaging endpoint is another plugin system for managi
 1. **Forward Protocol**: Handles message routing across agents.
 2. **Pickup Protocol**: Manages message retrieval by offline agents.
 3. **Mediator Coordination Protocol**: Supports agent registration and mediation setup.
-4. **Plugin Utilities**: Shared utilities that facilitate sub-protocol implementations.
-
+4.  **Discover features**: allows to query the mediator for supported protocols
+5.  **trust-ping**: This protocol is a standard way for agents to test connectivity, responsiveness, and security of a DIDComm channel.
+6.  **basic message**: Sending a basic message to the mediator
+7. **Plugin Utilities**: Shared utilities that facilitate sub-protocol implementations.
 ### 5.3 Building Block Diagram
 
 The following diagram illustrates the layered architecture with the plugin-based system:
