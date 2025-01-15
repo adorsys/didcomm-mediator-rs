@@ -105,7 +105,7 @@ The `didcomm-mediator-rs` project utilizes a plugin-based architecture, allowing
 
 #### Top-Level Architecture
 
-At the core is the **Generic Server**, responsible for hosting the overall application and enabling the plugin system. The main components are:
+At the core is the *Mediator Server**, responsible for hosting the overall application and enabling the plugin system. The main components are:
 
 1. **Dispatcher**: Routes incoming requests to the appropriate web plugin.
 2. **Web Plugin Layer**: Hosts modular implementations for endpoint-specific logic (e.g., DID endpoint generation, out-of-band messaging).
