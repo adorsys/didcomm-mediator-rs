@@ -128,7 +128,7 @@ The following diagram illustrates the layered architecture with the plugin-based
 
 ```mermaid
 graph TD
-    GenericServer[Generic Server] --> Dispatcher[Dispatcher]
+    MediatorServer[Mediator Server] --> Dispatcher[Dispatcher]
     Dispatcher --> WebPluginLayer[Web Plugin Layer]
     WebPluginLayer --> DIDEndpoint[DID Endpoint]
     WebPluginLayer --> OOBMessaging[Out-of-Band Messaging]
