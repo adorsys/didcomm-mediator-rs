@@ -496,8 +496,8 @@ This combination integrates **application security** and **SSDLC best practices*
 
 ### 9.2 Architectural Features
 - **DIDComm Protocol Implementation**:
-  - Follows the DIDComm v2 standard for secure and decentralized identity communication.
-  - Supports encrypted, authenticated, and transport-agnostic messaging.
+  - **DIDComm v2 Protocol Compliance:** The system adheres to the DIDComm v2 standard as a critical requirement, ensuring all communications are secure, decentralized, and authenticated.
+  - **Secure Messaging:** Supports end-to-end encryption and transport-agnostic messaging as part of the DIDComm v2 protocol implementation.
 
 - **Scalability and Modularity**:
   - Architected to handle growing user and message loads without performance bottlenecks.
