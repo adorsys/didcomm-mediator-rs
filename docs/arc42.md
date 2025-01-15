@@ -34,7 +34,7 @@ This document outlines the architecture of didcomm-mediator-rs, a Rust-based imp
 
 ### 2.1 Technical Constraints
 - **Rust Programming Language**: Ensures high performance and memory safety.
-- **Transport Agnosticism**: Supports various protocols 
+- **Transport Agnosticism**: Supports HTTP
 - **No External State**: Minimal reliance on external systems for scalability.
 
 ### 2.2 Regulatory Constraints
