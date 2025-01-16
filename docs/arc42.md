@@ -71,18 +71,18 @@ A microservices approach ensures modularity and scalability. `didcomm-mediator-r
 ### Key Features:
 The `didcomm-mediator-rs` project implements several essential protocols in the DIDComm v2 ecosystem, as outlined below:
 
-| **Feature**                             | **Specification Status** | 
-|-----------------------------------------|---------------------------|
-| **Mediator Coordination Protocol**      | Adopted                  | 
-| **Pickup Protocol**                     | Adopted                  | 
-| **DID Rotation**                        | Accepted                 |
-| **Cross-Domain Messaging/Routing Protocol** | Adopted                  | 
-| **Trust Ping Protocol**                 | Adopted                  | 
-| **Discover Features Protocol**          | Adopted                  | 
-| **Out-of-Band Messaging**               | Adopted                  | 
-| **Basic Message Protocol**              | Adopted                  | 
-| **Acknowledgments (Acks)**              | Adopted                  | 
-| **Present Proof Protocol**              | Adopted                  | 
+| **Feature**                                                                                                        | **Specification Status** |
+|--------------------------------------------------------------------------------------------------------------------|---------------------------|
+| [Mediator Coordination Protocol](https://didcomm.org/coordinate-mediation/2.0/ )                                   | Adopted                  |
+| [Pickup Protocol](https://didcomm.org/messagepickup/3.0/)                                                          | Adopted                  |
+| [DID Rotation](https://didcomm.org/book/v2/didrotation)                                                            | Accepted                 |  
+| [Cross-Domain Messaging/Routing Protocol](https://identity.foundation/didcomm-messaging/spec/#routing-protocol-20) | Adopted                  | 
+| [Trust Ping Protocol](https://identity.foundation/didcomm-messaging/spec/#trust-ping-protocol-20 )                 | Adopted                  |
+| [Discover Features Protocol](https://didcomm.org/discover-features/2.0/ )                                          | Adopted                  | 
+| [Out-of-Band Messaging](https://identity.foundation/didcomm-messaging/spec/#out-of-band-messages)                  | Adopted                  | 
+| [Basic Message Protocol](https://didcomm.org/basicmessage/2.0/#:~:text=The%20BasicMessage%20protocol%20describes%20a,message%20type%20used%20to%20communicate.)                                                                           | Adopted                  |  
+| [Acknowledgments (Acks)](https://github.com/hyperledger/aries-rfcs/tree/main/features/0015-acks )                  | Adopted                  |
+| [Present Proof Protocol](https://didcomm.org/present-proof/3.0/)                                                   | Adopted                  | 
 
 
 ---
