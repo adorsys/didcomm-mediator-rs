@@ -58,17 +58,13 @@ git clone git@github.com:adorsys/didcomm-mediator-rs.git
 
 To build and run the project:
 
-* Compile the project:
+* First you need to do a
 
 ```sh
-cargo build
+docker compose up
 ```
 
-* Start the mediator service:
-
-```sh
-cargo run
-```
+* This command will pull the docker image of the mediator with all it's prerequisite.
 
 The output should look like this:
 
