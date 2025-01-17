@@ -1,5 +1,4 @@
 use axum::Json;
-use didcomm::error::ErrorKind as DidcommErrorKind;
 use serde_json::{json, Value};
 use thiserror::Error;
 
@@ -10,14 +9,10 @@ pub(crate) enum Error {
     AnonymousPacker,
     #[error("assumed didcomm-encrypted message is malformed")]
     MalformedDidcommEncrypted,
-    #[error("could not unpack message")]
-    MessageUnpackingFailure,
-    #[error("could not pack message: {0}")]
-    MessagePackingFailure(DidcommErrorKind),
+    #[error("Internal server error")]
+    InternalServer,
     #[error("unsupported content-type, only accept application/didcomm-encrypted+json")]
     NotDidcommEncryptedPayload,
-    #[error("unparseable payload")]
-    UnparseablePayload,
 }
 
 impl Error {

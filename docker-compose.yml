@@ -1,14 +1,12 @@
 version: "3.8"
 
 services:
-  # DIDComm Mediator Service
   mediator:
     build: 
       context: .
     container_name: didcomm-mediator
     ports:
-      - "8080:8080"  # Expose the server port
-      - "9100:9100"  # Expose port for Prometheus metrics
+      - "8080:8080"
     env_file:
       - .env
     depends_on:
@@ -23,7 +21,6 @@ services:
       timeout: 10s
       retries: 3
 
-  # MongoDB Service
   mongodb:
     image: mongo:latest
     container_name: mongodb
@@ -34,38 +31,49 @@ services:
     networks:
       - mediator-network
     ports:
-      - "27019:27019"  # Expose MongoDB port
+      - "27019:27019"
 
-  # Prometheus Service
   prometheus:
     image: prom/prometheus:latest
     container_name: prometheus
     ports:
-      - "9091:9090"  # Prometheus web interface
-    command: --config.file=/etc/prometheus/prometheus.yml # Use Prometheus config file
+      - "9091:9090"
+    command: --config.file=/etc/prometheus/prometheus.yml
     volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml  # Mount Prometheus config file
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
     networks:
       - mediator-network
     restart: unless-stopped
 
-  # Grafana Service with Anonymous Access Enabled
   grafana:
     image: grafana/grafana:latest
     container_name: grafana
     ports:
-      - "3001:3000"  # Expose Grafana web interface on port 3001
+      - "3001:3000"
     depends_on:
       - prometheus
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin           # Set admin password
-      - GF_AUTH_ANONYMOUS_ENABLED=true              # Enable anonymous access
-      - GF_AUTH_ANONYMOUS_ORG_NAME="Main Org."     # Specify organization name for anonymous users
-      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer           # Set role for anonymous users 
-      - GF_AUTH_DISABLE_LOGIN_FORM=true             
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD
     networks:
       - mediator-network
     restart: unless-stopped
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: node-exporter
+    ports:
+      - "9100:9100"
+    networks:
+      - mediator-network
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
 
 networks:
   mediator-network:

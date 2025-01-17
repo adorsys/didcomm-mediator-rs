@@ -53,6 +53,7 @@ pub enum DIDResolutionError {
     NonSuccessResponse,
 }
 
+/// Error type for DID Web method
 #[derive(Error, Debug)]
 #[non_exhaustive]
 pub enum DidWebError {
@@ -65,6 +66,8 @@ pub enum DidWebError {
     #[error("Parsing error: {0}")]
     ParsingError(#[from] ParsingErrorSource),
     #[error("URL parsing error: {0}")]
+    HttpClientError(#[from] hyper_util::client::legacy::Error),
+    #[error("URL parsing error: {0}")]
     HttpError(#[from] hyper::Error),
     #[error("Non-success server response: {0}")]
     NonSuccessResponse(StatusCode),
@@ -72,6 +75,7 @@ pub enum DidWebError {
     Other(#[from] Box<dyn std::error::Error + Send + Sync>),
 }
 
+/// Parsing error source
 #[derive(Error, Debug)]
 pub enum ParsingErrorSource {
     #[error("JSON parsing error: {0}")]

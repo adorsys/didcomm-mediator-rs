@@ -1,17 +1,14 @@
-# Prometheus configuration file
 global:
-  scrape_interval: 15s  # Scrape every 15 seconds
-
+  scrape_interval: 15s
 scrape_configs:
-  - job_name: 'didcomm-mediator'
+  - job_name: didcomm-mediator
+    static_configs:
+      - targets: ['http://localhost:8080/metrics']
+  - job_name: mongodb
     static_configs:
       - targets:
-          - 'localhost:8080'  # Scrape the metrics from the mediator service
-
-  - job_name: 'mongodb'
+          - mongodb:27019
+  - job_name: node-exporter
     static_configs:
-      - targets: ['mongodb:27019'] 
-
-  - job_name: 'node-exporter'
-    static_configs:
-      - targets: ['node-exporter:9100']
+      - targets:
+          - node-exporter:9100

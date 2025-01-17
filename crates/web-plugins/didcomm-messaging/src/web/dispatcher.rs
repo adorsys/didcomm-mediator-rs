@@ -62,7 +62,8 @@ mod tests {
     use super::*;
     use crate::manager::MessagePluginContainer;
     use axum::Router;
-    use hyper::{Body, Method, Request};
+    use http_body_util::{BodyExt, Full};
+    use hyper::{body::Bytes, Method, Request};
     use message_api::{MessageHandler, MessagePlugin, MessageRouter};
     use once_cell::sync::Lazy;
     use serde_json::{json, Value};
@@ -188,7 +189,7 @@ mod tests {
                     .uri(String::from("/"))
                     .method(Method::POST)
                     .header(CONTENT_TYPE, DIDCOMM_ENCRYPTED_MIME_TYPE)
-                    .body(Body::from(packed_msg))
+                    .body(Full::new(Bytes::from(packed_msg)))
                     .unwrap(),
             )
             .await
@@ -202,8 +203,8 @@ mod tests {
         );
 
         // Parse response's body
-        let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
-        let body: Value = serde_json::from_slice(&body).unwrap();
+        let body = BodyExt::collect(response.into_body()).await.unwrap();
+        let body: Value = serde_json::from_slice(&body.to_bytes()).unwrap();
         let response = serde_json::to_string(&body).unwrap();
 
         // Decrypt response

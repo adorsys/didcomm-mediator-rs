@@ -1,6 +1,7 @@
 pub mod plugins;
 
-use axum::Router;
+use axum::{routing::get, Router};
+use axum_prometheus::PrometheusMetricLayer;
 use eyre::{eyre, Result};
 use hyper::Method;
 use plugins::manager::PluginContainer;
@@ -12,6 +13,7 @@ use tower_http::{
 
 pub fn app() -> Result<(PluginContainer<'static>, Router)> {
     let mut container = PluginContainer::new();
+    let (prometheus_layer, metric_handle) = PrometheusMetricLayer::pair();
     container.load().map_err(|e| eyre!(e))?;
 
     let cors = CorsLayer::new()
@@ -21,6 +23,8 @@ pub fn app() -> Result<(PluginContainer<'static>, Router)> {
 
     let router = Router::new()
         .merge(container.routes().unwrap_or_default())
+        .route("/metrics", get(|| async move { metric_handle.render()}))
+        .layer(prometheus_layer)
         .layer(TraceLayer::new_for_http())
         .layer(CatchPanicLayer::new())
         .layer(cors);

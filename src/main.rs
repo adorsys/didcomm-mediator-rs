@@ -1,10 +1,9 @@
-use axum::{routing::get, Router, Server};
+use axum_prometheus::PrometheusMetricLayer;
 use didcomm_mediator::app;
 use eyre::{Result, WrapErr};
-use prometheus::{Encoder, TextEncoder, Registry};
-use std::{net::SocketAddr, sync::Arc};
-use tokio::sync::Mutex;
-use tower_http::trace::TraceLayer;
+use std::net::SocketAddr;
+use tokio::net::TcpListener;
+
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -14,17 +13,17 @@ async fn main() -> Result<()> {
     // Enable logging
     config_tracing();
 
-    // Create a shared registry for Prometheus metrics
-    let registry = Arc::new(Mutex::new(Registry::new()));
-
-    // Start server
+    // Configure server
     let port = std::env::var("SERVER_LOCAL_PORT").unwrap_or("3000".to_owned());
-    let ip = std::env::var("SERVER_PUBLIC_IP").unwrap_or("0.0.0.0".to_owned());
-    let addr: SocketAddr = format!("{ip}:{port}").parse().unwrap();
+    let port = port.parse().context("failed to parse port")?;
+    let addr = SocketAddr::from(([0, 0, 0, 0], port));
+    let listener = TcpListener::bind(addr)
+        .await
+        .context("failed to parse address")?;
 
-    tracing::debug!("listening on {}", addr);
+    tracing::debug!("listening on {addr}");
 
-    generic_server_with_graceful_shutdown(addr, registry.clone())
+    generic_server_with_graceful_shutdown(listener)
         .await
         .map_err(|err| {
             tracing::error!("{err:?}");
@@ -33,36 +32,21 @@ async fn main() -> Result<()> {
 
     Ok(())
 }
+async fn generic_server_with_graceful_shutdown(listener: TcpListener) -> Result<()> {
+    // Load plugins
+    let (mut plugin_container, mut router) = app()?;
 
-async fn generic_server_with_graceful_shutdown(
-    addr: SocketAddr,
-    registry: Arc<Mutex<Registry>>,
-) -> Result<()> {
-    // Load plugins and get the application router
-    let (mut plugin_container, app_router) = app()?;
+    // Create Prometheus layer
+    let (prometheus_layer, metric_handle) = PrometheusMetricLayer::pair();
 
-    // Add a `/health` route for health checks
-    let health_router = Router::new().route("/health", get(health_check));
+    // Add health check endpoint and Prometheus metrics
+    router = router
+        .route("/health", axum::routing::get(health_check))
+        .route("/metrics", axum::routing::get(|| async move { metric_handle.render() }))
+        .layer(prometheus_layer);
 
-    // Add a `/metrics` route for Prometheus metrics
-    let metrics_router = Router::new().route(
-        "/metrics",
-        get({
-            let registry = Arc::clone(&registry);
-            move || metrics_handler(registry)
-        }),
-    );
-
-    // Combine the app router with the health and metrics routers
-    let app_router = app_router.merge(health_router).merge(metrics_router);
-
-    // Run the server
-    Server::bind(&addr)
-        .serve(
-            app_router
-                .layer(TraceLayer::new_for_http()) // Optional tracing middleware
-                .into_make_service(),
-        )
+    // Start server
+    axum::serve(listener, router)
         .await
         .context("failed to start server")?;
 
@@ -76,19 +60,8 @@ async fn generic_server_with_graceful_shutdown(
     Ok(())
 }
 
-/// Health check handler
-async fn health_check() -> String {
-    String::from("{\"status\": \"healthy\"}")
-}
-
-/// Expose Prometheus metrics
-async fn metrics_handler(registry: Arc<Mutex<Registry>>) -> String {
-    let registry = registry.lock().await;
-    let encoder = TextEncoder::new();
-    let metric_families = registry.gather();
-    let mut buffer = Vec::new();
-    encoder.encode(&metric_families, &mut buffer).unwrap();
-    String::from_utf8(buffer).unwrap()
+async fn health_check() -> &'static str {
+    "OK"
 }
 
 fn config_tracing() {
