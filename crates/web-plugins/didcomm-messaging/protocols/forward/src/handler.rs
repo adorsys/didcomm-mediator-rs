@@ -114,6 +114,7 @@ mod test {
 
     #[tokio::test]
     async fn test_mediator_forward_process() {
+        std::env::set_var("MASTER_KEY", "1234567890qwertyuiopasdfghjklxzc");
         // simulate sender forwarding process
         let mut state = tests::setup().clone();
         let state = Arc::make_mut(&mut state);
