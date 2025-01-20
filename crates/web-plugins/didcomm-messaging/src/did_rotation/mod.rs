@@ -1,2 +1,2 @@
-pub(crate) mod handler;
 mod errors;
+pub(crate) mod handler;
