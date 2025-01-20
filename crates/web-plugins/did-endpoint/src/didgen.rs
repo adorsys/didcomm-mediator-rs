@@ -333,7 +333,7 @@ pub(crate) mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn test_did_validation() {
         let mut mock_fs = MockFileSystem::new();
-        let mock_keystore = MockKeystore::new();
+        let mut mock_keystore = MockKeystore::new();
         let path = Path::new("/mock/dir");
 
         // Mock read from filesystem
@@ -364,11 +364,16 @@ pub(crate) mod tests {
         // Mock keystore fetch
         // dummy master_key
         let master_key = [0; 32];
-        let _ = mock_keystore.find_key_by(doc! {}, master_key);
-        // .with(predicate::function(|filter: &BsonDocument| {
-        //     filter.contains_key("kid")
-        // }))
-        // .returning(move |_| Ok(Some(secret.clone())));
+        mock_keystore
+            .expect_find_key_by()
+            .with(
+                predicate::function(|filter: &BsonDocument| filter.contains_key("kid")),
+                predicate::eq(master_key),
+            )
+            .returning(move |_, _| {
+                let secret = setup();
+                Ok(Some(secret))
+            });
         // dummy master_key
 
         let result = validate_diddoc(&path, &mock_keystore, &mut mock_fs, master_key);

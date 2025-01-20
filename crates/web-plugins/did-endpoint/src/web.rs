@@ -17,6 +17,7 @@ use did_utils::{
 use hyper::StatusCode;
 use keystore::Secrets;
 use mongodb::bson::doc;
+use mongodb::bson::Document as BsonDocument;
 use multibase::Base;
 use serde_json::{json, Value};
 use std::{collections::HashMap, path::Path, sync::Arc};
@@ -208,6 +209,7 @@ mod tests {
     };
     use http_body_util::BodyExt;
     use keystore::WrapSecret;
+    use mockall::predicate;
     use serde_json::json;
     use tower::util::ServiceExt;
 
@@ -270,8 +272,8 @@ mod tests {
             .expect_find_key_by()
             .withf(|filter, _| filter.get_str("kid").unwrap() == "did:peer:123#key-1")
             .returning(move |_, _| {
-                let secrets: WrapSecret = secret.clone().into();
-                Ok(Some(secrets.into()))
+                let secrets: Secrets = secret.clone();
+                Ok(Some(secrets))
             });
 
         // Setup state with mocks
