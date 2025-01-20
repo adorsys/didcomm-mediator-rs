@@ -231,7 +231,6 @@ mod test {
     }
 
     async fn test_jwt_data() -> String {
-
         pub fn prev_secrets_resolver() -> impl SecretsResolver {
             let secret_id = "did:key:z6MkrQT3VKYGkbPaYuJeBv31gNgpmVtRWP5yTocLDBgPpayM#z6MkrQT3VKYGkbPaYuJeBv31gNgpmVtRWP5yTocLDBgPpayM";
             let secret_material: Jwk = serde_json::from_str(
@@ -274,7 +273,6 @@ mod test {
     }
 
     fn test_message_payload(jwt: String) -> Message {
-
         let msg = Message::build(
             Uuid::new_v4().to_string(),
             "https://didcomm.org/coordinate-mediation/2.0/keylist-update".to_owned(),
