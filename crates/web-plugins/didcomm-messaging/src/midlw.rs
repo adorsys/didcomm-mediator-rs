@@ -120,7 +120,7 @@ async fn unpack_payload(
     .await;
 
     let (plain_message, metadata) = res.map_err(|err| {
-        error!("Failed to unpack message: {}", err.kind());
+        error!("Failed to unpack message: {}, {}", err.kind(), err.source);
         let response = (StatusCode::BAD_REQUEST, Error::UnpackingError.json());
 
         return response.into_response();
