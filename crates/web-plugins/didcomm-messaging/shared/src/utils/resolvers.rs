@@ -126,8 +126,8 @@ impl SecretsResolver for LocalSecretsResolver {
 
     async fn find_secrets<'a>(&self, secret_ids: &'a [&'a str]) -> Result<Vec<&'a str>> {
         let mut found_secret_ids = HashSet::with_capacity(secret_ids.len());
-        // read master_key
 
+        // read master_key
         let master_key = env::var("MASTER_KEY")
             .unwrap()
             .as_bytes()

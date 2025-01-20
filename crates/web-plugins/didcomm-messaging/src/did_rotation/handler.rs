@@ -76,8 +76,8 @@ pub async fn did_rotation(
 
 #[cfg(test)]
 mod test {
-    use crate::constants::DIDCOMM_ENCRYPTED_MIME_TYPE;
-    use std::{sync::Arc, vec};
+
+    use std::{env, sync::Arc, vec};
 
     use did_utils::{didcore::Document, jwk::Jwk};
     use didcomm::secrets::SecretsResolver;
@@ -231,6 +231,7 @@ mod test {
     }
 
     async fn test_jwt_data() -> String {
+
         pub fn prev_secrets_resolver() -> impl SecretsResolver {
             let secret_id = "did:key:z6MkrQT3VKYGkbPaYuJeBv31gNgpmVtRWP5yTocLDBgPpayM#z6MkrQT3VKYGkbPaYuJeBv31gNgpmVtRWP5yTocLDBgPpayM";
             let secret_material: Jwk = serde_json::from_str(
@@ -273,6 +274,7 @@ mod test {
     }
 
     fn test_message_payload(jwt: String) -> Message {
+
         let msg = Message::build(
             Uuid::new_v4().to_string(),
             "https://didcomm.org/coordinate-mediation/2.0/keylist-update".to_owned(),
@@ -297,6 +299,7 @@ mod test {
 
     #[tokio::test]
     async fn unit_test_on_did_rotation() {
+        env::set_var("MASTER_KEY", "1234567890qwertyuiopasdfghjklxzc");
         let jwt = test_jwt_data().await;
         let state = setup();
         let AppStateRepository {
