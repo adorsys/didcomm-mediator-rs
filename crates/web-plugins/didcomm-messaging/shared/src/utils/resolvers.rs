@@ -297,6 +297,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_local_secrets_resolver_works() {
+        std::env::set_var("MASTER_KEY", "1234567890qwertyuiopasdfghjklxzc");
         let secret_id = "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7#z6LSbuUXWSgPfpiDBjUK6E7yiCKMN2eKJsXn5b55ZgqGz6Mr";
         let secret: Jwk = serde_json::from_str(
             r#"{
