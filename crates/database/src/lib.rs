@@ -45,7 +45,6 @@ pub fn get_or_init_database() -> Arc<RwLock<Database>> {
             // Create a handle to a database.
             let db = tokio::task::block_in_place(|| {
                 tokio::runtime::Handle::current().block_on(async move {
-                    
                     let client_options = ClientOptions::parse(mongo_uri)
                         .await
                         .expect("Failed to parse Mongo URI");
