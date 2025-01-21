@@ -112,3 +112,21 @@ async fn test_message_acknowledgment() {
     assert_eq!(ack.unwrap(), message_id, "Acknowledgment ID should match message ID");
 }
 
+#[tokio::test]
+async fn test_exponential_backoff() {
+    let mut attempts = 0;
+    let mut delays = vec![];
+
+    let mock_network = || {
+        attempts += 1;
+        delays.push(attempts); // Mock delays
+        Err("Simulated failure".to_string())
+    };
+
+    let result = send_message_with_retries("example-message", mock_network).await;
+
+    assert!(result.is_err(), "Expected failure after max retries");
+    assert_eq!(attempts, 3, "Expected exactly 3 attempts");
+    assert!(delays == vec![1, 2, 3], "Expected exponential backoff");
+}
+
