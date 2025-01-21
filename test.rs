@@ -165,3 +165,35 @@ async fn test_queue_overflow_handling() {
     }
 }
 
+#[tokio::test]
+async fn test_concurrent_message_processing() {
+    const NUM_MESSAGES: usize = 10;
+    let mediator = Arc::new(Mediator::new());
+    let mut handles = vec![];
+
+    for i in 0..NUM_MESSAGES {
+        let mediator_clone = Arc::clone(&mediator);
+        handles.push(tokio::spawn(async move {
+            mediator_clone.send_message(&format!("concurrent-message-{}", i)).await
+        }));
+    }
+
+    let results = futures::future::join_all(handles).await;
+
+    // Assert all messages are processed successfully
+    assert!(
+        results.iter().all(|res| res.is_ok()),
+        "Expected all concurrent messages to be delivered successfully"
+    );
+
+    // Check the count of processed messages
+    let statuses = mediator.delivery_status.lock().await;
+    assert_eq!(
+        statuses.len(),
+        NUM_MESSAGES,
+        "Expected {} messages to be processed, but got {}",
+        NUM_MESSAGES,
+        statuses.len()
+    );
+}
+
