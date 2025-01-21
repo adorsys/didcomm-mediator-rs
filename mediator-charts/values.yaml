@@ -4,14 +4,16 @@ externalDnsHostname: didcomm-mediator.eudi-adorsys.com
 
 mongodb:
   databaseName: mongodb
-
 mediator:
   image:
     repository: ghcr.io/adorsys/didcomm-mediator-rs
     pullPolicy: IfNotPresent
     tag: latest
   ingress:
-    secretName: eudi-adorsys-tls
+    tls:
+      hosts:
+        - "*.eudi-adorsys.com"
+    secretName: mediator-secret
     annotations:
       cert-manager.io/cluster-issuer: letsencrypt-prod
 

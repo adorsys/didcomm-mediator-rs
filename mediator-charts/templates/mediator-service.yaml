@@ -5,9 +5,9 @@ metadata:
   namespace: {{ .Values.namespace }}
 spec:
   selector:
-    app: {{ .Release.Name }}-mediator
+    app: {{ .Release.Name }}
   ports:
   - name: https
-    port: 3000
-    targetPort: 3000
+    port: 8080
+    targetPort: 8080
   type: ClusterIP

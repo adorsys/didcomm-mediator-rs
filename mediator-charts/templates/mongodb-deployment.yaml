@@ -7,11 +7,11 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      app: {{ .Release.Name }}-mongodb
+      app: {{ .Release.Name }}
   template:
     metadata:
       labels:
-        app: {{ .Release.Name }}-mongodb
+        app: {{ .Release.Name }}
     spec:
       containers:
         - name: mongodb
@@ -25,21 +25,21 @@ spec:
                 configMapKeyRef:
                   name: env
                   key: MONGO_DBN
-            # - name: MONGO_INITDB_ROOT_USERNAME
-            #   valueFrom:
-            #     secretKeyRef:
-            #       name: {{ .Release.Name }}-secret
-            #       key: username
-            # - name: MONGO_INITDB_ROOT_PASSWORD
-            #   valueFrom:
-            #     secretKeyRef:
-            #       name: {{ .Release.Name }}-secret
-            #       key: password
+            - name: MONGO_INITDB_ROOT_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secret
+                  key: username
+            - name: MONGO_INITDB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secret
+                  key: password
           volumeMounts:
-            - name: {{ .Release.Name }}-mongo-persistent-storage
+            - name: {{ .Release.Name }}-persistent-storage
               mountPath: {{ .Values.mongoVolume.mountPath }}
       restartPolicy: Always
       volumes:
-        - name: {{ .Release.Name }}-mongo-persistent-storage
+        - name: {{ .Release.Name }}-persistent-storage
           persistentVolumeClaim:
-            claimName: {{ .Release.Name }}-mongo-pvc
+            claimName: {{ .Release.Name }}-pvc

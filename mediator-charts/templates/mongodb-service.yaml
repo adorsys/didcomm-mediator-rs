@@ -5,7 +5,7 @@ metadata:
   namespace: {{ .Values.namespace }}
 spec:
   selector:
-    app: {{ .Release.Name }}-mongodb
+    app: {{ .Release.Name }}
   ports:
       - protocol: TCP
         port: 27017

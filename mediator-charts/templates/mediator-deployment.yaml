@@ -1,24 +1,24 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ .Release.Name }}-mediator-deployment
+  name: {{ .Release.Name }}-deployment
   namespace: {{ .Values.namespace }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      app: {{ .Release.Name }}-mediator
+      app: {{ .Release.Name }}
   template:
     metadata:
       labels:
-        app: {{ .Release.Name }}-mediator
+        app: {{ .Release.Name }}
     spec:
       containers:
-        - name: {{ .Release.Name }}-mediator-container
+        - name: {{ .Release.Name }}-container
           image: {{ .Values.mediator.image.repository }}:{{ .Values.mediator.image.tag }}
           imagePullPolicy: {{ .Values.mediator.image.pullPolicy }}
           ports:
-            - containerPort: 3000
+            - containerPort: 8080
           env:
             - name: MONGO_DBN
               valueFrom:
@@ -38,10 +38,11 @@ spec:
             - name: MONGO_HOST
               value: {{ .Release.Name }}-mongodb-service
             - name: MONGO_URI
-              value: "mongodb://{{ .Release.Name }}-mongodb-service:27017"
+              value: mongodb://$(MONGO_INITDB_ROOT_USERNAME):$(MONGO_INITDB_ROOT_PASSWORD)@{{ .Release.Name }}-mongodb-service:27017
             - name: SERVER_PUBLIC_DOMAIN
               valueFrom:
                 configMapKeyRef:
                   key: SERVER_PUBLIC_DOMAIN
                   name: env
+    
     

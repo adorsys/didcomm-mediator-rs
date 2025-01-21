@@ -18,9 +18,11 @@ spec:
           service:
             name: {{ .Release.Name }}-service
             port:
-              number: 3000
+              number: 8080
   tls:
   - hosts:
-    - {{ .Values.externalDnsHostname }}
+   {{- range .Values.mediator.ingress.tls.hosts }}
+      - {{ . | quote }}
+   {{- end }}
     secretName: {{ .Values.mediator.ingress.secretName }}
    
