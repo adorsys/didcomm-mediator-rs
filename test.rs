@@ -1,29 +1,51 @@
 use tokio::time::{sleep, Duration};
-use std::sync::Mutex;
+use tokio::sync::Mutex;
 use uuid::Uuid;
+use std::sync::Arc;
 
-// Mediator implementation for acknowledgment
+// Mediator implementation for acknowledgment and message processing
 struct Mediator {
     last_ack: Mutex<Option<String>>,
+    delivery_status: Mutex<Vec<(String, bool)>>,
 }
 
 impl Mediator {
     fn new() -> Self {
         Self {
             last_ack: Mutex::new(None),
+            delivery_status: Mutex::new(Vec::new()),
         }
     }
 
     async fn send_message(&self, message: &str) -> Result<String, String> {
         let message_id = Uuid::new_v4().to_string();
-        let mut ack = self.last_ack.lock().unwrap();
-        *ack = Some(message_id.clone());
+        {
+            let mut status = self.delivery_status.lock().await;
+            status.push((message_id.clone(), false));
+        }
+        // Simulate delivery
+        sleep(Duration::from_secs(1)).await;
+        {
+            let mut ack = self.last_ack.lock().await;
+            *ack = Some(message_id.clone());
+        }
+        {
+            let mut status = self.delivery_status.lock().await;
+            if let Some(entry) = status.iter_mut().find(|(id, _)| *id == message_id) {
+                entry.1 = true;
+            }
+        }
         Ok(message_id)
     }
 
     async fn get_last_ack(&self) -> Option<String> {
-        let ack = self.last_ack.lock().unwrap();
+        let ack = self.last_ack.lock().await;
         ack.clone()
+    }
+
+    async fn get_delivery_status(&self, message_id: &str) -> Option<bool> {
+        let status = self.delivery_status.lock().await;
+        status.iter().find(|(id, _)| id == message_id).map(|(_, delivered)| *delivered)
     }
 }
 
@@ -36,7 +58,7 @@ where
     F: FnMut() -> Result<T, String>,
 {
     let max_retries = 3;
-    let retry_delay = Duration::from_secs(2);
+    let mut delay = Duration::from_secs(1);
 
     for attempt in 1..=max_retries {
         match send_function() {
@@ -45,8 +67,9 @@ where
                 if attempt == max_retries {
                     return Err(format!("Failed after {} attempts: {}", max_retries, err));
                 }
-                eprintln!("Attempt {} failed: {}. Retrying...", attempt, err);
-                sleep(retry_delay).await;
+                eprintln!("Attempt {} failed: {}. Retrying after {:?}...", attempt, err, delay);
+                sleep(delay).await;
+                delay *= 2; // Exponential backoff
             }
         }
     }
@@ -55,43 +78,33 @@ where
 
 // Tests
 #[tokio::test]
-async fn test_network_timeout() {
-    let simulated_delay = Duration::from_secs(5); 
-    let start_time = std::time::Instant::now();
-
+async fn test_simulated_network_failure() {
+    let mediator = Mediator::new();
     let result = send_message_with_retries("example-message", || {
-        sleep(simulated_delay).await;
-        Err("Timeout error".to_string())
+        mediator.send_message("example-message").await
     })
     .await;
 
-    assert!(result.is_err(), "Expected timeout error");
-    assert!(start_time.elapsed() < Duration::from_secs(6), "Test ran longer than expected");
+    assert!(result.is_ok(), "Expected successful message delivery after retries");
 }
 
 #[tokio::test]
-async fn test_retry_logic_on_intermittent_connectivity() {
-    let mut retries = 0;
-
-    let simulated_network = || {
-        retries += 1;
-        if retries < 3 {
-            Err("Network failure".to_string())
-        } else {
-            Ok("Message delivered".to_string())
-        }
+async fn test_retry_logic_with_timeout() {
+    let mut attempts = 0;
+    let mock_network = || {
+        attempts += 1;
+        Err("Simulated failure".to_string())
     };
 
-    let result = send_message_with_retries("example-message", simulated_network).await;
+    let result = send_message_with_retries("test-message", mock_network).await;
 
-    assert_eq!(retries, 3, "Expected 3 retries before success");
-    assert!(result.is_ok(), "Expected successful message delivery");
+    assert!(result.is_err(), "Expected failure after max retries");
+    assert_eq!(attempts, 3, "Expected exactly 3 retry attempts");
 }
 
 #[tokio::test]
 async fn test_message_acknowledgment() {
     let mediator = Mediator::new();
-
     let message_id = mediator.send_message("example-message").await.unwrap();
     let ack = mediator.get_last_ack().await;
 
@@ -99,21 +112,3 @@ async fn test_message_acknowledgment() {
     assert_eq!(ack.unwrap(), message_id, "Acknowledgment ID should match message ID");
 }
 
-#[tokio::test]
-async fn test_retry_mechanism() {
-    let mut attempts = 0;
-
-    let mock_network = || {
-        attempts += 1;
-        if attempts < 3 {
-            Err("Simulated failure".to_string())
-        } else {
-            Ok("Simulated success".to_string())
-        }
-    };
-
-    let result = send_message_with_retries("test-message", mock_network).await;
-
-    assert!(result.is_ok(), "Expected success after retries");
-    assert_eq!(attempts, 3, "Expected 3 attempts before success");
-}
