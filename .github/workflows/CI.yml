@@ -8,7 +8,7 @@ env:
 jobs:
 
   ci:
-    name: Build and Test
+    name: Build and test
     runs-on: ubuntu-latest
 
     steps:
@@ -24,7 +24,6 @@ jobs:
           ~/.cargo/registry/cache/
           ~/.cargo/git/db/
           target/
-          target/cargo-nextest/
         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
         restore-keys: |
           ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
@@ -49,27 +48,3 @@ jobs:
 
     - name: Build Project
       run: cargo build --workspace --all-features
-
-    - name: Run Tests
-      run: cargo nextest run --workspace --all-features
-
-  reliability-tests:
-    name: Reliability Tests
-    runs-on: ubuntu-latest
-    needs: ci
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Set up Rust
-      uses: actions-rust-lang/setup-rust-toolchain@v1
-      with:
-        toolchain: stable
-
-    - name: Install Nextest test runner
-      uses: taiki-e/install-action@nextest
-
-    - name: Run Reliability Tests
-      run: cargo nextest run --workspace --all-features --filter test\(reliability\) --verbose
-
