@@ -130,3 +130,38 @@ async fn test_exponential_backoff() {
     assert!(delays == vec![1, 2, 3], "Expected exponential backoff");
 }
 
+#[tokio::test]
+async fn test_queue_overflow_handling() {
+    const QUEUE_LIMIT: usize = 5; // Simulated queue limit
+    let mediator = Arc::new(Mediator::new());
+    let mut handles = vec![];
+
+    for i in 0..(QUEUE_LIMIT + 2) {
+        let mediator_clone = Arc::clone(&mediator);
+        handles.push(tokio::spawn(async move {
+            mediator_clone.send_message(&format!("message-{}", i)).await
+        }));
+    }
+
+    let results = futures::future::join_all(handles).await;
+
+    // Assert that all messages were processed
+    for (i, result) in results.iter().enumerate() {
+        assert!(
+            result.is_ok(),
+            "Expected successful delivery for message-{} but got error",
+            i
+        );
+    }
+
+    // Check order of processing
+    let statuses = mediator.delivery_status.lock().await;
+    for i in 0..QUEUE_LIMIT {
+        assert!(
+            statuses.iter().any(|(id, _)| id.contains(&format!("message-{}", i))),
+            "Message message-{} was not processed",
+            i
+        );
+    }
+}
+
