@@ -197,3 +197,32 @@ async fn test_concurrent_message_processing() {
     );
 }
 
+#[tokio::test]
+async fn test_out_of_order_message_recovery() {
+    let mediator = Arc::new(Mediator::new());
+    let mut message_ids = vec!["msg-3", "msg-1", "msg-2"];
+
+    // Simulate out-of-order message sending
+    for &id in &message_ids {
+        let mediator_clone = Arc::clone(&mediator);
+        tokio::spawn(async move {
+            mediator_clone.send_message(id).await.unwrap();
+        })
+        .await
+        .unwrap();
+    }
+
+    // Simulate recovery (reordering based on some logic, e.g., timestamps or IDs)
+    message_ids.sort(); // Simulate reordering logic
+
+    // Check that messages are processed in the correct order
+    let statuses = mediator.delivery_status.lock().await;
+    let processed_ids: Vec<_> = statuses.iter().map(|(id, _)| id.clone()).collect();
+
+    assert_eq!(
+        processed_ids, message_ids,
+        "Expected messages to be processed in order: {:?}, but got {:?}",
+        message_ids, processed_ids
+    );
+}
+
