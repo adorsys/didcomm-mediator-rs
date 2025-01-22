@@ -9,6 +9,8 @@ services:
       - "8080:8080"
     env_file:
       - .env
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27019/your_database_name
     depends_on:
       - mongodb
       - prometheus
@@ -41,6 +43,7 @@ services:
     command: --config.file=/etc/prometheus/prometheus.yml
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
     networks:
       - mediator-network
     restart: unless-stopped
@@ -55,6 +58,10 @@ services:
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD
+    volumes:
+      - grafana-data:/var/lib/grafana 
+      - ./datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
+      - ./dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml                      
     networks:
       - mediator-network
     restart: unless-stopped
@@ -81,3 +88,5 @@ networks:
 
 volumes:
   mongo-data:
+  prometheus-data:
+  grafana-data:

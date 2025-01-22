@@ -31,3 +31,7 @@ pub fn app() -> Result<(PluginContainer<'static>, Router)> {
 
     Ok((container, router))
 }
+
+pub fn health_check() -> &'static str {
+    "OK"
+}
