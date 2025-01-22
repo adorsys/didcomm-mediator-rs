@@ -4,7 +4,6 @@ use eyre::{Result, WrapErr};
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
 
-
 #[tokio::main]
 async fn main() -> Result<()> {
     // Load dotenv-flow variables
@@ -42,7 +41,10 @@ async fn generic_server_with_graceful_shutdown(listener: TcpListener) -> Result<
     // Add health check endpoint and Prometheus metrics
     router = router
         .route("/health", axum::routing::get(health_check))
-        .route("/metrics", axum::routing::get(|| async move { metric_handle.render() }))
+        .route(
+            "/metrics",
+            axum::routing::get(|| async move { metric_handle.render() }),
+        )
         .layer(prometheus_layer);
 
     // Start server
