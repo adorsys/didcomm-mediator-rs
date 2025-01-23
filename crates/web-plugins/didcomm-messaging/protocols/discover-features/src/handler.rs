@@ -131,6 +131,7 @@ mod test {
     const MEDIATION: &str = "https://didcomm.org/coordinate-mediation/2.0";
 
     pub fn setup() -> Arc<AppState> {
+        std::env::set_var("MASTER_KEY", "1234567890qwertyuiopasdfghjklxzc");
         let public_domain = String::from("http://alice-mediator.com");
 
         let diddoc = Document::default();
