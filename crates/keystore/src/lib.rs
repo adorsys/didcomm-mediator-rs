@@ -29,14 +29,14 @@ where
         entity: Entity,
         master_key: [u8; 32],
     ) -> Result<Entity, RepositoryError> {
-        // convert and entity into a secret
-        let mut secret: Secrets = entity.into();
+        // convert and entity into a Wrapsecret
+        let secret: WrapSecret = entity.into();
 
         // hardecoded seed to always correspond to master key
         let seed = [0; 32];
-        let secret_material = to_vec(&secret.secret_material).unwrap();
+
         let mut cocoon = MiniCocoon::from_key(&master_key, &seed);
-        let wrapped_jwk = cocoon.wrap(&secret_material).unwrap();
+        let wrapped_jwk = cocoon.wrap(&secret.secret_material).unwrap();
         let wrapped_secret = WrapSecret {
             id: None,
             kid: secret.kid.clone(),
@@ -51,10 +51,7 @@ where
         let collection = collection.read().await;
 
         // Insert the new entity into the database
-        let metadata = collection.insert_one(secret_entity.clone()).await?;
-        if let Bson::ObjectId(oid) = metadata.inserted_id {
-            secret.set_id(oid);
-        }
+        collection.insert_one(secret_entity.clone()).await?;
 
         Ok(secret_entity)
     }
@@ -82,7 +79,7 @@ where
             let secret_material = serde_json::to_value(secret_material).unwrap();
 
             let jwk: Jwk = serde_json::from_value(secret_material)
-                .map_err(|_| RepositoryError::DeserializationError)?;
+                .map_err(|_| RepositoryError::JwkDeserializationError)?;
 
             let unwrap_secret = Secrets {
                 id: None,
@@ -107,15 +104,6 @@ where
 {
     fn get_collection(&self) -> Arc<RwLock<Collection<T>>> {
         Arc::new(RwLock::new(self.collection.clone()))
-    }
-}
-impl Default for WrapSecret {
-    fn default() -> Self {
-        WrapSecret {
-            id: None,
-            kid: "".to_owned(),
-            secret_material: Vec::default(),
-        }
     }
 }
 

@@ -14,6 +14,8 @@ use mongodb::bson::doc;
 use serde_json::json;
 use std::{collections::HashSet, env, sync::Arc};
 
+use super::get_master_key;
+
 #[derive(Clone)]
 pub struct LocalDIDResolver {
     diddoc: Document,
@@ -88,23 +90,22 @@ fn prepend_doc_id_to_vm_ids(diddoc: &mut Document) {
 #[derive(Clone)]
 pub struct LocalSecretsResolver {
     keystore: Arc<dyn SecureRepository<WrapSecret>>,
+    master_key: [u8; 32],
 }
 
 impl LocalSecretsResolver {
     pub fn new(keystore: Arc<dyn SecureRepository<WrapSecret>>) -> Self {
-        Self { keystore }
+        let master_key = get_master_key().unwrap();
+        Self {
+            keystore,
+            master_key,
+        }
     }
 }
 #[async_trait]
 impl SecretsResolver for LocalSecretsResolver {
     async fn get_secret(&self, secret_id: &str) -> Result<Option<Secret>> {
-        // read master_key
-
-        let master_key = env::var("MASTER_KEY")
-            .unwrap()
-            .as_bytes()
-            .try_into()
-            .unwrap();
+        let master_key = self.master_key;
         let secret = self
             .keystore
             .clone()
@@ -127,12 +128,7 @@ impl SecretsResolver for LocalSecretsResolver {
     async fn find_secrets<'a>(&self, secret_ids: &'a [&'a str]) -> Result<Vec<&'a str>> {
         let mut found_secret_ids = HashSet::with_capacity(secret_ids.len());
 
-        // read master_key
-        let master_key = env::var("MASTER_KEY")
-            .unwrap()
-            .as_bytes()
-            .try_into()
-            .unwrap();
+        let master_key = self.master_key;
 
         for secret_id in secret_ids.iter() {
             if self

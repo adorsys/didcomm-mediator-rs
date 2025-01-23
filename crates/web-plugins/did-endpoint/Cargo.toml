@@ -23,6 +23,7 @@ uuid = { workspace = true, features = ["v4"] }
 hyper = { workspace = true, features = ["full"] }
 tokio = { workspace = true, features = ["full"] }
 axum = { workspace = true, features = ["macros"] }
+shared.workspace = true
 
 [dev-dependencies]
 async-trait.workspace = true

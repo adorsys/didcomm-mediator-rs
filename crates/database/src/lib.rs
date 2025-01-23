@@ -31,7 +31,7 @@ pub enum RepositoryError {
     #[error("decryption error")]
     DecryptionError,
     #[error("error deserializing to jwk")]
-    DeserializationError,
+    JwkDeserializationError,
 }
 
 static MONGO_DB: OnceCell<Arc<RwLock<Database>>> = OnceCell::new();

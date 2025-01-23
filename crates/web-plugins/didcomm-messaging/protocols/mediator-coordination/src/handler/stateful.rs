@@ -8,7 +8,7 @@ use crate::{
         MediationGrant, MediationGrantBody,
     },
 };
-use did_endpoint::plugin::get_master_key;
+
 use did_utils::{
     crypto::{Ed25519KeyPair, Generate, ToMultikey, X25519KeyPair},
     didcore::Service,
@@ -22,7 +22,7 @@ use serde_json::json;
 use shared::{
     midlw::ensure_transport_return_route_is_decorated_all,
     repository::entity::Connection,
-    state::{AppState, AppStateRepository},
+    state::{AppState, AppStateRepository}, utils::get_master_key,
 };
 use std::sync::Arc;
 use uuid::Uuid;
@@ -102,8 +102,8 @@ pub(crate) async fn process_mediate_request(
             kid: diddoc.key_agreement.first().unwrap().clone(),
             secret_material: agreem_keys_jwk,
         };
-        // Dummy master key
-        let master_key = get_master_key().unwrap().as_bytes().try_into().unwrap();
+
+        let master_key = get_master_key().unwrap();
 
         match keystore
             .secure_store(agreem_keys_secret.into(), master_key)
@@ -122,8 +122,6 @@ pub(crate) async fn process_mediate_request(
             kid: diddoc.authentication.first().unwrap().clone(),
             secret_material: auth_keys_jwk,
         };
-        // Dummy master key
-        let master_key = [0; 32];
 
         match keystore
             .secure_store(auth_keys_secret.into(), master_key)

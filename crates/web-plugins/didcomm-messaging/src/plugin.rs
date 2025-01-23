@@ -1,6 +1,5 @@
 use crate::{manager::MessagePluginContainer, web};
 use axum::Router;
-use did_endpoint::plugin::get_master_key;
 use filesystem::StdFileSystem;
 use mongodb::Database;
 use once_cell::sync::OnceCell;
@@ -8,7 +7,7 @@ use plugin_api::{Plugin, PluginError};
 use shared::{
     repository::{MongoConnectionRepository, MongoMessagesRepository},
     state::{AppState, AppStateRepository},
-    utils,
+    utils::{self, get_master_key},
 };
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -54,10 +53,7 @@ impl Plugin for DidcommMessaging {
     fn mount(&mut self) -> Result<(), PluginError> {
         let env = load_plugin_env()?;
         let master_key = get_master_key()?;
-        let master_key = master_key
-            .as_bytes()
-            .try_into()
-            .expect("Could not parse master key");
+     
 
         let mut filesystem = filesystem::StdFileSystem;
         let keystore = keystore::KeyStore::get();

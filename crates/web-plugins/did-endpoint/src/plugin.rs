@@ -3,6 +3,7 @@ use axum::Router;
 use filesystem::FileSystem;
 use keystore::{SecureRepository, WrapSecret};
 use plugin_api::{Plugin, PluginError};
+use shared::utils::get_master_key;
 use std::sync::{Arc, Mutex};
 
 #[derive(Default)]
@@ -35,18 +36,7 @@ fn get_env() -> Result<DidEndpointEnv, PluginError> {
         server_public_domain,
     })
 }
-pub fn get_master_key<'a>() -> Result<String, PluginError> {
-    let master_key = std::env::var("MASTER_KEY").expect("Secrets Mastet_KEY env variable required");
 
-    // validate master key
-    if master_key.len() != 32 {
-        Err(PluginError::InitError(
-            "MASTER_KEY must be of length 32".to_owned(),
-        ))
-    } else {
-        Ok(master_key)
-    }
-}
 
 impl Plugin for DidEndpoint {
     fn name(&self) -> &'static str {
@@ -56,7 +46,6 @@ impl Plugin for DidEndpoint {
     fn mount(&mut self) -> Result<(), PluginError> {
         let env = get_env()?;
         let master_key = get_master_key()?;
-        let master_key = master_key.as_bytes().try_into().unwrap();
 
         let mut filesystem = filesystem::StdFileSystem;
         let keystore = keystore::KeyStore::get();

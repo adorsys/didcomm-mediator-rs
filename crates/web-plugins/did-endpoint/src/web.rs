@@ -1,5 +1,5 @@
 use crate::{
-    plugin::{get_master_key, DidEndPointState},
+    plugin::DidEndPointState,
     util,
 };
 use axum::{
@@ -19,6 +19,7 @@ use keystore::Secrets;
 use mongodb::bson::doc;
 use multibase::Base;
 use serde_json::{json, Value};
+use shared::utils::get_master_key;
 use std::{collections::HashMap, path::Path, sync::Arc};
 use tokio::{runtime::Handle, task};
 
@@ -104,7 +105,7 @@ async fn didpop(
 
         let kid = util::handle_vm_id(&method.id, &diddoc);
 
-        let master_key = get_master_key().unwrap().as_bytes().try_into().unwrap();
+        let master_key = get_master_key().unwrap();
 
         let jwk = match pubkey {
             KeyFormat::Jwk(_) => {
