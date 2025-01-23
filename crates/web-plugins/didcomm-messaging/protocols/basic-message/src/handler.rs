@@ -26,10 +26,11 @@ mod tests {
         repository::tests::{MockConnectionRepository, MockMessagesRepository},
         state::AppStateRepository,
     };
-    use std::sync::Arc;
+    use std::{env, sync::Arc};
 
     #[test]
     fn test_handle_basic_message() {
+        env::set_var("MASTER_KEY", "0123456789QWERTYUIOPASDFGHJKLZXC");
         let diddoc: Document = serde_json::from_str(
                 r##"{
                     "@context": [
