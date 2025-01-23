@@ -11,9 +11,10 @@ pub mod tests {
         UnpackOptions,
     };
     use keystore::{tests::MockKeyStore, Secrets};
-    use std::sync::Arc;
+    use std::{env, sync::Arc};
 
     pub fn setup() -> Arc<AppState> {
+        env::set_var("MASTER_KEY", "1234567890qwertyuiopasdfghjklxzc");
         let public_domain = String::from("http://alice-mediator.com");
 
         let diddoc: Document = serde_json::from_str(
