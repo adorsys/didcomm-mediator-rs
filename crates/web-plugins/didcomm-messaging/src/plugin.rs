@@ -53,7 +53,6 @@ impl Plugin for DidcommMessaging {
     fn mount(&mut self) -> Result<(), PluginError> {
         let env = load_plugin_env()?;
         let master_key = get_master_key()?;
-     
 
         let mut filesystem = filesystem::StdFileSystem;
         let keystore = keystore::KeyStore::get();

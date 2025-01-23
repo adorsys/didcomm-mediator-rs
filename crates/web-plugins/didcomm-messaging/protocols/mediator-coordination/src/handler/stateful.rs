@@ -22,7 +22,8 @@ use serde_json::json;
 use shared::{
     midlw::ensure_transport_return_route_is_decorated_all,
     repository::entity::Connection,
-    state::{AppState, AppStateRepository}, utils::get_master_key,
+    state::{AppState, AppStateRepository},
+    utils::get_master_key,
 };
 use std::sync::Arc;
 use uuid::Uuid;

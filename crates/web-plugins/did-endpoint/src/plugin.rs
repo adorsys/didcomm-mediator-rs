@@ -37,7 +37,6 @@ fn get_env() -> Result<DidEndpointEnv, PluginError> {
     })
 }
 
-
 impl Plugin for DidEndpoint {
     fn name(&self) -> &'static str {
         "did_endpoint"

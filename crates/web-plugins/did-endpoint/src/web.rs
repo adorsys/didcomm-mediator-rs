@@ -1,7 +1,4 @@
-use crate::{
-    plugin::DidEndPointState,
-    util,
-};
+use crate::{plugin::DidEndPointState, util};
 use axum::{
     extract::{Query, State},
     response::Json,
