@@ -11,7 +11,7 @@ pub mod tests {
         UnpackOptions,
     };
     use keystore::{tests::MockKeyStore, Secrets};
-    use std::sync::Arc;
+    use std::{collections::HashMap, sync::Arc};
 
     pub fn setup() -> Arc<AppState> {
         let public_domain = String::from("http://alice-mediator.com");
@@ -93,7 +93,16 @@ pub mod tests {
             keystore: Arc::new(MockKeyStore::new(vec![mediator_secret])),
         };
 
-        Arc::new(AppState::from(public_domain, diddoc, None, Some(repository)).unwrap())
+        Arc::new(
+            AppState::from(
+                public_domain,
+                diddoc,
+                None,
+                Some(repository),
+                HashMap::new(),
+            )
+            .unwrap(),
+        )
     }
 
     pub fn _mediator_did(state: &AppState) -> String {

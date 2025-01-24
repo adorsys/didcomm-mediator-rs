@@ -16,6 +16,8 @@ serde_json.workspace = true
 async-trait.workspace = true
 mongodb.workspace = true
 eyre.workspace = true
+futures-core.workspace = true
+pin-project-lite.workspace = true
 tokio = { workspace = true, features = ["full"] }
 didcomm = { workspace = true, features = ["uniffi"] }
 

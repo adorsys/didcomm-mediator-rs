@@ -10,13 +10,15 @@ database.workspace = true
 message-api.workspace = true
 
 mongodb.workspace = true
+tracing.workspace = true
 async-trait.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
+futures.workspace = true
 didcomm = { workspace = true, features = ["uniffi"] }
 hyper = { workspace = true, features = ["full"] }
 axum = { workspace = true, features = ["macros"] }
-tokio = "1.27.0"
+tokio = { workspace = true, features = ["full"] }
 
 [dev-dependencies]
 keystore = { workspace = true, features = ["test-utils"] }

@@ -1,9 +1,12 @@
 use crate::{
-    constants::{KEYLIST_2_0, KEYLIST_UPDATE_RESPONSE_2_0, MEDIATE_DENY_2_0, MEDIATE_GRANT_2_0},
+    constants::{
+        KEYLIST_2_0, KEYLIST_QUERY_2_0, KEYLIST_UPDATE_2_0, KEYLIST_UPDATE_RESPONSE_2_0,
+        MEDIATE_DENY_2_0, MEDIATE_GRANT_2_0, MEDIATE_REQUEST_2_0,
+    },
     errors::MediationError,
     handler::midlw::ensure_jwm_type_is_mediation_request,
     model::stateful::coord::{
-        Keylist, KeylistBody, KeylistEntry, KeylistUpdateAction, KeylistUpdateBody,
+        KeylistBody, KeylistEntry, KeylistUpdateAction, KeylistUpdateBody,
         KeylistUpdateConfirmation, KeylistUpdateResponseBody, KeylistUpdateResult, MediationDeny,
         MediationGrant, MediationGrantBody,
     },
@@ -14,197 +17,222 @@ use did_utils::{
     jwk::Jwk,
     methods::{DidPeer, Purpose, PurposedKey},
 };
-use didcomm::{did::DIDResolver, Message};
+use didcomm::{
+    did::{DIDDoc, DIDResolver},
+    Message,
+};
 use keystore::Secrets;
 use mongodb::bson::doc;
 use serde_json::json;
 use shared::{
-    circuit_breaker::CircuitBreaker,
+    breaker::Error as BreakerError,
     midlw::ensure_transport_return_route_is_decorated_all,
     repository::entity::Connection,
-    retry::{retry_async, RetryOptions},
     state::{AppState, AppStateRepository},
 };
-use std::{sync::Arc, time::Duration};
-use tokio::sync::Mutex;
+use std::sync::Arc;
 use uuid::Uuid;
 
 /// Process a DIDComm mediate request
 pub(crate) async fn process_mediate_request(
     state: Arc<AppState>,
     plain_message: Message,
-    circuit_breaker: Arc<Mutex<CircuitBreaker>>,
 ) -> Result<Option<Message>, MediationError> {
-    // This is to Check message type compliance
-    ensure_jwm_type_is_mediation_request(&plain_message)?;
+    // Check if the circuit breaker is open
+    state
+        .circuit_breaker
+        .get(MEDIATE_REQUEST_2_0)
+        .filter(|cb| !cb.should_allow_call())
+        .map_or(Ok(()), |_| Err(MediationError::ServiceUnavailable))?;
 
-    // This is to Check explicit agreement to HTTP responding
+    // Validate message type and return route
+    ensure_jwm_type_is_mediation_request(&plain_message)?;
     ensure_transport_return_route_is_decorated_all(&plain_message)
         .map_err(|_| MediationError::NoReturnRouteAllDecoration)?;
 
     let mediator_did = &state.diddoc.id;
-
     let sender_did = plain_message.from.as_ref().unwrap();
 
-    // Acquire the CircuitBreaker lock
-    let mut cb = circuit_breaker.lock().await;
+    let repository = state
+        .repository
+        .as_ref()
+        .ok_or(MediationError::InternalServerError)?;
 
-    // Wrap the process logic in the CircuitBreaker call
-    let result = cb
-        .call_async(|| {
-            let state = state.clone();
-            let sender_did = sender_did.clone();
-            let mediator_did = mediator_did.clone();
+    // Check existing mediation
+    let existing_connection = match state.circuit_breaker.get(MEDIATE_REQUEST_2_0) {
+        Some(cb) => cb
+            .call(
+                repository
+                    .connection_repository
+                    .find_one_by(doc! { "client_did": sender_did}),
+            )
+            .await
+            .map_err(|err| match err {
+                BreakerError::CircuitOpen => MediationError::ServiceUnavailable,
+                _ => MediationError::InternalServerError,
+            })?,
+        None => repository
+            .connection_repository
+            .find_one_by(doc! { "client_did": sender_did})
+            .await
+            .map_err(|_| MediationError::InternalServerError)?,
+    };
 
-            async move {
-                // Retrieve repository to connection entities
-                // Retrieve repository to connection entities
-
-                // Retrieve repository to connection entities
-
-                let AppStateRepository {
-                    connection_repository,
-                    ..
-                } = state
-                    .repository
-                    .as_ref()
-                    .ok_or(MediationError::InternalServerError)?;
-
-                // If there is already mediation, send mediate deny
-                if let Some(_connection) = retry_async(
-                    || {
-                        let sender_did = sender_did.clone();
-                        let connection_repository = connection_repository.clone();
-                        async move {
-                            connection_repository
-                                .find_one_by(doc! { "client_did": sender_did })
-                                .await
-                        }
-                    },
-                    RetryOptions::new()
-                        .retries(5)
-                        .exponential_backoff(Duration::from_millis(100))
-                        .max_delay(Duration::from_secs(1)),
-                )
-                .await
-                .map_err(|_| MediationError::InternalServerError)?
-                {
-                    tracing::info!("Sending mediate deny.");
-                    return Ok(Some(
-                        Message::build(
-                            format!("urn:uuid:{}", Uuid::new_v4()),
-                            MEDIATE_DENY_2_0.to_string(),
-                            json!(MediationDeny {
-                                id: format!("urn:uuid:{}", Uuid::new_v4()),
-                                message_type: MEDIATE_DENY_2_0.to_string(),
-                                ..Default::default()
-                            }),
-                        )
-                        .to(sender_did.clone())
-                        .from(mediator_did.clone())
-                        .finalize(),
-                    ));
-                } else {
-                    // Issue mediate grant response
-                    tracing::info!("Sending mediate grant.");
-                    // Create routing, store it and send mediation grant
-                    let (routing_did, auth_keys, agreem_keys) =
-                        generate_did_peer(state.public_domain.to_string());
-
-                    let AppStateRepository { keystore, .. } = state
-                        .repository
-                        .as_ref()
-                        .ok_or(MediationError::InternalServerError)?;
-
-                    let diddoc = retry_async(
-                        || {
-                            let did_resolver = state.did_resolver.clone();
-                            let routing_did = routing_did.clone();
-
-                            async move { did_resolver.resolve(&routing_did).await.map_err(|_| ()) }
-                        },
-                        RetryOptions::new()
-                            .retries(5)
-                            .exponential_backoff(Duration::from_millis(100))
-                            .max_delay(Duration::from_secs(2)),
-                    )
-                    .await
-                    .map_err(|err| {
-                        tracing::error!("Failed to resolve DID: {:?}", err);
-                        MediationError::InternalServerError
-                    })?
-                    .ok_or(MediationError::InternalServerError)?;
-
-                    let agreem_keys_jwk: Jwk = agreem_keys.try_into().unwrap();
-
-                    let agreem_keys_secret = Secrets {
-                        id: None,
-                        kid: diddoc.key_agreement.get(0).unwrap().clone(),
-                        secret_material: agreem_keys_jwk,
-                    };
-
-                    match keystore.store(agreem_keys_secret).await {
-                        Ok(_stored_connection) => {
-                            tracing::info!("Successfully stored agreement keys.")
-                        }
-                        Err(error) => tracing::error!("Error storing agreement keys: {:?}", error),
-                    }
-
-                    let auth_keys_jwk: Jwk = auth_keys.try_into().unwrap();
-
-                    let auth_keys_secret = Secrets {
-                        id: None,
-                        kid: diddoc.authentication.get(0).unwrap().clone(),
-                        secret_material: auth_keys_jwk,
-                    };
-
-                    match keystore.store(auth_keys_secret).await {
-                        Ok(_stored_connection) => {
-                            tracing::info!("Successfully stored authentication keys.")
-                        }
-                        Err(error) => {
-                            tracing::error!("Error storing authentication keys: {:?}", error)
-                        }
-                    }
-
-                    let mediation_grant = create_mediation_grant(&routing_did);
-
-                    let new_connection = Connection {
-                        id: None,
-                        client_did: sender_did.to_string(),
-                        mediator_did: mediator_did.to_string(),
-                        keylist: vec!["".to_string()],
-                        routing_did: routing_did,
-                    };
-
-                    // Use store_one to store the sample connection
-                    match connection_repository.store(new_connection).await {
-                        Ok(_stored_connection) => {
-                            tracing::info!("Successfully stored connection: ")
-                        }
-                        Err(error) => tracing::error!("Error storing connection: {:?}", error),
-                    }
-
-                    Ok(Some(
-                        Message::build(
-                            format!("urn:uuid:{}", Uuid::new_v4()),
-                            mediation_grant.message_type.clone(),
-                            json!(mediation_grant),
-                        )
-                        .to(sender_did.clone())
-                        .from(mediator_did.clone())
-                        .finalize(),
-                    ))
-                }
-            }
-        })
-        .await;
-
-    match result {
-        Some(Ok(response)) => Ok(response),
-        Some(Err(err)) => Err(err),
-        None => Err(MediationError::CircuitOpen),
+    if existing_connection.is_some() {
+        tracing::info!("Sending mediate deny.");
+        return Ok(Some(
+            Message::build(
+                format!("urn:uuid:{}", Uuid::new_v4()),
+                MEDIATE_DENY_2_0.to_string(),
+                json!(MediationDeny {
+                    id: format!("urn:uuid:{}", Uuid::new_v4()),
+                    message_type: MEDIATE_DENY_2_0.to_string(),
+                }),
+            )
+            .to(sender_did.clone())
+            .from(mediator_did.clone())
+            .finalize(),
+        ));
     }
+
+    // Process mediation grant
+    process_mediation_grant(&state, mediator_did, sender_did).await
+}
+
+async fn process_mediation_grant(
+    state: &Arc<AppState>,
+    mediator_did: &str,
+    sender_did: &str,
+) -> Result<Option<Message>, MediationError> {
+    tracing::info!("Sending mediate grant.");
+    let (routing_did, auth_keys, agreem_keys) = generate_did_peer(state.public_domain.to_string());
+
+    let repository = state
+        .repository
+        .as_ref()
+        .ok_or(MediationError::InternalServerError)?;
+
+    let diddoc = state
+        .did_resolver
+        .resolve(&routing_did)
+        .await
+        .map_err(|err| {
+            tracing::error!("Failed to resolve DID: {:?}", err);
+            MediationError::InternalServerError
+        })?
+        .ok_or(MediationError::InternalServerError)?;
+
+    // Store keys
+    store_keys(state, repository, &diddoc, auth_keys, agreem_keys).await?;
+
+    let mediation_grant = create_mediation_grant(&routing_did);
+
+    let new_connection = Connection {
+        id: None,
+        client_did: sender_did.to_string(),
+        mediator_did: mediator_did.to_string(),
+        keylist: vec![],
+        routing_did,
+    };
+
+    // Store connection
+    match state.circuit_breaker.get(MEDIATE_REQUEST_2_0) {
+        Some(cb) => cb
+            .call(repository.connection_repository.store(new_connection))
+            .await
+            .map_err(|err| match err {
+                BreakerError::CircuitOpen => MediationError::ServiceUnavailable,
+                BreakerError::Inner(err) => {
+                    tracing::error!("Failed to store connection: {err:?}");
+                    MediationError::InternalServerError
+                }
+            })?,
+        None => repository
+            .connection_repository
+            .store(new_connection)
+            .await
+            .map_err(|err| {
+                tracing::error!("Failed to store connection: {err:?}");
+                MediationError::InternalServerError
+            })?,
+    };
+
+    Ok(Some(
+        Message::build(
+            format!("urn:uuid:{}", Uuid::new_v4()),
+            mediation_grant.message_type.clone(),
+            json!(mediation_grant),
+        )
+        .to(sender_did.to_owned())
+        .from(mediator_did.to_owned())
+        .finalize(),
+    ))
+}
+
+async fn store_keys(
+    state: &Arc<AppState>,
+    repository: &AppStateRepository,
+    diddoc: &DIDDoc,
+    auth_keys: Ed25519KeyPair,
+    agreem_keys: X25519KeyPair,
+) -> Result<(), MediationError> {
+    let agreem_keys_jwk: Jwk = agreem_keys.try_into().unwrap();
+    let agreem_keys_secret = Secrets {
+        id: None,
+        kid: diddoc.key_agreement.first().unwrap().clone(),
+        secret_material: agreem_keys_jwk,
+    };
+
+    match state.circuit_breaker.get(MEDIATE_REQUEST_2_0) {
+        Some(cb) => cb
+            .call(repository.keystore.store(agreem_keys_secret))
+            .await
+            .map_err(|err| match err {
+                BreakerError::CircuitOpen => MediationError::ServiceUnavailable,
+                BreakerError::Inner(err) => {
+                    tracing::error!("Failed to store agreem keys: {err:?}");
+                    MediationError::InternalServerError
+                }
+            })?,
+        None => repository
+            .keystore
+            .store(agreem_keys_secret)
+            .await
+            .map_err(|err| {
+                tracing::error!("Failed to store agreem keys: {err:?}");
+                MediationError::InternalServerError
+            })?,
+    };
+
+    let auth_keys_jwk: Jwk = auth_keys.try_into().unwrap();
+    let auth_keys_secret = Secrets {
+        id: None,
+        kid: diddoc.authentication.first().unwrap().clone(),
+        secret_material: auth_keys_jwk,
+    };
+
+    match state.circuit_breaker.get(MEDIATE_REQUEST_2_0) {
+        Some(cb) => cb
+            .call(repository.keystore.store(auth_keys_secret))
+            .await
+            .map_err(|err| match err {
+                BreakerError::CircuitOpen => MediationError::ServiceUnavailable,
+                BreakerError::Inner(err) => {
+                    tracing::error!("Failed to store auth keys: {err:?}");
+                    MediationError::InternalServerError
+                }
+            })?,
+        None => repository
+            .keystore
+            .store(auth_keys_secret)
+            .await
+            .map_err(|err| {
+                tracing::error!("Failed to store auth keys: {err:?}");
+                MediationError::InternalServerError
+            })?,
+    };
+
+    Ok(())
 }
 
 fn create_mediation_grant(routing_did: &str) -> MediationGrant {
@@ -255,260 +283,237 @@ fn generate_did_peer(service_endpoint: String) -> (String, Ed25519KeyPair, X2551
 pub(crate) async fn process_plain_keylist_update_message(
     state: Arc<AppState>,
     message: Message,
-    circuit_breaker: Arc<Mutex<CircuitBreaker>>,
 ) -> Result<Option<Message>, MediationError> {
-    // Extract message sender
+    // Circuit breaker check
+    state
+        .circuit_breaker
+        .get(KEYLIST_UPDATE_2_0)
+        .filter(|cb| !cb.should_allow_call())
+        .map_or(Ok(()), |_| Err(MediationError::ServiceUnavailable))?;
 
     let sender = message
         .from
         .expect("unpacking middleware failed to prevent anonymous senders");
 
-    // Parse message body into keylist update
-
     let keylist_update_body: KeylistUpdateBody = serde_json::from_value(message.body)
         .map_err(|_| MediationError::UnexpectedMessageFormat)?;
 
-    let mut cb = circuit_breaker.lock().await;
+    let repository = state
+        .repository
+        .as_ref()
+        .ok_or(MediationError::InternalServerError)?;
 
-    let result = cb
-        .call_async(|| {
-            let state = state.clone();
-            let sender = sender.clone();
-            let keylist_update_body = keylist_update_body.clone();
-
-            async move {
-                let AppStateRepository {
-                    connection_repository,
-                    ..
-                } = state
-                    .repository
-                    .as_ref()
-                    .ok_or(MediationError::InternalServerError)?;
-
-                // Find connection for this keylist update
-
-                let connection = retry_async(
-                    || {
-                        let connection_repository = connection_repository.clone();
-                        let sender = sender.clone();
-
-                        async move {
-                            connection_repository
-                                .find_one_by(doc! { "client_did": &sender })
-                                .await
-                                .map_err(|_| ())
-                        }
-                    },
-                    RetryOptions::new()
-                        .retries(5)
-                        .exponential_backoff(Duration::from_millis(100))
-                        .max_delay(Duration::from_secs(2)),
-                )
-                .await
-                .map_err(|err| {
-                    tracing::error!("Failed to find connection after retries: {:?}", err);
+    // Find connection
+    let connection = match state.circuit_breaker.get(KEYLIST_UPDATE_2_0) {
+        Some(cb) => cb
+            .call(
+                repository
+                    .connection_repository
+                    .find_one_by(doc! { "client_did": &sender }),
+            )
+            .await
+            .map_err(|err| match err {
+                BreakerError::CircuitOpen => MediationError::ServiceUnavailable,
+                BreakerError::Inner(err) => {
+                    tracing::error!("Failed to find connection: {err:?}");
                     MediationError::InternalServerError
-                })?
-                .ok_or_else(|| MediationError::UncoordinatedSender)?;
-
-                // Prepare handles to relevant collections
-
-                let mut updated_keylist = connection.keylist.clone();
-                let updates = keylist_update_body.updates;
-
-                // Closure to check if a specific key is duplicated across commands
-
-                let key_is_duplicate = |recipient_did| {
-                    updates
-                        .iter()
-                        .filter(|e| &e.recipient_did == recipient_did)
-                        .count()
-                        > 1
-                };
-
-                // Process keylist updates
-                let confirmations: Vec<_> = updates
-                    .iter()
-                    .map(|update| KeylistUpdateConfirmation {
-                        recipient_did: update.recipient_did.clone(),
-                        action: update.action.clone(),
-                        result: {
-                            if let KeylistUpdateAction::Unknown(_) = &update.action {
-                                KeylistUpdateResult::ClientError
-                            } else if key_is_duplicate(&update.recipient_did) {
-                                KeylistUpdateResult::ClientError
-                            } else {
-                                match connection
-                                    .keylist
-                                    .iter()
-                                    .position(|x| x == &update.recipient_did)
-                                {
-                                    Some(index) => match &update.action {
-                                        KeylistUpdateAction::Add => KeylistUpdateResult::NoChange,
-                                        KeylistUpdateAction::Remove => {
-                                            updated_keylist.swap_remove(index);
-                                            KeylistUpdateResult::Success
-                                        }
-                                        KeylistUpdateAction::Unknown(_) => unreachable!(),
-                                    },
-                                    None => match &update.action {
-                                        KeylistUpdateAction::Add => {
-                                            updated_keylist.push(update.recipient_did.clone());
-                                            KeylistUpdateResult::Success
-                                        }
-                                        KeylistUpdateAction::Remove => {
-                                            KeylistUpdateResult::NoChange
-                                        }
-                                        KeylistUpdateAction::Unknown(_) => unreachable!(),
-                                    },
-                                }
-                            }
-                        },
-                    })
-                    .collect();
-
-                let confirmations = match connection_repository
-                    .update(Connection {
-                        keylist: updated_keylist,
-                        ..connection
-                    })
-                    .await
-                {
-                    Ok(_) => confirmations,
-                    Err(_) => confirmations
-                        .into_iter()
-                        .map(|mut confirmation| {
-                            if confirmation.result != KeylistUpdateResult::ClientError {
-                                confirmation.result = KeylistUpdateResult::ServerError
-                            }
-
-                            confirmation
-                        })
-                        .collect(),
-                };
-
-                // Build response
-
-                let mediator_did = &state.diddoc.id;
-
-                Ok(Some(
-                    Message::build(
-                        format!("urn:uuid:{}", Uuid::new_v4()),
-                        KEYLIST_UPDATE_RESPONSE_2_0.to_string(),
-                        json!(KeylistUpdateResponseBody {
-                            updated: confirmations
-                        }),
-                    )
-                    .to(sender)
-                    .from(mediator_did.to_owned())
-                    .finalize(),
-                ))
-            }
-        })
-        .await;
-
-    match result {
-        Some(Ok(response)) => Ok(response),
-        Some(Err(err)) => Err(err),
-        None => Err(MediationError::CircuitOpen),
+                }
+            })?,
+        None => repository
+            .connection_repository
+            .find_one_by(doc! { "client_did": &sender })
+            .await
+            .map_err(|err| {
+                tracing::error!("Failed to find connection: {err:?}");
+                MediationError::InternalServerError
+            })?,
     }
+    .ok_or(MediationError::UncoordinatedSender)?;
+
+    let mut updated_keylist = connection.keylist.clone();
+    let updates = keylist_update_body.updates;
+
+    let key_is_duplicate = |recipient_did| {
+        updates
+            .iter()
+            .filter(|e| &e.recipient_did == recipient_did)
+            .count()
+            > 1
+    };
+
+    let confirmations: Vec<_> = updates
+        .iter()
+        .map(|update| KeylistUpdateConfirmation {
+            recipient_did: update.recipient_did.clone(),
+            action: update.action.clone(),
+            result: {
+                if let KeylistUpdateAction::Unknown(_) = &update.action {
+                    KeylistUpdateResult::ClientError
+                } else if key_is_duplicate(&update.recipient_did) {
+                    KeylistUpdateResult::ClientError
+                } else {
+                    match connection
+                        .keylist
+                        .iter()
+                        .position(|x| x == &update.recipient_did)
+                    {
+                        Some(index) => match &update.action {
+                            KeylistUpdateAction::Add => KeylistUpdateResult::NoChange,
+                            KeylistUpdateAction::Remove => {
+                                updated_keylist.swap_remove(index);
+                                KeylistUpdateResult::Success
+                            }
+                            KeylistUpdateAction::Unknown(_) => unreachable!(),
+                        },
+                        None => match &update.action {
+                            KeylistUpdateAction::Add => {
+                                updated_keylist.push(update.recipient_did.clone());
+                                KeylistUpdateResult::Success
+                            }
+                            KeylistUpdateAction::Remove => KeylistUpdateResult::NoChange,
+                            KeylistUpdateAction::Unknown(_) => unreachable!(),
+                        },
+                    }
+                }
+            },
+        })
+        .collect();
+
+    // Update connection
+    let confirmations = match state.circuit_breaker.get(KEYLIST_UPDATE_2_0) {
+        Some(cb) => cb
+            .call(repository.connection_repository.update(Connection {
+                keylist: updated_keylist,
+                ..connection
+            }))
+            .await
+            .map_err(|err| match err {
+                BreakerError::CircuitOpen => MediationError::ServiceUnavailable,
+                BreakerError::Inner(err) => {
+                    tracing::error!("Failed to update connection: {err:?}");
+                    MediationError::InternalServerError
+                }
+            }),
+        None => repository
+            .connection_repository
+            .update(Connection {
+                keylist: updated_keylist,
+                ..connection
+            })
+            .await
+            .map_err(|err| {
+                tracing::error!("Failed to update connection: {err:?}");
+                MediationError::InternalServerError
+            }),
+    }
+    .map_or_else(
+        |_| {
+            confirmations
+                .iter()
+                .map(|confirmation| {
+                    if confirmation.result != KeylistUpdateResult::ClientError {
+                        KeylistUpdateConfirmation {
+                            recipient_did: confirmation.recipient_did.clone(),
+                            action: confirmation.action.clone(),
+                            result: KeylistUpdateResult::ServerError,
+                        }
+                    } else {
+                        confirmation.clone()
+                    }
+                })
+                .collect()
+        },
+        |_| confirmations.clone(),
+    );
+
+    let mediator_did = &state.diddoc.id;
+
+    Ok(Some(
+        Message::build(
+            format!("urn:uuid:{}", Uuid::new_v4()),
+            KEYLIST_UPDATE_RESPONSE_2_0.to_string(),
+            json!(KeylistUpdateResponseBody {
+                updated: confirmations
+            }),
+        )
+        .to(sender)
+        .from(mediator_did.to_owned())
+        .finalize(),
+    ))
 }
 
 pub(crate) async fn process_plain_keylist_query_message(
     state: Arc<AppState>,
     message: Message,
-    circuit_breaker: Arc<Mutex<CircuitBreaker>>,
 ) -> Result<Option<Message>, MediationError> {
-    println!("Processing keylist query...");
+    // Circuit breaker check
+    state
+        .circuit_breaker
+        .get(KEYLIST_QUERY_2_0)
+        .filter(|cb| !cb.should_allow_call())
+        .map_or(Ok(()), |_| Err(MediationError::ServiceUnavailable))?;
+
     let sender = message
         .from
         .expect("unpacking middleware failed to prevent anonymous senders");
 
-    let mut cb = circuit_breaker.lock().await;
+    let repository = state
+        .repository
+        .as_ref()
+        .ok_or(MediationError::InternalServerError)?;
 
-    let result = cb
-        .call_async(|| {
-            let state = state.clone();
-            let sender = sender.clone();
-
-            async move {
-                let AppStateRepository {
-                    connection_repository,
-                    ..
-                } = state
-                    .repository
-                    .as_ref()
-                    .ok_or(MediationError::InternalServerError)?;
-
-                let connection = retry_async(
-                    || {
-                        let connection_repository = connection_repository.clone();
-                        let sender = sender.clone();
-
-                        async move {
-                            connection_repository
-                                .find_one_by(doc! { "client_did": &sender })
-                                .await
-                                .map_err(|_| ())
-                        }
-                    },
-                    RetryOptions::new()
-                        .retries(5)
-                        .exponential_backoff(Duration::from_millis(100))
-                        .max_delay(Duration::from_secs(2)),
-                )
-                .await
-                .map_err(|err| {
-                    tracing::error!("Failed to find connection after retries: {:?}", err);
+    // Find connection
+    let connection = match state.circuit_breaker.get(KEYLIST_QUERY_2_0) {
+        Some(cb) => cb
+            .call(
+                repository
+                    .connection_repository
+                    .find_one_by(doc! { "client_did": &sender }),
+            )
+            .await
+            .map_err(|err| match err {
+                BreakerError::CircuitOpen => MediationError::ServiceUnavailable,
+                BreakerError::Inner(err) => {
+                    tracing::error!("Failed to find connection: {err:?}");
                     MediationError::InternalServerError
-                })?
-                .ok_or_else(|| MediationError::UncoordinatedSender)?;
-
-                println!("keylist: {:?}", connection);
-
-                let keylist_entries = connection
-                    .keylist
-                    .iter()
-                    .map(|key| KeylistEntry {
-                        recipient_did: key.clone(),
-                    })
-                    .collect::<Vec<KeylistEntry>>();
-
-                let body = KeylistBody {
-                    keys: keylist_entries,
-                    pagination: None,
-                };
-
-                let keylist_object = Keylist {
-                    id: format!("urn:uuid:{}", Uuid::new_v4()),
-                    message_type: KEYLIST_2_0.to_string(),
-                    body: body,
-                    additional_properties: None,
-                };
-
-                let mediator_did = &state.diddoc.id;
-
-                let message = Message::build(
-                    format!("urn:uuid:{}", Uuid::new_v4()),
-                    KEYLIST_2_0.to_string(),
-                    json!(keylist_object),
-                )
-                .to(sender.clone())
-                .from(mediator_did.clone())
-                .finalize();
-
-                println!("message: {:?}", message);
-
-                Ok(Some(message))
-            }
-        })
-        .await;
-
-    match result {
-        Some(Ok(response)) => Ok(response),
-        Some(Err(err)) => Err(err),
-        None => Err(MediationError::CircuitOpen),
+                }
+            })?,
+        None => repository
+            .connection_repository
+            .find_one_by(doc! { "client_did": &sender })
+            .await
+            .map_err(|err| {
+                tracing::error!("Failed to find connection: {err:?}");
+                MediationError::InternalServerError
+            })?,
     }
+    .ok_or(MediationError::UncoordinatedSender)?;
+
+    let keylist_entries = connection
+        .keylist
+        .iter()
+        .map(|key| KeylistEntry {
+            recipient_did: key.clone(),
+        })
+        .collect::<Vec<KeylistEntry>>();
+
+    let body = KeylistBody {
+        keys: keylist_entries,
+        pagination: None,
+    };
+
+    let mediator_did = &state.diddoc.id;
+
+    let message = Message::build(
+        format!("urn:uuid:{}", Uuid::new_v4()),
+        KEYLIST_2_0.to_string(),
+        json!(body),
+    )
+    .to(sender)
+    .from(mediator_did.clone())
+    .finalize();
+
+    Ok(Some(message))
 }
 
 #[cfg(test)]
@@ -516,8 +521,7 @@ mod tests {
     use super::*;
 
     use shared::{
-        circuit_breaker, repository::tests::MockConnectionRepository,
-        utils::tests_utils::tests as global,
+        repository::tests::MockConnectionRepository, utils::tests_utils::tests as global,
     };
 
     #[allow(clippy::needless_update)]
@@ -551,17 +555,11 @@ mod tests {
         .from(global::_edge_did())
         .finalize();
 
-        let circuit_breaker = circuit_breaker::CircuitBreaker::new(3, Duration::from_secs(3));
-
         // Process request
-        let response = process_plain_keylist_query_message(
-            Arc::clone(&state),
-            message,
-            Arc::new(circuit_breaker.into()),
-        )
-        .await
-        .unwrap()
-        .expect("Response should not be None");
+        let response = process_plain_keylist_query_message(Arc::clone(&state), message)
+            .await
+            .unwrap()
+            .expect("Response should not be None");
 
         assert_eq!(response.type_, KEYLIST_2_0);
         assert_eq!(response.from.unwrap(), global::_mediator_did(&state));
@@ -581,16 +579,10 @@ mod tests {
         .from("did:example:uncoordinated_sender".to_string())
         .finalize();
 
-        let circuit_breaker = circuit_breaker::CircuitBreaker::new(3, Duration::from_secs(3));
-
         // Process request
-        let err = process_plain_keylist_query_message(
-            Arc::clone(&state),
-            message,
-            Arc::new(circuit_breaker.into()),
-        )
-        .await
-        .unwrap_err();
+        let err = process_plain_keylist_query_message(Arc::clone(&state), message)
+            .await
+            .unwrap_err();
         // Assert issued error for uncoordinated sender
         assert_eq!(err, MediationError::UncoordinatedSender,);
     }
@@ -623,16 +615,10 @@ mod tests {
 
         // Process request
 
-        let circuit_breaker = circuit_breaker::CircuitBreaker::new(3, Duration::from_secs(3));
-
-        let response = process_plain_keylist_update_message(
-            Arc::clone(&state),
-            message,
-            Arc::new(circuit_breaker.into()),
-        )
-        .await
-        .unwrap()
-        .expect("Response should not be None");
+        let response = process_plain_keylist_update_message(Arc::clone(&state), message)
+            .await
+            .unwrap()
+            .expect("Response should not be None");
         let response = response;
 
         // Assert metadata
@@ -728,16 +714,10 @@ mod tests {
 
         // Process request
 
-        let circuit_breaker = circuit_breaker::CircuitBreaker::new(3, Duration::from_secs(3));
-
-        let response = process_plain_keylist_update_message(
-            Arc::clone(&state),
-            message,
-            Arc::new(circuit_breaker.into()),
-        )
-        .await
-        .unwrap()
-        .expect("Response should not be None");
+        let response = process_plain_keylist_update_message(Arc::clone(&state), message)
+            .await
+            .unwrap()
+            .expect("Response should not be None");
         // Assert updates
 
         assert_eq!(
@@ -797,16 +777,11 @@ mod tests {
         .finalize();
 
         // Process request
-        let circuit_breaker = circuit_breaker::CircuitBreaker::new(3, Duration::from_secs(3));
 
-        let response = process_plain_keylist_update_message(
-            Arc::clone(&state),
-            message,
-            Arc::new(circuit_breaker.into()),
-        )
-        .await
-        .unwrap()
-        .expect("Response should not be None");
+        let response = process_plain_keylist_update_message(Arc::clone(&state), message)
+            .await
+            .unwrap()
+            .expect("Response should not be None");
         // Assert updates
 
         assert_eq!(
@@ -862,16 +837,11 @@ mod tests {
         .finalize();
 
         // Process request
-        let circuit_breaker = circuit_breaker::CircuitBreaker::new(3, Duration::from_secs(3));
 
-        let response = process_plain_keylist_update_message(
-            Arc::clone(&state),
-            message,
-            Arc::new(circuit_breaker.into()),
-        )
-        .await
-        .unwrap()
-        .expect("Response should not be None");
+        let response = process_plain_keylist_update_message(Arc::clone(&state), message)
+            .await
+            .unwrap()
+            .expect("Response should not be None");
 
         // Assert updates
 
@@ -905,15 +875,9 @@ mod tests {
         .finalize();
 
         // Process request
-        let circuit_breaker = circuit_breaker::CircuitBreaker::new(3, Duration::from_secs(3));
-
-        let err = process_plain_keylist_update_message(
-            Arc::clone(&state),
-            message,
-            Arc::new(circuit_breaker.into()),
-        )
-        .await
-        .unwrap_err();
+        let err = process_plain_keylist_update_message(Arc::clone(&state), message)
+            .await
+            .unwrap_err();
 
         // Assert issued error
         assert_eq!(err, MediationError::UnexpectedMessageFormat,);
@@ -957,15 +921,9 @@ mod tests {
         .finalize();
 
         // Process request
-        let circuit_breaker = circuit_breaker::CircuitBreaker::new(3, Duration::from_secs(3));
-
-        let err = process_plain_keylist_update_message(
-            Arc::clone(&state),
-            message,
-            Arc::new(circuit_breaker.into()),
-        )
-        .await
-        .unwrap_err();
+        let err = process_plain_keylist_update_message(Arc::clone(&state), message)
+            .await
+            .unwrap_err();
 
         // Assert issued error
         assert_eq!(err, MediationError::UncoordinatedSender,);

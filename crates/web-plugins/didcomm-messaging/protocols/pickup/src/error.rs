@@ -16,7 +16,7 @@ pub(crate) enum PickupError {
     MalformedRequest(String),
 
     #[error("Service unavailable")]
-    CircuitOpen,
+    ServiceUnavailable,
 }
 
 impl IntoResponse for PickupError {
@@ -25,9 +25,9 @@ impl IntoResponse for PickupError {
             PickupError::MissingSenderDID | PickupError::MalformedRequest(_) => {
                 StatusCode::BAD_REQUEST
             }
-            PickupError::CircuitOpen => StatusCode::SERVICE_UNAVAILABLE,
             PickupError::InternalError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             PickupError::MissingClientConnection => StatusCode::UNAUTHORIZED,
+            PickupError::ServiceUnavailable => StatusCode::SERVICE_UNAVAILABLE,
         };
 
         let body = Json(serde_json::json!({

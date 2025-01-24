@@ -1,110 +1,118 @@
-use crate::error::ForwardError;
+use crate::{constants::MEDIATE_FORWARD_2_0, error::ForwardError};
 use database::Repository;
 use didcomm::{AttachmentData, Message};
+use futures::future::try_join_all;
 use mongodb::bson::doc;
 use serde_json::{json, Value};
 use shared::{
-    circuit_breaker::CircuitBreaker,
+    breaker::{CircuitBreaker, Error as BreakerError},
     repository::entity::{Connection, RoutedMessage},
-    retry::{retry_async, RetryOptions},
-    state::{AppState, AppStateRepository},
+    state::AppState,
 };
 use std::sync::Arc;
-use std::time::Duration;
-use tokio::sync::Mutex;
 
 /// Mediator receives forwarded messages, extract the next field in the message body, and the attachments in the message
 /// then stores the attachment with the next field as key for pickup
 pub(crate) async fn mediator_forward_process(
     state: Arc<AppState>,
     message: Message,
-    circuit_breaker: Arc<Mutex<CircuitBreaker>>,
 ) -> Result<Option<Message>, ForwardError> {
-    let mut cb = circuit_breaker.lock().await;
+    // Check if the circuit breaker is open
+    state
+        .circuit_breaker
+        .get(MEDIATE_FORWARD_2_0)
+        .filter(|cb| !cb.should_allow_call())
+        .map_or(Ok(()), |_| Err(ForwardError::ServiceUnavailable))?;
 
-    let result = cb
-        .call_async(|| {
-            let state = Arc::clone(&state);
-            let message = message.clone();
-            async move {
-                let AppStateRepository {
-                    message_repository,
-                    connection_repository,
-                    ..
-                } = state
-                    .repository
-                    .as_ref()
-                    .ok_or_else(|| ForwardError::InternalServerError)?;
+    let repository = state
+        .repository
+        .as_ref()
+        .ok_or(ForwardError::InternalServerError)?;
 
-                let next = match checks(&message, connection_repository).await.ok() {
-                    Some(next) => Ok(next),
-                    None => Err(ForwardError::InternalServerError),
-                }?;
+    let next = checks(
+        &message,
+        &repository.connection_repository,
+        state.circuit_breaker.get(MEDIATE_FORWARD_2_0).cloned(),
+    )
+    .await
+    .map_err(|_| ForwardError::InternalServerError)?;
 
-                let attachments = message.attachments.unwrap_or_default();
-                for attachment in attachments {
-                    let attached = match attachment.data {
-                        AttachmentData::Json { value: data } => data.json,
-                        AttachmentData::Base64 { value: data } => json!(data.base64),
-                        AttachmentData::Links { value: data } => json!(data.links),
-                    };
-                    retry_async(
-                        || {
-                            let attached = attached.clone();
-                            let recipient_did = next.to_owned();
+    let attachments = message.attachments.unwrap_or_default();
+    let store_futures: Vec<_> = attachments
+        .into_iter()
+        .map(|attachment| async {
+            let attached = match attachment.data {
+                AttachmentData::Json { value } => value.json,
+                AttachmentData::Base64 { value } => json!(value.base64),
+                AttachmentData::Links { value } => json!(value.links),
+            };
 
-                            async move {
-                                message_repository
-                                    .store(RoutedMessage {
-                                        id: None,
-                                        message: attached,
-                                        recipient_did,
-                                    })
-                                    .await
-                            }
-                        },
-                        RetryOptions::new()
-                            .retries(5)
-                            .exponential_backoff(Duration::from_millis(100))
-                            .max_delay(Duration::from_secs(1)),
-                    )
+            let routed_message = RoutedMessage {
+                id: None,
+                message: attached,
+                recipient_did: next.clone(),
+            };
+
+            match state.circuit_breaker.get(MEDIATE_FORWARD_2_0) {
+                Some(cb) => cb
+                    .call(repository.message_repository.store(routed_message))
                     .await
-                    .map_err(|_| ForwardError::InternalServerError)?;
-                }
-                Ok::<Option<Message>, ForwardError>(None)
+                    .map_err(|err| match err {
+                        BreakerError::CircuitOpen => ForwardError::ServiceUnavailable,
+                        _ => ForwardError::InternalServerError,
+                    }),
+                None => repository
+                    .message_repository
+                    .store(routed_message)
+                    .await
+                    .map_err(|_| ForwardError::InternalServerError),
             }
         })
-        .await;
+        .collect();
 
-    match result {
-        Some(Ok(None)) => Ok(None),
-        Some(Ok(Some(_))) => Err(ForwardError::InternalServerError),
-        Some(Err(err)) => Err(err),
-        None => Err(ForwardError::CircuitOpen),
-    }
+    try_join_all(store_futures).await?;
+    Ok(None)
 }
 
 async fn checks(
     message: &Message,
     connection_repository: &Arc<dyn Repository<Connection>>,
+    circuit_breaker: Option<Arc<CircuitBreaker>>,
 ) -> Result<String, ForwardError> {
-    let next = message.body.get("next").and_then(Value::as_str);
-    match next {
-        Some(next) => next,
-        None => return Err(ForwardError::MalformedBody),
+    let next = match message.body.get("next") {
+        Some(Value::String(next)) => next.clone(),
+        _ => return Err(ForwardError::MalformedBody),
     };
 
-    // Check if the client's did in mediator's keylist
-    let _connection = match connection_repository
-        .find_one_by(doc! {"keylist": doc!{ "$elemMatch": { "$eq": &next}}})
-        .await
-        .map_err(|_| ForwardError::InternalServerError)?
-    {
-        Some(connection) => connection,
-        None => return Err(ForwardError::UncoordinatedSender),
-    };
+    // Check if the client's did is in mediator's keylist
+    let query = doc! {"keylist": doc!{ "$elemMatch": { "$eq": &next}}};
+    match circuit_breaker {
+        Some(cb) => cb
+            .call(connection_repository.find_one_by(query))
+            .await
+            .map_err(|err| match err {
+                BreakerError::CircuitOpen => ForwardError::ServiceUnavailable,
+                BreakerError::Inner(err) => {
+                    tracing::error!("Failed to find connection: {err:?}");
+                    ForwardError::InternalServerError
+                }
+            })?
+            .is_some()
+            .then_some(())
+            .ok_or(ForwardError::UncoordinatedSender)?,
+        None => connection_repository
+            .find_one_by(query)
+            .await
+            .map_err(|err| {
+                tracing::error!("Failed to find connection: {err:?}");
+                ForwardError::InternalServerError
+            })?
+            .is_some()
+            .then_some(())
+            .ok_or(ForwardError::UncoordinatedSender)?,
+    }
 
-    Ok(next.unwrap().to_string())
+    Ok(next)
 }
 
 #[cfg(test)]
@@ -119,7 +127,6 @@ mod test {
     use keystore::Secrets;
     use serde_json::json;
     use shared::{
-        circuit_breaker,
         repository::{
             entity::Connection,
             tests::{MockConnectionRepository, MockMessagesRepository},
@@ -203,16 +210,9 @@ mod test {
         .await
         .expect("Unable unpack");
 
-        // Wrap the CircuitBreaker in Arc and Mutex
-        let circuit_breaker = circuit_breaker::CircuitBreaker::new(3, Duration::from_secs(3));
-
-        let msg: Option<Message> = mediator_forward_process(
-            Arc::new(state.clone()),
-            msg,
-            Arc::new(circuit_breaker.into()),
-        )
-        .await
-        .unwrap();
+        let msg = mediator_forward_process(Arc::new(state.clone()), msg)
+            .await
+            .unwrap();
 
         println!("Mediator1 is forwarding message \n{:?}\n", msg);
     }

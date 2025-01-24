@@ -9,6 +9,7 @@ message-api.workspace = true
 
 serde.workspace = true
 didcomm.workspace = true
+tracing.workspace = true
 mongodb.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

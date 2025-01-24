@@ -20,7 +20,7 @@ pub(crate) async fn handle_query_request(
 
     let queries = message.body.get("queries").and_then(|val| val.as_array());
 
-    if let Some(protocols) = &state.supported_protocols {
+    if let Some(protocols) = &state.disclose_protocols {
         supported = protocols;
         if let Some(queries) = queries {
             for value in queries {
@@ -124,7 +124,7 @@ mod test {
         repository::tests::{MockConnectionRepository, MockMessagesRepository},
         state::{AppState, AppStateRepository},
     };
-    use std::{sync::Arc, vec};
+    use std::{collections::HashMap, sync::Arc, vec};
     use uuid::Uuid;
 
     use super::handle_query_request;
@@ -149,6 +149,7 @@ mod test {
                     "https://didcomm.org/coordinate-mediation/2.0/mediate-request".to_string(),
                 ]),
                 Some(repository),
+                HashMap::new(),
             )
             .unwrap(),
         );

@@ -11,7 +11,7 @@ pub(crate) enum ForwardError {
     #[error("Internal server error")]
     InternalServerError,
     #[error("Service unavailable")]
-    CircuitOpen,
+    ServiceUnavailable,
 }
 
 impl IntoResponse for ForwardError {
@@ -20,7 +20,7 @@ impl IntoResponse for ForwardError {
             ForwardError::MalformedBody => StatusCode::BAD_REQUEST,
             ForwardError::UncoordinatedSender => StatusCode::UNAUTHORIZED,
             ForwardError::InternalServerError => StatusCode::INTERNAL_SERVER_ERROR,
-            ForwardError::CircuitOpen => StatusCode::SERVICE_UNAVAILABLE,
+            ForwardError::ServiceUnavailable => StatusCode::SERVICE_UNAVAILABLE,
         };
 
         let body = Json(serde_json::json!({

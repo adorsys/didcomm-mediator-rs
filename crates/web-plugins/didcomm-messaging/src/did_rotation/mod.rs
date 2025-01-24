@@ -78,7 +78,7 @@ pub async fn did_rotation(
 
 #[cfg(test)]
 mod test {
-    use std::{sync::Arc, vec};
+    use std::{collections::HashMap, sync::Arc, vec};
 
     use did_utils::{didcore::Document, jwk::Jwk};
     use didcomm::secrets::SecretsResolver;
@@ -139,8 +139,16 @@ mod test {
             message_repository: Arc::new(MockMessagesRepository::from(vec![])),
         };
 
-        let state =
-            Arc::new(AppState::from(public_domain, diddoc, None, Some(repository)).unwrap());
+        let state = Arc::new(
+            AppState::from(
+                public_domain,
+                diddoc,
+                None,
+                Some(repository),
+                HashMap::new(),
+            )
+            .unwrap(),
+        );
 
         state
     }
