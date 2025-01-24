@@ -10,6 +10,7 @@ use http_body_util::BodyExt;
 use hyper::Request;
 use serde_json::Value;
 use std::sync::Arc;
+use tracing::error;
 
 // use super::{error::MediationError, AppState};
 use crate::{
@@ -80,7 +81,7 @@ pub async fn unpack_didcomm_message(
 
             next.run(request).await
         }
-        Err(response) => response,
+        Err(response) => response.into_response(),
     }
 }
 
@@ -119,13 +120,10 @@ async fn unpack_payload(
     .await;
 
     let (plain_message, metadata) = res.map_err(|err| {
-        tracing::error!("Failed to unpack message: {err:?}");
-        let response = (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Error::InternalServer.json(),
-        );
+        error!("Failed to unpack message: {}, {}", err.kind(), err.source);
+        let response = (StatusCode::BAD_REQUEST, Error::UnpackingError.json());
 
-        response.into_response()
+        return response.into_response();
     })?;
 
     if !metadata.encrypted {
