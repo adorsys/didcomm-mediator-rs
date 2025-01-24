@@ -1,0 +1,51 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/did/v1",
+    "https://w3id.org/security/suites/jws-2020/v1"
+  ],
+  "id": "did:peer:2.Vz6MkkS9TArkwgpbYhSpm3w53miUSLD6Cc9D5hMd9yTENAVYD.Ez6LSmiasnXDtvktkSa3LQUVWgxfB7zw3ogeSHcp68gi6ab6H.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHBzOi8vZGlkY29tbS1tZWRpYXRvci5ldWRpLWFkb3JzeXMuY29tIn0sInQiOiJkbSJ9",
+  "alsoKnownAs": [
+    "did:peer:3zQmWNg3awGJQfXw71ZJMk1373ACoTvL7niLAJbbqZEciLhN"
+  ],
+  "verificationMethod": [
+    {
+      "id": "#key-1",
+      "type": "JsonWebKey2020",
+      "controller": "did:peer:2.Vz6MkkS9TArkwgpbYhSpm3w53miUSLD6Cc9D5hMd9yTENAVYD.Ez6LSmiasnXDtvktkSa3LQUVWgxfB7zw3ogeSHcp68gi6ab6H.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHBzOi8vZGlkY29tbS1tZWRpYXRvci5ldWRpLWFkb3JzeXMuY29tIn0sInQiOiJkbSJ9",
+      "publicKeyJwk": {
+        "kty": "OKP",
+        "crv": "Ed25519",
+        "x": "WN0V45aMF-bc_8Q5-fBbrw6OYi-AriMCPjelasWs3Fo"
+      }
+    },
+    {
+      "id": "#key-2",
+      "type": "JsonWebKey2020",
+      "controller": "did:peer:2.Vz6MkkS9TArkwgpbYhSpm3w53miUSLD6Cc9D5hMd9yTENAVYD.Ez6LSmiasnXDtvktkSa3LQUVWgxfB7zw3ogeSHcp68gi6ab6H.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHBzOi8vZGlkY29tbS1tZWRpYXRvci5ldWRpLWFkb3JzeXMuY29tIn0sInQiOiJkbSJ9",
+      "publicKeyJwk": {
+        "kty": "OKP",
+        "crv": "X25519",
+        "x": "lTLXan-Ybng9Qdp4MtUksi1aN9tJ5jpjQUiDt52-W1I"
+      }
+    }
+  ],
+  "authentication": [
+    "#key-1"
+  ],
+  "keyAgreement": [
+    "#key-2"
+  ],
+  "service": [
+    {
+      "id": "#didcomm",
+      "type": "DIDCommMessaging",
+      "serviceEndpoint": {
+        "accept": [
+          "didcomm/v2"
+        ],
+        "routingKeys": [],
+        "uri": "https://didcomm-mediator.eudi-adorsys.com"
+      }
+    }
+  ]
+}

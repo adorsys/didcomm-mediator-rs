@@ -5,3 +5,4 @@ target/
 .github/
 .cargo/
 mediator-charts/
+docs/
