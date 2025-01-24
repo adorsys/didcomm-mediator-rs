@@ -26,7 +26,7 @@ use tokio::time::Sleep;
 /// By default, the circuit breaker is configured with the following:
 ///
 /// *   A single retry attempt.
-/// *   A default reset timeout of 5 seconds.
+/// *   A default reset timeout of 30 seconds.
 /// *   No delay between retries.
 ///
 /// # Configuration
@@ -114,7 +114,7 @@ impl CircuitBreaker {
         CircuitBreaker {
             state: AtomicU32::new(CircuitState::Closed as u32),
             max_retries: 0,
-            reset_timeout: Duration::from_secs(5),
+            reset_timeout: Duration::from_secs(30),
             failure_count: AtomicUsize::new(0),
             opened_at: AtomicU64::new(0),
             backoff: BackoffStrategy::NoBackoff,
@@ -219,6 +219,7 @@ impl CircuitBreaker {
         }
     }
 
+    /// Call the future and handle the result depending on the circuit breaker configuration
     pub fn call<F>(&self, f: F) -> ResultFuture<F>
     where
         F: TryFuture,
