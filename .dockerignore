@@ -6,3 +6,6 @@ target/
 .cargo/
 mediator-charts/
 docs/
+CODE_OF_CONDUCT.mediator
+LICENSE
+README.md
