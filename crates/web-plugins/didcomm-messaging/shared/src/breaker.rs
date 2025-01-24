@@ -44,7 +44,7 @@ use tokio::time::Sleep;
 /// # Example
 ///
 /// ```rust
-/// # use breaker::CircuitBreaker;
+/// # use shared::breaker::{CircuitBreaker, Error as BreakerError};
 /// # use std::time::Duration;
 ///
 /// # #[tokio::main]
@@ -59,15 +59,13 @@ use tokio::time::Sleep;
 ///         Ok(())
 ///     }
 ///
-///     match breaker.call(operation).await {
+///     match breaker.call(operation()).await {
 ///         Ok(_) => println!("Operation succeeded!"),
-///         Err(e) if e == breaker::Error::CircuitOpen => {
-///             println!("Circuit breaker is open!");
-///         }
-///         Err(e) => {
-///             println!("Operation failed: {}", e);
-///         }
-///     }
+///         Err(e) => match e {
+///             BreakerError::CircuitOpen => println!("Circuit breaker is open"),
+///             BreakerError::Inner(e) => println!("Operation failed: {e}"),
+///         },
+///     };
 /// #   Ok(())
 /// # }
 /// ```
