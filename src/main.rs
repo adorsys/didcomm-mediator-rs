@@ -74,8 +74,10 @@ fn config_tracing() {
 
 mod test {
 
+    use std::sync::mpsc::channel;
+
     use reqwest::Client;
-    use tokio::{task, time::Instant};
+    use tokio::{sync::mpsc, task, time::Instant};
 
     #[tokio::test]
     async fn test() {
@@ -84,7 +86,7 @@ mod test {
         let num_requests = 1000;
 
         let mut handles = Vec::new();
-    
+
         let start = Instant::now();
 
         for _ in 0..num_requests {
@@ -102,7 +104,10 @@ mod test {
         }
 
         for handle in handles {
-            let _ = handle.await;
+            let a = handle.await;
+            if let Err(e) = a {
+                panic!("{}", e)
+            }
         }
 
         let duration = start.elapsed();
