@@ -74,10 +74,8 @@ fn config_tracing() {
 
 mod test {
 
-    use std::sync::mpsc::channel;
-
     use reqwest::Client;
-    use tokio::{sync::mpsc, task, time::Instant};
+    use tokio::{task, time::Instant};
 
     #[tokio::test]
     async fn test() {
