@@ -115,6 +115,7 @@ chrono = { workspace = true, optional = true }
 did-endpoint = { workspace = true, optional = true }
 oob-messages = { workspace = true, optional = true }
 didcomm-messaging = { workspace = true, optional = true }
+reqwest.workspace = true
 
 
 
