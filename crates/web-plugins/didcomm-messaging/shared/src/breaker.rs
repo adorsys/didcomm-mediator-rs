@@ -1,13 +1,17 @@
 #[cfg(test)]
 mod tests;
 
-use futures_core::TryFuture;
+// use futures_core::ready;
+use parking_lot::{Mutex, RwLock};
 use pin_project_lite::pin_project;
 use std::{
-    future::Future,
+    future::{ready, Future},
     pin::Pin,
-    sync::atomic::{AtomicU32, AtomicU64, AtomicUsize, Ordering},
-    task::{Context, Poll},
+    sync::{
+        atomic::{AtomicU32, AtomicUsize, Ordering},
+        Arc,
+    },
+    task::{ready, Context, Poll},
     time::{Duration, Instant},
 };
 use thiserror::Error;
@@ -69,18 +73,23 @@ use tokio::time::Sleep;
 /// #   Ok(())
 /// # }
 /// ```
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CircuitBreaker {
+    inner: Arc<RwLock<CircuitBreakerConfig>>,
+}
+
+#[derive(Debug)]
+struct CircuitBreakerConfig {
     // Current state of the circuit
-    state: AtomicU32,
+    state: CircuitState,
     // Failure threshold before opening the circuit
     max_retries: usize,
     // Time to wait before closing the circuit again
     reset_timeout: Duration,
     // Tracks failure count
-    failure_count: AtomicUsize,
+    failure_count: usize,
     // Timestamp when circuit was opened
-    opened_at: AtomicU64,
+    opened_at: Arc<Mutex<Option<Instant>>>,
     // Retry config
     backoff: BackoffStrategy,
 }
@@ -111,89 +120,99 @@ pub enum Error<E> {
 impl CircuitBreaker {
     /// Create a new circuit breaker
     pub fn new() -> Self {
-        CircuitBreaker {
-            state: AtomicU32::new(CircuitState::Closed as u32),
-            max_retries: 0,
-            reset_timeout: Duration::from_secs(30),
-            failure_count: AtomicUsize::new(0),
-            opened_at: AtomicU64::new(0),
-            backoff: BackoffStrategy::NoBackoff,
+        Self {
+            inner: Arc::new(RwLock::new(CircuitBreakerConfig {
+                state: CircuitState::Closed,
+                max_retries: 0,
+                reset_timeout: Duration::from_secs(30),
+                failure_count: 0,
+                opened_at: Arc::new(Mutex::new(None)),
+                backoff: BackoffStrategy::NoBackoff,
+            })),
         }
     }
 
     /// Specify the maximum number of attempts for the future
     pub fn retries(self, max_retries: usize) -> Self {
-        Self {
-            max_retries,
-            ..self
+        {
+            let mut config = self.inner.write();
+            config.max_retries = max_retries;
         }
+        self
     }
 
     /// Specify the duration to wait before closing the circuit again
     pub fn reset_timeout(self, reset_timeout: Duration) -> Self {
-        Self {
-            reset_timeout,
-            ..self
+        {
+            let mut config = self.inner.write();
+            config.reset_timeout = reset_timeout;
         }
+        self
     }
 
     /// Set the exponential backoff strategy with the given initial delay for the retry
     ///
     /// The delay will be doubled after each retry
     pub fn exponential_backoff(self, initial_delay: Duration) -> Self {
-        Self {
-            backoff: BackoffStrategy::Exponential(initial_delay),
-            ..self
+        {
+            let mut config = self.inner.write();
+            config.backoff = BackoffStrategy::Exponential(initial_delay);
         }
+        self
     }
 
     /// Set the fixed backoff strategy with the given delay for the retry
     pub fn constant_backoff(self, delay: Duration) -> Self {
-        Self {
-            backoff: BackoffStrategy::Constant(delay),
-            ..self
+        {
+            let mut config = self.inner.write();
+            config.backoff = BackoffStrategy::Constant(delay);
         }
+        self
     }
 
-    fn state(&self) -> CircuitState {
-        match self.state.load(Ordering::SeqCst) {
-            0 => CircuitState::Closed,
-            1 => CircuitState::Open,
-            2 => CircuitState::HalfOpen,
-            _ => unreachable!(),
-        }
-    }
+    // fn state(&self) -> CircuitState {
+    //     self.inner.read().state
+    // }
 
     fn success(&self) {
-        match self.state() {
+        let state = {
+            let inner = self.inner.read();
+            inner.state
+        };
+        match state {
             CircuitState::HalfOpen => {
-                self.state
-                    .store(CircuitState::Closed as u32, Ordering::SeqCst);
-                self.failure_count.store(0, Ordering::SeqCst);
+                let mut config = self.inner.write();
+                config.state = CircuitState::Closed;
+                config.failure_count = 0;
+                *config.opened_at.lock() = None;
             }
             CircuitState::Closed => {
-                self.failure_count.store(0, Ordering::SeqCst);
+                let mut config = self.inner.write();
+                config.state = CircuitState::Closed;
             }
             CircuitState::Open => {}
         }
     }
 
     fn failure(&self) {
-        let now = Instant::now().elapsed().as_secs();
+        let state = {
+            let inner = self.inner.read();
+            inner.state
+        };
 
-        match self.state() {
+        match state {
             CircuitState::Closed => {
-                let count = self.failure_count.fetch_add(1, Ordering::SeqCst) + 1;
-                if count >= self.max_retries {
-                    self.state
-                        .store(CircuitState::Open as u32, Ordering::SeqCst);
-                    self.opened_at.store(now, Ordering::SeqCst);
+                let mut config = self.inner.write();
+                config.failure_count += 1;
+                if config.failure_count >= config.max_retries {
+                    config.state = CircuitState::Open;
+                    *config.opened_at.lock() = Some(Instant::now());
                 }
             }
             CircuitState::HalfOpen => {
-                self.state
-                    .store(CircuitState::Open as u32, Ordering::SeqCst);
-                self.opened_at.store(now, Ordering::SeqCst);
+                let mut config = self.inner.write();
+                config.state = CircuitState::Open;
+                *config.opened_at.lock() = Some(Instant::now());
             }
             CircuitState::Open => {}
         }
@@ -201,15 +220,23 @@ impl CircuitBreaker {
 
     /// Check if the circuit breaker should allow a call
     pub fn should_allow_call(&self) -> bool {
-        match self.state() {
+        let guard = self.inner.read();
+
+        match guard.state {
             CircuitState::Closed => true,
             CircuitState::Open => {
-                let now = Instant::now().elapsed().as_secs();
-                let opened_at = self.opened_at.load(Ordering::SeqCst);
-                let elapsed = now - opened_at;
-                if elapsed >= self.reset_timeout.as_secs() {
-                    self.state
-                        .store(CircuitState::HalfOpen as u32, Ordering::SeqCst);
+                let should_transition = {
+                    let opened_at = guard.opened_at.lock();
+                    let reset_timeout = guard.reset_timeout;
+                    opened_at
+                        .as_ref()
+                        .map(|instant| instant.elapsed() >= reset_timeout)
+                        .unwrap_or(false)
+                };
+                drop(guard);
+
+                if should_transition {
+                    self.inner.write().state = CircuitState::HalfOpen;
                     true
                 } else {
                     false
@@ -219,16 +246,16 @@ impl CircuitBreaker {
         }
     }
 
-    /// Call the future and handle the result depending on the circuit breaker configuration
-    pub fn call<F>(&self, f: F) -> ResultFuture<F>
+    // Call the future and handle the result depending on the circuit
+    pub fn call<F, Fut, T, E>(&self, f: F) -> ResultFuture<F, Fut>
     where
-        F: TryFuture,
+        F: FnMut() -> Fut,
+        Fut: Future<Output = Result<T, E>>,
     {
         ResultFuture {
-            future: f,
+            derived_fut: f,
             state: RetryState::Initial,
-            backoff_delay: None,
-            breaker: self,
+            breaker: self.clone(),
         }
     }
 }
@@ -240,89 +267,82 @@ impl Default for CircuitBreaker {
 }
 
 pin_project! {
-    pub struct ResultFuture<'a, F>
+    pub struct ResultFuture<DerF, F>
     {
+        derived_fut: DerF,
         #[pin]
-        future: F,
-        state: RetryState,
-        backoff_delay: Option<Pin<Box<Sleep>>>,
-        breaker: &'a CircuitBreaker,
+        state: RetryState<F>,
+        breaker: CircuitBreaker,
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-enum RetryState {
-    Initial,
-    Running,
-    Delaying,
-    Done,
+pin_project! {
+    #[project = RetryStateProj]
+    enum RetryState<F> {
+        Initial,
+        Running { #[pin] future: F },
+        Delaying { #[pin] delay: Sleep },
+    }
 }
 
-impl<'a, F> Future for ResultFuture<'a, F>
+impl<'a, F, Fut, T, E> Future for ResultFuture<F, Fut>
 where
-    F: TryFuture,
+    F: FnMut() -> Fut,
+    Fut: Future<Output = Result<T, E>>,
 {
-    type Output = Result<F::Ok, Error<F::Error>>;
+    type Output = Result<T, Error<E>>;
 
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let mut this = self.project();
-
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         loop {
-            match *this.state {
-                RetryState::Initial | RetryState::Running => {
+            let this = self.as_mut().project();
+
+            let state = match this.state.project() {
+                RetryStateProj::Initial => RetryState::Running {
+                    future: (this.derived_fut)(),
+                },
+                RetryStateProj::Delaying { delay } => {
+                    ready!(delay.poll(cx));
+                    RetryState::Running {
+                        future: (this.derived_fut)(),
+                    }
+                }
+                RetryStateProj::Running { future } => {
                     if !this.breaker.should_allow_call() {
-                        *this.state = RetryState::Done;
                         return Poll::Ready(Err(Error::CircuitOpen));
                     }
 
-                    match this.future.as_mut().try_poll(cx) {
-                        Poll::Ready(Ok(output)) => {
+                    match ready!(future.poll(cx)) {
+                        Ok(output) => {
                             this.breaker.success();
-                            *this.state = RetryState::Done;
                             return Poll::Ready(Ok(output));
                         }
-                        Poll::Ready(Err(error)) => {
+                        Err(error) => {
                             this.breaker.failure();
 
-                            if this.breaker.failure_count.load(Ordering::SeqCst)
-                                >= this.breaker.max_retries
-                            {
-                                *this.state = RetryState::Done;
+                            let guard = this.breaker.inner.read();
+
+                            if guard.failure_count >= guard.max_retries {
                                 return Poll::Ready(Err(Error::Inner(error)));
                             }
 
-                            let delay = match this.breaker.backoff {
+                            let delay = match guard.backoff {
                                 BackoffStrategy::NoBackoff => Duration::ZERO,
                                 BackoffStrategy::Constant(delay) => delay,
                                 BackoffStrategy::Exponential(initial) => {
-                                    let attempt = this.breaker.failure_count.load(Ordering::SeqCst);
-                                    initial * 2u32.pow(attempt as u32)
+                                    let attempt = guard.failure_count;
+                                    initial
+                                        .checked_mul(2u32.pow(attempt.saturating_sub(1) as u32))
+                                        .unwrap_or(Duration::MAX)
                                 }
                             };
-
                             let delay = tokio::time::sleep(delay);
-                            *this.backoff_delay = Some(Box::pin(delay));
-                            *this.state = RetryState::Delaying;
-                        }
-                        Poll::Pending => return Poll::Pending,
-                    }
-                }
-                RetryState::Delaying => {
-                    if let Some(delay) = this.backoff_delay.as_mut() {
-                        match delay.as_mut().poll(cx) {
-                            Poll::Ready(_) => {
-                                *this.state = RetryState::Running;
-                                *this.backoff_delay = None;
-                                continue;
-                            }
-                            Poll::Pending => return Poll::Pending,
+
+                            RetryState::Delaying { delay }
                         }
                     }
                 }
-                RetryState::Done => {
-                    panic!("future polled after completion")
-                }
-            }
+            };
+            self.as_mut().project().state.set(state);
         }
     }
 }
