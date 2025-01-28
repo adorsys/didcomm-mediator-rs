@@ -1,5 +1,7 @@
+use axum_prometheus::PrometheusMetricLayer;
 use didcomm_mediator::app;
 use eyre::{Result, WrapErr};
+use hyper::StatusCode;
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
 
@@ -33,7 +35,21 @@ async fn main() -> Result<()> {
 
 async fn generic_server_with_graceful_shutdown(listener: TcpListener) -> Result<()> {
     // Load plugins
-    let (mut plugin_container, router) = app()?;
+    let (mut plugin_container, mut router) = app()?;
+
+    let (prometheus_layer, metric_handle) = PrometheusMetricLayer::pair();
+
+    // Add health check endpoint and prometheus metrics
+    router = router
+        .route("/health", axum::routing::get( health_check))
+        .route(
+            "/metrics",
+            axum::routing::get(|| async move {
+                metric_handle.render()
+            }),
+           
+        )
+        .layer(prometheus_layer);
 
     // Start server
     axum::serve(listener, router)
@@ -50,6 +66,10 @@ async fn generic_server_with_graceful_shutdown(listener: TcpListener) -> Result<
     Ok(())
 }
 
+
+async fn health_check() -> impl axum::response::IntoResponse {
+    (StatusCode::OK, "Server is running")
+}
 fn config_tracing() {
     // Enable errors backtrace
     if std::env::var("RUST_LIB_BACKTRACE").is_err() {
