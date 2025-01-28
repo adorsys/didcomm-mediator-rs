@@ -1,11 +1,11 @@
 use crate::{
-    constants::{KEYLIST_2_0, KEYLIST_UPDATE_RESPONSE_2_0, MEDIATE_DENY_2_0, MEDIATE_GRANT_2_0},
+    constants::{KEYLIST_2_0, KEYLIST_UPDATE_RESPONSE_2_0, MEDIATE_DENY_2_0},
     errors::MediationError,
     handler::midlw::ensure_jwm_type_is_mediation_request,
     model::stateful::coord::{
-        Keylist, KeylistBody, KeylistEntry, KeylistUpdateAction, KeylistUpdateBody,
+        KeylistBody, KeylistEntry, KeylistUpdateAction, KeylistUpdateBody,
         KeylistUpdateConfirmation, KeylistUpdateResponseBody, KeylistUpdateResult, MediationDeny,
-        MediationGrant, MediationGrantBody,
+        MediationGrantBody,
     },
 };
 use did_utils::{
@@ -145,7 +145,7 @@ pub(crate) async fn process_mediate_request(
         Ok(Some(
             Message::build(
                 format!("urn:uuid:{}", Uuid::new_v4()),
-                mediation_grant.message_type.clone(),
+                MEDIATE_DENY_2_0.to_string(),
                 json!(mediation_grant),
             )
             .to(sender_did.clone())
@@ -155,13 +155,9 @@ pub(crate) async fn process_mediate_request(
     }
 }
 
-fn create_mediation_grant(routing_did: &str) -> MediationGrant {
-    MediationGrant {
-        id: format!("urn:uuid:{}", Uuid::new_v4()),
-        message_type: MEDIATE_GRANT_2_0.to_string(),
-        body: MediationGrantBody {
-            routing_did: routing_did.to_string(),
-        },
+fn create_mediation_grant(routing_did: &str) -> MediationGrantBody {
+    MediationGrantBody {
+        routing_did: routing_did.to_string(),
     }
 }
 
@@ -351,8 +347,6 @@ pub(crate) async fn process_plain_keylist_query_message(
         .unwrap()
         .ok_or(MediationError::UncoordinatedSender)?;
 
-    println!("keylist: {:?}", connection);
-
     let keylist_entries = connection
         .keylist
         .iter()
@@ -366,12 +360,7 @@ pub(crate) async fn process_plain_keylist_query_message(
         pagination: None,
     };
 
-    let keylist_object = Keylist {
-        id: format!("urn:uuid:{}", Uuid::new_v4()),
-        message_type: KEYLIST_2_0.to_string(),
-        body,
-        additional_properties: None,
-    };
+    let keylist_object = body;
 
     let mediator_did = &state.diddoc.id;
 
@@ -383,8 +372,6 @@ pub(crate) async fn process_plain_keylist_query_message(
     .to(sender.clone())
     .from(mediator_did.clone())
     .finalize();
-
-    println!("message: {:?}", message);
 
     Ok(Some(message))
 }
@@ -429,14 +416,14 @@ mod tests {
         .finalize();
 
         // Process request
-        let response = process_plain_keylist_query_message(Arc::clone(&state), message)
+        let message = process_plain_keylist_query_message(Arc::clone(&state), message)
             .await
             .unwrap()
             .expect("Response should not be None");
 
-        assert_eq!(response.type_, KEYLIST_2_0);
-        assert_eq!(response.from.unwrap(), global::_mediator_did(&state));
-        assert_eq!(response.to.unwrap(), vec![global::_edge_did()]);
+        assert_eq!(message.type_, KEYLIST_2_0);
+        assert_eq!(message.from.unwrap(), global::_mediator_did(&state));
+        assert_eq!(message.to.unwrap(), vec![global::_edge_did()]);
     }
     #[tokio::test]
     async fn test_keylist_query_malformed_request() {
@@ -469,15 +456,15 @@ mod tests {
             "id_alice_keylist_update_request".to_owned(),
             "https://didcomm.org/coordinate-mediation/2.0/keylist-update".to_owned(),
             json!({
-                "updates": [
-                    {
-                        "action": "remove",
-                        "recipient_did": "did:key:alice_identity_pub1@alice_mediator"
-                    },
-                    {
-                        "action": "add",
-                        "recipient_did": "did:key:alice_identity_pub2@alice_mediator"
-                    },
+            "updates": [
+                {
+                    "action": "remove",
+                    "recipient_did": "did:key:alice_identity_pub1@alice_mediator"
+                },
+                {
+                    "action": "add",
+                    "recipient_did": "did:key:alice_identity_pub2@alice_mediator"
+                },
                 ]
             }),
         )
@@ -499,23 +486,22 @@ mod tests {
         assert_eq!(response.type_, KEYLIST_UPDATE_RESPONSE_2_0);
         assert_eq!(response.from.unwrap(), global::_mediator_did(&state));
         assert_eq!(response.to.unwrap(), vec![global::_edge_did()]);
-
         // Assert updates
 
         assert_eq!(
             response.body,
             json!({
-                "updated": [
-                    {
-                        "recipient_did": "did:key:alice_identity_pub1@alice_mediator",
-                        "action": "remove",
-                        "result": "success"
-                    },
-                    {
-                        "recipient_did":"did:key:alice_identity_pub2@alice_mediator",
-                        "action": "add",
-                        "result": "success"
-                    },
+            "updated": [
+                {
+                    "recipient_did": "did:key:alice_identity_pub1@alice_mediator",
+                    "action": "remove",
+                    "result": "success"
+                },
+                {
+                    "recipient_did":"did:key:alice_identity_pub2@alice_mediator",
+                    "action": "add",
+                    "result": "success"
+                },
                 ]
             })
         );
@@ -533,26 +519,26 @@ mod tests {
             serde_json::from_str::<Vec<Connection>>(
                 r##"[
                     {
-                        "_id": {
-                            "$oid": "6580701fd2d92bb3cd291b2a"
+                    "_id": {
+                        "$oid": "6580701fd2d92bb3cd291b2a"
                         },
                         "client_did": "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7",
                         "mediator_did": "did:web:alice-mediator.com:alice_mediator_pub",
                         "routing_did": "did:key:generated",
                         "keylist": [
                             "did:key:alice_identity_pub2@alice_mediator"
-                        ]
-                    },
-                    {
+                            ]
+                        },
+                        {
                         "_id": {
                             "$oid": "6580701fd2d92bb3cd291b2b"
-                        },
-                        "client_did": "did:key:other",
-                        "mediator_did": "did:web:alice-mediator.com:alice_mediator_pub",
-                        "routing_did": "did:key:generated",
-                        "keylist": []
-                    }
-                ]"##
+                            },
+                            "client_did": "did:key:other",
+                            "mediator_did": "did:web:alice-mediator.com:alice_mediator_pub",
+                            "routing_did": "did:key:generated",
+                            "keylist": []
+                            }
+                            ]"##
             )
             .unwrap()
         );
@@ -568,16 +554,16 @@ mod tests {
             "id_alice_keylist_update_request".to_owned(),
             "https://didcomm.org/coordinate-mediation/2.0/keylist-update".to_owned(),
             json!({
-                "updates": [
-                    {
-                        "action": "add",
-                        "recipient_did": "did:key:alice_identity_pub1@alice_mediator"
-                    },
-                    {
-                        "action": "remove",
+                            "updates": [
+                                {
+                                    "action": "add",
+                                    "recipient_did": "did:key:alice_identity_pub1@alice_mediator"
+                                },
+                                {
+                                    "action": "remove",
                         "recipient_did": "did:key:alice_identity_pub2@alice_mediator"
                     },
-                ]
+                    ]
             }),
         )
         .header("return_route".into(), json!("all"))

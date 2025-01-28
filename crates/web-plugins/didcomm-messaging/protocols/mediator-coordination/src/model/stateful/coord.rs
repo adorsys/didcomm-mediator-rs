@@ -229,21 +229,8 @@ pub struct KeylistQueryPaginate {
 /// Response to key list query, containing retrieved keys.
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct Keylist {
-    /// Uniquely identifies a keylist query response message.
-    pub id: String,
-
-    /// References the protocol URI of this concept.
-    ///
-    /// Typically `https://didcomm.org/coordinate-mediation/2.0/keylist`
-    #[serde(rename = "type")]
-    pub message_type: String,
-
     /// Message body
     pub body: KeylistBody,
-
-    /// Dynamic properties.
-    #[serde(flatten)]
-    pub additional_properties: Option<HashMap<String, Value>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq, Eq)]
@@ -579,20 +566,15 @@ mod tests {
 
     #[test]
     fn can_serialize_keylist_message() {
-        let keylist = Keylist {
-            id: "id_alice_keylist".to_string(),
-            message_type: KEYLIST_2_0.to_string(),
-            body: KeylistBody {
-                keys: vec![KeylistEntry {
-                    recipient_did: String::from("did:key:alice_identity_pub1@alice_mediator"),
-                }],
-                pagination: Some(KeylistPagination {
-                    count: 30,
-                    offset: 30,
-                    remaining: 100,
-                }),
-            },
-            additional_properties: None,
+        let keylist = KeylistBody {
+            keys: vec![KeylistEntry {
+                recipient_did: String::from("did:key:alice_identity_pub1@alice_mediator"),
+            }],
+            pagination: Some(KeylistPagination {
+                count: 30,
+                offset: 30,
+                remaining: 100,
+            }),
         };
 
         let expected = json!({
@@ -621,8 +603,6 @@ mod tests {
     #[test]
     fn can_deserialize_keylist_message() {
         let msg = r#"{
-            "id": "id_alice_keylist",
-            "type": "https://didcomm.org/coordinate-mediation/2.0/keylist",
             "body": {
                 "keys": [
                     {
@@ -637,12 +617,7 @@ mod tests {
             }
         }"#;
 
-        // Assert deserialization
-
         let keylist: Keylist = serde_json::from_str(msg).unwrap();
-
-        assert_eq!(&keylist.id, "id_alice_keylist");
-        assert_eq!(&keylist.message_type, KEYLIST_2_0);
 
         assert_eq!(
             keylist.body,
