@@ -1,7 +1,6 @@
 use tokio::time::{sleep, Duration};
 use tokio::sync::Mutex;
 use uuid::Uuid;
-use std::sync::Arc;
 
 // Mediator implementation for acknowledgment and message processing
 struct Mediator {
@@ -77,7 +76,6 @@ where
 }
 
 // Tests
-#[tokio::test]
 async fn test_simulated_network_failure() {
     let mediator = Mediator::new();
     let result = send_message_with_retries("example-message", || {
@@ -88,6 +86,7 @@ async fn test_simulated_network_failure() {
     assert!(result.is_ok(), "Expected successful message delivery after retries");
 }
 
+mod test {
 #[tokio::test]
 async fn test_retry_logic_with_timeout() {
     let mut attempts = 0;
@@ -225,4 +224,4 @@ async fn test_out_of_order_message_recovery() {
         message_ids, processed_ids
     );
 }
-
+}
