@@ -1,5 +1,5 @@
 use tokio::time::{sleep, Duration};
-use tokio::sync::Mutex;
+use tokio::sync::{futures, Mutex};
 use uuid::Uuid;
 
 // Mediator implementation for acknowledgment and message processing
@@ -16,7 +16,7 @@ impl Mediator {
         }
     }
 
-    async fn send_message(&self, message: &str) -> Result<String, String> {
+    async fn send_message(&self, _message: &str) -> Result<String, String> {
         let message_id = Uuid::new_v4().to_string();
         {
             let mut status = self.delivery_status.lock().await;
@@ -56,6 +56,7 @@ pub async fn send_message_with_retries<F, T>(
 where
     F: FnMut() -> Result<T, String>,
 {
+    let _ = message;
     let max_retries = 3;
     let mut delay = Duration::from_secs(1);
 
@@ -78,7 +79,7 @@ where
 // Tests
 async fn test_simulated_network_failure() {
     let mediator = Mediator::new();
-    let result = send_message_with_retries("example-message", || {
+    let result = send_message_with_retries("network-failure", || {
         mediator.send_message("example-message").await
     })
     .await;
@@ -86,7 +87,6 @@ async fn test_simulated_network_failure() {
     assert!(result.is_ok(), "Expected successful message delivery after retries");
 }
 
-mod test {
 #[tokio::test]
 async fn test_retry_logic_with_timeout() {
     let mut attempts = 0;
@@ -95,7 +95,7 @@ async fn test_retry_logic_with_timeout() {
         Err("Simulated failure".to_string())
     };
 
-    let result = send_message_with_retries("test-message", mock_network).await;
+    let result = send_message_with_retries("retry timeout", mock_network).await;
 
     assert!(result.is_err(), "Expected failure after max retries");
     assert_eq!(attempts, 3, "Expected exactly 3 retry attempts");
@@ -122,7 +122,7 @@ async fn test_exponential_backoff() {
         Err("Simulated failure".to_string())
     };
 
-    let result = send_message_with_retries("example-message", mock_network).await;
+    let result = send_message_with_retries("backoff test", mock_network).await;
 
     assert!(result.is_err(), "Expected failure after max retries");
     assert_eq!(attempts, 3, "Expected exactly 3 attempts");
@@ -132,11 +132,11 @@ async fn test_exponential_backoff() {
 #[tokio::test]
 async fn test_queue_overflow_handling() {
     const QUEUE_LIMIT: usize = 5; // Simulated queue limit
-    let mediator = Arc::new(Mediator::new());
+    let mediator = std::sync::Arc::new(Mediator::new());
     let mut handles = vec![];
 
     for i in 0..(QUEUE_LIMIT + 2) {
-        let mediator_clone = Arc::clone(&mediator);
+        let mediator_clone = std::sync::Arc::clone(&mediator);
         handles.push(tokio::spawn(async move {
             mediator_clone.send_message(&format!("message-{}", i)).await
         }));
@@ -167,11 +167,11 @@ async fn test_queue_overflow_handling() {
 #[tokio::test]
 async fn test_concurrent_message_processing() {
     const NUM_MESSAGES: usize = 10;
-    let mediator = Arc::new(Mediator::new());
+    let mediator = std::sync::Arc::new(Mediator::new());
     let mut handles = vec![];
 
     for i in 0..NUM_MESSAGES {
-        let mediator_clone = Arc::clone(&mediator);
+        let mediator_clone = std::sync::Arc::clone(&mediator);
         handles.push(tokio::spawn(async move {
             mediator_clone.send_message(&format!("concurrent-message-{}", i)).await
         }));
@@ -198,12 +198,12 @@ async fn test_concurrent_message_processing() {
 
 #[tokio::test]
 async fn test_out_of_order_message_recovery() {
-    let mediator = Arc::new(Mediator::new());
+    let mediator = std::sync::Arc::new(Mediator::new());
     let mut message_ids = vec!["msg-3", "msg-1", "msg-2"];
 
     // Simulate out-of-order message sending
     for &id in &message_ids {
-        let mediator_clone = Arc::clone(&mediator);
+        let mediator_clone = std::sync::Arc::clone(&mediator);
         tokio::spawn(async move {
             mediator_clone.send_message(id).await.unwrap();
         })
@@ -223,5 +223,4 @@ async fn test_out_of_order_message_recovery() {
         "Expected messages to be processed in order: {:?}, but got {:?}",
         message_ids, processed_ids
     );
-}
 }
