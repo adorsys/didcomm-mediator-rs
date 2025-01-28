@@ -576,10 +576,8 @@ mod tests {
                 remaining: 100,
             }),
         };
-
+        let keylist = Keylist { body: keylist };
         let expected = json!({
-            "id": "id_alice_keylist",
-            "type": "https://didcomm.org/coordinate-mediation/2.0/keylist",
             "body": {
                 "keys": [
                     {
