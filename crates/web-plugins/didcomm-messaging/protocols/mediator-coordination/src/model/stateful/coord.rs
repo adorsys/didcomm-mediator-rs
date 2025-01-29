@@ -226,13 +226,6 @@ pub struct KeylistQueryPaginate {
     pub offset: i32,
 }
 
-/// Response to key list query, containing retrieved keys.
-#[derive(Debug, Serialize, Deserialize, Clone, Default)]
-pub struct Keylist {
-    /// Message body
-    pub body: KeylistBody,
-}
-
 #[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq, Eq)]
 pub struct KeylistBody {
     /// List of retrieved keys.
@@ -576,7 +569,7 @@ mod tests {
                 remaining: 100,
             }),
         };
-        let keylist = Keylist { body: keylist };
+        let keylist = json!({"body": keylist });
         let expected = json!({
             "body": {
                 "keys": [
@@ -600,6 +593,14 @@ mod tests {
 
     #[test]
     fn can_deserialize_keylist_message() {
+        /// to structure to avoid multiple serde calls in test
+        ///
+        #[derive(Deserialize, Serialize)]
+        pub struct Keylist {
+            /// Message body
+            pub body: KeylistBody,
+        }
+
         let msg = r#"{
             "body": {
                 "keys": [
