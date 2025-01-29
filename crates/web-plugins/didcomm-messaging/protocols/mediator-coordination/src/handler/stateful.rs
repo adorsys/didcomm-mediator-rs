@@ -1,5 +1,5 @@
 use crate::{
-    constants::{KEYLIST_2_0, KEYLIST_UPDATE_RESPONSE_2_0, MEDIATE_DENY_2_0},
+    constants::{KEYLIST_2_0, KEYLIST_UPDATE_RESPONSE_2_0, MEDIATE_DENY_2_0, MEDIATE_GRANT_2_0},
     errors::MediationError,
     handler::midlw::ensure_jwm_type_is_mediation_request,
     model::stateful::coord::{
@@ -145,7 +145,7 @@ pub(crate) async fn process_mediate_request(
         Ok(Some(
             Message::build(
                 format!("urn:uuid:{}", Uuid::new_v4()),
-                MEDIATE_DENY_2_0.to_string(),
+                MEDIATE_GRANT_2_0.to_string(),
                 json!(mediation_grant),
             )
             .to(sender_did.clone())
