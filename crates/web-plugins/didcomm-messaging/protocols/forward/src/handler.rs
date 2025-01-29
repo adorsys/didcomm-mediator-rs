@@ -32,7 +32,7 @@ pub(crate) async fn mediator_forward_process(
     let next = checks(
         &message,
         &repository.connection_repository,
-        state.circuit_breaker.get(MEDIATE_FORWARD_2_0).cloned(),
+        state.circuit_breaker.get(MEDIATE_FORWARD_2_0).as_deref(),
     )
     .await
     .map_err(|_| ForwardError::InternalServerError)?;
@@ -81,7 +81,7 @@ pub(crate) async fn mediator_forward_process(
 async fn checks(
     message: &Message,
     connection_repository: &Arc<dyn Repository<Connection>>,
-    circuit_breaker: Option<Arc<CircuitBreaker>>,
+    circuit_breaker: Option<&CircuitBreaker>,
 ) -> Result<String, ForwardError> {
     let next = match message.body.get("next") {
         Some(Value::String(next)) => next.clone(),

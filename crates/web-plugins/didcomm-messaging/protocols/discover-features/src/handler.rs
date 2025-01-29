@@ -116,6 +116,7 @@ fn build_response(disclosed_protocols: HashSet<String>) -> Message {
 mod test {
 
     use crate::{constants::QUERY_FEATURE, model::Queries};
+    use dashmap::DashMap;
     use did_utils::didcore::Document;
     use didcomm::Message;
     use keystore::tests::MockKeyStore;
@@ -124,7 +125,7 @@ mod test {
         repository::tests::{MockConnectionRepository, MockMessagesRepository},
         state::{AppState, AppStateRepository},
     };
-    use std::{collections::HashMap, sync::Arc, vec};
+    use std::{sync::Arc, vec};
     use uuid::Uuid;
 
     use super::handle_query_request;
@@ -149,7 +150,7 @@ mod test {
                     "https://didcomm.org/coordinate-mediation/2.0/mediate-request".to_string(),
                 ]),
                 Some(repository),
-                HashMap::new(),
+                DashMap::new(),
             )
             .unwrap(),
         );

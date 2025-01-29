@@ -40,7 +40,8 @@ pub(crate) async fn handle_status_request(
         .and_then(|val| val.as_str());
     let sender_did = sender_did(&message)?;
 
-    let cb = state.circuit_breaker.get(STATUS_REQUEST_3_0);
+    let breaker = state.circuit_breaker.get(STATUS_REQUEST_3_0);
+    let cb = breaker.as_deref();
     let repository = repository(state.clone())?;
     let connection = client_connection(cb, &repository, sender_did).await?;
 
@@ -94,6 +95,7 @@ pub(crate) async fn handle_delivery_request(
         .ok_or_else(|| PickupError::MalformedRequest("Invalid \"limit\" specifier".to_owned()))?;
 
     let cb = state.circuit_breaker.get(DELIVERY_REQUEST_3_0);
+    let cb = cb.as_deref();
     let repository = repository(state.clone())?;
     let connection = client_connection(cb, &repository, sender_did).await?;
 
@@ -158,6 +160,7 @@ pub(crate) async fn handle_message_acknowledgement(
         .map_err(|_| PickupError::MalformedRequest("Missing return_route header".to_owned()))?;
 
     let cb = state.circuit_breaker.get(MESSAGE_RECEIVED_3_0);
+    let cb = cb.as_deref();
     let mediator_did = &state.diddoc.id;
     let repository = repository(state.clone())?;
     let sender_did = sender_did(&message)?;
@@ -271,7 +274,7 @@ pub(crate) async fn handle_live_delivery_change(
 }
 
 async fn count_messages(
-    cb: Option<&Arc<CircuitBreaker>>,
+    cb: Option<&CircuitBreaker>,
     repository: AppStateRepository,
     recipient_did: Option<&str>,
     connection: Connection,
@@ -311,7 +314,7 @@ async fn count_messages(
 }
 
 async fn messages(
-    cb: Option<&Arc<CircuitBreaker>>,
+    cb: Option<&CircuitBreaker>,
     repository: AppStateRepository,
     recipient_did: Option<&str>,
     connection: Connection,
@@ -382,7 +385,7 @@ fn repository(state: Arc<AppState>) -> Result<AppStateRepository, PickupError> {
 
 #[inline]
 async fn client_connection(
-    cb: Option<&Arc<CircuitBreaker>>,
+    cb: Option<&CircuitBreaker>,
     repository: &AppStateRepository,
     client_did: &str,
 ) -> Result<Connection, PickupError> {

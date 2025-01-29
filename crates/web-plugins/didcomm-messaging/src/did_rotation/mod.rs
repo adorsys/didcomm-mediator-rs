@@ -78,8 +78,9 @@ pub async fn did_rotation(
 
 #[cfg(test)]
 mod test {
-    use std::{collections::HashMap, sync::Arc, vec};
+    use std::{sync::Arc, vec};
 
+    use dashmap::DashMap;
     use did_utils::{didcore::Document, jwk::Jwk};
     use didcomm::secrets::SecretsResolver;
     use mongodb::bson::doc;
@@ -145,7 +146,7 @@ mod test {
                 diddoc,
                 None,
                 Some(repository),
-                HashMap::new(),
+                DashMap::new(),
             )
             .unwrap(),
         );

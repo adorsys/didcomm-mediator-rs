@@ -5,13 +5,14 @@ pub mod tests {
         state::{AppState, AppStateRepository},
         utils::resolvers::LocalSecretsResolver,
     };
+    use dashmap::DashMap;
     use did_utils::{didcore::Document, jwk::Jwk};
     use didcomm::{
         error::Error as DidcommError, secrets::SecretsResolver, Message, PackEncryptedOptions,
         UnpackOptions,
     };
     use keystore::{tests::MockKeyStore, Secrets};
-    use std::{collections::HashMap, sync::Arc};
+    use std::sync::Arc;
 
     pub fn setup() -> Arc<AppState> {
         let public_domain = String::from("http://alice-mediator.com");
@@ -99,7 +100,7 @@ pub mod tests {
                 diddoc,
                 None,
                 Some(repository),
-                HashMap::new(),
+                DashMap::new(),
             )
             .unwrap(),
         )

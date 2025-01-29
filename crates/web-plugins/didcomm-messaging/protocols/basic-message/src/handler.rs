@@ -19,6 +19,7 @@ mod tests {
     use super::*;
     use axum::http::StatusCode;
     use chrono::Utc;
+    use dashmap::DashMap;
     use did_utils::didcore::Document;
     use keystore::tests::MockKeyStore;
     use serde_json::json;
@@ -26,7 +27,7 @@ mod tests {
         repository::tests::{MockConnectionRepository, MockMessagesRepository},
         state::AppStateRepository,
     };
-    use std::{collections::HashMap, sync::Arc};
+    use std::sync::Arc;
 
     #[test]
     fn test_handle_basic_message() {
@@ -91,9 +92,15 @@ mod tests {
             message_repository: Arc::new(MockMessagesRepository::from(vec![])),
             keystore: Arc::new(MockKeyStore::new(vec![])),
         };
-        let breaker = HashMap::new();
         let state = Arc::new(
-            AppState::from(public_domain, diddoc, None, Some(repository), breaker).unwrap(),
+            AppState::from(
+                public_domain,
+                diddoc,
+                None,
+                Some(repository),
+                DashMap::new(),
+            )
+            .unwrap(),
         );
 
         let message = Message::build(

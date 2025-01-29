@@ -1,7 +1,8 @@
+use dashmap::DashMap;
 use database::Repository;
 use did_utils::didcore::Document;
 use keystore::Secrets;
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 
 use crate::{
     breaker::CircuitBreaker,
@@ -21,7 +22,7 @@ pub struct AppState {
     // Persistence layer
     pub repository: Option<AppStateRepository>,
     // Circuit breaker
-    pub circuit_breaker: HashMap<String, Arc<CircuitBreaker>>,
+    pub circuit_breaker: DashMap<String, CircuitBreaker>,
     // disclosed protocols
     pub disclose_protocols: Option<Vec<String>>,
 }
@@ -39,7 +40,7 @@ impl AppState {
         diddoc: Document,
         disclose_protocols: Option<Vec<String>>,
         repository: Option<AppStateRepository>,
-        circuit_breaker: HashMap<String, Arc<CircuitBreaker>>,
+        circuit_breaker: DashMap<String, CircuitBreaker>,
     ) -> eyre::Result<Self> {
         let did_resolver = LocalDIDResolver::new(&diddoc);
         let keystore = repository
