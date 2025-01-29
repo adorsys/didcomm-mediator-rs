@@ -104,7 +104,7 @@ enum CircuitState {
     HalfOpen,
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, PartialEq, Eq)]
 pub enum Error<E> {
     #[error("Circuit breaker is open")]
     CircuitOpen,
@@ -166,7 +166,7 @@ impl CircuitBreaker {
         Fut: Future<Output = Result<T, E>>,
     {
         ResultFuture {
-            derived_fut: f,
+            factory: f,
             state: State::Initial,
             breaker: self.clone(),
         }
@@ -234,9 +234,9 @@ impl Default for CircuitBreaker {
 
 pin_project! {
     /// A future that can be retried based on the circuit breaker state
-    pub struct ResultFuture<DerF, F>
+    pub struct ResultFuture<FutFactory, F>
     {
-        derived_fut: DerF,
+        factory: FutFactory,
         #[pin]
         state: State<F>,
         breaker: CircuitBreaker,
@@ -265,12 +265,12 @@ where
 
             let state = match this.state.project() {
                 StateProj::Initial => State::Running {
-                    future: (this.derived_fut)(),
+                    future: (this.factory)(),
                 },
                 StateProj::Delaying { delay } => {
                     ready!(delay.poll(cx));
                     State::Running {
-                        future: (this.derived_fut)(),
+                        future: (this.factory)(),
                     }
                 }
                 StateProj::Running { future } => {

@@ -27,11 +27,7 @@ pub(crate) async fn handle_status_request(
     message: Message,
 ) -> Result<Option<Message>, PickupError> {
     // Circuit breaker check
-    state
-        .circuit_breaker
-        .get(STATUS_REQUEST_3_0)
-        .filter(|cb| !cb.should_allow_call())
-        .map_or(Ok(()), |_| Err(PickupError::ServiceUnavailable))?;
+    check_circuit_breaker(&state, STATUS_REQUEST_3_0)?;
 
     // Validate the return_route header
     ensure_transport_return_route_is_decorated_all(&message)
@@ -77,11 +73,7 @@ pub(crate) async fn handle_delivery_request(
     message: Message,
 ) -> Result<Option<Message>, PickupError> {
     // Circuit breaker check
-    state
-        .circuit_breaker
-        .get(DELIVERY_REQUEST_3_0)
-        .filter(|cb| !cb.should_allow_call())
-        .map_or(Ok(()), |_| Err(PickupError::ServiceUnavailable))?;
+    check_circuit_breaker(&state, DELIVERY_REQUEST_3_0)?;
 
     // Validate the return_route header
     ensure_transport_return_route_is_decorated_all(&message)
@@ -159,11 +151,7 @@ pub(crate) async fn handle_message_acknowledgement(
     message: Message,
 ) -> Result<Option<Message>, PickupError> {
     // Circuit breaker check
-    state
-        .circuit_breaker
-        .get(MESSAGE_RECEIVED_3_0)
-        .filter(|cb| !cb.should_allow_call())
-        .map_or(Ok(()), |_| Err(PickupError::ServiceUnavailable))?;
+    check_circuit_breaker(&state, MESSAGE_RECEIVED_3_0)?;
 
     // Validate the return_route header
     ensure_transport_return_route_is_decorated_all(&message)
@@ -192,9 +180,10 @@ pub(crate) async fn handle_message_acknowledgement(
                 "Invalid message id: {id}"
             )));
         }
+        let msg_id = msg_id.unwrap();
         match cb {
             Some(cb) => cb
-                .call(repository.message_repository.delete_one(msg_id.unwrap()))
+                .call(|| repository.message_repository.delete_one(msg_id))
                 .await
                 .map_err(|err| match err {
                     BreakerError::CircuitOpen => PickupError::ServiceUnavailable,
@@ -207,7 +196,7 @@ pub(crate) async fn handle_message_acknowledgement(
                 })?,
             None => repository
                 .message_repository
-                .delete_one(msg_id.unwrap())
+                .delete_one(msg_id)
                 .await
                 .map_err(|err| {
                     tracing::error!("Failed to delete message: {err:?}");
@@ -291,11 +280,11 @@ async fn count_messages(
 
     let count = match cb {
         Some(cb) => cb
-            .call(
+            .call(|| {
                 repository
                     .message_repository
-                    .count_by(doc! { "recipient_did": { "$in": recipients } }),
-            )
+                    .count_by(doc! { "recipient_did": { "$in": recipients.to_owned() } })
+            })
             .await
             .map_err(|err| match err {
                 BreakerError::CircuitOpen => PickupError::ServiceUnavailable,
@@ -332,10 +321,12 @@ async fn messages(
 
     let routed_messages = match cb {
         Some(cb) => cb
-            .call(repository.message_repository.find_all_by(
-                doc! { "recipient_did": { "$in": recipients } },
-                Some(limit as i64),
-            ))
+            .call(|| {
+                repository.message_repository.find_all_by(
+                    doc! { "recipient_did": { "$in": recipients.to_owned() } },
+                    Some(limit as i64),
+                )
+            })
             .await
             .map_err(|err| match err {
                 BreakerError::CircuitOpen => PickupError::ServiceUnavailable,
@@ -397,11 +388,11 @@ async fn client_connection(
 ) -> Result<Connection, PickupError> {
     let connection = match cb {
         Some(cb) => cb
-            .call(
+            .call(|| {
                 repository
                     .connection_repository
-                    .find_one_by(doc! { "client_did": client_did }),
-            )
+                    .find_one_by(doc! { "client_did": client_did })
+            })
             .await
             .map_err(|err| match err {
                 BreakerError::CircuitOpen => PickupError::ServiceUnavailable,
@@ -425,6 +416,14 @@ async fn client_connection(
     };
 
     connection.ok_or(PickupError::MissingClientConnection)
+}
+
+fn check_circuit_breaker(state: &Arc<AppState>, msg_type: &str) -> Result<(), PickupError> {
+    state
+        .circuit_breaker
+        .get(msg_type)
+        .filter(|cb| cb.is_open())
+        .map_or(Ok(()), |_| Err(PickupError::ServiceUnavailable))
 }
 
 #[cfg(test)]

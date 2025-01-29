@@ -39,11 +39,7 @@ pub(crate) async fn process_mediate_request(
     plain_message: Message,
 ) -> Result<Option<Message>, MediationError> {
     // Check if the circuit breaker is open
-    state
-        .circuit_breaker
-        .get(MEDIATE_REQUEST_2_0)
-        .filter(|cb| !cb.should_allow_call())
-        .map_or(Ok(()), |_| Err(MediationError::ServiceUnavailable))?;
+    check_circuit_breaker(&state, MEDIATE_REQUEST_2_0)?;
 
     // Validate message type and return route
     ensure_jwm_type_is_mediation_request(&plain_message)?;
@@ -61,11 +57,11 @@ pub(crate) async fn process_mediate_request(
     // Check existing mediation
     let existing_connection = match state.circuit_breaker.get(MEDIATE_REQUEST_2_0) {
         Some(cb) => cb
-            .call(
+            .call(|| {
                 repository
                     .connection_repository
-                    .find_one_by(doc! { "client_did": sender_did}),
-            )
+                    .find_one_by(doc! { "client_did": sender_did})
+            })
             .await
             .map_err(|err| match err {
                 BreakerError::CircuitOpen => MediationError::ServiceUnavailable,
@@ -138,7 +134,11 @@ async fn process_mediation_grant(
     // Store connection
     match state.circuit_breaker.get(MEDIATE_REQUEST_2_0) {
         Some(cb) => cb
-            .call(repository.connection_repository.store(new_connection))
+            .call(|| {
+                repository
+                    .connection_repository
+                    .store(new_connection.to_owned())
+            })
             .await
             .map_err(|err| match err {
                 BreakerError::CircuitOpen => MediationError::ServiceUnavailable,
@@ -185,7 +185,7 @@ async fn store_keys(
 
     match state.circuit_breaker.get(MEDIATE_REQUEST_2_0) {
         Some(cb) => cb
-            .call(repository.keystore.store(agreem_keys_secret))
+            .call(|| repository.keystore.store(agreem_keys_secret.to_owned()))
             .await
             .map_err(|err| match err {
                 BreakerError::CircuitOpen => MediationError::ServiceUnavailable,
@@ -213,7 +213,7 @@ async fn store_keys(
 
     match state.circuit_breaker.get(MEDIATE_REQUEST_2_0) {
         Some(cb) => cb
-            .call(repository.keystore.store(auth_keys_secret))
+            .call(|| repository.keystore.store(auth_keys_secret.to_owned()))
             .await
             .map_err(|err| match err {
                 BreakerError::CircuitOpen => MediationError::ServiceUnavailable,
@@ -285,11 +285,7 @@ pub(crate) async fn process_plain_keylist_update_message(
     message: Message,
 ) -> Result<Option<Message>, MediationError> {
     // Circuit breaker check
-    state
-        .circuit_breaker
-        .get(KEYLIST_UPDATE_2_0)
-        .filter(|cb| !cb.should_allow_call())
-        .map_or(Ok(()), |_| Err(MediationError::ServiceUnavailable))?;
+    check_circuit_breaker(&state, KEYLIST_UPDATE_2_0)?;
 
     let sender = message
         .from
@@ -306,11 +302,11 @@ pub(crate) async fn process_plain_keylist_update_message(
     // Find connection
     let connection = match state.circuit_breaker.get(KEYLIST_UPDATE_2_0) {
         Some(cb) => cb
-            .call(
+            .call(|| {
                 repository
                     .connection_repository
-                    .find_one_by(doc! { "client_did": &sender }),
-            )
+                    .find_one_by(doc! { "client_did": &sender })
+            })
             .await
             .map_err(|err| match err {
                 BreakerError::CircuitOpen => MediationError::ServiceUnavailable,
@@ -382,10 +378,12 @@ pub(crate) async fn process_plain_keylist_update_message(
     // Update connection
     let confirmations = match state.circuit_breaker.get(KEYLIST_UPDATE_2_0) {
         Some(cb) => cb
-            .call(repository.connection_repository.update(Connection {
-                keylist: updated_keylist,
-                ..connection
-            }))
+            .call(|| {
+                repository.connection_repository.update(Connection {
+                    keylist: updated_keylist.clone(),
+                    ..connection.clone()
+                })
+            })
             .await
             .map_err(|err| match err {
                 BreakerError::CircuitOpen => MediationError::ServiceUnavailable,
@@ -447,11 +445,7 @@ pub(crate) async fn process_plain_keylist_query_message(
     message: Message,
 ) -> Result<Option<Message>, MediationError> {
     // Circuit breaker check
-    state
-        .circuit_breaker
-        .get(KEYLIST_QUERY_2_0)
-        .filter(|cb| !cb.should_allow_call())
-        .map_or(Ok(()), |_| Err(MediationError::ServiceUnavailable))?;
+    check_circuit_breaker(&state, KEYLIST_QUERY_2_0)?;
 
     let sender = message
         .from
@@ -465,11 +459,11 @@ pub(crate) async fn process_plain_keylist_query_message(
     // Find connection
     let connection = match state.circuit_breaker.get(KEYLIST_QUERY_2_0) {
         Some(cb) => cb
-            .call(
+            .call(|| {
                 repository
                     .connection_repository
-                    .find_one_by(doc! { "client_did": &sender }),
-            )
+                    .find_one_by(doc! { "client_did": &sender })
+            })
             .await
             .map_err(|err| match err {
                 BreakerError::CircuitOpen => MediationError::ServiceUnavailable,
@@ -514,6 +508,15 @@ pub(crate) async fn process_plain_keylist_query_message(
     .finalize();
 
     Ok(Some(message))
+}
+
+#[inline]
+fn check_circuit_breaker(state: &Arc<AppState>, msg_type: &str) -> Result<(), MediationError> {
+    state
+        .circuit_breaker
+        .get(msg_type)
+        .filter(|cb| cb.is_open())
+        .map_or(Ok(()), |_| Err(MediationError::ServiceUnavailable))
 }
 
 #[cfg(test)]

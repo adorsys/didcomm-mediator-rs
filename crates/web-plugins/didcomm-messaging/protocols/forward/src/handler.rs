@@ -21,7 +21,7 @@ pub(crate) async fn mediator_forward_process(
     state
         .circuit_breaker
         .get(MEDIATE_FORWARD_2_0)
-        .filter(|cb| !cb.should_allow_call())
+        .filter(|cb| cb.is_open())
         .map_or(Ok(()), |_| Err(ForwardError::ServiceUnavailable))?;
 
     let repository = state
@@ -55,7 +55,11 @@ pub(crate) async fn mediator_forward_process(
 
             match state.circuit_breaker.get(MEDIATE_FORWARD_2_0) {
                 Some(cb) => cb
-                    .call(repository.message_repository.store(routed_message))
+                    .call(|| {
+                        repository
+                            .message_repository
+                            .store(routed_message.to_owned())
+                    })
                     .await
                     .map_err(|err| match err {
                         BreakerError::CircuitOpen => ForwardError::ServiceUnavailable,
@@ -85,10 +89,12 @@ async fn checks(
     };
 
     // Check if the client's did is in mediator's keylist
-    let query = doc! {"keylist": doc!{ "$elemMatch": { "$eq": &next}}};
     match circuit_breaker {
         Some(cb) => cb
-            .call(connection_repository.find_one_by(query))
+            .call(|| {
+                connection_repository
+                    .find_one_by(doc! {"keylist": doc!{ "$elemMatch": { "$eq": &next}}})
+            })
             .await
             .map_err(|err| match err {
                 BreakerError::CircuitOpen => ForwardError::ServiceUnavailable,
@@ -101,7 +107,7 @@ async fn checks(
             .then_some(())
             .ok_or(ForwardError::UncoordinatedSender)?,
         None => connection_repository
-            .find_one_by(query)
+            .find_one_by(doc! {"keylist": doc!{ "$elemMatch": { "$eq": &next}}})
             .await
             .map_err(|err| {
                 tracing::error!("Failed to find connection: {err:?}");
