@@ -456,15 +456,15 @@ mod tests {
             "id_alice_keylist_update_request".to_owned(),
             "https://didcomm.org/coordinate-mediation/2.0/keylist-update".to_owned(),
             json!({
-            "updates": [
-                {
-                    "action": "remove",
-                    "recipient_did": "did:key:alice_identity_pub1@alice_mediator"
-                },
-                {
-                    "action": "add",
-                    "recipient_did": "did:key:alice_identity_pub2@alice_mediator"
-                },
+                "updates": [
+                    {
+                        "action": "remove",
+                        "recipient_did": "did:key:alice_identity_pub1@alice_mediator"
+                    },
+                    {
+                        "action": "add",
+                        "recipient_did": "did:key:alice_identity_pub2@alice_mediator"
+                    },
                 ]
             }),
         )
@@ -491,16 +491,16 @@ mod tests {
         assert_eq!(
             response.body,
             json!({
-            "updated": [
-                {
-                    "recipient_did": "did:key:alice_identity_pub1@alice_mediator",
-                    "action": "remove",
-                    "result": "success"
-                },
-                {
-                    "recipient_did":"did:key:alice_identity_pub2@alice_mediator",
-                    "action": "add",
-                    "result": "success"
+              "updated": [
+                 {
+                        "recipient_did": "did:key:alice_identity_pub1@alice_mediator",
+                        "action": "remove",
+                        "result": "success"
+                    },
+                    {
+                        "recipient_did":"did:key:alice_identity_pub2@alice_mediator",
+                        "action": "add",
+                        "result": "success"
                 },
                 ]
             })
