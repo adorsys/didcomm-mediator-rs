@@ -27,6 +27,7 @@ use tokio::time::Sleep;
 ///
 /// *   A single retry attempt.
 /// *   A default reset timeout of 30 seconds.
+/// *   One retry attempt in half-open state.
 /// *   No delay between retries.
 ///
 /// # Configuration
@@ -35,6 +36,8 @@ use tokio::time::Sleep;
 ///
 /// *   [`retries(self, max_retries: usize)`](retries): Sets the maximum number of consecutive failures allowed before the circuit opens.
 ///     A value of 0 means the circuit will open on the first failure.
+/// *   [`half_open_max_failures(self, max_retries: usize)`](half_open_max_failures): Sets the maximum number of attempts in half-open state
+///     before reopening the circuit.
 /// *   [`reset_timeout(self, reset_timeout: Duration)`](timeout): Sets the duration the circuit remains open after tripping.
 ///     After this timeout, the circuit transitions to the half-open state.
 /// *   [`exponential_backoff(self, initial_delay: Duration)`](exponential_backoff): Configures an exponential backoff strategy for retries.
@@ -51,6 +54,7 @@ use tokio::time::Sleep;
 /// # async fn main() -> Result<(), std::io::Error> {
 ///     let breaker = CircuitBreaker::new()
 ///         .retries(3)
+///         .half_open_max_failures(2)
 ///         .reset_timeout(Duration::from_secs(10))
 ///         .exponential_backoff(Duration::from_millis(100));
 ///
@@ -80,10 +84,14 @@ struct CircuitBreakerConfig {
     state: CircuitState,
     // Failure threshold before opening the circuit
     max_retries: usize,
+    // Maximum number of retries allowed in half-open state
+    half_open_max_retries: usize,
     // Time to wait before closing the circuit again
     reset_timeout: Duration,
     // Tracks failure count
     failure_count: usize,
+    // Tracks failure count in half-open state
+    half_open_failure_count: usize,
     // Timestamp when circuit was opened
     opened_at: Option<Instant>,
     // Set delay between retries
@@ -120,8 +128,10 @@ impl CircuitBreaker {
             inner: Arc::new(Mutex::new(CircuitBreakerConfig {
                 state: CircuitState::Closed,
                 max_retries: 0,
+                half_open_max_retries: 1,
                 reset_timeout: Duration::from_secs(30),
                 failure_count: 0,
+                half_open_failure_count: 0,
                 opened_at: None,
                 backoff: BackoffStrategy::NoBackoff,
             })),
@@ -131,6 +141,13 @@ impl CircuitBreaker {
     /// Specify the maximum number of attempts for the future
     pub fn retries(self, max_retries: usize) -> Self {
         self.inner.lock().max_retries = max_retries;
+        self
+    }
+
+    /// Specify the maximum number of attempts for the half-open state
+    /// before reopening the circuit
+    pub fn half_open_max_failures(self, max_retries: usize) -> Self {
+        self.inner.lock().half_open_max_retries = max_retries;
         self
     }
 
@@ -184,6 +201,7 @@ impl CircuitBreaker {
                 if transition {
                     config.state = CircuitState::HalfOpen;
                     config.failure_count = 0;
+                    config.half_open_failure_count = 0;
                     true
                 } else {
                     false
@@ -198,10 +216,12 @@ impl CircuitBreaker {
         match config.state {
             CircuitState::Closed => {
                 config.failure_count = 0;
+                config.half_open_failure_count = 0;
             }
             CircuitState::HalfOpen => {
                 config.state = CircuitState::Closed;
                 config.failure_count = 0;
+                config.half_open_failure_count = 0;
                 config.opened_at = None;
             }
             CircuitState::Open => {}
@@ -221,8 +241,12 @@ impl CircuitBreaker {
                 }
             }
             CircuitState::HalfOpen => {
-                config.state = CircuitState::Open;
-                config.opened_at = Some(Instant::now());
+                config.half_open_failure_count += 1;
+                if config.half_open_failure_count >= config.half_open_max_retries {
+                    config.state = CircuitState::Open;
+                    config.opened_at = Some(Instant::now());
+                    config.half_open_failure_count = 0;
+                }
             }
         }
     }
