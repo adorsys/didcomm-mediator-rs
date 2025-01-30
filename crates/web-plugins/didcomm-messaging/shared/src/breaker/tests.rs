@@ -147,7 +147,11 @@ async fn test_half_open_state_failure() {
     // We wait for reset timeout
     sleep(Duration::from_millis(150)).await;
 
-    // Retrying a failing operation should return the underlying error
+    // The circuit should be in half-open state
+    assert!(breaker.should_allow_call());
+    assert_eq!(breaker.inner.lock().state, CircuitState::HalfOpen);
+
+    // The circuit should open again after the next failure
     let result = breaker.call(|| async { Err::<(), ()>(()) }).await;
-    assert!(matches!(result, Err(Error::Inner(_))));
+    assert_eq!(result, Err(Error::CircuitOpen));
 }
