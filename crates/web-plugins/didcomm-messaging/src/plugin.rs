@@ -145,6 +145,7 @@ impl Plugin for DidcommMessaging {
                 .fold(DashMap::with_capacity(msg_types.len()), |acc, msg| {
                     let breaker_config = CircuitBreaker::new()
                         .retries(5)
+                        .half_open_max_failures(3)
                         .reset_timeout(Duration::from_secs(60))
                         .exponential_backoff(Duration::from_millis(100));
                     acc.insert(msg.to_string(), breaker_config);

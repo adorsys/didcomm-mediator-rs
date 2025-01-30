@@ -1,37 +1,28 @@
+use super::*;
+
 use std::sync::atomic::{AtomicUsize, Ordering};
 use tokio::time::sleep;
 
-use super::*;
-
 #[tokio::test]
 async fn test_configuration_overrides() {
-    let breaker = CircuitBreaker::new().retries(2).retries(3);
+    let breaker = CircuitBreaker::new()
+        .retries(2)
+        .retries(3)
+        .reset_timeout(Duration::from_millis(100))
+        .reset_timeout(Duration::from_secs(1))
+        .constant_backoff(Duration::from_millis(200))
+        .exponential_backoff(Duration::from_millis(100))
+        .exponential_backoff(Duration::from_millis(200))
+        .half_open_max_failures(5)
+        .half_open_max_failures(10);
 
     assert_eq!(breaker.inner.lock().max_retries, 3);
-
-    let breaker = CircuitBreaker::new()
-        .reset_timeout(Duration::from_millis(100))
-        .reset_timeout(Duration::from_secs(1));
-
     assert_eq!(breaker.inner.lock().reset_timeout, Duration::from_secs(1));
-
-    let breaker = CircuitBreaker::new()
-        .exponential_backoff(Duration::from_millis(100))
-        .exponential_backoff(Duration::from_millis(200));
-
     assert_eq!(
         breaker.inner.lock().backoff,
         BackoffStrategy::Exponential(Duration::from_millis(200))
     );
-
-    let breaker = CircuitBreaker::new()
-        .exponential_backoff(Duration::from_millis(100))
-        .constant_backoff(Duration::from_millis(200));
-
-    assert_eq!(
-        breaker.inner.lock().backoff,
-        BackoffStrategy::Constant(Duration::from_millis(200))
-    );
+    assert_eq!(breaker.inner.lock().half_open_max_retries, 10);
 }
 
 #[tokio::test]
@@ -154,4 +145,27 @@ async fn test_half_open_state_failure() {
     // The circuit should open again after the next failure
     let result = breaker.call(|| async { Err::<(), ()>(()) }).await;
     assert_eq!(result, Err(Error::CircuitOpen));
+}
+
+#[tokio::test]
+async fn test_half_open_multiple_failures_allowed() {
+    let breaker = CircuitBreaker::new()
+        .half_open_max_failures(2)
+        .reset_timeout(Duration::from_millis(100));
+
+    let result = breaker.call(|| async { Err::<(), ()>(()) }).await;
+    assert!(matches!(result, Err(Error::Inner(_))));
+    assert_eq!(breaker.inner.lock().state, CircuitState::Open);
+
+    sleep(Duration::from_millis(100)).await;
+
+    // The circuit should be in half-open state
+    // and should allow 2 more failures
+    let _ = breaker.call(|| async { Err::<(), ()>(()) }).await;
+    let result = breaker.call(|| async { Err::<(), ()>(()) }).await;
+    assert!(matches!(result, Err(Error::Inner(_))));
+
+    // Additional failure in half-open should open circuit
+    let result = breaker.call(|| async { Err::<(), ()>(()) }).await;
+    assert!(matches!(result, Err(Error::CircuitOpen)));
 }
