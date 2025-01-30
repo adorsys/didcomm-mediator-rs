@@ -7,7 +7,7 @@ mongodb:
 mediator:
   image:
     repository: ghcr.io/adorsys/didcomm-mediator-rs
-    pullPolicy: IfNotPresent
+    pullPolicy: Always
     tag: latest
   ingress:
     tls:
