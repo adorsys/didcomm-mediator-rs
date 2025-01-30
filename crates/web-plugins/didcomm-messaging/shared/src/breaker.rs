@@ -154,11 +154,6 @@ impl CircuitBreaker {
         self
     }
 
-    /// Check if the circuit breaker is open
-    pub fn is_open(&self) -> bool {
-        self.inner.lock().state == CircuitState::Open
-    }
-
     // Call the future and handle the result depending on the circuit
     pub fn call<F, Fut, T, E>(&self, f: F) -> ResultFuture<F, Fut>
     where
@@ -172,13 +167,44 @@ impl CircuitBreaker {
         }
     }
 
+    /// Check if the circuit breaker should allow a call
+    pub fn should_allow_call(&self) -> bool {
+        let mut config = self.inner.lock();
+
+        match config.state {
+            CircuitState::Closed | CircuitState::HalfOpen => true,
+            CircuitState::Open => {
+                let transition = {
+                    config
+                        .opened_at
+                        .map(|time| time.elapsed() >= config.reset_timeout)
+                        .unwrap_or(false)
+                };
+
+                if transition {
+                    config.state = CircuitState::HalfOpen;
+                    config.failure_count = 0;
+                    true
+                } else {
+                    false
+                }
+            }
+        }
+    }
+
     fn success(&self) {
         let mut config = self.inner.lock();
 
-        if config.state == CircuitState::HalfOpen {
-            config.state = CircuitState::Closed;
-            config.failure_count = 0;
-            config.opened_at = None;
+        match config.state {
+            CircuitState::Closed => {
+                config.failure_count = 0;
+            }
+            CircuitState::HalfOpen => {
+                config.state = CircuitState::Closed;
+                config.failure_count = 0;
+                config.opened_at = None;
+            }
+            CircuitState::Open => {}
         }
     }
 
@@ -197,30 +223,6 @@ impl CircuitBreaker {
             CircuitState::HalfOpen => {
                 config.state = CircuitState::Open;
                 config.opened_at = Some(Instant::now());
-            }
-        }
-    }
-
-    fn should_allow_call(&self) -> bool {
-        let mut config = self.inner.lock();
-
-        match config.state {
-            CircuitState::Closed => true,
-            CircuitState::HalfOpen => true,
-            CircuitState::Open => {
-                let transition = {
-                    config
-                        .opened_at
-                        .map(|time| time.elapsed() >= config.reset_timeout)
-                        .unwrap_or(false)
-                };
-
-                if transition {
-                    config.state = CircuitState::HalfOpen;
-                    true
-                } else {
-                    false
-                }
             }
         }
     }

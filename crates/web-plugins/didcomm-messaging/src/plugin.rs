@@ -139,14 +139,17 @@ impl Plugin for DidcommMessaging {
         };
 
         // Initialize circuit breakers
-        let breaker_acc = msg_types.iter().fold(DashMap::new(), |acc, msg| {
-            let breaker_config = CircuitBreaker::new()
-                .retries(5)
-                .reset_timeout(Duration::from_secs(60))
-                .exponential_backoff(Duration::from_millis(100));
-            acc.insert(msg.to_string(), breaker_config);
-            acc
-        });
+        let breaker_acc =
+            msg_types
+                .iter()
+                .fold(DashMap::with_capacity(msg_types.len()), |acc, msg| {
+                    let breaker_config = CircuitBreaker::new()
+                        .retries(5)
+                        .reset_timeout(Duration::from_secs(60))
+                        .exponential_backoff(Duration::from_millis(100));
+                    acc.insert(msg.to_string(), breaker_config);
+                    acc
+                });
 
         // Compile state
         let state = AppState::from(

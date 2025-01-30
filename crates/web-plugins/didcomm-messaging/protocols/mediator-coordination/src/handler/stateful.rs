@@ -515,7 +515,7 @@ fn check_circuit_breaker(state: &Arc<AppState>, msg_type: &str) -> Result<(), Me
     state
         .circuit_breaker
         .get(msg_type)
-        .filter(|cb| cb.is_open())
+        .filter(|cb| !cb.should_allow_call())
         .map_or(Ok(()), |_| Err(MediationError::ServiceUnavailable))
 }
 

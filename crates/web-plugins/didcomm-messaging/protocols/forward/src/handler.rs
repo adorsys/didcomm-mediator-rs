@@ -21,7 +21,7 @@ pub(crate) async fn mediator_forward_process(
     state
         .circuit_breaker
         .get(MEDIATE_FORWARD_2_0)
-        .filter(|cb| cb.is_open())
+        .filter(|cb| !cb.should_allow_call())
         .map_or(Ok(()), |_| Err(ForwardError::ServiceUnavailable))?;
 
     let repository = state

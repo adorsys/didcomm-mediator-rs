@@ -37,7 +37,7 @@ async fn test_configuration_overrides() {
 #[tokio::test]
 async fn test_default_config_with_successful_future() {
     let breaker = CircuitBreaker::new();
-    assert!(!breaker.is_open());
+    assert!(breaker.should_allow_call());
     let result = breaker.call(|| async { Ok::<_, ()>(1) }).await;
     assert_eq!(breaker.inner.lock().state, CircuitState::Closed);
     assert_eq!(breaker.inner.lock().failure_count, 0);
@@ -47,10 +47,10 @@ async fn test_default_config_with_successful_future() {
 #[tokio::test]
 async fn test_default_config_with_failed_future() {
     let breaker = CircuitBreaker::new();
-    assert!(!breaker.is_open());
+    assert!(breaker.should_allow_call());
     let result = breaker.call(|| async { Err::<(), ()>(()) }).await;
     assert!(matches!(result, Err(Error::Inner(_))));
-    assert!(breaker.is_open());
+    assert!(!breaker.should_allow_call());
 }
 
 #[tokio::test]
@@ -58,7 +58,7 @@ async fn test_circuit_open_rejection() {
     let breaker = CircuitBreaker::new();
 
     let _ = breaker.call(|| async { Err::<(), ()>(()) }).await;
-    assert!(breaker.is_open());
+    assert!(!breaker.should_allow_call());
 
     // The circuit is now open, so the call should be rejected
     let result = breaker.call(|| async { Ok::<_, ()>(1) }).await;
@@ -89,7 +89,7 @@ async fn test_timeout_reset() {
 
     // Open the circuit
     let _ = breaker.call(|| async { Err::<(), ()>(()) }).await;
-    assert!(breaker.is_open());
+    assert!(!breaker.should_allow_call());
 
     // Wait for reset timeout
     sleep(Duration::from_millis(100)).await;
@@ -115,7 +115,7 @@ async fn test_exponential_backoff() {
     // After the second failure, we wait 200ms before retrying
     // The total elapsed time should be near 300ms
     assert!(elapsed >= Duration::from_millis(300) && elapsed < Duration::from_millis(400));
-    assert!(breaker.is_open());
+    assert!(!breaker.should_allow_call());
 }
 
 #[tokio::test]
@@ -132,7 +132,7 @@ async fn test_constant_backoff() {
     // We wait for another 100ms after the second failure
     // After the third failure, the total elapsed time should be near 200ms
     assert!(elapsed >= Duration::from_millis(200) && elapsed < Duration::from_millis(300));
-    assert!(breaker.is_open());
+    assert!(!breaker.should_allow_call());
 }
 
 #[tokio::test]
@@ -142,7 +142,7 @@ async fn test_half_open_state_failure() {
         .reset_timeout(Duration::from_millis(100));
 
     let _ = breaker.call(|| async { Err::<(), ()>(()) }).await;
-    assert!(breaker.is_open());
+    assert!(!breaker.should_allow_call());
 
     // We wait for reset timeout
     sleep(Duration::from_millis(150)).await;

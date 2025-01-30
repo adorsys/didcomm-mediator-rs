@@ -18,7 +18,6 @@ impl MessageHandler for ForwardHandler {
         state: Arc<AppState>,
         msg: Message,
     ) -> Result<Option<Message>, Response> {
-        // Pass the state, msg, and the circuit_breaker as arguments
         crate::handler::mediator_forward_process(state, msg)
             .await
             .map_err(|e| e.into_response())
