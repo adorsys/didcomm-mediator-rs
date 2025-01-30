@@ -491,8 +491,8 @@ mod tests {
         assert_eq!(
             response.body,
             json!({
-              "updated": [
-                 {
+                "updated": [
+                    {
                         "recipient_did": "did:key:alice_identity_pub1@alice_mediator",
                         "action": "remove",
                         "result": "success"
@@ -501,7 +501,7 @@ mod tests {
                         "recipient_did":"did:key:alice_identity_pub2@alice_mediator",
                         "action": "add",
                         "result": "success"
-                },
+                    },
                 ]
             })
         );
@@ -519,26 +519,26 @@ mod tests {
             serde_json::from_str::<Vec<Connection>>(
                 r##"[
                     {
-                    "_id": {
-                        "$oid": "6580701fd2d92bb3cd291b2a"
+                        "_id": {
+                            "$oid": "6580701fd2d92bb3cd291b2a"
                         },
                         "client_did": "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7",
                         "mediator_did": "did:web:alice-mediator.com:alice_mediator_pub",
                         "routing_did": "did:key:generated",
                         "keylist": [
                             "did:key:alice_identity_pub2@alice_mediator"
-                            ]
-                        },
-                        {
+                        ]
+                    },
+                    {
                         "_id": {
                             "$oid": "6580701fd2d92bb3cd291b2b"
-                            },
-                            "client_did": "did:key:other",
-                            "mediator_did": "did:web:alice-mediator.com:alice_mediator_pub",
-                            "routing_did": "did:key:generated",
-                            "keylist": []
-                            }
-                            ]"##
+                        },
+                        "client_did": "did:key:other",
+                        "mediator_did": "did:web:alice-mediator.com:alice_mediator_pub",
+                        "routing_did": "did:key:generated",
+                        "keylist": []
+                    }
+                ]"##
             )
             .unwrap()
         );
@@ -554,16 +554,16 @@ mod tests {
             "id_alice_keylist_update_request".to_owned(),
             "https://didcomm.org/coordinate-mediation/2.0/keylist-update".to_owned(),
             json!({
-                            "updates": [
-                                {
-                                    "action": "add",
-                                    "recipient_did": "did:key:alice_identity_pub1@alice_mediator"
-                                },
-                                {
-                                    "action": "remove",
+                "updates": [
+                    {
+                        "action": "add",
+                        "recipient_did": "did:key:alice_identity_pub1@alice_mediator"
+                    },
+                    {
+                        "action": "remove",
                         "recipient_did": "did:key:alice_identity_pub2@alice_mediator"
                     },
-                    ]
+                ]
             }),
         )
         .header("return_route".into(), json!("all"))
