@@ -8,7 +8,7 @@ use crate::{
     model::stateful::coord::{
         KeylistBody, KeylistEntry, KeylistUpdateAction, KeylistUpdateBody,
         KeylistUpdateConfirmation, KeylistUpdateResponseBody, KeylistUpdateResult, MediationDeny,
-        MediationGrant, MediationGrantBody,
+        MediationGrantBody,
     },
 };
 use did_utils::{
@@ -160,7 +160,7 @@ async fn process_mediation_grant(
     Ok(Some(
         Message::build(
             format!("urn:uuid:{}", Uuid::new_v4()),
-            mediation_grant.message_type.clone(),
+            MEDIATE_GRANT_2_0.to_string(),
             json!(mediation_grant),
         )
         .to(sender_did.to_owned())
@@ -235,13 +235,9 @@ async fn store_keys(
     Ok(())
 }
 
-fn create_mediation_grant(routing_did: &str) -> MediationGrant {
-    MediationGrant {
-        id: format!("urn:uuid:{}", Uuid::new_v4()),
-        message_type: MEDIATE_GRANT_2_0.to_string(),
-        body: MediationGrantBody {
-            routing_did: routing_did.to_string(),
-        },
+fn create_mediation_grant(routing_did: &str) -> MediationGrantBody {
+    MediationGrantBody {
+        routing_did: routing_did.to_string(),
     }
 }
 
@@ -559,14 +555,14 @@ mod tests {
         .finalize();
 
         // Process request
-        let response = process_plain_keylist_query_message(Arc::clone(&state), message)
+        let message = process_plain_keylist_query_message(Arc::clone(&state), message)
             .await
             .unwrap()
             .expect("Response should not be None");
 
-        assert_eq!(response.type_, KEYLIST_2_0);
-        assert_eq!(response.from.unwrap(), global::_mediator_did(&state));
-        assert_eq!(response.to.unwrap(), vec![global::_edge_did()]);
+        assert_eq!(message.type_, KEYLIST_2_0);
+        assert_eq!(message.from.unwrap(), global::_mediator_did(&state));
+        assert_eq!(message.to.unwrap(), vec![global::_edge_did()]);
     }
     #[tokio::test]
     async fn test_keylist_query_malformed_request() {
@@ -629,7 +625,6 @@ mod tests {
         assert_eq!(response.type_, KEYLIST_UPDATE_RESPONSE_2_0);
         assert_eq!(response.from.unwrap(), global::_mediator_did(&state));
         assert_eq!(response.to.unwrap(), vec![global::_edge_did()]);
-
         // Assert updates
 
         assert_eq!(
