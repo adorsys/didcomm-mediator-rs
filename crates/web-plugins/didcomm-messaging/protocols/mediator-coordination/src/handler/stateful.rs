@@ -7,7 +7,7 @@ use crate::{
     handler::midlw::ensure_jwm_type_is_mediation_request,
     model::stateful::coord::{
         KeylistBody, KeylistEntry, KeylistUpdateAction, KeylistUpdateBody,
-        KeylistUpdateConfirmation, KeylistUpdateResponseBody, KeylistUpdateResult, MediationDeny,
+        KeylistUpdateConfirmation, KeylistUpdateResponseBody, KeylistUpdateResult,
         MediationGrantBody,
     },
 };
@@ -23,7 +23,7 @@ use didcomm::{
 };
 use keystore::Secrets;
 use mongodb::bson::doc;
-use serde_json::json;
+use serde_json::{json, Value};
 use shared::{
     breaker::Error as BreakerError,
     midlw::ensure_transport_return_route_is_decorated_all,
@@ -80,10 +80,7 @@ pub(crate) async fn process_mediate_request(
             Message::build(
                 format!("urn:uuid:{}", Uuid::new_v4()),
                 MEDIATE_DENY_2_0.to_string(),
-                json!(MediationDeny {
-                    id: format!("urn:uuid:{}", Uuid::new_v4()),
-                    message_type: MEDIATE_DENY_2_0.to_string(),
-                }),
+                json!(Value::Null),
             )
             .to(sender_did.clone())
             .from(mediator_did.clone())
@@ -235,6 +232,7 @@ async fn store_keys(
     Ok(())
 }
 
+#[inline]
 fn create_mediation_grant(routing_did: &str) -> MediationGrantBody {
     MediationGrantBody {
         routing_did: routing_did.to_string(),
