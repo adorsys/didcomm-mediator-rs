@@ -1,0 +1,38 @@
+groups:
+  - name: instance_health
+    rules:
+      - alert: InstanceDown
+        expr: up{job="didcomm-mediator"} == 0
+        for: 0s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Instance {{ $labels.instance }} is down"
+          description: "The instance {{ $labels.instance }} is down"
+
+      - alert: HighCPUUsage
+        expr: node_cpu_seconds_total{mode="idle"} < 20  
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage on {{ $labels.instance }}"
+          description: "CPU usage is above 80% for more than 5 minutes."
+
+      - alert: HighMemoryUsage
+        expr: node_memory_MemTotal_bytes - node_memory_MemFree_bytes > 1000 * 1024 * 1024  
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage on {{ $labels.instance }}"
+          description: "Memory usage is above 1GB for more than 5 minutes."
+
+      - alert: SlowAPIResponse
+        expr: histogram_quantile(0.95, rate(api_response_time_seconds_bucket[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Slow API responses on {{ $labels.instance }}"
+          description: "95th percentile of API response times is above 1 second for more than 5 minutes."
