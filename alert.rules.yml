@@ -3,30 +3,32 @@ groups:
     rules:
       - alert: InstanceDown
         expr: up{job="didcomm-mediator"} == 0
-        for: 0s
+        for: 30s
         labels:
           severity: critical
         annotations:
           summary: "Instance {{ $labels.instance }} is down"
-          description: "The instance {{ $labels.instance }} is down"
+          description: "The instance {{ $labels.instance }} is not responding."
 
+  - name: resource_monitoring
+    rules:
       - alert: HighCPUUsage
-        expr: node_cpu_seconds_total{mode="idle"} < 20  
-        for: 5m
+        expr: (100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[2m])) * 100)) > 80
+        for: 2m
         labels:
           severity: warning
         annotations:
-          summary: "High CPU usage on {{ $labels.instance }}"
-          description: "CPU usage is above 80% for more than 5 minutes."
+          summary: "High CPU Usage on {{ $labels.instance }}"
+          description: "CPU usage is above 80% for the last 2 minutes."
 
       - alert: HighMemoryUsage
-        expr: node_memory_MemTotal_bytes - node_memory_MemFree_bytes > 1000 * 1024 * 1024  
-        for: 5m
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+        for: 2m
         labels:
           severity: warning
         annotations:
-          summary: "High memory usage on {{ $labels.instance }}"
-          description: "Memory usage is above 1GB for more than 5 minutes."
+          summary: "High Memory Usage on {{ $labels.instance }}"
+          description: "Memory usage is above 85% for the last 2 minutes."
 
       - alert: SlowAPIResponse
         expr: histogram_quantile(0.95, rate(api_response_time_seconds_bucket[5m])) > 1
@@ -36,3 +38,31 @@ groups:
         annotations:
           summary: "Slow API responses on {{ $labels.instance }}"
           description: "95th percentile of API response times is above 1 second for more than 5 minutes."
+
+
+      - alert: DiskSpaceLow
+        expr: (node_filesystem_avail_bytes / node_filesystem_size_bytes) * 100 < 20
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low Disk Space on {{ $labels.instance }}"
+          description: "Disk space is less than 20% for the last 2 minutes."
+
+      - alert: HighRequestFailureRate
+        expr: rate(http_requests_total{status=~"5.*"}[5m]) / rate(http_requests_total[5m]) > 0.05
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High request failure rate on {{ $labels.instance }}"
+          description: "More than 5% of the requests are failing on the server in the last 5 minutes."
+
+      - alert: HighRequestLatency
+        expr: histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[5m])) > 2
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High request latency on {{ $labels.instance }}"
+          description: "99th percentile of HTTP request latency is greater than 2 seconds."
