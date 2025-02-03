@@ -1,5 +1,5 @@
 //! Types for Coordinate Mediation v2.0
-//! See https://didcomm.org/coordinate-mediation/2.0
+//! See <https://didcomm.org/coordinate-mediation/2.0>
 
 use std::collections::HashMap;
 
