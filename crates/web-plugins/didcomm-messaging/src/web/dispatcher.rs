@@ -144,7 +144,7 @@ mod tests {
 
         assert!(container.load().is_ok());
 
-        if  MESSAGE_CONTAINER.set(RwLock::new(container)).is_err() {
+        if MESSAGE_CONTAINER.set(RwLock::new(container)).is_err() {
             panic!("Failed to initialize MESSAGE_CONTAINER");
         }
 

@@ -152,7 +152,7 @@ mod test {
             )
             .unwrap(),
         )
-    }    
+    }
 
     #[tokio::test]
     async fn test_get_supported_protocols() {
