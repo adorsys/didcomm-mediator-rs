@@ -3,7 +3,7 @@ use cocoon::MiniCocoon;
 use database::{Identifiable, Repository, RepositoryError};
 use did_utils::jwk::Jwk;
 use mongodb::{
-    bson::{oid::ObjectId, to_vec, Bson, Document as BsonDocument},
+    bson::{oid::ObjectId, to_vec, Document as BsonDocument},
     Collection,
 };
 use once_cell::sync::OnceCell;
@@ -36,7 +36,9 @@ where
         let seed = [0; 32];
 
         let mut cocoon = MiniCocoon::from_key(&master_key, &seed);
-        let wrapped_jwk = cocoon.wrap(&secret.secret_material).unwrap();
+        let wrapped_jwk = cocoon
+            .wrap(&secret.secret_material)
+            .map_err(|_| RepositoryError::EncryptionError)?;
         let wrapped_secret = WrapSecret {
             id: None,
             kid: secret.kid.clone(),
@@ -75,8 +77,11 @@ where
                 .unwrap(&wrapped_secret.secret_material)
                 .map_err(|_| RepositoryError::DecryptionError)?;
 
-            let secret_material: BsonDocument = bson::from_slice(&unwrap_secret_material).unwrap();
-            let secret_material = serde_json::to_value(secret_material).unwrap();
+            let secret_material: BsonDocument = bson::from_slice(&unwrap_secret_material)
+                .map_err(|_| RepositoryError::BsonConversionError)?;
+            let secret_material = serde_json::to_value(secret_material).map_err(|_| {
+                RepositoryError::Generic("could not deserialise from bson to json".to_owned())
+            })?;
 
             let jwk: Jwk = serde_json::from_value(secret_material)
                 .map_err(|_| RepositoryError::JwkDeserializationError)?;
@@ -86,8 +91,7 @@ where
                 kid: wrapped_secret.kid,
                 secret_material: jwk,
             };
-            // convert secret to entity
-            // let unwrap_entity: Entity = unwrap_secret.into();
+
             Ok(Some(unwrap_secret))
         } else {
             Ok(None)
@@ -120,8 +124,8 @@ impl From<Secrets> for WrapSecret {
 impl From<WrapSecret> for Secrets {
     fn from(value: WrapSecret) -> Self {
         let secret_material = value.secret_material;
-        let secret_material: BsonDocument = bson::from_slice(&secret_material).unwrap();
-        let secret_material = serde_json::to_value(secret_material).unwrap();
+        let secret_material: BsonDocument = bson::from_slice(&secret_material).unwrap_or_default();
+        let secret_material = serde_json::to_value(secret_material).unwrap_or_default();
         let secret_material: Jwk = serde_json::from_value(secret_material).unwrap();
         Secrets {
             id: value.id,

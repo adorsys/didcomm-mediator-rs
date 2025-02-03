@@ -12,7 +12,7 @@ use didcomm::{
 use keystore::{SecureRepository, WrapSecret};
 use mongodb::bson::doc;
 use serde_json::json;
-use std::{collections::HashSet, env, sync::Arc};
+use std::{collections::HashSet, sync::Arc};
 
 use super::get_master_key;
 
