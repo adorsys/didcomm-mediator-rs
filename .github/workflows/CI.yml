@@ -47,7 +47,11 @@ jobs:
       run: cargo fmt --all -- --check
 
     - name: Build Project
-      run: cargo build --workspace --all-features
+      run: cargo build --workspace --all-features -D warning
 
     - name: Run Tests
       run: cargo nextest run --workspace --all-features
+    
+    -name: check for warnings in code 
+      run: |
+        cargo clippy --workspace --all-targets --all-features -- -D warnings

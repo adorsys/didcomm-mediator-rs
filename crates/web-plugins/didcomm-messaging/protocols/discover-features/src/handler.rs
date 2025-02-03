@@ -141,7 +141,7 @@ mod test {
             keystore: Arc::new(MockKeyStore::new(vec![])),
         };
 
-        let state = Arc::new(
+        Arc::new(
             AppState::from(
                 public_domain,
                 diddoc,
@@ -151,10 +151,8 @@ mod test {
                 Some(repository),
             )
             .unwrap(),
-        );
-
-        state
-    }
+        )
+    }    
 
     #[tokio::test]
     async fn test_get_supported_protocols() {
@@ -281,11 +279,8 @@ mod test {
 
         let message = Message::build(id, QUERY_FEATURE.to_string(), json!(body)).finalize();
 
-        match handle_query_request(state, message).await {
-            Ok(_) => {
-                panic!("This should'nt occur");
-            }
-            Err(_) => {}
+        if (handle_query_request(state, message).await).is_ok() {
+            panic!("This should not occur");
         }
     }
 }
