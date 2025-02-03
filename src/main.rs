@@ -44,11 +44,12 @@ async fn generic_server_with_graceful_shutdown(listener: TcpListener) -> Result<
     // health check endpoint, metrics, and trace layer
     router = router
         .route("/health", axum::routing::get(health_check))
-        .route("/metrics", axum::routing::get(move || async move {
-            metric_handle.render()
-        }))
+        .route(
+            "/metrics",
+            axum::routing::get(move || async move { metric_handle.render() }),
+        )
         .layer(prometheus_layer)
-        .layer(TraceLayer::new_for_http()); 
+        .layer(TraceLayer::new_for_http());
 
     // Start the server
     axum::serve(listener, router)
