@@ -28,7 +28,7 @@ This system integrates real-time health checks and resource monitoring for the D
 #
 ### Prometheus Metrics
 
-#### Prometheus collects the following metrics:
+Prometheus collects the following metrics:
 - **CPU Usage:** Tracks CPU time spent in different modes (idle, system, user). Alert if usageexceeds 80% for 2 minutes.
 - **Memory Usage:** Monitors available memory. Alert if usage exceeds 85% for 2 minutes.
 - **Disk Usage:** Monitors disk space. Alert if disk space is below 20%.
@@ -38,6 +38,7 @@ This system integrates real-time health checks and resource monitoring for the D
 ### Alerting
 
 Prometheus triggers alerts based on defined conditions:
+
 **Important Alerts**
 - **InstanceDown:** Triggered if the server is unreachable for 30 seconds.
 - **HighCPUUsage:** Triggered if CPU usage is over 80% for 2 minutes.
