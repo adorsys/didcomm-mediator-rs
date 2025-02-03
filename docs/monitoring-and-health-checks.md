@@ -38,18 +38,15 @@ This system integrates real-time health checks and resource monitoring for the D
 ### Alerting
 
 Prometheus triggers alerts based on defined conditions:
-
 **Important Alerts**
 - **InstanceDown:** Triggered if the server is unreachable for 30 seconds.
 - **HighCPUUsage:** Triggered if CPU usage is over 80% for 2 minutes.
 - **HighMemoryUsage:** Triggered if memory usage exceeds 85% for 2 minutes.   
 - **SlowAPIResponse:** Triggered if API response times are too slow (95th percentile > 1s).
 - **DiskSpaceLow:** Triggered if disk space is below 20%.  
-
 Alerts are routed to Alertmanager, which handles notification via "any" application(e.g slack discord etc) (configured in ```alertmanager.yml```).
 #
 ### Docker Setup
-
 The monitoring stack is managed using Docker Compose. It includes:
 - **Prometheus:** Collects metrics.
 - **Grafana:** Visualizes metrics.
