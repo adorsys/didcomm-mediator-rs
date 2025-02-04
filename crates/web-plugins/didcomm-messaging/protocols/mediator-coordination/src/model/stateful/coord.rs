@@ -1,5 +1,5 @@
 //! Types for Coordinate Mediation v2.0
-//! See https://didcomm.org/coordinate-mediation/2.0
+//! See <https://didcomm.org/coordinate-mediation/2.0>
 
 use std::collections::HashMap;
 
@@ -646,7 +646,6 @@ mod tests {
             return_route: ReturnRouteHeader::All,
             id: "id_alice_mediation_request".to_string(),
             message_type: MEDIATE_REQUEST_2_0.to_string(),
-            ..Default::default()
         };
 
         let expected = json!({
@@ -687,7 +686,6 @@ mod tests {
             body: MediationGrantBody {
                 routing_did: "routing_did".to_string(),
             },
-            ..Default::default()
         };
 
         let expected = json!({
@@ -730,7 +728,6 @@ mod tests {
         let mediation_deny = MediationDeny {
             id: "id_alice_mediation_deny".to_string(),
             message_type: MEDIATE_DENY_2_0.to_string(),
-            ..Default::default()
         };
 
         let expected = json!({

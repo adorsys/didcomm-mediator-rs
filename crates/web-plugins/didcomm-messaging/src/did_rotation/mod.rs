@@ -139,10 +139,7 @@ mod test {
             message_repository: Arc::new(MockMessagesRepository::from(vec![])),
         };
 
-        let state =
-            Arc::new(AppState::from(public_domain, diddoc, None, Some(repository)).unwrap());
-
-        state
+        Arc::new(AppState::from(public_domain, diddoc, None, Some(repository)).unwrap())
     }
     fn _initial_connections() -> Vec<Connection> {
         let _recipient_did = prev_did();
@@ -267,14 +264,14 @@ mod test {
         let did_resolver = LocalDIDResolver::new(&didoc());
         let kid = "did:key:z6MkrQT3VKYGkbPaYuJeBv31gNgpmVtRWP5yTocLDBgPpayM#z6MkrQT3VKYGkbPaYuJeBv31gNgpmVtRWP5yTocLDBgPpayM";
         let (jwt, _kid) = from_prior
-            .pack(Some(&kid), &did_resolver, &prev_secrets_resolver())
+            .pack(Some(kid), &did_resolver, &prev_secrets_resolver())
             .await
             .unwrap();
         jwt
     }
 
     fn test_message_payload(jwt: String) -> Message {
-        let msg = Message::build(
+        Message::build(
             Uuid::new_v4().to_string(),
             "https://didcomm.org/coordinate-mediation/2.0/keylist-update".to_owned(),
             json!({"updates": [
@@ -292,8 +289,7 @@ mod test {
         .to("did:peer:2.Vz6Mkf6r1uMJwoRAbzkuyj2RwPusdZhWSPeEknnTcKv2C2EN7.Ez6LSgbP4b3y8HVWG6C73WF2zLbzjDAPXjc33P2VfnVVHE347.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0".to_string())
         .from(new_did())
         .from_prior(jwt)
-        .finalize();
-        msg
+        .finalize()
     }
 
     #[tokio::test]
@@ -306,10 +302,10 @@ mod test {
         } = state.repository.as_ref().unwrap();
 
         let msg = test_message_payload(jwt);
-        did_rotation(msg, &connection_repository).await.unwrap();
+        did_rotation(msg, connection_repository).await.unwrap();
 
         // assert if did was rotated on mediator's site
-        let _ = match connection_repository
+        match connection_repository
             .find_one_by(doc! {"client_did": new_did()})
             .await
             .unwrap()
