@@ -54,9 +54,7 @@ impl KeyStore<Secrets> {
         let collection = SECRETS_COLLECTION
             .get_or_init(|| {
                 let db = database::get_or_init_database();
-                let task = async move {
-                    db.collection::<Secrets>("secrets").clone()
-                };
+                let task = async move { db.collection::<Secrets>("secrets").clone() };
                 tokio::task::block_in_place(|| tokio::runtime::Handle::current().block_on(task))
             })
             .clone();
@@ -83,9 +81,7 @@ where
         let db = database::get_or_init_database();
         let collection = tokio::runtime::Runtime::new()
             .unwrap()
-            .block_on(async move {
-                db.collection("secrets").clone()
-            });
+            .block_on(async move { db.collection("secrets").clone() });
 
         Self { collection }
     }
