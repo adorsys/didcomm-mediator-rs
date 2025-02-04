@@ -62,4 +62,4 @@ jobs:
 
     - name: Check API documentation
       run: cargo doc --workspace --all-features --no-deps
->>>>>>> origin
+
