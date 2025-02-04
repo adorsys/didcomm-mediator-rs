@@ -140,7 +140,7 @@ mod test {
             message_repository: Arc::new(MockMessagesRepository::from(vec![])),
         };
 
-        let state = Arc::new(
+        Arc::new(
             AppState::from(
                 public_domain,
                 diddoc,
@@ -149,9 +149,7 @@ mod test {
                 DashMap::new(),
             )
             .unwrap(),
-        );
-
-        state
+        )
     }
     fn _initial_connections() -> Vec<Connection> {
         let _recipient_did = prev_did();
