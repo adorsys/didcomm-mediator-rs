@@ -58,4 +58,4 @@ jobs:
         cargo clippy --workspace --all-targets --all-features -- -D warnings
 
     - name: Check API documentation
-      run: cargo doc --all-features
+      run: cargo doc --workspace --all-features --no-deps
