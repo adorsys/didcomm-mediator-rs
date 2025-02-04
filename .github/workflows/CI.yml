@@ -51,9 +51,6 @@ jobs:
       run: cargo build --workspace --all-features
 
     - name: Run Tests
-<<<<<<< HEAD
-      run: cargo nextest run --workspace --all-features
-=======
       run: cargo nextest run --workspace --all-features
     
     - name: Lints checks
@@ -62,4 +59,4 @@ jobs:
 
     - name: Check API documentation
       run: cargo doc --workspace --all-features --no-deps
->>>>>>> origin
+
