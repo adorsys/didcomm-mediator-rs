@@ -288,8 +288,8 @@ mod tests {
         let body = BodyExt::collect(response.into_body()).await.unwrap();
         let vp: VerifiablePresentation = serde_json::from_slice(&body.to_bytes()).unwrap();
 
-        let vc = vp.verifiable_credential.get(0).unwrap();
-        let diddoc = serde_json::from_value(json!(vc.credential_subject)).unwrap();
+        let vc = vp.verifiable_credential.first();
+        let diddoc = serde_json::from_value(json!(vc.unwrap().credential_subject)).unwrap();
 
         assert_eq!(
             json_canon::to_string(&diddoc).unwrap(),
