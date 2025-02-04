@@ -71,9 +71,7 @@ fn config_tracing() {
         .init();
 }
 #[cfg(test)]
-
 mod test {
-
     use reqwest::Client;
     use tokio::{task, time::Instant};
 
