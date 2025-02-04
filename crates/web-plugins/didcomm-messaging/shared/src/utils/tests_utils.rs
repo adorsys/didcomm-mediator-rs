@@ -5,6 +5,7 @@ pub mod tests {
         state::{AppState, AppStateRepository},
         utils::resolvers::LocalSecretsResolver,
     };
+    use dashmap::DashMap;
     use did_utils::{didcore::Document, jwk::Jwk};
     use didcomm::{
         error::Error as DidcommError, secrets::SecretsResolver, Message, PackEncryptedOptions,
@@ -93,7 +94,16 @@ pub mod tests {
             keystore: Arc::new(MockKeyStore::new(vec![mediator_secret])),
         };
 
-        Arc::new(AppState::from(public_domain, diddoc, None, Some(repository)).unwrap())
+        Arc::new(
+            AppState::from(
+                public_domain,
+                diddoc,
+                None,
+                Some(repository),
+                DashMap::new(),
+            )
+            .unwrap(),
+        )
     }
 
     pub fn _mediator_did(state: &AppState) -> String {
