@@ -80,6 +80,7 @@ pub async fn did_rotation(
 mod test {
     use std::{sync::Arc, vec};
 
+    use dashmap::DashMap;
     use did_utils::{didcore::Document, jwk::Jwk};
     use didcomm::secrets::SecretsResolver;
     use mongodb::bson::doc;
@@ -139,7 +140,16 @@ mod test {
             message_repository: Arc::new(MockMessagesRepository::from(vec![])),
         };
 
-        Arc::new(AppState::from(public_domain, diddoc, None, Some(repository)).unwrap())
+        Arc::new(
+            AppState::from(
+                public_domain,
+                diddoc,
+                None,
+                Some(repository),
+                DashMap::new(),
+            )
+            .unwrap(),
+        )
     }
     fn _initial_connections() -> Vec<Connection> {
         let _recipient_did = prev_did();
