@@ -174,7 +174,7 @@ pub struct DereferencingOutput {
 #[serde(untagged)]
 pub enum Content {
     /// DID Document
-    DIDDocument(DIDDocument),
+    DIDDocument(Box<DIDDocument>),
     /// URL
     URL(String),
     /// Other (e.g. verification method map)
@@ -241,7 +241,7 @@ pub(super) fn dereference_did_document(
     } else if !query.is_empty() {
         // Resort to returning whole DID document as other query parameters
         // are not supported by this default dereferencing implementation.
-        return Ok(Content::DIDDocument(diddoc.clone()));
+        return Ok(Content::DIDDocument(Box::new(diddoc.clone())));
     }
 
     // Secondary resource without primary resource
@@ -271,7 +271,7 @@ pub(super) fn dereference_did_document(
     }
 
     // Resort to returning whole DID document
-    Ok(Content::DIDDocument(diddoc.clone()))
+    Ok(Content::DIDDocument(Box::new(diddoc.clone())))
 }
 
 #[cfg(test)]

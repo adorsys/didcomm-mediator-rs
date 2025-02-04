@@ -199,7 +199,7 @@ mod test {
         let msg = wrap_in_forward(
             &packed_forward_msg,
             None,
-            &&_recipient_did(),
+            &_recipient_did(),
             &vec![_mediator_did(state)],
             &AnonCryptAlg::default(),
             &state.did_resolver,
