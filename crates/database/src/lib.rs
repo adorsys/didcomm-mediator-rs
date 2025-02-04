@@ -41,7 +41,7 @@ pub fn get_or_init_database() -> Database {
             let mongo_dbn = std::env::var("MONGO_DBN").expect("MONGO_DBN env variable required");
 
             // Create a handle to a database.
-            let db = tokio::task::block_in_place(|| {
+            tokio::task::block_in_place(|| {
                 tokio::runtime::Handle::current().block_on(async move {
                     let client_options = ClientOptions::parse(mongo_uri)
                         .await
@@ -51,9 +51,7 @@ pub fn get_or_init_database() -> Database {
 
                     client.database(&mongo_dbn)
                 })
-            });
-
-            db
+            })
         })
         .clone()
 }
