@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 // https://didcomm.org/basicmessage/2.0/
 pub fn handle_basic_message(_state: Arc<AppState>, message: Message) -> Response {
-    if message.extra_headers.get("lang").is_none() {
+    if !message.extra_headers.contains_key("lang") {
         return (StatusCode::BAD_REQUEST, "Language is required").into_response();
     }
 
@@ -19,6 +19,7 @@ mod tests {
     use super::*;
     use axum::http::StatusCode;
     use chrono::Utc;
+    use dashmap::DashMap;
     use did_utils::didcore::Document;
     use keystore::tests::MockKeyStore;
     use serde_json::json;
@@ -91,8 +92,16 @@ mod tests {
             message_repository: Arc::new(MockMessagesRepository::from(vec![])),
             keystore: Arc::new(MockKeyStore::new(vec![])),
         };
-        let state =
-            Arc::new(AppState::from(public_domain, diddoc, None, Some(repository)).unwrap());
+        let state = Arc::new(
+            AppState::from(
+                public_domain,
+                diddoc,
+                None,
+                Some(repository),
+                DashMap::new(),
+            )
+            .unwrap(),
+        );
 
         let message = Message::build(
             "id_alice".to_owned(),

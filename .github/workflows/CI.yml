@@ -4,6 +4,7 @@ on: [pull_request]
 
 env:
   CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
 
 jobs:
 
@@ -50,4 +51,15 @@ jobs:
       run: cargo build --workspace --all-features
 
     - name: Run Tests
+<<<<<<< HEAD
       run: cargo nextest run --workspace --all-features
+=======
+      run: cargo nextest run --workspace --all-features
+    
+    - name: Lints checks
+      run: |
+        cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+    - name: Check API documentation
+      run: cargo doc --workspace --all-features --no-deps
+>>>>>>> origin

@@ -20,7 +20,7 @@ pub(crate) async fn handle_query_request(
 
     let queries = message.body.get("queries").and_then(|val| val.as_array());
 
-    if let Some(protocols) = &state.supported_protocols {
+    if let Some(protocols) = &state.disclose_protocols {
         supported = protocols;
         if let Some(queries) = queries {
             for value in queries {
@@ -32,15 +32,14 @@ pub(crate) async fn handle_query_request(
                                 Some(id) => {
                                     let id = id.as_str().unwrap_or_default();
 
-                                    if !id
+                                    if id
                                         .ends_with(".*")
                                         .then(|| {
                                             supported
-                                                .into_iter()
-                                                .find(|protocol| protocol.contains(&id.to_string()))
-                                                .is_some()
+                                                .iter()
+                                                .any(|protocol| protocol.contains(&id.to_string()))
                                         })
-                                        .is_some()
+                                        .is_none()
                                     {
                                         disclosed_protocols.insert(id.to_owned());
                                     }
@@ -50,13 +49,13 @@ pub(crate) async fn handle_query_request(
                                         // stores the full protocol obtained when we have a match with wildcard
                                         let mut container: String = Default::default();
 
-                                        if let Some(id) = parts.get(0) {
+                                        if let Some(id) = parts.first() {
                                             supported
-                                                .into_iter()
+                                                .iter()
                                                 .find(|protocol| protocol.contains(&id.to_string()))
                                                 .is_some_and(|protocol| {
                                                     container = protocol.to_string();
-                                                    return true;
+                                                    true
                                                 })
                                                 .then(|| {
                                                     let parts: Vec<&str> =
@@ -88,7 +87,7 @@ pub(crate) async fn handle_query_request(
             let msg = build_response(disclosed_protocols);
             Ok(Some(msg))
         } else {
-            return Err(DiscoveryError::QueryNotFound);
+            Err(DiscoveryError::QueryNotFound)
         }
     } else {
         let msg = build_response(disclosed_protocols);
@@ -110,15 +109,14 @@ fn build_response(disclosed_protocols: HashSet<String>) -> Message {
     }
 
     let id = Uuid::new_v4().urn().to_string();
-    let msg = Message::build(id, DISCOVER_FEATURE.to_string(), json!(body)).finalize();
-
-    msg
+    Message::build(id, DISCOVER_FEATURE.to_string(), json!(body)).finalize()
 }
 
 #[cfg(test)]
 mod test {
 
     use crate::{constants::QUERY_FEATURE, model::Queries};
+    use dashmap::DashMap;
     use did_utils::didcore::Document;
     use didcomm::Message;
     use keystore::tests::MockKeyStore;
@@ -144,7 +142,7 @@ mod test {
             keystore: Arc::new(MockKeyStore::new(vec![])),
         };
 
-        let state = Arc::new(
+        Arc::new(
             AppState::from(
                 public_domain,
                 diddoc,
@@ -152,11 +150,10 @@ mod test {
                     "https://didcomm.org/coordinate-mediation/2.0/mediate-request".to_string(),
                 ]),
                 Some(repository),
+                DashMap::new(),
             )
             .unwrap(),
-        );
-
-        state
+        )
     }
 
     #[tokio::test]
@@ -284,11 +281,8 @@ mod test {
 
         let message = Message::build(id, QUERY_FEATURE.to_string(), json!(body)).finalize();
 
-        match handle_query_request(state, message).await {
-            Ok(_) => {
-                panic!("This should'nt occur");
-            }
-            Err(_) => {}
+        if (handle_query_request(state, message).await).is_ok() {
+            panic!("This should not occur");
         }
     }
 }

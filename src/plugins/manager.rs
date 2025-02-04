@@ -23,13 +23,13 @@ pub struct PluginContainer<'a> {
     mounted_plugins: Vec<Arc<Mutex<dyn Plugin>>>,
 }
 
-impl<'a> Default for PluginContainer<'a> {
+impl Default for PluginContainer<'_> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<'a> PluginContainer<'a> {
+impl PluginContainer<'_> {
     /// Instantiate an object aware of all statically registered plugins
     pub(crate) fn new() -> Self {
         Self {
@@ -44,7 +44,7 @@ impl<'a> PluginContainer<'a> {
     pub fn find_plugin(&self, name: &str) -> Option<Arc<Mutex<dyn Plugin>>> {
         self.plugins.iter().find_map(|arc_plugin| {
             let plugin = arc_plugin.lock().unwrap();
-            (plugin.name() == name).then_some(Arc::clone(&arc_plugin))
+            (plugin.name() == name).then_some(Arc::clone(arc_plugin))
         })
     }
 

@@ -14,7 +14,7 @@ pub(crate) struct MessagePluginContainer<'a> {
     pub(crate) message_plugins: &'a Vec<Arc<dyn MessagePlugin>>,
 }
 
-impl<'a> MessagePluginContainer<'a> {
+impl MessagePluginContainer<'_> {
     pub(crate) fn new() -> Self {
         Self {
             loaded: false,

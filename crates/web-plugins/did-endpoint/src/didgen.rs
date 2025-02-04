@@ -154,7 +154,7 @@ where
 
     // Create directory and write the DID document
     filesystem
-        .create_dir_all(&storage_dirpath)
+        .create_dir_all(storage_dirpath)
         .map_err(|_| Error::PersistenceError)?;
     filesystem
         .write(&storage_dirpath.join("did.json"), &pretty_diddoc)
@@ -297,7 +297,7 @@ pub(crate) mod tests {
             .times(2)
             .returning(move |_| Ok(secret.clone()));
 
-        let result = didgen(&path, "https://example.com", &mock_keystore, &mut mock_fs);
+        let result = didgen(path, "https://example.com", &mock_keystore, &mut mock_fs);
 
         assert!(result.is_ok());
     }
@@ -342,7 +342,7 @@ pub(crate) mod tests {
             }))
             .returning(move |_| Ok(Some(secret.clone())));
 
-        let result = validate_diddoc(&path, &mock_keystore, &mut mock_fs);
+        let result = validate_diddoc(path, &mock_keystore, &mut mock_fs);
 
         assert!(result.is_ok());
     }
