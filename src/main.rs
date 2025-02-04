@@ -70,8 +70,8 @@ fn config_tracing() {
         .with(filter)
         .init();
 }
-#[cfg(test)]
 
+#[cfg(test)]
 mod test {
 
     use reqwest::Client;
