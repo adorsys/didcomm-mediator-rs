@@ -6,12 +6,13 @@ services:
     container_name: prometheus
     ports:
       - 9090:9090
-    command: --config.file /etc/prometheus/prometheus.yml
+    command: --config.file=/etc/prometheus/prometheus.yml
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
       - ./alert.rules.yml:/etc/prometheus/alert.rules.yml
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    restart: always
     networks:
       - monitoring
 
@@ -24,6 +25,7 @@ services:
       - grafana-storage:/var/lib/grafana
     depends_on:
       - prometheus
+    restart: always
     networks:
       - monitoring
 
@@ -50,17 +52,19 @@ services:
     volumes:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
+      - /run/udev:/run/udev:ro
       - /:/rootfs:ro
     command:
       - '--path.procfs=/host/proc'
       - '--path.sysfs=/host/sys'
       - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    restart: always
     networks:
       - monitoring
 
 volumes:
-  grafana-storage:
+  grafana-storage: 
 
 networks:
   monitoring:
-    driver: bridge
+    driver: bridge 

@@ -1,6 +1,6 @@
 global:
   scrape_interval: 5s
-  evaluation_interval: 30s
+  evaluation_interval: 10s
 
 alerting:
   alertmanagers:
@@ -12,12 +12,16 @@ rule_files:
   - "/etc/prometheus/alert.rules.yml"
 
 scrape_configs:
-  - job_name: didcomm-mediator
+  - job_name: "didcomm-mediator"
     honor_labels: true
     static_configs:
       - targets:
-          - host.docker.internal:3000
+          - "host.docker.internal:3000"
+        labels:
+          environment: "development"
+          service: "didcomm-mediator"
 
-  - job_name: 'node'
+  - job_name: "node"
     static_configs:
-      - targets: ['node_exporter:9100'] 
+      - targets:
+          - "node_exporter:9100"

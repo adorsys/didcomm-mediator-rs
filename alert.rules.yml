@@ -3,7 +3,7 @@ groups:
     rules:
       - alert: InstanceDown
         expr: up{job="didcomm-mediator"} == 0
-        for: 30s
+        for: 10s
         labels:
           severity: critical
         annotations:
