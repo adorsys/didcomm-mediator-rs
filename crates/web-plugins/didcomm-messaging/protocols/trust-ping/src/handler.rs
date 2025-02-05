@@ -1,10 +1,8 @@
+use crate::{constants::TRUST_PING_RESPONSE_2_0, error::TrustPingError, model::TrustPingResponse};
 use didcomm::{Message, MessageBuilder};
+use shared::state::AppState;
 use std::sync::Arc;
 use uuid::Uuid;
-
-use shared::state::AppState;
-
-use crate::{constants::TRUST_PING_RESPONSE_2_0, error::TrustPingError, model::TrustPingResponse};
 
 pub(crate) async fn handle_trust_ping(
     state: Arc<AppState>,

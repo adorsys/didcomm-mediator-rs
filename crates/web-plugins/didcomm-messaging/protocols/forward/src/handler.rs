@@ -1,11 +1,13 @@
-use crate::error::ForwardError;
+use crate::{constants::MEDIATE_FORWARD_2_0, error::ForwardError};
 use database::Repository;
 use didcomm::{AttachmentData, Message};
+use futures::future::try_join_all;
 use mongodb::bson::doc;
 use serde_json::{json, Value};
 use shared::{
+    breaker::{CircuitBreaker, Error as BreakerError},
     repository::entity::{Connection, RoutedMessage},
-    state::{AppState, AppStateRepository},
+    state::AppState,
 };
 use std::sync::Arc;
 
@@ -15,60 +17,108 @@ pub(crate) async fn mediator_forward_process(
     state: Arc<AppState>,
     message: Message,
 ) -> Result<Option<Message>, ForwardError> {
-    let AppStateRepository {
-        message_repository,
-        connection_repository,
-        ..
-    } = state
+    // Check if the circuit breaker is open
+    state
+        .circuit_breaker
+        .get(MEDIATE_FORWARD_2_0)
+        .filter(|cb| !cb.should_allow_call())
+        .map_or(Ok(()), |_| Err(ForwardError::ServiceUnavailable))?;
+
+    let repository = state
         .repository
         .as_ref()
         .ok_or(ForwardError::InternalServerError)?;
 
-    let next = match checks(&message, connection_repository).await.ok() {
-        Some(next) => Ok(next),
-        None => Err(ForwardError::InternalServerError),
-    };
+    let next = checks(
+        &message,
+        &repository.connection_repository,
+        state.circuit_breaker.get(MEDIATE_FORWARD_2_0).as_deref(),
+    )
+    .await
+    .map_err(|_| ForwardError::InternalServerError)?;
 
     let attachments = message.attachments.unwrap_or_default();
-    for attachment in attachments {
-        let attached = match attachment.data {
-            AttachmentData::Json { value: data } => data.json,
-            AttachmentData::Base64 { value: data } => json!(data.base64),
-            AttachmentData::Links { value: data } => json!(data.links),
-        };
-        message_repository
-            .store(RoutedMessage {
+    let store_futures: Vec<_> = attachments
+        .into_iter()
+        .map(|attachment| async {
+            let attached = match attachment.data {
+                AttachmentData::Json { value } => value.json,
+                AttachmentData::Base64 { value } => json!(value.base64),
+                AttachmentData::Links { value } => json!(value.links),
+            };
+
+            let routed_message = RoutedMessage {
                 id: None,
                 message: attached,
-                recipient_did: next.as_ref().unwrap().to_owned(),
-            })
-            .await
-            .map_err(|_| ForwardError::InternalServerError)?;
-    }
+                recipient_did: next.clone(),
+            };
+
+            match state.circuit_breaker.get(MEDIATE_FORWARD_2_0) {
+                Some(cb) => cb
+                    .call(|| {
+                        repository
+                            .message_repository
+                            .store(routed_message.to_owned())
+                    })
+                    .await
+                    .map_err(|err| match err {
+                        BreakerError::CircuitOpen => ForwardError::ServiceUnavailable,
+                        _ => ForwardError::InternalServerError,
+                    }),
+                None => repository
+                    .message_repository
+                    .store(routed_message)
+                    .await
+                    .map_err(|_| ForwardError::InternalServerError),
+            }
+        })
+        .collect();
+
+    try_join_all(store_futures).await?;
     Ok(None)
 }
 
 async fn checks(
     message: &Message,
     connection_repository: &Arc<dyn Repository<Connection>>,
+    circuit_breaker: Option<&CircuitBreaker>,
 ) -> Result<String, ForwardError> {
-    let next = message.body.get("next").and_then(Value::as_str);
-    match next {
-        Some(next) => next,
-        None => return Err(ForwardError::MalformedBody),
+    let next = match message.body.get("next") {
+        Some(Value::String(next)) => next.clone(),
+        _ => return Err(ForwardError::MalformedBody),
     };
 
-    // Check if the client's did in mediator's keylist
-    let _connection = match connection_repository
-        .find_one_by(doc! {"keylist": doc!{ "$elemMatch": { "$eq": &next}}})
-        .await
-        .map_err(|_| ForwardError::InternalServerError)?
-    {
-        Some(connection) => connection,
-        None => return Err(ForwardError::UncoordinatedSender),
-    };
+    // Check if the client's did is in mediator's keylist
+    match circuit_breaker {
+        Some(cb) => cb
+            .call(|| {
+                connection_repository
+                    .find_one_by(doc! {"keylist": doc!{ "$elemMatch": { "$eq": &next}}})
+            })
+            .await
+            .map_err(|err| match err {
+                BreakerError::CircuitOpen => ForwardError::ServiceUnavailable,
+                BreakerError::Inner(err) => {
+                    tracing::error!("Failed to find connection: {err:?}");
+                    ForwardError::InternalServerError
+                }
+            })?
+            .is_some()
+            .then_some(())
+            .ok_or(ForwardError::UncoordinatedSender)?,
+        None => connection_repository
+            .find_one_by(doc! {"keylist": doc!{ "$elemMatch": { "$eq": &next}}})
+            .await
+            .map_err(|err| {
+                tracing::error!("Failed to find connection: {err:?}");
+                ForwardError::InternalServerError
+            })?
+            .is_some()
+            .then_some(())
+            .ok_or(ForwardError::UncoordinatedSender)?,
+    }
 
-    Ok(next.unwrap().to_string())
+    Ok(next)
 }
 
 #[cfg(test)]
@@ -149,7 +199,7 @@ mod test {
         let msg = wrap_in_forward(
             &packed_forward_msg,
             None,
-            &&_recipient_did(),
+            &_recipient_did(),
             &vec![_mediator_did(state)],
             &AnonCryptAlg::default(),
             &state.did_resolver,

@@ -121,9 +121,7 @@ async fn unpack_payload(
 
     let (plain_message, metadata) = res.map_err(|err| {
         error!("Failed to unpack message: {}, {}", err.kind(), err.source);
-        let response = (StatusCode::BAD_REQUEST, Error::UnpackingError.json());
-
-        return response.into_response();
+        (StatusCode::BAD_REQUEST, Error::CouldNotUnpackMessage.json()).into_response()
     })?;
 
     if !metadata.encrypted {
