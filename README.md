@@ -1,5 +1,4 @@
 [![CI](https://github.com/adorsys/didcomm-mediator-rs/actions/workflows/rust.yml/badge.svg)](https://github.com/adorsys/didcomm-mediator-rs/actions/workflows/rust.yml)
-[![CD](https://github.com/adorsys/didcomm-mediator-rs/actions/workflows/CD.yml/badge.svg)](https://github.com/adorsys/didcomm-mediator-rs/blob/main/.github/workflows/CD.yml)
 [![DIDComm Messaging Clients Utilities](https://img.shields.io/badge/DIDComm%20Messaging%20Clients%20Utilities-repo-blue.svg)](https://github.com/adorsys/didcomm-messaging-clients-utilities)
 [![DIDComm Messaging Spec](https://img.shields.io/badge/DIDComm%20Messaging-Specification-blue.svg)](https://identity.foundation/didcomm-messaging/spec/)
 [![License](https://img.shields.io/badge/license-Apache%202.0-brightgreen.svg)](https://github.com/adorsys/didcomm-mediator-rs/blob/main/LICENSE)
