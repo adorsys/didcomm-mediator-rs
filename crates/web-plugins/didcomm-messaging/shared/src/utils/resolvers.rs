@@ -33,7 +33,7 @@ impl LocalDIDResolver {
 impl DIDResolver for LocalDIDResolver {
     async fn resolve(&self, did: &str) -> Result<Option<DIDDoc>> {
         if did == self.diddoc.id {
-            let mut diddoc = self.diddoc.clone();
+            let mut diddoc = self.diddoc;
             prepend_doc_id_to_vm_ids(&mut diddoc);
             return Ok(Some(serde_json::from_value(json!(diddoc))?));
         }
