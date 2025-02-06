@@ -113,8 +113,7 @@ where
 
     let did = diddoc.id.clone();
     let oob_message = OobMessage::new(&did);
-    let url: &String = &format!("{}", server_public_domain);
-    let oob_url = OobMessage::serialize_oob_message(&oob_message, url)
+    let oob_url = OobMessage::serialize_oob_message(&oob_message, server_public_domain)
         .map_err(|err| format!("Serialization error: {err}"))?;
 
     // Attempt to create the file and write the string
