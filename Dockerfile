@@ -1,42 +1,50 @@
-# Stage 1: Builder
-FROM rust:1.80 as builder  
+FROM rust:1.80-alpine AS builder  
 
 WORKDIR /app
 
-# Copy Cargo files and crates (this helps with caching dependencies)
+# Install required build dependencies, including OpenSSL development files
+RUN apk add --no-cache \
+    build-base \
+    pkgconf \
+    openssl-dev \
+    musl-dev \
+    ca-certificates \
+    postgresql-dev \
+    musl-utils \
+    llvm-libunwind-dev
+
+# Set environment variables (disable static linking for OpenSSL)
+ENV OPENSSL_STATIC=0
+ENV OPENSSL_DIR=/usr
+
+# Copy Cargo files separately to optimize caching
 COPY Cargo.toml Cargo.lock ./
+COPY crates ./crates 
+
+# Dummy build to cache dependencies
+RUN mkdir src && echo "fn main() {}" > src/main.rs && \
+    cargo build --release --target x86_64-unknown-linux-musl
+
+# Copy actual source code
 COPY src ./src
-COPY crates ./crates
 
-# Pre-cache dependencies and build the project
-RUN cargo fetch && cargo build --release
+# Build the project and strip the binary
+RUN cargo build --release --target x86_64-unknown-linux-musl && \
+    strip target/x86_64-unknown-linux-musl/release/didcomm-mediator
 
-# Dynamically mount source code during build for easy updates
-VOLUME /app
+# Stage 2: Runtime 
+FROM alpine:3.18  
 
-# Ensure the binary is built and available
-CMD cargo build --release && \
-    cp target/release/didcomm-mediator /usr/local/bin/didcomm-mediator
-
-# Stage 2: Runtime
-FROM ubuntu:22.04  
-
-# Install necessary runtime dependencies
-RUN apt update && apt install -y libpq5 && rm -rf /var/lib/apt/lists/*
+# Install required runtime dependencies (include OpenSSL for dynamic linking)
+RUN apk add --no-cache libpq ca-certificates openssl
 
 WORKDIR /app
-
-# Set the storage directory path
-ENV STORAGE_DIRPATH="./storage"
 
 # Copy the built binary from the builder stage
-COPY --from=builder /app/target/release/didcomm-mediator /usr/local/bin/didcomm-mediator
+COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/didcomm-mediator /usr/local/bin/didcomm-mediator
 
-# Copy runtime configurations
-COPY .env .env
-
-# Expose the port the app will listen on
+# Expose the port
 EXPOSE 3000
 
-# Set the entrypoint for the application
-ENTRYPOINT ["didcomm-mediator"]
+# Set the entrypoint
+ENTRYPOINT ["/usr/local/bin/didcomm-mediator"]

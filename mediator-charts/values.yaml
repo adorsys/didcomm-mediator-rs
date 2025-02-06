@@ -1,9 +1,40 @@
 replicaCount: 1
-namespace: didcomm-mediator
 externalDnsHostname: didcomm-mediator.eudi-adorsys.com
 
 mongodb:
-  databaseName: mongodb
+  enabled: true
+  architecture: standalone
+  image:
+    registry: docker.io
+    repository: bitnami/mongodb
+    tag: 8.0.4-debian-12-r3
+    pullPolicy: IfNotPresent
+    debug: true
+
+  auth: 
+    enabled: true
+    usernames: 
+      - root
+    databases: 
+      - MediatorDB
+    existingSecret: mediator-eks-secret
+
+  
+  service: 
+    nameOverride: "mongodb-service"
+    type: ClusterIP
+    portName: mongodb
+    ports:
+      mongodb: 27017
+    
+  persistence:
+    enabled: true
+    storageClass: "high-performance"
+    accessModes: 
+      - ReadWriteOnce
+    size: 10Gi
+    mountPath: /bitnami/mongodb 
+
 mediator:
   image:
     repository: ghcr.io/adorsys/didcomm-mediator-rs
@@ -13,18 +44,26 @@ mediator:
     tls:
       hosts:
         - "*.eudi-adorsys.com"
-    secretName: mediator-secret
+    secretName: mediator-tls
     annotations:
       cert-manager.io/cluster-issuer: letsencrypt-prod
 
+  configmap:
+    name: mediator-configmap
 
-mongoVolume:
-  persistentVolumeClaim:
-    storageSize: 10Gi  
+externalSecret:
+  metadata:
+    name: mediator-external-secret
+  spec: 
+    secretKey1: mongodb-passwords
+    secretKey2: mongodb-root-password
+    refreshInterval: 1h
+    secretStoreRef:
+      name: mediator-secret-store
+    target:
+      name: mediator-eks-secret
+      creationPolicy: Owner
+  awssecretKey1: MONGO_PASSWORD
+  awssecretKey2: MONGO_ROOT_PASSWORD
 
-  persistentVolume:
-    storageSize: 10Gi  
-    pathOnHost: /var/lib/mongodb 
-
-
-  mountPath: /var/lib/mongodb
+awsSecretName: mediator-secrets

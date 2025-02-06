@@ -2,7 +2,7 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: {{ .Release.Name }}-ingress
-  namespace: {{ .Values.namespace }}
+  namespace: {{ .Release.Namespace }}
   annotations:
     external-dns.alpha.kubernetes.io/hostname: {{ .Values.externalDnsHostname }}
     {{- toYaml .Values.mediator.ingress.annotations | nindent 4 }}

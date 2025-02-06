@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ .Release.Name }}-deployment
-  namespace: {{ .Values.namespace }}
+  namespace: {{ .Release.Namespace }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
@@ -24,25 +24,35 @@ spec:
               valueFrom:
                 configMapKeyRef:
                   key: MONGO_DBN
-                  name: env
+                  name: {{ .Values.mediator.configmap.name }}
+
             - name: MONGO_INITDB_ROOT_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Release.Name }}-secret
-                  key: password
+                  name: {{ .Values.externalSecret.spec.target.name }}
+                  key: mongodb-passwords 
+
             - name: MONGO_INITDB_ROOT_USERNAME
               valueFrom:
-                secretKeyRef:
-                  name: {{ .Release.Name }}-secret
-                  key: username
+                configMapKeyRef:
+                  key: MONGO_INITDB_ROOT_USERNAME
+                  name: {{ .Values.mediator.configmap.name }}
+
             - name: MONGO_HOST
               value: {{ .Release.Name }}-mongodb-service
             - name: MONGO_URI
-              value: mongodb://$(MONGO_INITDB_ROOT_USERNAME):$(MONGO_INITDB_ROOT_PASSWORD)@{{ .Release.Name }}-mongodb-service:27017
+              value: "mongodb://$(MONGO_INITDB_ROOT_USERNAME):$(MONGO_INITDB_ROOT_PASSWORD)@mongodb-service.didcomm-mediator.svc.cluster.local:27017/$(MONGO_DBN)"
             - name: SERVER_PUBLIC_DOMAIN
               valueFrom:
                 configMapKeyRef:
                   key: SERVER_PUBLIC_DOMAIN
-                  name: env
-    
-    
+                  name: {{ .Values.mediator.configmap.name }}
+
+          volumeMounts:
+            - name: invitation-storage
+              mountPath: /didcomm-mediator/storage
+
+      volumes:
+        - name: invitation-storage
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-deployment-pvc
