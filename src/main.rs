@@ -3,6 +3,33 @@ use eyre::{Result, WrapErr};
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
 
+use reqwest::{Client, StatusCode};
+use thiserror::Error;
+use tokio_retry::strategy::ExponentialBackoff;
+use tokio_retry::Retry;
+
+#[derive(Error, Debug)]
+pub enum FetchError {
+    #[error("Request failed with status {0}")]
+    RequestFailed(StatusCode),
+    #[error("HTTP client error: {0}")]
+    ClientError(#[from] reqwest::Error),
+}
+
+pub async fn fetch_with_retries(client: &Client, url: &str) -> Result<String, FetchError> {
+    let retry_strategy = ExponentialBackoff::from_millis(100).take(3);
+
+    Retry::spawn(retry_strategy, || async {
+        let response = client.get(url).send().await?;
+        if response.status().is_success() {
+            Ok(response.text().await?)
+        } else {
+            Err(FetchError::RequestFailed(response.status()))
+        }
+    })
+    .await
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     // Load dotenv-flow variables
@@ -17,7 +44,7 @@ async fn main() -> Result<()> {
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
     let listener = TcpListener::bind(addr)
         .await
-        .context("failed to parse address")?;
+        .context("failed to bind address")?;
 
     tracing::debug!("listening on {addr}");
 
@@ -70,8 +97,10 @@ fn config_tracing() {
         .with(filter)
         .init();
 }
+
 #[cfg(test)]
 mod test {
+    use super::*;
     use reqwest::Client;
     use tokio::{task, time::Instant};
 
@@ -82,7 +111,6 @@ mod test {
         let num_requests = 1000;
 
         let mut handles = Vec::new();
-
         let start = Instant::now();
 
         for _ in 0..num_requests {
@@ -90,7 +118,7 @@ mod test {
             let url = url.to_string();
 
             let handle = task::spawn(async move {
-                match client.get(&url).send().await {
+                match fetch_with_retries(&client, &url).await {
                     Ok(_resp) => (),
                     Err(e) => panic!("{}", e),
                 }
@@ -100,8 +128,7 @@ mod test {
         }
 
         for handle in handles {
-            let a = handle.await;
-            if let Err(e) = a {
+            if let Err(e) = handle.await {
                 panic!("{}", e)
             }
         }

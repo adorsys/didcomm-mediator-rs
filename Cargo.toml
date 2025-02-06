@@ -120,6 +120,7 @@ oob-messages = { workspace = true, optional = true }
 didcomm-messaging = { workspace = true, optional = true }
 reqwest.workspace = true
 uuid.workspace = true
+tokio-retry = "0.3.0"
 
 
 
