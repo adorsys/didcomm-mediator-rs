@@ -61,4 +61,5 @@ jobs:
       run: cargo doc --workspace --all-features --no-deps
 
     - name: Run Reliability Tests
-      run: cargo nextest run --workspace --all-features --filter "test(reliability)" --verbose
+      run: cargo nextest run --workspace --all-features --filterset "test(reliability)"
+      
