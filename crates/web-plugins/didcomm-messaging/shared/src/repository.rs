@@ -3,8 +3,6 @@ pub mod entity;
 use async_trait::async_trait;
 use database::Repository;
 use mongodb::{Collection, Database};
-use std::sync::Arc;
-use tokio::sync::RwLock;
 
 use entity::{Connection, RoutedMessage};
 
@@ -22,8 +20,8 @@ impl MongoConnectionRepository {
 
 #[async_trait]
 impl Repository<Connection> for MongoConnectionRepository {
-    fn get_collection(&self) -> Arc<RwLock<Collection<Connection>>> {
-        Arc::new(RwLock::new(self.collection.clone()))
+    fn get_collection(&self) -> Collection<Connection> {
+        self.collection.clone()
     }
 }
 
@@ -39,8 +37,8 @@ impl MongoMessagesRepository {
 }
 #[async_trait]
 impl Repository<RoutedMessage> for MongoMessagesRepository {
-    fn get_collection(&self) -> Arc<RwLock<Collection<RoutedMessage>>> {
-        Arc::new(RwLock::new(self.collection.clone()))
+    fn get_collection(&self) -> Collection<RoutedMessage> {
+        self.collection.clone()
     }
 }
 
@@ -50,10 +48,7 @@ pub mod tests {
     use database::{Repository, RepositoryError};
     use mongodb::bson::{doc, oid::ObjectId, Bson, Document as BsonDocument};
     use serde_json::json;
-    use std::{
-        collections::HashMap,
-        sync::{Arc, RwLock},
-    };
+    use std::{collections::HashMap, sync::RwLock};
 
     pub struct MockConnectionRepository {
         connections: RwLock<Vec<Connection>>,
@@ -70,7 +65,7 @@ pub mod tests {
     #[async_trait]
     impl Repository<Connection> for MockConnectionRepository {
         // Implement a dummy get_collection method
-        fn get_collection(&self) -> Arc<tokio::sync::RwLock<Collection<Connection>>> {
+        fn get_collection(&self) -> Collection<Connection> {
             // In-memory, we don't have an actual collection, but we can create a dummy Arc<Mutex> for compatibility.
             unimplemented!("This is a mock repository, no real collection exists.")
         }
@@ -218,7 +213,7 @@ pub mod tests {
     #[async_trait]
     impl Repository<RoutedMessage> for MockMessagesRepository {
         // Implement a dummy get_collection method
-        fn get_collection(&self) -> Arc<tokio::sync::RwLock<Collection<RoutedMessage>>> {
+        fn get_collection(&self) -> Collection<RoutedMessage> {
             // In-memory, we don't have an actual collection, but we can create a dummy Arc<Mutex> for compatibility.
             unimplemented!("This is a mock repository, no real collection exists.")
         }
