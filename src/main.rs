@@ -70,7 +70,6 @@ fn config_tracing() {
         .with(filter)
         .init();
 }
-
 #[cfg(test)]
 mod test {
 
