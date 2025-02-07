@@ -70,3 +70,45 @@ fn config_tracing() {
         .with(filter)
         .init();
 }
+#[cfg(test)]
+mod test {
+
+    use reqwest::Client;
+    use tokio::{task, time::Instant};
+
+    #[tokio::test]
+    async fn test() {
+        let client = Client::new();
+        let url = "https://didcomm-mediator.eudi-adorsys.com/";
+        let num_requests = 1000;
+
+        let mut handles = Vec::new();
+
+        let start = Instant::now();
+
+        for _ in 0..num_requests {
+            let client = client.clone();
+            let url = url.to_string();
+
+            let handle = task::spawn(async move {
+                match client.get(&url).send().await {
+                    Ok(_resp) => (),
+                    Err(e) => panic!("{}", e),
+                }
+            });
+
+            handles.push(handle);
+        }
+
+        for handle in handles {
+            let a = handle.await;
+            if let Err(e) = a {
+                panic!("{}", e)
+            }
+        }
+
+        let duration = start.elapsed();
+        println!("Completed {} requests in {:?}", num_requests, duration);
+    }
+}
+
