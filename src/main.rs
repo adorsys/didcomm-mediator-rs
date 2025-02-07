@@ -111,4 +111,3 @@ mod test {
         println!("Completed {} requests in {:?}", num_requests, duration);
     }
 }
-
