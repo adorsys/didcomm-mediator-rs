@@ -3,6 +3,7 @@ data:
   MONGO_DBN: MediatorDB
   SERVER_PUBLIC_DOMAIN: "https://didcomm-mediator.eudi-adorsys.com"
   MONGO_INITDB_ROOT_USERNAME: root
+  STORAGE_DIRPATH: /storage
   
 kind: ConfigMap
 metadata:

@@ -1,4 +1,7 @@
-FROM rust:1.80-alpine AS builder  
+# syntax=docker/dockerfile:1.4
+
+# Stage 1: Build
+FROM rust:1.80-alpine AS builder
 
 WORKDIR /app
 
@@ -19,29 +22,26 @@ ENV OPENSSL_DIR=/usr
 
 # Copy Cargo files separately to optimize caching
 COPY Cargo.toml Cargo.lock ./
-COPY crates ./crates 
+COPY crates ./crates
 
 # Dummy build to cache dependencies
 RUN mkdir src && echo "fn main() {}" > src/main.rs && \
-    cargo build --release --target x86_64-unknown-linux-musl
+    cargo build --release
 
-# Copy actual source code
+# Copy the actual source code
 COPY src ./src
 
-# Build the project and strip the binary
-RUN cargo build --release --target x86_64-unknown-linux-musl && \
-    strip target/x86_64-unknown-linux-musl/release/didcomm-mediator
+# Build the project (using the host's default target)
+RUN cargo build --release && \
+    strip target/release/didcomm-mediator
 
-# Stage 2: Runtime 
-FROM alpine:3.18  
-
-# Install required runtime dependencies (include OpenSSL for dynamic linking)
-RUN apk add --no-cache libpq ca-certificates openssl
+# Stage 2: Runtime using a distroless image
+FROM gcr.io/distroless/static-debian12:latest
 
 WORKDIR /app
 
 # Copy the built binary from the builder stage
-COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/didcomm-mediator /usr/local/bin/didcomm-mediator
+COPY --from=builder /app/target/release/didcomm-mediator /usr/local/bin/didcomm-mediator
 
 # Expose the port
 EXPOSE 3000

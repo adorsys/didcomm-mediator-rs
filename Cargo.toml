@@ -12,6 +12,9 @@ categories = ["cryptography", "decentralized-systems"]
 edition = "2021"
 readme = "README.md"
 
+[[bin]]
+name = "didcomm-mediator"
+path = "src/main.rs"
 
 
 [workspace]
