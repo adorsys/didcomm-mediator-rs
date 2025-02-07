@@ -36,13 +36,13 @@ async fn main() -> Result<()> {
 
 async fn generic_server_with_graceful_shutdown(listener: TcpListener) -> Result<()> {
     // Load plugins
-    let (mut plugin_container, mut router) = app()?;
+    let (mut plugin_container, router) = app()?;
 
     // Set up Prometheus metrics
     let (prometheus_layer, metric_handle) = PrometheusMetricLayer::pair();
 
     // health check endpoint, metrics, and trace layer
-    router = router
+    let router = router
         .route("/health", axum::routing::get(health_check))
         .route(
             "/metrics",
