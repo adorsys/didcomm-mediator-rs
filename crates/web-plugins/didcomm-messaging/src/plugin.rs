@@ -1,15 +1,17 @@
 use crate::{manager::MessagePluginContainer, web};
 use axum::Router;
+use dashmap::DashMap;
 use filesystem::StdFileSystem;
 use mongodb::Database;
 use once_cell::sync::OnceCell;
 use plugin_api::{Plugin, PluginError};
 use shared::{
+    breaker::CircuitBreaker,
     repository::{MongoConnectionRepository, MongoMessagesRepository},
     state::{AppState, AppStateRepository},
     utils::{self, get_master_key},
 };
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 use tokio::sync::RwLock;
 
 pub(crate) static MESSAGE_CONTAINER: OnceCell<RwLock<MessagePluginContainer>> = OnceCell::new();
@@ -96,8 +98,7 @@ impl Plugin for DidcommMessaging {
             let rt = tokio::runtime::Handle::current();
             rt.block_on(async {
                 let db_instance = database::get_or_init_database();
-                let db_lock = db_instance.read().await;
-                db_lock.clone()
+                db_instance.clone()
             })
         });
 
@@ -141,12 +142,27 @@ impl Plugin for DidcommMessaging {
             message_repository: Arc::new(MongoMessagesRepository::from_db(db)),
         };
 
+        // Initialize circuit breakers
+        let breaker_acc =
+            msg_types
+                .iter()
+                .fold(DashMap::with_capacity(msg_types.len()), |acc, msg| {
+                    let breaker_config = CircuitBreaker::new()
+                        .retries(5)
+                        .half_open_max_failures(3)
+                        .reset_timeout(Duration::from_secs(60))
+                        .exponential_backoff(Duration::from_millis(100));
+                    acc.insert(msg.to_string(), breaker_config);
+                    acc
+                });
+
         // Compile state
         let state = AppState::from(
             env.public_domain.clone(),
             diddoc,
             Some(msg_types.clone()),
             Some(repository),
+            breaker_acc,
         )
         .map_err(|err| PluginError::Other(format!("Failed to load app state: {:?}", err)))?;
 

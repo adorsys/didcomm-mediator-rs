@@ -20,7 +20,7 @@ pub(crate) async fn handle_query_request(
 
     let queries = message.body.get("queries").and_then(|val| val.as_array());
 
-    if let Some(protocols) = &state.supported_protocols {
+    if let Some(protocols) = &state.disclose_protocols {
         supported = protocols;
         if let Some(queries) = queries {
             for value in queries {
@@ -116,6 +116,7 @@ fn build_response(disclosed_protocols: HashSet<String>) -> Message {
 mod test {
 
     use crate::{constants::QUERY_FEATURE, model::Queries};
+    use dashmap::DashMap;
     use did_utils::didcore::Document;
     use didcomm::Message;
     use keystore::tests::MockKeyStore;
@@ -142,7 +143,7 @@ mod test {
             keystore: Arc::new(MockKeyStore::new(vec![])),
         };
 
-        let state = Arc::new(
+        Arc::new(
             AppState::from(
                 public_domain,
                 diddoc,
@@ -150,11 +151,10 @@ mod test {
                     "https://didcomm.org/coordinate-mediation/2.0/mediate-request".to_string(),
                 ]),
                 Some(repository),
+                DashMap::new(),
             )
             .unwrap(),
-        );
-
-        state
+        )
     }
 
     #[tokio::test]
@@ -282,11 +282,8 @@ mod test {
 
         let message = Message::build(id, QUERY_FEATURE.to_string(), json!(body)).finalize();
 
-        match handle_query_request(state, message).await {
-            Ok(_) => {
-                panic!("This should'nt occur");
-            }
-            Err(_) => {}
+        if (handle_query_request(state, message).await).is_ok() {
+            panic!("This should not occur");
         }
     }
 }

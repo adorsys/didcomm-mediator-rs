@@ -7,9 +7,7 @@ use mongodb::{
 };
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 use thiserror::Error;
-use tokio::sync::RwLock;
 
 /// A trait that ensures the entity has an `id` field.
 pub trait Identifiable {
@@ -34,20 +32,20 @@ pub enum RepositoryError {
     JwkDeserializationError,
 }
 
-static MONGO_DB: OnceCell<Arc<RwLock<Database>>> = OnceCell::new();
+static MONGO_DB: OnceCell<Database> = OnceCell::new();
 
 /// Get a handle to a database.
 ///
 /// Many threads may call this function concurrently with different initializing functions,
 /// but it is guaranteed that only one function will be executed.
-pub fn get_or_init_database() -> Arc<RwLock<Database>> {
+pub fn get_or_init_database() -> Database {
     MONGO_DB
         .get_or_init(|| {
             let mongo_uri = std::env::var("MONGO_URI").expect("MONGO_URI env variable required");
             let mongo_dbn = std::env::var("MONGO_DBN").expect("MONGO_DBN env variable required");
 
             // Create a handle to a database.
-            let db = tokio::task::block_in_place(|| {
+            tokio::task::block_in_place(|| {
                 tokio::runtime::Handle::current().block_on(async move {
                     let client_options = ClientOptions::parse(mongo_uri)
                         .await
@@ -57,9 +55,7 @@ pub fn get_or_init_database() -> Arc<RwLock<Database>> {
 
                     client.database(&mongo_dbn)
                 })
-            });
-
-            Arc::new(RwLock::new(db))
+            })
         })
         .clone()
 }
@@ -73,15 +69,14 @@ where
     Entity: Serialize + for<'de> Deserialize<'de>,
 {
     /// Get a handle to a collection.
-    fn get_collection(&self) -> Arc<RwLock<Collection<Entity>>>;
+    fn get_collection(&self) -> Collection<Entity>;
 
     /// Retrieve all entities from the database.
     async fn find_all(&self) -> Result<Vec<Entity>, RepositoryError> {
         let mut entities = Vec::new();
         let collection = self.get_collection();
 
-        // Lock the Mutex and get the Collection
-        let mut cursor = collection.read().await.find(doc! {}).await?;
+        let mut cursor = collection.find(doc! {}).await?;
         while cursor.advance().await? {
             entities.push(cursor.deserialize_current()?);
         }
@@ -92,8 +87,6 @@ where
     /// Gets the number of documents matching `filter`.
     async fn count_by(&self, filter: BsonDocument) -> Result<usize, RepositoryError> {
         let collection = self.get_collection();
-        // Lock the Mutex and get the Collection
-        let collection = collection.read().await;
         Ok(collection
             .count_documents(filter)
             .await?
@@ -110,17 +103,12 @@ where
     async fn find_one_by(&self, filter: BsonDocument) -> Result<Option<Entity>, RepositoryError> {
         let collection = self.get_collection();
 
-        // Lock the Mutex and get the Collection
-        let collection = collection.read().await;
         Ok(collection.find_one(filter).await?)
     }
 
     /// Stores a new entity.
     async fn store(&self, mut entity: Entity) -> Result<Entity, RepositoryError> {
         let collection = self.get_collection();
-
-        // Lock the Mutex and get the Collection
-        let collection = collection.read().await;
 
         // Insert the new entity into the database
         let metadata = collection.insert_one(entity.clone()).await?;
@@ -144,9 +132,6 @@ where
         let mut entities = Vec::new();
         let collection = self.get_collection();
 
-        // Lock the Mutex and get the Collection
-        let collection = collection.read().await;
-
         // Retrieve all entities from the database
         let mut cursor = collection.find(filter).with_options(find_options).await?;
         while cursor.advance().await? {
@@ -160,9 +145,6 @@ where
     async fn delete_one(&self, id: ObjectId) -> Result<(), RepositoryError> {
         let collection = self.get_collection();
 
-        // Lock the Mutex and get the Collection
-        let collection = collection.read().await;
-
         // Delete the entity from the database
         collection.delete_one(doc! {"_id": id}).await?;
 
@@ -175,9 +157,6 @@ where
             return Err(RepositoryError::MissingIdentifier);
         }
         let collection = self.get_collection();
-
-        // Lock the Mutex and get the Collection
-        let collection = collection.read().await;
 
         // Update the entity in the database
         let metadata = collection

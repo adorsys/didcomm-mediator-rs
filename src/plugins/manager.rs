@@ -23,13 +23,13 @@ pub struct PluginContainer<'a> {
     mounted_plugins: Vec<Arc<Mutex<dyn Plugin>>>,
 }
 
-impl<'a> Default for PluginContainer<'a> {
+impl Default for PluginContainer<'_> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<'a> PluginContainer<'a> {
+impl PluginContainer<'_> {
     /// Instantiate an object aware of all statically registered plugins
     pub(crate) fn new() -> Self {
         Self {
