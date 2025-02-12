@@ -57,7 +57,7 @@ impl<T: Serialize + DeserializeOwned + Send + Sync> SecretRepository for MockSec
 }
 
 #[cfg(test)]
-mod tests {
+mod test {
     use crate::Keystore;
     use did_utils::jwk::Jwk;
     use serde_json::json;
