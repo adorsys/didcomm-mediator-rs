@@ -4,7 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-database.workspace = true
 keystore.workspace = true
 plugin-api.workspace = true
 did-utils.workspace = true
@@ -23,10 +22,8 @@ uuid = { workspace = true, features = ["v4"] }
 hyper = { workspace = true, features = ["full"] }
 tokio = { workspace = true, features = ["full"] }
 axum = { workspace = true, features = ["macros"] }
-shared.workspace = true
 
 [dev-dependencies]
-async-trait.workspace = true
 mockall = "0.13.1"
 json-canon = "0.1.3"
 filesystem = { workspace = true, features = ["test-utils"] }
