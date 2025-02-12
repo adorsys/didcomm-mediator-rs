@@ -7,6 +7,7 @@ SERVER_LOCAL_PORT=3000
 STORAGE_DIRPATH=test/storage
 MONGO_URI=mongodb://localhost:27017/
 MONGO_DBN=didcomm-mediator
+DISCORD_WEBHOOK_URL=https://discord.com/
 EOL
 
 echo ".env.example file created successfully!"

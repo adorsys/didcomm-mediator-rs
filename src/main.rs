@@ -1,7 +1,10 @@
+use axum_prometheus::PrometheusMetricLayer;
 use didcomm_mediator::app;
 use eyre::{Result, WrapErr};
+use hyper::StatusCode;
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
+use tower_http::trace::TraceLayer;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -35,7 +38,20 @@ async fn generic_server_with_graceful_shutdown(listener: TcpListener) -> Result<
     // Load plugins
     let (mut plugin_container, router) = app()?;
 
-    // Start server
+    // Set up Prometheus metrics
+    let (prometheus_layer, metric_handle) = PrometheusMetricLayer::pair();
+
+    // health check endpoint, metrics, and trace layer
+    let router = router
+        .route("/health", axum::routing::get(health_check))
+        .route(
+            "/metrics",
+            axum::routing::get(move || async move { metric_handle.render() }),
+        )
+        .layer(prometheus_layer)
+        .layer(TraceLayer::new_for_http());
+
+    // Start the server
     axum::serve(listener, router)
         .await
         .context("failed to start server")?;
@@ -48,6 +64,10 @@ async fn generic_server_with_graceful_shutdown(listener: TcpListener) -> Result<
     };
 
     Ok(())
+}
+
+async fn health_check() -> impl axum::response::IntoResponse {
+    (StatusCode::OK, "Server is running")
 }
 
 fn config_tracing() {
