@@ -26,7 +26,7 @@ pub async fn did_rotation(
     let prev = from_prior.iss;
 
     // validate if did is  known
-    let _ = match connection_repos
+    match connection_repos
         .find_one_by(doc! {"client_did": &prev})
         .await
         .unwrap()
@@ -45,8 +45,8 @@ pub async fn did_rotation(
 
             let did_index = connection.keylist.iter().position(|did| did == &prev);
 
-            if did_index.is_some() {
-                connection.keylist.swap_remove(did_index.unwrap());
+            if let Some(did_index) = did_index {
+                connection.keylist.swap_remove(did_index);
 
                 connection.keylist.push(new.clone());
             } else {

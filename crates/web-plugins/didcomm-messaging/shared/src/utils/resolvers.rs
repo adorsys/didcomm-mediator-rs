@@ -101,7 +101,7 @@ impl SecretsResolver for LocalSecretsResolver {
         let secret = self
             .keystore
             .clone()
-            .retrieve::<Jwk>(&secret_id)
+            .retrieve::<Jwk>(secret_id)
             .await
             .map(|s| {
                 s.map(|s| Secret {

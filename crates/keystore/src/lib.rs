@@ -143,3 +143,9 @@ impl Keystore {
         Ok(())
     }
 }
+
+impl Default for Keystore {
+    fn default() -> Self {
+        Self::new()
+    }
+}
