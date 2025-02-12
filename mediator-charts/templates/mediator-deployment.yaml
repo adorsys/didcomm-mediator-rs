@@ -20,11 +20,18 @@ spec:
           ports:
             - containerPort: 8080
           env:
+            - name: SERVER_LOCAL_PORT
+              valueFrom:
+                configMapKeyRef:
+                  key: SERVER_LOCAL_PORT
+                  name: {{ .Values.mediator.configmap.name }}
+
             - name: MONGO_DBN
               valueFrom:
                 configMapKeyRef:
                   key: MONGO_DBN
                   name: {{ .Values.mediator.configmap.name }}
+
 
             - name: STORAGE_DIRPATH
               valueFrom:
@@ -46,7 +53,7 @@ spec:
 
             - name: MONGO_HOST
               value: {{ .Release.Name }}-mongodb-service
-              
+
             - name: MONGO_URI
               value: "mongodb://$(MONGO_INITDB_ROOT_USERNAME):$(MONGO_INITDB_ROOT_PASSWORD)@mongodb-service.didcomm-mediator.svc.cluster.local:27017/$(MONGO_DBN)"
             - name: SERVER_PUBLIC_DOMAIN
