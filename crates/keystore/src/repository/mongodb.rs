@@ -1,9 +1,11 @@
 use async_trait::async_trait;
-use mongodb::{bson::doc, Collection};
+use mongodb::{
+    bson::{doc, oid::ObjectId},
+    Collection,
+};
 use once_cell::sync::OnceCell;
+use serde::{Deserialize, Serialize};
 use tokio::{runtime::Handle, task::block_in_place};
-
-use crate::Secrets;
 
 use super::SecretRepository;
 
@@ -15,7 +17,7 @@ pub(crate) struct MongoSecretRepository {
 impl MongoSecretRepository {
     /// Create a new instance of the MongoDB secret repository.
     ///
-    /// The secret collection will be initialized once.
+    /// The secret collection will be initialized once even if this function is called multiple times.
     pub(crate) fn new() -> Self {
         static SECRETS_COLLECTION: OnceCell<Collection<Secrets>> = OnceCell::new();
         let db = database::get_or_init_database();
@@ -56,4 +58,16 @@ impl SecretRepository for MongoSecretRepository {
         self.collection.delete_one(doc! { "kid": kid }).await?;
         Ok(())
     }
+}
+
+/// Represents a cryptographic secret
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub(crate) struct Secrets {
+    #[serde(rename = "_id")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<ObjectId>,
+
+    pub kid: String,
+
+    pub secret_material: Vec<u8>,
 }
