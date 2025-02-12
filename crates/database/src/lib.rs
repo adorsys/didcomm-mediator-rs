@@ -26,6 +26,10 @@ pub enum RepositoryError {
     MissingIdentifier,
     #[error("target not found")]
     TargetNotFound,
+    #[error("decryption error")]
+    DecryptionError,
+    #[error("error deserializing to jwk")]
+    JwkDeserializationError,
 }
 
 static MONGO_DB: OnceCell<Database> = OnceCell::new();
@@ -72,6 +76,7 @@ where
         let mut entities = Vec::new();
         let collection = self.get_collection();
 
+        // Lock the Mutex and get the Collection
         let mut cursor = collection.find(doc! {}).await?;
         while cursor.advance().await? {
             entities.push(cursor.deserialize_current()?);

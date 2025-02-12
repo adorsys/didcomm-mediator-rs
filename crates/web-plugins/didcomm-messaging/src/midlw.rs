@@ -15,7 +15,7 @@ use tracing::error;
 // use super::{error::MediationError, AppState};
 use crate::{
     constants::{DIDCOMM_ENCRYPTED_MIME_TYPE, DIDCOMM_ENCRYPTED_SHORT_MIME_TYPE},
-    did_rotation::did_rotation,
+    did_rotation::handler::did_rotation,
     error::Error,
 };
 use shared::{
@@ -184,6 +184,8 @@ pub async fn pack_response_message(
 
 #[cfg(test)]
 mod tests {
+    use std::env;
+
     use super::*;
     use shared::utils::tests_utils::tests::*;
 
@@ -191,6 +193,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_pack_response_message_works() {
+        env::set_var("MASTER_KEY", "1234567890qwertyuiopasdfghjklxzc");
         let state = setup();
 
         let msg = Message::build(
