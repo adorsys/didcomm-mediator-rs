@@ -2,45 +2,115 @@ mod encryptor;
 mod error;
 mod repository;
 
-pub use encryptor::KeyEncryption;
 pub use error::{Error, ErrorKind};
 
-use async_trait::async_trait;
-use database::Repository;
-use did_utils::jwk::Jwk;
-use mongodb::{
-    bson::{doc, oid::ObjectId},
-    Collection,
-};
-use once_cell::sync::OnceCell;
-use repository::SecretRepository;
-use serde::{Deserialize, Serialize};
-use serde_json::Error as SerdeError;
-use std::sync::Arc;
-use thiserror::Error;
-use tokio::{runtime::Handle, task::block_in_place};
+#[cfg(any(test, feature = "test-utils"))]
+pub mod tests;
 
-static SECRETS_COLLECTION: OnceCell<Collection<Secrets>> = OnceCell::new();
+use aws_sdk_kms::Client as KmsClient;
+use encryptor::{aws_kms::AwsKmsEncryptor, plaintext::NoEncryption, KeyEncryption};
+use repository::{mongodb::MongoSecretRepository, no_repo::NoRepository, SecretRepository};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use std::sync::Arc;
+#[cfg(any(test, feature = "test-utils"))]
+use tests::MockSecretRepository;
 
 /// A key store that manages cryptographic keys.
 /// It is responsible for storing and retrieving cryptographic keys securely.
 #[derive(Clone)]
-pub struct Keystore<R: SecretRepository, E: KeyEncryption> {
-    repository: Arc<R>,
-    encryptor: Arc<E>,
+pub struct Keystore {
+    repository: Arc<dyn SecretRepository>,
+    encryptor: Arc<dyn KeyEncryption>,
 }
 
-impl<R: SecretRepository, E: KeyEncryption> Keystore<R, E> {
-    /// Create a new key store with specified encyption backend.
-    pub fn new(repository: R, encryptor: E) -> Self {
+impl Keystore {
+    /// Create a new key store instance.
+    pub fn new() -> Self {
+        let repository = NoRepository;
+        let encryptor = NoEncryption;
         Self {
             repository: Arc::new(repository),
             encryptor: Arc::new(encryptor),
         }
     }
 
-    pub fn with_no_encryption() -> Self {
-        Self::new(encryptor::NoEncryption)
+    /// Create a new key store with mongoDB as storage backend.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use keystore::{Keystore, NoEncryption};
+    ///
+    /// let keystore = Keystore::with_mongodb();
+    /// ```
+    pub fn with_mongodb() -> Self {
+        let repository = MongoSecretRepository::new();
+        let encryptor = NoEncryption;
+        Self {
+            repository: Arc::new(repository),
+            encryptor: Arc::new(encryptor),
+        }
+    }
+
+    /// Create a new key store with AWS KMS as encryption backend and mongoDB as storage backend.
+    pub fn with_aws_kms(client: KmsClient, key_id: String) -> Self {
+        let repository = MongoSecretRepository::new();
+        let encryptor = AwsKmsEncryptor::new(client, key_id);
+        Self {
+            repository: Arc::new(repository),
+            encryptor: Arc::new(encryptor),
+        }
+    }
+
+    /// Set the repository backend for the key store.
+    /// Should be chained with [`Keystore::new`] or [`Keystore::with_encryptor`].
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use keystore::{Keystore, NoRepository};
+    ///
+    /// let repository = NoRepository;
+    /// let keystore = Keystore::new().with_repository(repository);
+    /// ```
+    pub fn with_repository(self, repository: impl SecretRepository + 'static) -> Self {
+        Self {
+            repository: Arc::new(repository),
+            ..self
+        }
+    }
+
+    /// Set the encryption backend for the key store.
+    /// Should be chained with [`Keystore::new`] or [`Keystore::with_repository`].
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use keystore::{Keystore, NoEncryption};
+    ///
+    /// let encryptor = NoEncryption;
+    /// let keystore = Keystore::new().with_encryptor(encryptor);
+    /// ```
+    pub fn with_encryptor(self, encryptor: impl KeyEncryption + 'static) -> Self {
+        Self {
+            encryptor: Arc::new(encryptor),
+            ..self
+        }
+    }
+
+    /// Create a new key store with mocked repository and encryption backends.
+    /// This will be use for testing purposes.
+    #[cfg(any(test, feature = "test-utils"))]
+    pub fn with_mock_configs<T>(secrets: Vec<(String, T)>) -> Self
+    where
+        T: Serialize + DeserializeOwned + Send + Sync + 'static,
+    {
+        let mock_repository = MockSecretRepository::new(secrets);
+        let encryptor = NoEncryption;
+        Self {
+            repository: Arc::new(mock_repository),
+            encryptor: Arc::new(encryptor),
+        }
     }
 
     /// Store a key in the keystore.
@@ -52,7 +122,10 @@ impl<R: SecretRepository, E: KeyEncryption> Keystore<R, E> {
     }
 
     /// Retrieve a key from the keystore with the specified key ID.
-    pub async fn retrieve<T: for<'a>Deserialize<'a>>(&self, kid: &str) -> Result<Option<T>, Error> {
+    pub async fn retrieve<T: for<'a> Deserialize<'a>>(
+        &self,
+        kid: &str,
+    ) -> Result<Option<T>, Error> {
         let secret = self.repository.find(kid).await?;
 
         if let Some(secret) = secret {
@@ -70,102 +143,3 @@ impl<R: SecretRepository, E: KeyEncryption> Keystore<R, E> {
         Ok(())
     }
 }
-
-/// Represents a cryptographic secret
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-pub struct Secrets {
-    #[serde(rename = "_id")]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub id: Option<ObjectId>,
-
-    pub kid: String,
-
-    pub secret_material: Vec<u8>,
-}
-
-// #[cfg(any(test, feature = "test-utils"))]
-// pub mod tests {
-//     use super::*;
-//     use database::{Repository, RepositoryError};
-//     use mongodb::bson::{doc, Bson, Document};
-//     use serde_json::json;
-//     use std::{collections::HashMap, sync::RwLock};
-
-//     #[derive(Default)]
-//     pub struct MockKeyStore {
-//         secrets: RwLock<Vec<Secrets>>,
-//     }
-
-//     impl MockKeyStore {
-//         pub fn new(secrets: Vec<Secrets>) -> Self {
-//             Self {
-//                 secrets: RwLock::new(secrets),
-//             }
-//         }
-
-//         pub fn store(&self, secret: Secrets) {
-//             self.secrets.write().unwrap().push(secret);
-//         }
-//     }
-
-//     #[tokio::test]
-//     async fn test_keystore_flow() {
-//         let secret1: Jwk = serde_json::from_str(
-//             r#"{
-//                 "kty": "OKP",
-//                 "crv": "X25519",
-//                 "x": "SHSUZ6V3x355FqCzIUfgoPzrZB0BQs0JKyag4UfMqHQ",
-//                 "d": "0A8SSFkGHg3N9gmVDRnl63ih5fcwtEvnQu9912SVplY"
-//             }"#,
-//         )
-//         .unwrap();
-
-//         let secret2: Jwk = serde_json::from_str(
-//             r#"{
-//                 "kty": "OKP",
-//                 "crv": "Ed25519",
-//                 "x": "Z0GqpN71rMcnAkky6_J6Bfknr8B-TBsekG3qdI0EQX4",
-//                 "d": "fI1u4riKKd99eox08GlThknq-vEJXcKBI28aiUqArLo"
-//               }"#,
-//         )
-//         .unwrap();
-
-//         let secrets = vec![
-//             Secrets {
-//                 id: Some(ObjectId::new()),
-//                 kid: "1".to_string(),
-//                 secret_material: secret1,
-//             },
-//             Secrets {
-//                 id: Some(ObjectId::new()),
-//                 kid: "2".to_string(),
-//                 secret_material: secret2,
-//             },
-//         ];
-
-//         let keystore = MockKeyStore::new(vec![]);
-
-//         keystore.store(secrets[0].clone()).await.unwrap();
-//         keystore.store(secrets[1].clone()).await.unwrap();
-
-//         assert!(keystore
-//             .find_one_by(doc! {"kid": "1"})
-//             .await
-//             .unwrap()
-//             .is_some());
-//         assert!(keystore
-//             .find_one_by(doc! {"kid": "2"})
-//             .await
-//             .unwrap()
-//             .is_some());
-
-//         keystore.delete_one(secrets[0].id.unwrap()).await.unwrap();
-//         assert!(keystore
-//             .find_one_by(doc! {"kid": "1"})
-//             .await
-//             .unwrap()
-//             .is_none());
-
-//         assert_eq!(keystore.find_all().await.unwrap(), vec![secrets[1].clone()]);
-//     }
-// }

@@ -1,4 +1,5 @@
 pub(crate) mod mongodb;
+pub(crate) mod no_repo;
 
 use async_trait::async_trait;
 

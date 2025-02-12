@@ -1,6 +1,7 @@
 use core::fmt::{Debug, Display};
 use std::error::Error as StdError;
 
+use aws_sdk_kms::operation::{decrypt::DecryptError, encrypt::EncryptError};
 use serde_json::error::Category;
 
 /// Kind of error that can occur during key store operations.
@@ -94,5 +95,17 @@ impl From<serde_json::Error> for Error {
 impl From<mongodb::error::Error> for Error {
     fn from(err: mongodb::error::Error) -> Self {
         Error::new(ErrorKind::RepositoryFailure, err)
+    }
+}
+
+impl From<aws_sdk_kms::error::SdkError<EncryptError>> for Error {
+    fn from(err: aws_sdk_kms::error::SdkError<EncryptError>) -> Self {
+        Error::new(ErrorKind::EncryptionFailure, err)
+    }
+}
+
+impl From<aws_sdk_kms::error::SdkError<DecryptError>> for Error {
+    fn from(err: aws_sdk_kms::error::SdkError<DecryptError>) -> Self {
+        Error::new(ErrorKind::DecryptionFailure, err)
     }
 }
