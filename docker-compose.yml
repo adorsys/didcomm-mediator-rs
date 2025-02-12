@@ -43,6 +43,14 @@ services:
       - prometheus
     networks:
       - monitoring
+  discord-alerts:
+    image: benjojo/alertmanager-discord
+    container_name: discord-alerts
+    restart: unless-stopped
+    environment:
+      - DISCORD_WEBHOOK=${DISCORD_WEBHOOK_URL}
+    ports:
+      - 9094:9094
 
   node_exporter:
     image: prom/node-exporter
