@@ -59,3 +59,7 @@ jobs:
 
     - name: Check API documentation
       run: cargo doc --workspace --all-features --no-deps
+
+    - name: Run Reliability Tests
+      run: cargo nextest run --workspace --all-features --filterset "test(reliability)"
+      
