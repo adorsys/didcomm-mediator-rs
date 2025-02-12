@@ -46,11 +46,13 @@ services:
   discord-alerts:
     image: benjojo/alertmanager-discord
     container_name: discord-alerts
-    restart: unless-stopped
+    restart: always
     environment:
       - DISCORD_WEBHOOK=${DISCORD_WEBHOOK_URL}
     ports:
       - 9094:9094
+    networks:
+      - monitoring
 
   node_exporter:
     image: prom/node-exporter
