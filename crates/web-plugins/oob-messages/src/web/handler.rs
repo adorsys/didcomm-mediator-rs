@@ -31,7 +31,6 @@ pub(crate) async fn handler_oob_inv(State(state): State<Arc<OOBMessagesState>>) 
         };
 
     content.into_response()
-    
 }
 
 pub(crate) async fn handler_oob_qr(State(state): State<Arc<OOBMessagesState>>) -> Response {
