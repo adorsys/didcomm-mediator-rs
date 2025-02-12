@@ -109,3 +109,5 @@ impl From<aws_sdk_kms::error::SdkError<DecryptError>> for Error {
         Error::new(ErrorKind::DecryptionFailure, err)
     }
 }
+
+impl std::error::Error for Error {}
