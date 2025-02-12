@@ -76,14 +76,11 @@ pub async fn did_rotation(
 
 #[cfg(test)]
 mod test {
-
-    use std::{env, sync::Arc, vec};
-
+    use dashmap::DashMap;
     use did_utils::{didcore::Document, jwk::Jwk};
     use didcomm::secrets::SecretsResolver;
+    use keystore::Keystore;
     use mongodb::bson::doc;
-
-    use keystore::{tests::MockKeyStore, Secrets};
     use shared::{
         repository::{
             entity::Connection,
@@ -92,6 +89,7 @@ mod test {
         state::{AppState, AppStateRepository},
         utils::resolvers::{LocalDIDResolver, LocalSecretsResolver},
     };
+    use std::{env, sync::Arc, vec};
 
     pub fn prev_did() -> String {
         "did:key:z6MkrQT3VKYGkbPaYuJeBv31gNgpmVtRWP5yTocLDBgPpayM".to_string()
@@ -102,46 +100,47 @@ mod test {
     pub fn setup() -> Arc<AppState> {
         let public_domain = String::from("http://alice-mediator.com");
 
-        let keys = vec![
-            Secrets {
-                id: None,
-                kid: String::from("did:peer:2.Vz6Mkf6r1uMJwoRAbzkuyj2RwPusdZhWSPeEknnTcKv2C2EN7.Ez6LSgbP4b3y8HVWG6C73WF2zLbzjDAPXjc33P2VfnVVHE347.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0#key-1"),
-                secret_material: serde_json::from_str(
-                    r#"{
-                        "kty": "OKP",
-                        "crv": "Ed25519",
-                        "x": "CaDmpOjPAiMWfdzBcK2pLyJAER6xvdhDl2dro6BoilQ",
-                        "d": "vp0WuZNeCsoXYj94738e0gwi_PLF7VIutNCrFVNx--0"
-                    }"#,
-                )
-                .unwrap(),
-            },
-            Secrets {
-                id: None,
-                kid: String::from("did:peer:2.Vz6Mkf6r1uMJwoRAbzkuyj2RwPusdZhWSPeEknnTcKv2C2EN7.Ez6LSgbP4b3y8HVWG6C73WF2zLbzjDAPXjc33P2VfnVVHE347.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0#key-2"),
-                secret_material: serde_json::from_str(
-                    r#"{
-                        "kty": "OKP",
-                        "crv": "X25519",
-                        "x": "SQ_7useLAjGf66XAwQWuBuSv9PdD_wB4TJQ6w38nFwQ",
-                        "d": "kxUXT-2TOa6F6xk2ojQgJlT3xWq0aCA9j-BW4VB5_A8"
-                    }"#,
-                )
-                .unwrap(),
-            },
-        ];
+        let keys: Vec<(String, Jwk)> = vec![(
+            String::from("did:peer:2.Vz6Mkf6r1uMJwoRAbzkuyj2RwPusdZhWSPeEknnTcKv2C2EN7.Ez6LSgbP4b3y8HVWG6C73WF2zLbzjDAPXjc33P2VfnVVHE347.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0#key-1"),
+             serde_json::from_str(
+                r#"{
+                    "kty": "OKP",
+                    "crv": "Ed25519",
+                    "x": "CaDmpOjPAiMWfdzBcK2pLyJAER6xvdhDl2dro6BoilQ",
+                    "d": "vp0WuZNeCsoXYj94738e0gwi_PLF7VIutNCrFVNx--0"
+                }"#,
+            )
+            .unwrap(),
+            ),
+            (
+            String::from("did:peer:2.Vz6Mkf6r1uMJwoRAbzkuyj2RwPusdZhWSPeEknnTcKv2C2EN7.Ez6LSgbP4b3y8HVWG6C73WF2zLbzjDAPXjc33P2VfnVVHE347.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0#key-2"),
+            serde_json::from_str(
+                r#"{
+                    "kty": "OKP",
+                    "crv": "X25519",
+                    "x": "SQ_7useLAjGf66XAwQWuBuSv9PdD_wB4TJQ6w38nFwQ",
+                    "d": "kxUXT-2TOa6F6xk2ojQgJlT3xWq0aCA9j-BW4VB5_A8"
+                }"#,
+            )
+            .unwrap(),
+        )];
 
         let diddoc = didoc();
         let repository = AppStateRepository {
             connection_repository: Arc::new(MockConnectionRepository::from(_initial_connections())),
-            keystore: Arc::new(MockKeyStore::new(keys)),
+            keystore: Keystore::with_mock_configs(keys),
             message_repository: Arc::new(MockMessagesRepository::from(vec![])),
         };
-
-        let state =
-            Arc::new(AppState::from(public_domain, diddoc, None, Some(repository)).unwrap());
-
-        state
+        Arc::new(
+            AppState::from(
+                public_domain,
+                diddoc,
+                None,
+                Some(repository),
+                DashMap::new(),
+            )
+            .unwrap(),
+        )
     }
     fn _initial_connections() -> Vec<Connection> {
         let _recipient_did = prev_did();
@@ -243,14 +242,8 @@ mod test {
             )
             .unwrap();
 
-            let secret = Secrets {
-                id: None,
-                kid: secret_id.into(),
-                secret_material,
-            };
-
-            let keystore = MockKeyStore::new(vec![secret]);
-            LocalSecretsResolver::new(Arc::new(keystore))
+            let keystore = Keystore::with_mock_configs(vec![(secret_id.into(), secret_material)]);
+            LocalSecretsResolver::new(keystore)
         }
 
         let from_prior = FromPrior {

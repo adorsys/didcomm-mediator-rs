@@ -21,7 +21,7 @@ mod tests {
     use chrono::Utc;
     use dashmap::DashMap;
     use did_utils::didcore::Document;
-    use keystore::tests::MockKeyStore;
+    use keystore::Keystore;
     use serde_json::json;
     use shared::{
         repository::tests::{MockConnectionRepository, MockMessagesRepository},
@@ -91,7 +91,7 @@ mod tests {
         let repository = AppStateRepository {
             connection_repository: Arc::new(MockConnectionRepository::from(vec![])),
             message_repository: Arc::new(MockMessagesRepository::from(vec![])),
-            keystore: Arc::new(MockKeyStore::new(vec![])),
+            keystore: Keystore::new(),
         };
         let state = Arc::new(
             AppState::from(

@@ -2,6 +2,7 @@ use async_trait::async_trait;
 use did_utils::{
     crypto::PublicKeyFormat,
     didcore::{Document, VerificationMethodType},
+    jwk::Jwk,
     methods::{DidKey, DidPeer},
 };
 use didcomm::{
@@ -9,12 +10,9 @@ use didcomm::{
     error::{Error, ErrorKind, Result},
     secrets::{Secret, SecretMaterial, SecretType, SecretsResolver},
 };
-use keystore::{SecureRepository, WrapSecret};
-use mongodb::bson::doc;
+use keystore::Keystore;
 use serde_json::json;
-use std::{collections::HashSet, env, sync::Arc};
-
-use super::get_master_key;
+use std::collections::HashSet;
 
 #[derive(Clone)]
 pub struct LocalDIDResolver {
@@ -33,7 +31,7 @@ impl LocalDIDResolver {
 impl DIDResolver for LocalDIDResolver {
     async fn resolve(&self, did: &str) -> Result<Option<DIDDoc>> {
         if did == self.diddoc.id {
-            let mut diddoc = self.diddoc;
+            let mut diddoc = self.diddoc.clone();
             prepend_doc_id_to_vm_ids(&mut diddoc);
             return Ok(Some(serde_json::from_value(json!(diddoc))?));
         }
@@ -89,34 +87,28 @@ fn prepend_doc_id_to_vm_ids(diddoc: &mut Document) {
 
 #[derive(Clone)]
 pub struct LocalSecretsResolver {
-    keystore: Arc<dyn SecureRepository<WrapSecret>>,
-    master_key: [u8; 32],
+    keystore: Keystore,
 }
 
 impl LocalSecretsResolver {
-    pub fn new(keystore: Arc<dyn SecureRepository<WrapSecret>>) -> Self {
-        let master_key = get_master_key().unwrap();
-        Self {
-            keystore,
-            master_key,
-        }
+    pub fn new(keystore: Keystore) -> Self {
+        Self { keystore }
     }
 }
 #[async_trait]
 impl SecretsResolver for LocalSecretsResolver {
     async fn get_secret(&self, secret_id: &str) -> Result<Option<Secret>> {
-        let master_key = self.master_key;
         let secret = self
             .keystore
             .clone()
-            .find_key_by(doc! {"kid": secret_id}, master_key)
+            .retrieve::<Jwk>(&secret_id)
             .await
             .map(|s| {
                 s.map(|s| Secret {
-                    id: s.kid,
+                    id: secret_id.to_string(),
                     type_: SecretType::JsonWebKey2020,
                     secret_material: SecretMaterial::JWK {
-                        private_key_jwk: json!(s.secret_material),
+                        private_key_jwk: json!(s),
                     },
                 })
             })
@@ -128,13 +120,11 @@ impl SecretsResolver for LocalSecretsResolver {
     async fn find_secrets<'a>(&self, secret_ids: &'a [&'a str]) -> Result<Vec<&'a str>> {
         let mut found_secret_ids = HashSet::with_capacity(secret_ids.len());
 
-        let master_key = self.master_key;
-
         for secret_id in secret_ids.iter() {
             if self
                 .keystore
                 .clone()
-                .find_key_by(doc! {"kid": *secret_id}, master_key)
+                .retrieve::<Jwk>(secret_id)
                 .await
                 .map_err(|e| Error::new(ErrorKind::IoError, e))?
                 .is_some()
@@ -153,7 +143,6 @@ mod tests {
 
     use super::*;
     use did_utils::jwk::Jwk;
-    use keystore::{tests::MockKeyStore, Secrets};
     use serde_json::Value;
 
     fn setup() -> Document {
@@ -305,13 +294,7 @@ mod tests {
         )
         .unwrap();
 
-        let test_secret = Secrets {
-            id: None,
-            kid: secret_id.to_string(),
-            secret_material: secret,
-        };
-
-        let keystore = Arc::new(MockKeyStore::new(vec![test_secret]));
+        let keystore = Keystore::with_mock_configs(vec![(secret_id.to_string(), secret)]);
 
         let resolver = LocalSecretsResolver::new(keystore);
         let resolved = resolver.get_secret(secret_id).await.unwrap().unwrap();

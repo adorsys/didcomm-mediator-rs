@@ -1,9 +1,8 @@
 use super::{didgen, web};
 use axum::Router;
 use filesystem::FileSystem;
-use keystore::{SecureRepository, WrapSecret};
+use keystore::Keystore;
 use plugin_api::{Plugin, PluginError};
-use shared::utils::get_master_key;
 use std::sync::{Arc, Mutex};
 
 #[derive(Default)]
@@ -19,7 +18,7 @@ struct DidEndpointEnv {
 
 #[derive(Clone)]
 pub(crate) struct DidEndPointState {
-    pub(crate) keystore: Arc<dyn SecureRepository<WrapSecret>>,
+    pub(crate) keystore: Keystore,
     pub(crate) filesystem: Arc<Mutex<dyn FileSystem>>,
 }
 
@@ -44,18 +43,11 @@ impl Plugin for DidEndpoint {
 
     fn mount(&mut self) -> Result<(), PluginError> {
         let env = get_env()?;
-        let master_key = get_master_key()?;
-
         let mut filesystem = filesystem::StdFileSystem;
-        let keystore = keystore::KeyStore::get();
+        let keystore = Keystore::with_mongodb();
 
-        if didgen::validate_diddoc(
-            env.storage_dirpath.as_ref(),
-            &keystore,
-            &mut filesystem,
-            master_key,
-        )
-        .is_err()
+        if didgen::validate_diddoc(env.storage_dirpath.as_ref(), &keystore, &mut filesystem)
+            .is_err()
         {
             tracing::debug!("diddoc validation failed, will generate one");
 
@@ -64,7 +56,6 @@ impl Plugin for DidEndpoint {
                 &env.server_public_domain,
                 &keystore,
                 &mut filesystem,
-                master_key,
             )
             .map_err(|_| {
                 PluginError::InitError(
@@ -75,7 +66,7 @@ impl Plugin for DidEndpoint {
 
         self.env = Some(env);
         self.state = Some(DidEndPointState {
-            keystore: Arc::new(keystore),
+            keystore,
             filesystem: Arc::new(Mutex::new(filesystem)),
         });
 

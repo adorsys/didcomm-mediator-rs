@@ -1,7 +1,7 @@
 use dashmap::DashMap;
 use database::Repository;
 use did_utils::didcore::Document;
-use keystore::{SecureRepository, WrapSecret};
+use keystore::Keystore;
 use std::sync::Arc;
 
 use crate::{
@@ -31,7 +31,7 @@ pub struct AppState {
 pub struct AppStateRepository {
     pub connection_repository: Arc<dyn Repository<Connection>>,
     pub message_repository: Arc<dyn Repository<RoutedMessage>>,
-    pub keystore: Arc<dyn SecureRepository<WrapSecret>>,
+    pub keystore: Keystore,
 }
 
 impl AppState {

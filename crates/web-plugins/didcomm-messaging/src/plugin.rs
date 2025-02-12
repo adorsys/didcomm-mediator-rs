@@ -9,7 +9,6 @@ use shared::{
     breaker::CircuitBreaker,
     repository::{MongoConnectionRepository, MongoMessagesRepository},
     state::{AppState, AppStateRepository},
-    utils::{self, get_master_key},
 };
 use std::{sync::Arc, time::Duration};
 use tokio::sync::RwLock;
@@ -54,19 +53,14 @@ impl Plugin for DidcommMessaging {
 
     fn mount(&mut self) -> Result<(), PluginError> {
         let env = load_plugin_env()?;
-        let master_key = get_master_key()?;
 
         let mut filesystem = filesystem::StdFileSystem;
-        let keystore = keystore::KeyStore::get();
+        let keystore = keystore::Keystore::with_mongodb();
 
         // Expect DID document from file system
-
-        if let Err(err) = did_endpoint::validate_diddoc(
-            env.storage_dirpath.as_ref(),
-            &keystore,
-            &mut filesystem,
-            master_key,
-        ) {
+        if let Err(err) =
+            did_endpoint::validate_diddoc(env.storage_dirpath.as_ref(), &keystore, &mut filesystem)
+        {
             return Err(PluginError::InitError(format!(
                 "DID document validation failed: {:?}",
                 err
@@ -128,17 +122,18 @@ impl Plugin for DidcommMessaging {
 
         // Load crypto identity
         let fs = StdFileSystem;
-        let diddoc = utils::read_diddoc(&fs, &env.storage_dirpath).map_err(|err| {
+        let diddoc = shared::utils::read_diddoc(&fs, &env.storage_dirpath).map_err(|err| {
             PluginError::Other(format!(
                 "This should not occur following successful mounting: {:?}",
                 err
             ))
         })?;
+        let keystore = keystore::Keystore::with_mongodb();
 
         // Load persistence layer
         let repository = AppStateRepository {
             connection_repository: Arc::new(MongoConnectionRepository::from_db(db)),
-            keystore: Arc::new(keystore::KeyStore::get()),
+            keystore,
             message_repository: Arc::new(MongoMessagesRepository::from_db(db)),
         };
 

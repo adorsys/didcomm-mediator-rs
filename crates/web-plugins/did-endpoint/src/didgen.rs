@@ -5,8 +5,7 @@ use did_utils::{
     methods::{DidPeer, Purpose, PurposedKey},
 };
 use filesystem::FileSystem;
-use keystore::{Secrets, SecureRepository, WrapSecret};
-use mongodb::bson::doc;
+use keystore::Keystore;
 use serde_json::json;
 use std::path::Path;
 use tokio::{runtime::Handle, task};
@@ -31,15 +30,13 @@ pub enum Error {
 }
 
 /// Generates keys and forward them for DID generation
-pub fn didgen<K, F>(
+pub fn didgen<F>(
     storage_dirpath: &Path,
     server_public_domain: &str,
-    keystore: &K,
+    keystore: &Keystore,
     filesystem: &mut F,
-    master_key: [u8; 32],
 ) -> Result<Document, Error>
 where
-    K: SecureRepository<WrapSecret>,
     F: FileSystem,
 {
     // Generate keys for did:peer generation
@@ -79,20 +76,8 @@ where
         .map_err(|_| Error::KeyConversionError)?;
 
     // Store authentication and agreement keys in the keystore.
-    store_key(
-        auth_keys_jwk,
-        &diddoc,
-        &diddoc.authentication,
-        keystore,
-        master_key,
-    )?;
-    store_key(
-        agreem_keys_jwk,
-        &diddoc,
-        &diddoc.key_agreement,
-        keystore,
-        master_key,
-    )?;
+    store_key(auth_keys_jwk, &diddoc, &diddoc.authentication, keystore)?;
+    store_key(agreem_keys_jwk, &diddoc, &diddoc.key_agreement, keystore)?;
 
     // Serialize DID document and persist to filesystem
     persist_did_document(storage_dirpath, &diddoc, filesystem)?;
@@ -117,16 +102,12 @@ fn generate_did_document(
     resolver.expand(&did).map_err(|_| Error::DidGenerationError)
 }
 
-fn store_key<S>(
+fn store_key(
     key: Jwk,
     diddoc: &Document,
     field: &Option<Vec<VerificationMethodType>>,
-    keystore: &S,
-    master_key: [u8; 32],
-) -> Result<(), Error>
-where
-    S: SecureRepository<WrapSecret>,
-{
+    keystore: &Keystore,
+) -> Result<(), Error> {
     // Extract key ID from the DID document
     let kid = match field.as_ref().unwrap()[0].clone() {
         VerificationMethodType::Reference(kid) => kid,
@@ -134,17 +115,9 @@ where
     };
     let kid = util::handle_vm_id(&kid, diddoc);
 
-    // Create Secrets for the key
-    let secret = Secrets {
-        id: None,
-        kid: kid.into_owned(),
-        secret_material: key,
-    };
-
     // Store the secret in the keystore
     task::block_in_place(move || {
-        Handle::current()
-            .block_on(async move { keystore.secure_store(secret.into(), master_key).await })
+        Handle::current().block_on(async move { keystore.store(&kid, &key).await })
     })
     .map(|_| tracing::info!("Successfully stored secret."))
     .map_err(|err| {
@@ -178,14 +151,12 @@ where
 }
 
 /// Validates the integrity of the persisted diddoc
-pub fn validate_diddoc<K, F>(
+pub fn validate_diddoc<F>(
     storage_dirpath: &Path,
-    keystore: &K,
+    keystore: &Keystore,
     filesystem: &mut F,
-    master_key: [u8; 32],
 ) -> Result<(), String>
 where
-    K: SecureRepository<WrapSecret>,
     F: FileSystem,
 {
     cfg_if::cfg_if! {
@@ -215,7 +186,7 @@ where
                 .ok_or(String::from("Missing key"))?;
             let kid = util::handle_vm_id(&method.id, &diddoc);
             match pubkey {
-                KeyFormat::Jwk(_) => validate_key(&kid, keystore, master_key)?,
+                KeyFormat::Jwk(_) => validate_key(&kid, keystore)?,
                 _ => return Err(String::from("Unsupported key format")),
             };
         }
@@ -224,14 +195,10 @@ where
     Ok(())
 }
 
-fn validate_key<K>(kid: &str, keystore: &K, master_key: [u8; 32]) -> Result<(), String>
-where
-    K: SecureRepository<WrapSecret>,
-{
+fn validate_key(kid: &str, keystore: &Keystore) -> Result<(), String> {
     // Validate that the key exists
     task::block_in_place(|| {
-        Handle::current()
-            .block_on(async move { keystore.find_key_by(doc! { "kid": kid }, master_key).await })
+        Handle::current().block_on(async move { keystore.retrieve::<Jwk>(kid).await })
     })
     .map_err(|_| String::from("Error fetching secret"))?
     .ok_or_else(|| String::from("Mismatch or missing secret"))?;
@@ -242,13 +209,11 @@ where
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
-    use database::RepositoryError;
     use filesystem::FileSystem;
     use mockall::{
         mock,
         predicate::{self, *},
     };
-    use mongodb::bson::Document as BsonDocument;
     use std::io::Result as IoResult;
 
     // Mock the FileSystem trait
@@ -263,27 +228,13 @@ pub(crate) mod tests {
         }
     }
 
-    // Mock the Repository trait
-    mock! {
-        pub Keystore {}
-        #[async_trait::async_trait]
-        impl SecureRepository<WrapSecret> for Keystore {
-            fn get_collection(&self) -> std::sync::Arc<tokio::sync::RwLock<mongodb::Collection<keystore::WrapSecret>>> ;
-            async fn secure_store(&self, entity: keystore::WrapSecret, master_key: [u8; 32]) -> Result<WrapSecret, RepositoryError>;
-          async fn find_key_by(&self, filter: BsonDocument, master_key: [u8; 32]) -> Result<Option<Secrets>, RepositoryError>;
-        }
-    }
-
-    pub(crate) fn setup() -> Secrets {
+    pub(crate) fn setup() -> Jwk {
         serde_json::from_str(
             r##"{
-                "kid": "did:peer:123#key-1",
-                "secret_material": {
-                    "kty": "OKP",
-                    "crv": "Ed25519",
-                    "x": "PuG2L5um-tAnHlvT29gTm9Wj9fZca16vfBCPKsHB5cA",
-                    "d": "af7bypYk00b4sVpSDit1gMGvnmlQI52X4pFBWYXndUA"
-                }
+                "kty": "OKP",
+                "crv": "Ed25519",
+                "x": "PuG2L5um-tAnHlvT29gTm9Wj9fZca16vfBCPKsHB5cA",
+                "d": "af7bypYk00b4sVpSDit1gMGvnmlQI52X4pFBWYXndUA"
             }"##,
         )
         .unwrap()
@@ -293,10 +244,10 @@ pub(crate) mod tests {
     // Does not validate the DID document.
     #[tokio::test(flavor = "multi_thread")]
     async fn test_did_generation() {
+        let kid = "did:peer:123#key-1".to_string();
         let mut mock_fs = MockFileSystem::new();
-        let mut mock_keystore = MockKeystore::new();
+        let mock_keystore = Keystore::with_mock_configs(vec![(kid, setup())]);
         let path = Path::new("/mock/dir");
-        let secret = setup();
 
         // Mock the file system write call
         mock_fs
@@ -307,33 +258,16 @@ pub(crate) mod tests {
 
         mock_fs.expect_write().times(1).returning(|_, _| Ok(()));
 
-        // Mock keystore save key
-        mock_keystore
-            .expect_secure_store()
-            .times(2)
-            .returning(move |_, _master_key| {
-                let secrets: WrapSecret = secret.clone().into();
-                Ok(secrets)
-            });
-
-        // master_key
-        let master_key = [0; 32];
-
-        let result = didgen(
-            &path,
-            "https://example.com",
-            &mock_keystore,
-            &mut mock_fs,
-            master_key,
-        );
+        let result = didgen(path, "https://example.com", &mock_keystore, &mut mock_fs);
 
         assert!(result.is_ok());
     }
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_did_validation() {
+        let kid = "did:peer:123#key-1".to_string();
         let mut mock_fs = MockFileSystem::new();
-        let mut mock_keystore = MockKeystore::new();
+        let mock_keystore = Keystore::with_mock_configs(vec![(kid, setup())]);
         let path = Path::new("/mock/dir");
 
         // Mock read from filesystem
@@ -361,22 +295,7 @@ pub(crate) mod tests {
                 .to_string())
             });
 
-        // Mock keystore fetch
-        // dummy master_key
-        let master_key = [0; 32];
-        mock_keystore
-            .expect_find_key_by()
-            .with(
-                predicate::function(|filter: &BsonDocument| filter.contains_key("kid")),
-                predicate::eq(master_key),
-            )
-            .returning(move |_, _| {
-                let secret = setup();
-                Ok(Some(secret))
-            });
-        // dummy master_key
-
-        let result = validate_diddoc(&path, &mock_keystore, &mut mock_fs, master_key);
+        let result = validate_diddoc(path, &mock_keystore, &mut mock_fs);
 
         assert!(result.is_ok());
     }

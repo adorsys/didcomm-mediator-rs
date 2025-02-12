@@ -22,7 +22,6 @@ use didcomm::{
     did::{DIDDoc, DIDResolver},
     Message,
 };
-use keystore::Secrets;
 use mongodb::bson::doc;
 use serde_json::{json, Value};
 use shared::{
@@ -30,7 +29,6 @@ use shared::{
     midlw::ensure_transport_return_route_is_decorated_all,
     repository::entity::Connection,
     state::{AppState, AppStateRepository},
-    utils::get_master_key,
 };
 use std::sync::Arc;
 use uuid::Uuid;
@@ -87,95 +85,7 @@ pub(crate) async fn process_mediate_request(
             .to(sender_did.clone())
             .from(mediator_did.clone())
             .finalize(),
-        ))
-    } else {
-        /* Issue mediate grant response */
-        tracing::info!("Sending mediate grant.");
-        // Create routing, store it and send mediation grant
-        let (routing_did, auth_keys, agreem_keys) =
-            generate_did_peer(state.public_domain.to_string());
-
-        let AppStateRepository { keystore, .. } = state
-            .repository
-            .as_ref()
-            .ok_or(MediationError::InternalServerError)?;
-
-        let diddoc = state
-            .did_resolver
-            .resolve(&routing_did)
-            .await
-            .map_err(|err| {
-                tracing::error!("Failed to resolve DID: {:?}", err);
-                MediationError::InternalServerError
-            })?
-            .ok_or(MediationError::InternalServerError)?;
-
-        let agreem_keys_jwk: Jwk = agreem_keys.try_into().unwrap();
-
-        let agreem_keys_secret = Secrets {
-            id: None,
-            kid: diddoc.key_agreement.first().unwrap().clone(),
-            secret_material: agreem_keys_jwk,
-        };
-
-        let master_key = get_master_key().unwrap();
-
-        match keystore
-            .secure_store(agreem_keys_secret.into(), master_key)
-            .await
-        {
-            Ok(_stored_connection) => {
-                tracing::info!("Successfully stored agreement keys.")
-            }
-            Err(error) => tracing::error!("Error storing agreement keys: {:?}", error),
-        }
-
-        let auth_keys_jwk: Jwk = auth_keys.try_into().unwrap();
-
-        let auth_keys_secret = Secrets {
-            id: None,
-            kid: diddoc.authentication.first().unwrap().clone(),
-            secret_material: auth_keys_jwk,
-        };
-
-        match keystore
-            .secure_store(auth_keys_secret.into(), master_key)
-            .await
-        {
-            Ok(_stored_connection) => {
-                tracing::info!("Successfully stored authentication keys.")
-            }
-            Err(error) => tracing::error!("Error storing authentication keys: {:?}", error),
-        }
-
-        let mediation_grant = create_mediation_grant(&routing_did);
-
-        let new_connection = Connection {
-            id: None,
-            client_did: sender_did.to_string(),
-            mediator_did: mediator_did.to_string(),
-            keylist: vec!["".to_string()],
-            routing_did,
-        };
-
-        // Use store_one to store the sample connection
-        match connection_repository.store(new_connection).await {
-            Ok(_stored_connection) => {
-                tracing::info!("Successfully stored connection: ")
-            }
-            Err(error) => tracing::error!("Error storing connection: {:?}", error),
-        }
-
-        Ok(Some(
-            Message::build(
-                format!("urn:uuid:{}", Uuid::new_v4()),
-                mediation_grant.message_type.clone(),
-                json!(mediation_grant),
-            )
-            .to(sender_did.clone())
-            .from(mediator_did.clone())
-            .finalize(),
-        ))
+        ));
     }
 
     // Process mediation grant
@@ -263,16 +173,12 @@ async fn store_keys(
     auth_keys: Ed25519KeyPair,
     agreem_keys: X25519KeyPair,
 ) -> Result<(), MediationError> {
+    let agreem_id = diddoc.key_agreement.first().unwrap();
     let agreem_keys_jwk: Jwk = agreem_keys.try_into().unwrap();
-    let agreem_keys_secret = Secrets {
-        id: None,
-        kid: diddoc.key_agreement.first().unwrap().clone(),
-        secret_material: agreem_keys_jwk,
-    };
 
     match state.circuit_breaker.get(MEDIATE_REQUEST_2_0) {
         Some(cb) => cb
-            .call(|| repository.keystore.store(agreem_keys_secret.to_owned()))
+            .call(|| repository.keystore.store(agreem_id, &agreem_keys_jwk))
             .await
             .map_err(|err| match err {
                 BreakerError::CircuitOpen => MediationError::ServiceUnavailable,
@@ -283,7 +189,7 @@ async fn store_keys(
             })?,
         None => repository
             .keystore
-            .store(agreem_keys_secret)
+            .store(agreem_id, &agreem_keys_jwk)
             .await
             .map_err(|err| {
                 tracing::error!("Failed to store agreem keys: {err:?}");
@@ -291,16 +197,12 @@ async fn store_keys(
             })?,
     };
 
+    let auth_id = diddoc.authentication.first().unwrap();
     let auth_keys_jwk: Jwk = auth_keys.try_into().unwrap();
-    let auth_keys_secret = Secrets {
-        id: None,
-        kid: diddoc.authentication.first().unwrap().clone(),
-        secret_material: auth_keys_jwk,
-    };
 
     match state.circuit_breaker.get(MEDIATE_REQUEST_2_0) {
         Some(cb) => cb
-            .call(|| repository.keystore.store(auth_keys_secret.to_owned()))
+            .call(|| repository.keystore.store(auth_id, &auth_keys_jwk))
             .await
             .map_err(|err| match err {
                 BreakerError::CircuitOpen => MediationError::ServiceUnavailable,
@@ -311,7 +213,7 @@ async fn store_keys(
             })?,
         None => repository
             .keystore
-            .store(auth_keys_secret)
+            .store(auth_id, &auth_keys_jwk)
             .await
             .map_err(|err| {
                 tracing::error!("Failed to store auth keys: {err:?}");
@@ -652,6 +554,7 @@ mod tests {
         assert_eq!(message.from.unwrap(), global::_mediator_did(&state));
         assert_eq!(message.to.unwrap(), vec![global::_edge_did()]);
     }
+
     #[tokio::test]
     async fn test_keylist_query_malformed_request() {
         let state = setup(_initial_connections());
@@ -673,6 +576,7 @@ mod tests {
         // Assert issued error for uncoordinated sender
         assert_eq!(err, MediationError::UncoordinatedSender,);
     }
+
     #[tokio::test]
     async fn test_keylist_update() {
         let state = setup(_initial_connections());

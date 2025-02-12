@@ -129,8 +129,7 @@ mod test {
         algorithms::AnonCryptAlg, protocols::routing::wrap_in_forward, secrets::SecretsResolver,
         Message, PackEncryptedOptions, UnpackOptions,
     };
-    use keystore::tests::MockKeyStore;
-    use keystore::Secrets;
+    use keystore::Keystore;
     use serde_json::json;
     use shared::{
         repository::{
@@ -164,7 +163,6 @@ mod test {
 
     #[tokio::test]
     async fn test_mediator_forward_process() {
-        std::env::set_var("MASTER_KEY", "1234567890qwertyuiopasdfghjklxzc");
         // simulate sender forwarding process
         let mut state = tests::setup().clone();
         let state = Arc::make_mut(&mut state);
@@ -173,7 +171,7 @@ mod test {
         state.repository = Some(AppStateRepository {
             connection_repository: Arc::new(mock_connections),
             message_repository: Arc::new(MockMessagesRepository::from(vec![])),
-            keystore: Arc::new(MockKeyStore::new(vec![])),
+            keystore: Keystore::new(),
         });
 
         let msg = Message::build(
@@ -248,13 +246,7 @@ mod test {
         )
         .unwrap();
 
-        let test_secret = Secrets {
-            id: None,
-            kid: secret_id.to_string(),
-            secret_material: secret,
-        };
-
-        let keystore = Arc::new(MockKeyStore::new(vec![test_secret]));
+        let keystore = Keystore::with_mock_configs(vec![(secret_id.to_string(), secret)]);
 
         LocalSecretsResolver::new(keystore)
     }

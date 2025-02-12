@@ -119,7 +119,7 @@ mod test {
     use dashmap::DashMap;
     use did_utils::didcore::Document;
     use didcomm::Message;
-    use keystore::tests::MockKeyStore;
+    use keystore::Keystore;
     use serde_json::json;
     use shared::{
         repository::tests::{MockConnectionRepository, MockMessagesRepository},
@@ -140,7 +140,7 @@ mod test {
         let repository = AppStateRepository {
             connection_repository: Arc::new(MockConnectionRepository::from(vec![])),
             message_repository: Arc::new(MockMessagesRepository::from(vec![])),
-            keystore: Arc::new(MockKeyStore::new(vec![])),
+            keystore: Keystore::new(),
         };
 
         Arc::new(
@@ -227,7 +227,6 @@ mod test {
         let state = setup();
         match handle_query_request(state, message).await {
             Ok(result) => {
-                println!("{:#?}", result.clone().unwrap());
                 assert!(result.clone().unwrap().body.get("disclosures").is_some());
                 assert!(result
                     .clone()
