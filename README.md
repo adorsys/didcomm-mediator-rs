@@ -1,5 +1,4 @@
 [![CI](https://github.com/adorsys/didcomm-mediator-rs/actions/workflows/rust.yml/badge.svg)](https://github.com/adorsys/didcomm-mediator-rs/actions/workflows/rust.yml)
-[![CD](https://github.com/adorsys/didcomm-mediator-rs/actions/workflows/CD.yml/badge.svg)](https://github.com/adorsys/didcomm-mediator-rs/blob/main/.github/workflows/CD.yml)
 [![DIDComm Messaging Clients Utilities](https://img.shields.io/badge/DIDComm%20Messaging%20Clients%20Utilities-repo-blue.svg)](https://github.com/adorsys/didcomm-messaging-clients-utilities)
 [![DIDComm Messaging Spec](https://img.shields.io/badge/DIDComm%20Messaging-Specification-blue.svg)](https://identity.foundation/didcomm-messaging/spec/)
 [![License](https://img.shields.io/badge/license-Apache%202.0-brightgreen.svg)](https://github.com/adorsys/didcomm-mediator-rs/blob/main/LICENSE)
@@ -58,17 +57,13 @@ git clone git@github.com:adorsys/didcomm-mediator-rs.git
 
 To build and run the project:
 
-* Compile the project:
+* First you need to do a
 
 ```sh
-cargo build
+docker compose up
 ```
 
-* Start the mediator service:
-
-```sh
-cargo run
-```
+* This command will pull the docker image of the mediator with all it's prerequisite.
 
 The output should look like this:
 
