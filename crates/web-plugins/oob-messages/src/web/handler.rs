@@ -30,27 +30,8 @@ pub(crate) async fn handler_oob_inv(State(state): State<Arc<OOBMessagesState>>) 
             }
         };
 
-    let html_content = format!(
-        r#"
-        <!DOCTYPE html>
-        <html lang="en">
-            <style>
-                pre {{
-                    white-space: pre-wrap;
-                    word-wrap: break-word;
-                }}
-            </style>
-        <body>
-        <pre>
-            {}
-        </pre>
-        </body>
-        </html>
-            "#,
-        content
-    );
-
-    Html(html_content).into_response()
+    content.into_response()
+    
 }
 
 pub(crate) async fn handler_oob_qr(State(state): State<Arc<OOBMessagesState>>) -> Response {
