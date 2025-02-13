@@ -140,10 +140,11 @@ mod test {
             handles.push(handle);
 
             if i == 500 {
-                Command::new("pkill")
+                let _ = Command::new("pkill")
                     .arg("didcomm-mediator")
                     .spawn()
-                    .unwrap();
+                    .unwrap()
+                    .wait();
                 thread::sleep(Duration::from_secs(5));
             }
         }
