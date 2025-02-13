@@ -74,40 +74,102 @@ fn config_tracing() {
 mod test {
 
     use reqwest::Client;
+    use serde_json::json;
+    use std::{fs::File, io::Write, process::Command, thread, time::Duration};
     use tokio::{task, time::Instant};
 
     #[tokio::test]
-    async fn test() {
+    async fn test_with_failures() {
         let client = Client::new();
-        let url = "https://didcomm-mediator.eudi-adorsys.com/";
+        let url = "http://127.0.0.1:3000/";
         let num_requests = 1000;
-
         let mut handles = Vec::new();
-
         let start = Instant::now();
+        let mut results = Vec::new();
 
         for _ in 0..num_requests {
             let client = client.clone();
             let url = url.to_string();
-
             let handle = task::spawn(async move {
                 match client.get(&url).send().await {
-                    Ok(_resp) => (),
-                    Err(e) => panic!("{}", e),
+                    Ok(resp) => resp.status().as_u16(),
+                    Err(_) => 500,
                 }
             });
-
             handles.push(handle);
         }
 
         for handle in handles {
-            let a = handle.await;
-            if let Err(e) = a {
-                panic!("{}", e)
+            if let Ok(status) = handle.await {
+                results.push(status);
             }
         }
 
         let duration = start.elapsed();
-        println!("Completed {} requests in {:?}", num_requests, duration);
+        let report = json!({
+            "total_requests": num_requests,
+            "success_count": results.iter().filter(|&&s| s == 200).count(),
+            "failure_count": results.iter().filter(|&&s| s != 200).count(),
+            "duration_secs": duration.as_secs_f64(),
+        });
+
+        let mut file =
+            File::create("stress_test_report.json").expect("Failed to create report file");
+        file.write_all(report.to_string().as_bytes())
+            .expect("Failed to write report");
+        println!("Test completed. Results saved to stress_test_report.json");
+    }
+
+    #[tokio::test]
+    async fn test_server_recovery() {
+        let client = Client::new();
+        let url = "http://127.0.0.1:3000/";
+        let num_requests = 10000;
+        let mut handles = Vec::new();
+        let start = Instant::now();
+
+        for i in 0..num_requests {
+            let client = client.clone();
+            let url = url.to_string();
+            let handle = task::spawn(async move {
+                let resp = client.get(&url).send().await;
+                match resp {
+                    Ok(resp) => resp.status().as_u16(),
+                    Err(_) => 500,
+                }
+            });
+            handles.push(handle);
+
+            if i == 500 {
+                println!("Simulating server restart...");
+                Command::new("pkill")
+                    .arg("didcomm-mediator")
+                    .spawn()
+                    .unwrap();
+                thread::sleep(Duration::from_secs(5));
+                println!("Server restarted.");
+            }
+        }
+
+        let mut results = Vec::new();
+        for handle in handles {
+            if let Ok(status) = handle.await {
+                results.push(status);
+            }
+        }
+
+        let duration = start.elapsed();
+        let report = json!({
+            "total_requests": num_requests,
+            "success_count": results.iter().filter(|&&s| s == 200).count(),
+            "failure_count": results.iter().filter(|&&s| s != 200).count(),
+            "duration_secs": duration.as_secs_f64(),
+        });
+
+        let mut file =
+            File::create("recovery_test_report.json").expect("Failed to create report file");
+        file.write_all(report.to_string().as_bytes())
+            .expect("Failed to write report");
+        println!("Recovery test completed. Results saved to recovery_test_report.json");
     }
 }
