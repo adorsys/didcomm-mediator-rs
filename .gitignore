@@ -34,3 +34,4 @@ mediator-server
 
 # Test directory
 test/
+storage/
