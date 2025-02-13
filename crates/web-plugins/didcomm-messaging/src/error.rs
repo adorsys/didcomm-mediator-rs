@@ -13,6 +13,8 @@ pub(crate) enum Error {
     InternalServer,
     #[error("unsupported content-type, only accept application/didcomm-encrypted+json")]
     NotDidcommEncryptedPayload,
+    #[error("Could not unpack message")]
+    CouldNotUnpackMessage,
 }
 
 impl Error {

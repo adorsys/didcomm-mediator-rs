@@ -9,12 +9,14 @@ message-api.workspace = true
 
 serde.workspace = true
 didcomm.workspace = true
+tracing.workspace = true
 mongodb.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 async-trait.workspace = true
 uuid = { workspace = true, features = ["v4"] }
 axum = { workspace = true, features = ["macros"] }
+tokio = "1.27.0"
 
 [dev-dependencies]
 shared = { workspace = true, features = ["test-utils"] }

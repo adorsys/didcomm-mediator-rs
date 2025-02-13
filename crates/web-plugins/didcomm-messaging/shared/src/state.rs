@@ -1,37 +1,37 @@
+use dashmap::DashMap;
 use database::Repository;
 use did_utils::didcore::Document;
-use keystore::{SecureRepository, WrapSecret};
+use keystore::Keystore;
 use std::sync::Arc;
 
 use crate::{
+    breaker::CircuitBreaker,
     repository::entity::{Connection, RoutedMessage},
     utils::resolvers::{LocalDIDResolver, LocalSecretsResolver},
 };
 
 #[derive(Clone)]
 pub struct AppState {
-    // Metadata
+    // Server public domain
     pub public_domain: String,
-
-    // Crypto identity
+    // DID Document
     pub diddoc: Document,
-
     // DIDComm Resolvers
     pub did_resolver: LocalDIDResolver,
     pub secrets_resolver: LocalSecretsResolver,
-
     // Persistence layer
     pub repository: Option<AppStateRepository>,
-
-    // disclosed protocols `https://org.didcomm.com/{protocol-name}/{version}/{request-type}``
-    pub supported_protocols: Option<Vec<String>>,
+    // Circuit breaker
+    pub circuit_breaker: DashMap<String, CircuitBreaker>,
+    // disclosed protocols
+    pub disclose_protocols: Option<Vec<String>>,
 }
 
 #[derive(Clone)]
 pub struct AppStateRepository {
     pub connection_repository: Arc<dyn Repository<Connection>>,
     pub message_repository: Arc<dyn Repository<RoutedMessage>>,
-    pub keystore: Arc<dyn SecureRepository<WrapSecret>>,
+    pub keystore: Keystore,
 }
 
 impl AppState {
@@ -40,6 +40,7 @@ impl AppState {
         diddoc: Document,
         disclose_protocols: Option<Vec<String>>,
         repository: Option<AppStateRepository>,
+        circuit_breaker: DashMap<String, CircuitBreaker>,
     ) -> eyre::Result<Self> {
         let did_resolver = LocalDIDResolver::new(&diddoc);
         let keystore = repository
@@ -56,7 +57,8 @@ impl AppState {
             did_resolver,
             secrets_resolver,
             repository,
-            supported_protocols: disclose_protocols,
+            circuit_breaker,
+            disclose_protocols,
         })
     }
 }

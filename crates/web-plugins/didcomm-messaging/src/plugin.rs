@@ -1,15 +1,16 @@
 use crate::{manager::MessagePluginContainer, web};
 use axum::Router;
+use dashmap::DashMap;
 use filesystem::StdFileSystem;
 use mongodb::Database;
 use once_cell::sync::OnceCell;
 use plugin_api::{Plugin, PluginError};
 use shared::{
+    breaker::CircuitBreaker,
     repository::{MongoConnectionRepository, MongoMessagesRepository},
     state::{AppState, AppStateRepository},
-    utils::{self, get_master_key},
 };
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 use tokio::sync::RwLock;
 
 pub(crate) static MESSAGE_CONTAINER: OnceCell<RwLock<MessagePluginContainer>> = OnceCell::new();
@@ -52,19 +53,14 @@ impl Plugin for DidcommMessaging {
 
     fn mount(&mut self) -> Result<(), PluginError> {
         let env = load_plugin_env()?;
-        let master_key = get_master_key()?;
 
         let mut filesystem = filesystem::StdFileSystem;
-        let keystore = keystore::KeyStore::get();
+        let keystore = keystore::Keystore::with_mongodb();
 
         // Expect DID document from file system
-
-        if let Err(err) = did_endpoint::validate_diddoc(
-            env.storage_dirpath.as_ref(),
-            &keystore,
-            &mut filesystem,
-            master_key,
-        ) {
+        if let Err(err) =
+            did_endpoint::validate_diddoc(env.storage_dirpath.as_ref(), &keystore, &mut filesystem)
+        {
             return Err(PluginError::InitError(format!(
                 "DID document validation failed: {:?}",
                 err
@@ -96,8 +92,7 @@ impl Plugin for DidcommMessaging {
             let rt = tokio::runtime::Handle::current();
             rt.block_on(async {
                 let db_instance = database::get_or_init_database();
-                let db_lock = db_instance.read().await;
-                db_lock.clone()
+                db_instance.clone()
             })
         });
 
@@ -127,19 +122,34 @@ impl Plugin for DidcommMessaging {
 
         // Load crypto identity
         let fs = StdFileSystem;
-        let diddoc = utils::read_diddoc(&fs, &env.storage_dirpath).map_err(|err| {
+        let diddoc = shared::utils::read_diddoc(&fs, &env.storage_dirpath).map_err(|err| {
             PluginError::Other(format!(
                 "This should not occur following successful mounting: {:?}",
                 err
             ))
         })?;
+        let keystore = keystore::Keystore::with_mongodb();
 
         // Load persistence layer
         let repository = AppStateRepository {
             connection_repository: Arc::new(MongoConnectionRepository::from_db(db)),
-            keystore: Arc::new(keystore::KeyStore::get()),
+            keystore,
             message_repository: Arc::new(MongoMessagesRepository::from_db(db)),
         };
+
+        // Initialize circuit breakers
+        let breaker_acc =
+            msg_types
+                .iter()
+                .fold(DashMap::with_capacity(msg_types.len()), |acc, msg| {
+                    let breaker_config = CircuitBreaker::new()
+                        .retries(5)
+                        .half_open_max_failures(3)
+                        .reset_timeout(Duration::from_secs(60))
+                        .exponential_backoff(Duration::from_millis(100));
+                    acc.insert(msg.to_string(), breaker_config);
+                    acc
+                });
 
         // Compile state
         let state = AppState::from(
@@ -147,6 +157,7 @@ impl Plugin for DidcommMessaging {
             diddoc,
             Some(msg_types.clone()),
             Some(repository),
+            breaker_acc,
         )
         .map_err(|err| PluginError::Other(format!("Failed to load app state: {:?}", err)))?;
 

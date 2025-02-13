@@ -6,7 +6,6 @@ edition = "2021"
 [dependencies]
 shared.workspace = true
 did-utils.workspace = true
-keystore.workspace = true
 message-api.workspace = true
 
 mongodb.workspace = true

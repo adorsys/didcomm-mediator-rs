@@ -6,7 +6,6 @@ use did_utils::{
     jwk::Jwk,
 };
 use filesystem::FileSystem;
-use plugin_api::PluginError;
 use serde_json::Error as SerdeError;
 use std::io;
 
@@ -84,21 +83,6 @@ fn extract_public_jwk_from_vm(vm: &VerificationMethod) -> Option<(String, Jwk)> 
         KeyFormat::Jwk(jwk) => Some((vm.id.clone(), jwk.clone())),
         _ => None,
     })
-}
-
-pub fn get_master_key<'a>() -> Result<[u8; 32], PluginError> {
-    let master_key = std::env::var("MASTER_KEY")
-        .map_err(|_| PluginError::InitError("MASTER_KEY env variable required".to_owned()))?;
-
-    // validate master key
-    if master_key.len() != 32 {
-        Err(PluginError::InitError(
-            "MASTER_KEY must be of length 32".to_owned(),
-        ))
-    } else {
-        let key = master_key.as_bytes().try_into().unwrap();
-        Ok(key)
-    }
 }
 
 #[cfg(test)]

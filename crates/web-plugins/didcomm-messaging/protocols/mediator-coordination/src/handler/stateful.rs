@@ -1,11 +1,14 @@
 use crate::{
-    constants::{KEYLIST_2_0, KEYLIST_UPDATE_RESPONSE_2_0, MEDIATE_DENY_2_0, MEDIATE_GRANT_2_0},
+    constants::{
+        KEYLIST_2_0, KEYLIST_QUERY_2_0, KEYLIST_UPDATE_2_0, KEYLIST_UPDATE_RESPONSE_2_0,
+        MEDIATE_DENY_2_0, MEDIATE_GRANT_2_0, MEDIATE_REQUEST_2_0,
+    },
     errors::MediationError,
     handler::midlw::ensure_jwm_type_is_mediation_request,
     model::stateful::coord::{
-        Keylist, KeylistBody, KeylistEntry, KeylistUpdateAction, KeylistUpdateBody,
-        KeylistUpdateConfirmation, KeylistUpdateResponseBody, KeylistUpdateResult, MediationDeny,
-        MediationGrant, MediationGrantBody,
+        KeylistBody, KeylistEntry, KeylistUpdateAction, KeylistUpdateBody,
+        KeylistUpdateConfirmation, KeylistUpdateResponseBody, KeylistUpdateResult,
+        MediationGrantBody,
     },
 };
 
@@ -15,15 +18,17 @@ use did_utils::{
     jwk::Jwk,
     methods::{DidPeer, Purpose, PurposedKey},
 };
-use didcomm::{did::DIDResolver, Message};
-use keystore::Secrets;
+use didcomm::{
+    did::{DIDDoc, DIDResolver},
+    Message,
+};
 use mongodb::bson::doc;
-use serde_json::json;
+use serde_json::{json, Value};
 use shared::{
+    breaker::Error as BreakerError,
     midlw::ensure_transport_return_route_is_decorated_all,
     repository::entity::Connection,
     state::{AppState, AppStateRepository},
-    utils::get_master_key,
 };
 use std::sync::Arc;
 use uuid::Uuid;
@@ -33,145 +38,196 @@ pub(crate) async fn process_mediate_request(
     state: Arc<AppState>,
     plain_message: Message,
 ) -> Result<Option<Message>, MediationError> {
-    // This is to Check message type compliance
-    ensure_jwm_type_is_mediation_request(&plain_message)?;
+    // Check if the circuit breaker is open
+    check_circuit_breaker(&state, MEDIATE_REQUEST_2_0)?;
 
-    // This is to Check explicit agreement to HTTP responding
+    // Validate message type and return route
+    ensure_jwm_type_is_mediation_request(&plain_message)?;
     ensure_transport_return_route_is_decorated_all(&plain_message)
         .map_err(|_| MediationError::NoReturnRouteAllDecoration)?;
 
     let mediator_did = &state.diddoc.id;
-
     let sender_did = plain_message.from.as_ref().unwrap();
 
-    // Retrieve repository to connection entities
-
-    let AppStateRepository {
-        connection_repository,
-        ..
-    } = state
+    let repository = state
         .repository
         .as_ref()
         .ok_or(MediationError::InternalServerError)?;
 
-    // If there is already mediation, send mediate deny
-    if let Some(_connection) = connection_repository
-        .find_one_by(doc! { "client_did": sender_did})
-        .await
-        .map_err(|_| MediationError::InternalServerError)?
-    {
+    // Check existing mediation
+    let existing_connection = match state.circuit_breaker.get(MEDIATE_REQUEST_2_0) {
+        Some(cb) => cb
+            .call(|| {
+                repository
+                    .connection_repository
+                    .find_one_by(doc! { "client_did": sender_did})
+            })
+            .await
+            .map_err(|err| match err {
+                BreakerError::CircuitOpen => MediationError::ServiceUnavailable,
+                _ => MediationError::InternalServerError,
+            })?,
+        None => repository
+            .connection_repository
+            .find_one_by(doc! { "client_did": sender_did})
+            .await
+            .map_err(|_| MediationError::InternalServerError)?,
+    };
+
+    if existing_connection.is_some() {
         tracing::info!("Sending mediate deny.");
-        Ok(Some(
+        return Ok(Some(
             Message::build(
                 format!("urn:uuid:{}", Uuid::new_v4()),
                 MEDIATE_DENY_2_0.to_string(),
-                json!(MediationDeny {
-                    id: format!("urn:uuid:{}", Uuid::new_v4()),
-                    message_type: MEDIATE_DENY_2_0.to_string(),
-                }),
+                json!(Value::Null),
             )
             .to(sender_did.clone())
             .from(mediator_did.clone())
             .finalize(),
-        ))
-    } else {
-        /* Issue mediate grant response */
-        tracing::info!("Sending mediate grant.");
-        // Create routing, store it and send mediation grant
-        let (routing_did, auth_keys, agreem_keys) =
-            generate_did_peer(state.public_domain.to_string());
-
-        let AppStateRepository { keystore, .. } = state
-            .repository
-            .as_ref()
-            .ok_or(MediationError::InternalServerError)?;
-
-        let diddoc = state
-            .did_resolver
-            .resolve(&routing_did)
-            .await
-            .map_err(|err| {
-                tracing::error!("Failed to resolve DID: {:?}", err);
-                MediationError::InternalServerError
-            })?
-            .ok_or(MediationError::InternalServerError)?;
-
-        let agreem_keys_jwk: Jwk = agreem_keys.try_into().unwrap();
-
-        let agreem_keys_secret = Secrets {
-            id: None,
-            kid: diddoc.key_agreement.first().unwrap().clone(),
-            secret_material: agreem_keys_jwk,
-        };
-
-        let master_key = get_master_key().unwrap();
-
-        match keystore
-            .secure_store(agreem_keys_secret.into(), master_key)
-            .await
-        {
-            Ok(_stored_connection) => {
-                tracing::info!("Successfully stored agreement keys.")
-            }
-            Err(error) => tracing::error!("Error storing agreement keys: {:?}", error),
-        }
-
-        let auth_keys_jwk: Jwk = auth_keys.try_into().unwrap();
-
-        let auth_keys_secret = Secrets {
-            id: None,
-            kid: diddoc.authentication.first().unwrap().clone(),
-            secret_material: auth_keys_jwk,
-        };
-
-        match keystore
-            .secure_store(auth_keys_secret.into(), master_key)
-            .await
-        {
-            Ok(_stored_connection) => {
-                tracing::info!("Successfully stored authentication keys.")
-            }
-            Err(error) => tracing::error!("Error storing authentication keys: {:?}", error),
-        }
-
-        let mediation_grant = create_mediation_grant(&routing_did);
-
-        let new_connection = Connection {
-            id: None,
-            client_did: sender_did.to_string(),
-            mediator_did: mediator_did.to_string(),
-            keylist: vec!["".to_string()],
-            routing_did,
-        };
-
-        // Use store_one to store the sample connection
-        match connection_repository.store(new_connection).await {
-            Ok(_stored_connection) => {
-                tracing::info!("Successfully stored connection: ")
-            }
-            Err(error) => tracing::error!("Error storing connection: {:?}", error),
-        }
-
-        Ok(Some(
-            Message::build(
-                format!("urn:uuid:{}", Uuid::new_v4()),
-                mediation_grant.message_type.clone(),
-                json!(mediation_grant),
-            )
-            .to(sender_did.clone())
-            .from(mediator_did.clone())
-            .finalize(),
-        ))
+        ));
     }
+
+    // Process mediation grant
+    process_mediation_grant(&state, mediator_did, sender_did).await
 }
 
-fn create_mediation_grant(routing_did: &str) -> MediationGrant {
-    MediationGrant {
-        id: format!("urn:uuid:{}", Uuid::new_v4()),
-        message_type: MEDIATE_GRANT_2_0.to_string(),
-        body: MediationGrantBody {
-            routing_did: routing_did.to_string(),
-        },
+async fn process_mediation_grant(
+    state: &Arc<AppState>,
+    mediator_did: &str,
+    sender_did: &str,
+) -> Result<Option<Message>, MediationError> {
+    tracing::info!("Sending mediate grant.");
+    let (routing_did, auth_keys, agreem_keys) = generate_did_peer(state.public_domain.to_string());
+
+    let repository = state
+        .repository
+        .as_ref()
+        .ok_or(MediationError::InternalServerError)?;
+
+    let diddoc = state
+        .did_resolver
+        .resolve(&routing_did)
+        .await
+        .map_err(|err| {
+            tracing::error!("Failed to resolve DID: {:?}", err);
+            MediationError::InternalServerError
+        })?
+        .ok_or(MediationError::InternalServerError)?;
+
+    // Store keys
+    store_keys(state, repository, &diddoc, auth_keys, agreem_keys).await?;
+
+    let mediation_grant = create_mediation_grant(&routing_did);
+
+    let new_connection = Connection {
+        id: None,
+        client_did: sender_did.to_string(),
+        mediator_did: mediator_did.to_string(),
+        keylist: vec![],
+        routing_did,
+    };
+
+    // Store connection
+    match state.circuit_breaker.get(MEDIATE_REQUEST_2_0) {
+        Some(cb) => cb
+            .call(|| {
+                repository
+                    .connection_repository
+                    .store(new_connection.to_owned())
+            })
+            .await
+            .map_err(|err| match err {
+                BreakerError::CircuitOpen => MediationError::ServiceUnavailable,
+                BreakerError::Inner(err) => {
+                    tracing::error!("Failed to store connection: {err:?}");
+                    MediationError::InternalServerError
+                }
+            })?,
+        None => repository
+            .connection_repository
+            .store(new_connection)
+            .await
+            .map_err(|err| {
+                tracing::error!("Failed to store connection: {err:?}");
+                MediationError::InternalServerError
+            })?,
+    };
+
+    Ok(Some(
+        Message::build(
+            format!("urn:uuid:{}", Uuid::new_v4()),
+            MEDIATE_GRANT_2_0.to_string(),
+            json!(mediation_grant),
+        )
+        .to(sender_did.to_owned())
+        .from(mediator_did.to_owned())
+        .finalize(),
+    ))
+}
+
+async fn store_keys(
+    state: &Arc<AppState>,
+    repository: &AppStateRepository,
+    diddoc: &DIDDoc,
+    auth_keys: Ed25519KeyPair,
+    agreem_keys: X25519KeyPair,
+) -> Result<(), MediationError> {
+    let agreem_id = diddoc.key_agreement.first().unwrap();
+    let agreem_keys_jwk: Jwk = agreem_keys.try_into().unwrap();
+
+    match state.circuit_breaker.get(MEDIATE_REQUEST_2_0) {
+        Some(cb) => cb
+            .call(|| repository.keystore.store(agreem_id, &agreem_keys_jwk))
+            .await
+            .map_err(|err| match err {
+                BreakerError::CircuitOpen => MediationError::ServiceUnavailable,
+                BreakerError::Inner(err) => {
+                    tracing::error!("Failed to store agreem keys: {err:?}");
+                    MediationError::InternalServerError
+                }
+            })?,
+        None => repository
+            .keystore
+            .store(agreem_id, &agreem_keys_jwk)
+            .await
+            .map_err(|err| {
+                tracing::error!("Failed to store agreem keys: {err:?}");
+                MediationError::InternalServerError
+            })?,
+    };
+
+    let auth_id = diddoc.authentication.first().unwrap();
+    let auth_keys_jwk: Jwk = auth_keys.try_into().unwrap();
+
+    match state.circuit_breaker.get(MEDIATE_REQUEST_2_0) {
+        Some(cb) => cb
+            .call(|| repository.keystore.store(auth_id, &auth_keys_jwk))
+            .await
+            .map_err(|err| match err {
+                BreakerError::CircuitOpen => MediationError::ServiceUnavailable,
+                BreakerError::Inner(err) => {
+                    tracing::error!("Failed to store auth keys: {err:?}");
+                    MediationError::InternalServerError
+                }
+            })?,
+        None => repository
+            .keystore
+            .store(auth_id, &auth_keys_jwk)
+            .await
+            .map_err(|err| {
+                tracing::error!("Failed to store auth keys: {err:?}");
+                MediationError::InternalServerError
+            })?,
+    };
+
+    Ok(())
+}
+
+#[inline]
+fn create_mediation_grant(routing_did: &str) -> MediationGrantBody {
+    MediationGrantBody {
+        routing_did: routing_did.to_string(),
     }
 }
 
@@ -214,41 +270,50 @@ pub(crate) async fn process_plain_keylist_update_message(
     state: Arc<AppState>,
     message: Message,
 ) -> Result<Option<Message>, MediationError> {
-    // Extract message sender
+    // Circuit breaker check
+    check_circuit_breaker(&state, KEYLIST_UPDATE_2_0)?;
 
     let sender = message
         .from
         .expect("unpacking middleware failed to prevent anonymous senders");
 
-    // Parse message body into keylist update
-
     let keylist_update_body: KeylistUpdateBody = serde_json::from_value(message.body)
         .map_err(|_| MediationError::UnexpectedMessageFormat)?;
 
-    // Retrieve repository to connection entities
-
-    let AppStateRepository {
-        connection_repository,
-        ..
-    } = state
+    let repository = state
         .repository
         .as_ref()
         .ok_or(MediationError::InternalServerError)?;
 
-    // Find connection for this keylist update
-
-    let connection = connection_repository
-        .find_one_by(doc! { "client_did": &sender })
-        .await
-        .unwrap()
-        .ok_or(MediationError::UncoordinatedSender)?;
-
-    // Prepare handles to relevant collections
+    // Find connection
+    let connection = match state.circuit_breaker.get(KEYLIST_UPDATE_2_0) {
+        Some(cb) => cb
+            .call(|| {
+                repository
+                    .connection_repository
+                    .find_one_by(doc! { "client_did": &sender })
+            })
+            .await
+            .map_err(|err| match err {
+                BreakerError::CircuitOpen => MediationError::ServiceUnavailable,
+                BreakerError::Inner(err) => {
+                    tracing::error!("Failed to find connection: {err:?}");
+                    MediationError::InternalServerError
+                }
+            })?,
+        None => repository
+            .connection_repository
+            .find_one_by(doc! { "client_did": &sender })
+            .await
+            .map_err(|err| {
+                tracing::error!("Failed to find connection: {err:?}");
+                MediationError::InternalServerError
+            })?,
+    }
+    .ok_or(MediationError::UncoordinatedSender)?;
 
     let mut updated_keylist = connection.keylist.clone();
     let updates = keylist_update_body.updates;
-
-    // Closure to check if a specific key is duplicated across commands
 
     let key_is_duplicate = |recipient_did| {
         updates
@@ -257,8 +322,6 @@ pub(crate) async fn process_plain_keylist_update_message(
             .count()
             > 1
     };
-
-    // Perform updates to persist
 
     let confirmations: Vec<_> = updates
         .iter()
@@ -298,29 +361,54 @@ pub(crate) async fn process_plain_keylist_update_message(
         })
         .collect();
 
-    // Persist updated keylist, update confirmations if server error
-
-    let confirmations = match connection_repository
-        .update(Connection {
-            keylist: updated_keylist,
-            ..connection
-        })
-        .await
-    {
-        Ok(_) => confirmations,
-        Err(_) => confirmations
-            .into_iter()
-            .map(|mut confirmation| {
-                if confirmation.result != KeylistUpdateResult::ClientError {
-                    confirmation.result = KeylistUpdateResult::ServerError
-                }
-
-                confirmation
+    // Update connection
+    let confirmations = match state.circuit_breaker.get(KEYLIST_UPDATE_2_0) {
+        Some(cb) => cb
+            .call(|| {
+                repository.connection_repository.update(Connection {
+                    keylist: updated_keylist.clone(),
+                    ..connection.clone()
+                })
             })
-            .collect(),
-    };
-
-    // Build response
+            .await
+            .map_err(|err| match err {
+                BreakerError::CircuitOpen => MediationError::ServiceUnavailable,
+                BreakerError::Inner(err) => {
+                    tracing::error!("Failed to update connection: {err:?}");
+                    MediationError::InternalServerError
+                }
+            }),
+        None => repository
+            .connection_repository
+            .update(Connection {
+                keylist: updated_keylist,
+                ..connection
+            })
+            .await
+            .map_err(|err| {
+                tracing::error!("Failed to update connection: {err:?}");
+                MediationError::InternalServerError
+            }),
+    }
+    .map_or_else(
+        |_| {
+            confirmations
+                .iter()
+                .map(|confirmation| {
+                    if confirmation.result != KeylistUpdateResult::ClientError {
+                        KeylistUpdateConfirmation {
+                            recipient_did: confirmation.recipient_did.clone(),
+                            action: confirmation.action.clone(),
+                            result: KeylistUpdateResult::ServerError,
+                        }
+                    } else {
+                        confirmation.clone()
+                    }
+                })
+                .collect()
+        },
+        |_| confirmations.clone(),
+    );
 
     let mediator_did = &state.diddoc.id;
 
@@ -342,26 +430,44 @@ pub(crate) async fn process_plain_keylist_query_message(
     state: Arc<AppState>,
     message: Message,
 ) -> Result<Option<Message>, MediationError> {
-    println!("Processing keylist query...");
+    // Circuit breaker check
+    check_circuit_breaker(&state, KEYLIST_QUERY_2_0)?;
+
     let sender = message
         .from
         .expect("unpacking middleware failed to prevent anonymous senders");
 
-    let AppStateRepository {
-        connection_repository,
-        ..
-    } = state
+    let repository = state
         .repository
         .as_ref()
         .ok_or(MediationError::InternalServerError)?;
 
-    let connection = connection_repository
-        .find_one_by(doc! { "client_did": &sender })
-        .await
-        .unwrap()
-        .ok_or(MediationError::UncoordinatedSender)?;
-
-    println!("keylist: {:?}", connection);
+    // Find connection
+    let connection = match state.circuit_breaker.get(KEYLIST_QUERY_2_0) {
+        Some(cb) => cb
+            .call(|| {
+                repository
+                    .connection_repository
+                    .find_one_by(doc! { "client_did": &sender })
+            })
+            .await
+            .map_err(|err| match err {
+                BreakerError::CircuitOpen => MediationError::ServiceUnavailable,
+                BreakerError::Inner(err) => {
+                    tracing::error!("Failed to find connection: {err:?}");
+                    MediationError::InternalServerError
+                }
+            })?,
+        None => repository
+            .connection_repository
+            .find_one_by(doc! { "client_did": &sender })
+            .await
+            .map_err(|err| {
+                tracing::error!("Failed to find connection: {err:?}");
+                MediationError::InternalServerError
+            })?,
+    }
+    .ok_or(MediationError::UncoordinatedSender)?;
 
     let keylist_entries = connection
         .keylist
@@ -376,27 +482,27 @@ pub(crate) async fn process_plain_keylist_query_message(
         pagination: None,
     };
 
-    let keylist_object = Keylist {
-        id: format!("urn:uuid:{}", Uuid::new_v4()),
-        message_type: KEYLIST_2_0.to_string(),
-        body,
-        additional_properties: None,
-    };
-
     let mediator_did = &state.diddoc.id;
 
     let message = Message::build(
         format!("urn:uuid:{}", Uuid::new_v4()),
         KEYLIST_2_0.to_string(),
-        json!(keylist_object),
+        json!(body),
     )
-    .to(sender.clone())
+    .to(sender)
     .from(mediator_did.clone())
     .finalize();
 
-    println!("message: {:?}", message);
-
     Ok(Some(message))
+}
+
+#[inline]
+fn check_circuit_breaker(state: &Arc<AppState>, msg_type: &str) -> Result<(), MediationError> {
+    state
+        .circuit_breaker
+        .get(msg_type)
+        .filter(|cb| !cb.should_allow_call())
+        .map_or(Ok(()), |_| Err(MediationError::ServiceUnavailable))
 }
 
 #[cfg(test)]
@@ -439,15 +545,16 @@ mod tests {
         .finalize();
 
         // Process request
-        let response = process_plain_keylist_query_message(Arc::clone(&state), message)
+        let message = process_plain_keylist_query_message(Arc::clone(&state), message)
             .await
             .unwrap()
             .expect("Response should not be None");
 
-        assert_eq!(response.type_, KEYLIST_2_0);
-        assert_eq!(response.from.unwrap(), global::_mediator_did(&state));
-        assert_eq!(response.to.unwrap(), vec![global::_edge_did()]);
+        assert_eq!(message.type_, KEYLIST_2_0);
+        assert_eq!(message.from.unwrap(), global::_mediator_did(&state));
+        assert_eq!(message.to.unwrap(), vec![global::_edge_did()]);
     }
+
     #[tokio::test]
     async fn test_keylist_query_malformed_request() {
         let state = setup(_initial_connections());
@@ -469,6 +576,7 @@ mod tests {
         // Assert issued error for uncoordinated sender
         assert_eq!(err, MediationError::UncoordinatedSender,);
     }
+
     #[tokio::test]
     async fn test_keylist_update() {
         let state = setup(_initial_connections());
@@ -509,7 +617,6 @@ mod tests {
         assert_eq!(response.type_, KEYLIST_UPDATE_RESPONSE_2_0);
         assert_eq!(response.from.unwrap(), global::_mediator_did(&state));
         assert_eq!(response.to.unwrap(), vec![global::_edge_did()]);
-
         // Assert updates
 
         assert_eq!(
