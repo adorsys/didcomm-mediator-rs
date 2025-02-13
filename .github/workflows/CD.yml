@@ -1,0 +1,64 @@
+name: Publish Image & Deploy
+
+on:
+  push:
+    branches:
+      - '*'  # Runs on all branches
+    tags:
+      - 'v*' # Runs on version tags
+
+env:
+  IMAGE_NAME: didcomm-mediator-rs
+  NAMESPACE: didcomm-mediator
+
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build . --file Dockerfile --tag $IMAGE_NAME --label "runnumber=${GITHUB_RUN_ID}"
+
+      - name: Log in to GitHub Container Registry (GHCR)
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Push image
+        run: |
+          IMAGE_ID=ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME
+
+          # Ensure lowercase image ID
+          IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
+          
+          # Determine version tag
+          VERSION=$(echo "${{ github.ref }}" | sed -e 's|refs/heads/||' -e 's|refs/tags/||')
+          
+          # Use "latest" tag for the main branch
+          [ "$VERSION" == "main" ] && VERSION=latest
+          
+          echo "IMAGE_ID=$IMAGE_ID"
+          echo "VERSION=$VERSION"
+
+          docker tag $IMAGE_NAME $IMAGE_ID:$VERSION
+          docker push $IMAGE_ID:$VERSION
+
+  deploy:
+    needs: push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v3
+
+      - name: Configure Kubeconfig
+        run: |
+          echo "${{ secrets.KUBE_CONFIG }}" | base64 --decode > kubeconfig.yaml
+          export KUBECONFIG=kubeconfig.yaml
+
+      - name: Update Kubernetes Deployment
+        run: |
+          kubectl set image deployment/didcomm-mediator-rs didcomm-mediator-rs=ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME:$VERSION -n $NAMESPACE
+          kubectl rollout status deployment/didcomm-mediator-rs -n $NAMESPACE
