@@ -117,7 +117,6 @@ mod test {
             File::create("stress_test_report.json").expect("Failed to create report file");
         file.write_all(report.to_string().as_bytes())
             .expect("Failed to write report");
-        println!("Test completed. Results saved to stress_test_report.json");
     }
 
     #[tokio::test]
@@ -141,13 +140,11 @@ mod test {
             handles.push(handle);
 
             if i == 500 {
-                println!("Simulating server restart...");
                 Command::new("pkill")
                     .arg("didcomm-mediator")
                     .spawn()
                     .unwrap();
                 thread::sleep(Duration::from_secs(5));
-                println!("Server restarted.");
             }
         }
 
@@ -170,6 +167,5 @@ mod test {
             File::create("recovery_test_report.json").expect("Failed to create report file");
         file.write_all(report.to_string().as_bytes())
             .expect("Failed to write report");
-        println!("Recovery test completed. Results saved to recovery_test_report.json");
     }
 }
