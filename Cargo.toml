@@ -12,6 +12,9 @@ categories = ["cryptography", "decentralized-systems"]
 edition = "2021"
 readme = "README.md"
 
+[[bin]]
+name = "didcomm-mediator"
+path = "src/main.rs"
 
 
 [workspace]
@@ -121,7 +124,6 @@ did-endpoint = { workspace = true, optional = true }
 oob-messages = { workspace = true, optional = true }
 didcomm-messaging = { workspace = true, optional = true }
 reqwest.workspace = true
-
 
 
 [features]

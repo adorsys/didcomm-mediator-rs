@@ -14,7 +14,7 @@ services:
       - "host.docker.internal:host-gateway"
     restart: always
     networks:
-      - monitoring
+      - mediator-network
 
   grafana:
     image: grafana/grafana
@@ -27,7 +27,7 @@ services:
       - prometheus
     restart: always
     networks:
-      - monitoring
+      - mediator-network
 
   alertmanager:
     image: prom/alertmanager
@@ -42,7 +42,8 @@ services:
     depends_on:
       - prometheus
     networks:
-      - monitoring
+      - mediator-network
+
   discord-alerts:
     image: benjojo/alertmanager-discord
     container_name: discord-alerts
@@ -52,7 +53,7 @@ services:
     ports:
       - 9094:9094
     networks:
-      - monitoring
+      - mediator-network
 
   node_exporter:
     image: prom/node-exporter
@@ -70,11 +71,38 @@ services:
       - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
     restart: always
     networks:
-      - monitoring
+      - mediator-network
+
+  mediator:
+    build:
+      context: .
+    container_name: didcomm-mediator
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env  
+    depends_on:
+      - mongodb
+    networks:
+      - mediator-network
+
+  mongodb:
+    image: mongo:latest
+    container_name: mongodb
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - mediator-network
+    healthcheck:
+      test: ["CMD", "mongo", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   grafana-storage: 
+  mongo-data:
 
 networks:
-  monitoring:
-    driver: bridge 
+  mediator-network:
+    driver: bridge

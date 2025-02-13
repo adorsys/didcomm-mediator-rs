@@ -1,2 +1,0 @@
-[alias]
-docs = "doc --workspace --no-deps --open"
