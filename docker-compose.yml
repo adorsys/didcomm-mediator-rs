@@ -51,7 +51,7 @@ services:
     environment:
       - DISCORD_WEBHOOK=${DISCORD_WEBHOOK_URL}
     ports:
-      - 9094:9094
+      - 9091:9094
     networks:
       - mediator-network
 
