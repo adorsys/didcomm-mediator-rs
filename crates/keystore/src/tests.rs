@@ -4,7 +4,7 @@ use serde::{de::DeserializeOwned, Serialize};
 use std::sync::RwLock;
 
 #[derive(Default)]
-pub struct MockSecretRepository<T>
+pub(crate) struct MockSecretRepository<T>
 where
     T: Serialize + DeserializeOwned,
 {
