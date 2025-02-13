@@ -58,7 +58,20 @@ jobs:
           echo "${{ secrets.KUBE_CONFIG }}" | base64 --decode > kubeconfig.yaml
           export KUBECONFIG=kubeconfig.yaml
 
+      - name: Verify Kubernetes Connection
+        run: |
+          export KUBECONFIG=kubeconfig.yaml
+          kubectl cluster-info
+          kubectl get nodes
+          kubectl get namespaces
+
+      - name: Ensure Namespace Exists
+        run: |
+          export KUBECONFIG=kubeconfig.yaml
+          kubectl get namespace $NAMESPACE || kubectl create namespace $NAMESPACE
+
       - name: Update Kubernetes Deployment
         run: |
+          export KUBECONFIG=kubeconfig.yaml
           kubectl set image deployment/didcomm-mediator-rs didcomm-mediator-rs=ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME:$VERSION -n $NAMESPACE
           kubectl rollout status deployment/didcomm-mediator-rs -n $NAMESPACE
