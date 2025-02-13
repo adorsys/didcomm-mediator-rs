@@ -6,13 +6,14 @@ use tokio::net::TcpListener;
 #[tokio::main]
 async fn main() -> Result<()> {
     // Load dotenv-flow variables
-    dotenv_flow::dotenv_flow().ok();
+    dotenv_flow::dotenv_flow()?;
 
     // Enable logging
     config_tracing();
 
     // Configure server
-    let port = std::env::var("SERVER_LOCAL_PORT").unwrap_or("3000".to_owned());
+    let port = std::env::var("SERVER_LOCAL_PORT").unwrap();
+
     let port = port.parse().context("failed to parse port")?;
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
     let listener = TcpListener::bind(addr)
