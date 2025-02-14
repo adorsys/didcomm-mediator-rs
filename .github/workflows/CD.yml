@@ -11,7 +11,7 @@ env:
   IMAGE_NAME: didcomm-mediator-rs
   NAMESPACE: didcomm-mediator
   CLUSTER_NAME: datev-wallet-cluster
-  AWS_REGION: your-aws-region         # Replace with your AWS region
+  AWS_REGION: eu-central-1
 
 jobs:
   push-and-deploy:
@@ -64,4 +64,4 @@ jobs:
 
       - name: Update Kubernetes deployment
         run: |
-          kubectl set image deployment/your-deployment-name your-container-name=$IMAGE_ID:$VERSION -n ${{ env.NAMESPACE }}
+          kubectl set image deployment/mediator mediator-container=$IMAGE_ID:$VERSION -n ${{ env.NAMESPACE }}
