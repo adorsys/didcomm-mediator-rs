@@ -4,8 +4,6 @@ use did_utils::jwk::Jwk;
 use mongodb::{bson::oid::ObjectId, Collection};
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
-use tokio::sync::RwLock;
 
 static SECRETS_COLLECTION: OnceCell<Collection<Secrets>> = OnceCell::new();
 
@@ -56,10 +54,7 @@ impl KeyStore<Secrets> {
         let collection = SECRETS_COLLECTION
             .get_or_init(|| {
                 let db = database::get_or_init_database();
-                let task = async move {
-                    let db_lock = db.write().await;
-                    db_lock.collection::<Secrets>("secrets").clone()
-                };
+                let task = async move { db.collection::<Secrets>("secrets").clone() };
                 tokio::task::block_in_place(|| tokio::runtime::Handle::current().block_on(task))
             })
             .clone();
@@ -86,10 +81,7 @@ where
         let db = database::get_or_init_database();
         let collection = tokio::runtime::Runtime::new()
             .unwrap()
-            .block_on(async move {
-                let db_lock = db.write().await;
-                db_lock.collection("secrets").clone()
-            });
+            .block_on(async move { db.collection("secrets").clone() });
 
         Self { collection }
     }
@@ -102,8 +94,8 @@ where
     T: Identifiable + Unpin,
     T: Serialize + for<'de> Deserialize<'de>,
 {
-    fn get_collection(&self) -> Arc<RwLock<Collection<T>>> {
-        Arc::new(RwLock::new(self.collection.clone()))
+    fn get_collection(&self) -> Collection<T> {
+        self.collection.clone()
     }
 }
 
@@ -131,7 +123,7 @@ pub mod tests {
     #[async_trait]
     impl Repository<Secrets> for MockKeyStore {
         // Implement a dummy get_collection method
-        fn get_collection(&self) -> Arc<tokio::sync::RwLock<Collection<Secrets>>> {
+        fn get_collection(&self) -> Collection<Secrets> {
             // In-memory, we don't have an actual collection, but we can create a dummy Arc<Mutex> for compatibility.
             unimplemented!("This is a mock repository, no real collection exists.")
         }
