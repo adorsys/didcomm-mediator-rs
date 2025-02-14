@@ -10,9 +10,11 @@ on:
 env:
   IMAGE_NAME: didcomm-mediator-rs
   NAMESPACE: didcomm-mediator
+  CLUSTER_NAME: datev-wallet-cluster
+  AWS_REGION: your-aws-region         # Replace with your AWS region
 
 jobs:
-  push:
+  push-and-deploy:
     runs-on: ubuntu-latest
     permissions:
       packages: write
@@ -46,32 +48,20 @@ jobs:
           docker tag $IMAGE_NAME $IMAGE_ID:$VERSION
           docker push $IMAGE_ID:$VERSION
 
-  deploy:
-    needs: push
-    runs-on: ubuntu-latest
-    steps:
-      - name: Set up kubectl
+      - name: Install kubectl
         uses: azure/setup-kubectl@v3
 
-      - name: Configure Kubeconfig
-        run: |
-          echo "${{ secrets.KUBE_CONFIG }}" | base64 --decode > kubeconfig.yaml
-          export KUBECONFIG=kubeconfig.yaml
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
 
-      - name: Verify Kubernetes Connection
+      - name: Update kubeconfig for EKS
         run: |
-          export KUBECONFIG=kubeconfig.yaml
-          kubectl cluster-info
-          kubectl get nodes
-          kubectl get namespaces
+          aws eks update-kubeconfig --name ${{ env.CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
 
-      - name: Ensure Namespace Exists
+      - name: Update Kubernetes deployment
         run: |
-          export KUBECONFIG=kubeconfig.yaml
-          kubectl get namespace $NAMESPACE || kubectl create namespace $NAMESPACE
-
-      - name: Update Kubernetes Deployment
-        run: |
-          export KUBECONFIG=kubeconfig.yaml
-          kubectl set image deployment/didcomm-mediator-rs didcomm-mediator-rs=ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME:$VERSION -n $NAMESPACE
-          kubectl rollout status deployment/didcomm-mediator-rs -n $NAMESPACE
+          kubectl set image deployment/your-deployment-name your-container-name=$IMAGE_ID:$VERSION -n ${{ env.NAMESPACE }}
