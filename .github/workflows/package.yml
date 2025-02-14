@@ -3,9 +3,7 @@ name: Publish Image
 on:
   push:
     branches:
-      - '*'
-    tags:
-      - 'v*'
+      - 'main'  # Only trigger on pushes to the main branch
 
 env:
   IMAGE_NAME: didcomm-mediator-rs
