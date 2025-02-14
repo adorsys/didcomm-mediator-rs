@@ -72,4 +72,4 @@ jobs:
       - name: Update Kubernetes deployment
         if: github.ref == 'refs/heads/main' # Only run if the branch is main
         run: |
-          kubectl set image deployment/mediator mediator-container=$IMAGE_ID:latest -n ${{ env.NAMESPACE }}
+          kubectl set image deployment/mediator-deployment mediator-container=$IMAGE_ID:latest -n ${{ env.NAMESPACE }}
