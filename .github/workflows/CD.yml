@@ -64,4 +64,4 @@ jobs:
 
       - name: Update Kubernetes deployment
         run: |
-          kubectl set image deployment/mediator mediator-container=$IMAGE_ID:$VERSION -n ${{ env.NAMESPACE }}
+          kubectl set image deployment/mediator-deployment mediator-container=$IMAGE_ID:$VERSION -n ${{ env.NAMESPACE }}
