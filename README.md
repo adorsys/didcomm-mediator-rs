@@ -63,7 +63,12 @@ To build and run the project:
 docker compose up
 ```
 
-* This command will pull the docker image of the mediator with all it's prerequisite and run the mediator.
+* This command will pull the docker image of the mediator with all it's prerequisite.
+
+* Run the Mediator
+```sh
+docker compose up --build
+```
 
 The output should look like this:
 
