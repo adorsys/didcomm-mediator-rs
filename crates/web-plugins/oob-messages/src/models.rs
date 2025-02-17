@@ -89,6 +89,7 @@ impl OobMessage {
 pub(crate) fn retrieve_or_generate_oob_inv<F>(
     fs: &mut F,
     server_public_domain: &str,
+    server_local_port: &str,
     storage_dirpath: &str,
 ) -> Result<String, String>
 where
@@ -113,7 +114,8 @@ where
 
     let did = diddoc.id.clone();
     let oob_message = OobMessage::new(&did);
-    let oob_url = OobMessage::serialize_oob_message(&oob_message, server_public_domain)
+    let url: &String = &format!("{}:{}", server_public_domain, server_local_port);
+    let oob_url = OobMessage::serialize_oob_message(&oob_message, url)
         .map_err(|err| format!("Serialization error: {err}"))?;
 
     // Attempt to create the file and write the string
@@ -260,6 +262,7 @@ mod tests {
     fn test_retrieve_or_generate_oob_inv() {
         // Test data
         let server_public_domain = "https://example.com";
+        let server_local_port = "8080";
         let storage_dirpath = "testpath";
 
         let mut mock_fs = MockFileSystem::new();
@@ -297,8 +300,12 @@ mod tests {
             .withf(|path, _content| path == Path::new("testpath/oob_invitation.txt"))
             .returning(|_, _| Ok(()));
 
-        let result =
-            retrieve_or_generate_oob_inv(&mut mock_fs, server_public_domain, storage_dirpath);
+        let result = retrieve_or_generate_oob_inv(
+            &mut mock_fs,
+            server_public_domain,
+            server_local_port,
+            storage_dirpath,
+        );
 
         assert!(result.is_ok());
     }

@@ -4,7 +4,7 @@ use serde::{de::DeserializeOwned, Serialize};
 use std::sync::RwLock;
 
 #[derive(Default)]
-pub(crate) struct MockSecretRepository<T>
+pub struct MockSecretRepository<T>
 where
     T: Serialize + DeserializeOwned,
 {
@@ -61,6 +61,7 @@ mod test {
     use crate::Keystore;
     use did_utils::jwk::Jwk;
     use serde_json::json;
+    use tokio;
 
     fn secret1() -> Jwk {
         serde_json::from_value(json!({

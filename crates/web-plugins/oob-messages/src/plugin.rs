@@ -17,6 +17,7 @@ pub struct OOBMessages {
 struct OOBMessagesEnv {
     storage_dirpath: String,
     server_public_domain: String,
+    server_local_port: String,
 }
 
 #[derive(Clone)]
@@ -32,9 +33,14 @@ fn get_env() -> Result<OOBMessagesEnv, PluginError> {
         PluginError::InitError("SERVER_PUBLIC_DOMAIN env variable required".to_owned())
     })?;
 
+    let server_local_port = std::env::var("SERVER_LOCAL_PORT").map_err(|_| {
+        PluginError::InitError("SERVER_LOCAL_PORT env variable required".to_owned())
+    })?;
+
     Ok(OOBMessagesEnv {
         storage_dirpath,
         server_public_domain,
+        server_local_port,
     })
 }
 
@@ -47,13 +53,17 @@ impl Plugin for OOBMessages {
         let env = get_env()?;
         let mut fs = StdFileSystem;
 
-        let oob_inv =
-            retrieve_or_generate_oob_inv(&mut fs, &env.server_public_domain, &env.storage_dirpath)
-                .map_err(|err| {
-                    PluginError::InitError(format!(
-                        "Error retrieving or generating OOB invitation: {err}"
-                    ))
-                })?;
+        let oob_inv = retrieve_or_generate_oob_inv(
+            &mut fs,
+            &env.server_public_domain,
+            &env.server_local_port,
+            &env.storage_dirpath,
+        )
+        .map_err(|err| {
+            PluginError::InitError(format!(
+                "Error retrieving or generating OOB invitation: {err}"
+            ))
+        })?;
 
         tracing::debug!("Out Of Band Invitation: {}", oob_inv);
 

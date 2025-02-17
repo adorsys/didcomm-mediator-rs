@@ -1,14 +1,11 @@
-#![warn(missing_docs)]
-
-//! A library for managing cryptographic keys.
-
 mod encryptor;
 mod error;
 mod repository;
-#[cfg(any(test, feature = "test-utils"))]
-mod tests;
 
 pub use error::{Error, ErrorKind};
+
+#[cfg(any(test, feature = "test-utils"))]
+pub mod tests;
 
 use aws_sdk_kms::Client as KmsClient;
 use encryptor::{aws_kms::AwsKmsEncryptor, plaintext::NoEncryption, KeyEncryption};
@@ -18,36 +15,8 @@ use std::sync::Arc;
 #[cfg(any(test, feature = "test-utils"))]
 use tests::MockSecretRepository;
 
-/// The main type of the library.
-///
-/// The `Keystore` provides an abstraction for storing, retrieving, and deleting cryptographic keys.
-/// It can support multiple storage backends and encryption mechanisms that can be configured.
-///
-/// # Usage
-/// By default, the keystore is initialized with no encryption and no storage backend.
-/// Storage and encryption backends can be specified using [`Keystore::with_repository`] and [`Keystore::with_encryptor`] methods.
-///
-/// # Example
-/// ```no_run
-/// use keystore::{Keystore, NoEncryption};
-///
-/// let repository = CustomRepository::new();
-/// let encryptor = CustomEncryptor::new();
-///
-/// let keystore = Keystore::new()
-///     .with_repository(repository)
-///     .with_encryptor(encryptor);
-///
-/// let key = Jwk::generate_ed25519();
-/// let key_id = "key1";
-///
-/// keystore.store(key_id, &key).await?;
-///
-/// let stored_key = keystore.retrieve(key_id).await?;
-/// assert_eq!(stored_key, Some(key));
-///
-/// keystore.delete(key_id).await?;
-/// ```
+/// A key store that manages cryptographic keys.
+/// It is responsible for storing and retrieving cryptographic keys securely.
 #[derive(Clone)]
 pub struct Keystore {
     repository: Arc<dyn SecretRepository>,
@@ -56,23 +25,6 @@ pub struct Keystore {
 
 impl Keystore {
     /// Create a new key store instance.
-    ///
-    /// This function can be chained with:  
-    /// * [`Keystore::with_repository`]  
-    /// * [`Keystore::with_encryptor`]
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// use keystore::Keystore;
-    ///
-    /// let repository = CustomRepository::new();
-    /// let encryptor = CustomEncryptor::new();
-    ///
-    /// let keystore = Keystore::new()
-    ///     .with_repository(repository)
-    ///     .with_encryptor(encryptor);
-    /// ```
     pub fn new() -> Self {
         let repository = NoRepository;
         let encryptor = NoEncryption;
@@ -87,7 +39,7 @@ impl Keystore {
     /// # Example
     ///
     /// ```no_run
-    /// use keystore::Keystore;
+    /// use keystore::{Keystore, NoEncryption};
     ///
     /// let keystore = Keystore::with_mongodb();
     /// ```
@@ -100,18 +52,7 @@ impl Keystore {
         }
     }
 
-    /// Create a new key store with **AWS KMS** as encryption backend and mongoDB as storage backend.
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// use keystore::Keystore;
-    /// use aws_sdk_kms::Client;
-    ///
-    /// let config = aws_config::load_from_env().await;
-    /// let client = Client::new(&config);
-    /// let keystore = Keystore::with_aws_kms(client, "key_id".to_string());
-    /// ```
+    /// Create a new key store with AWS KMS as encryption backend and mongoDB as storage backend.
     pub fn with_aws_kms(client: KmsClient, key_id: String) -> Self {
         let repository = MongoSecretRepository::new();
         let encryptor = AwsKmsEncryptor::new(client, key_id);
@@ -122,14 +63,14 @@ impl Keystore {
     }
 
     /// Set the repository backend for the key store.
-    /// This method can be chained with [`Keystore::with_encryptor`].
+    /// Should be chained with [`Keystore::new`] or [`Keystore::with_encryptor`].
     ///
     /// # Example
     ///
-    /// ```no_run
-    /// use keystore::Keystore;
+    /// ```
+    /// use keystore::{Keystore, NoRepository};
     ///
-    /// let repository = CustomRepository::new();
+    /// let repository = NoRepository;
     /// let keystore = Keystore::new().with_repository(repository);
     /// ```
     pub fn with_repository(self, repository: impl SecretRepository + 'static) -> Self {
@@ -140,14 +81,14 @@ impl Keystore {
     }
 
     /// Set the encryption backend for the key store.
-    /// This method can be chained with [`Keystore::with_repository`].
+    /// Should be chained with [`Keystore::new`] or [`Keystore::with_repository`].
     ///
     /// # Example
     ///
-    /// ```no_run
+    /// ```
     /// use keystore::{Keystore, NoEncryption};
     ///
-    /// let encryptor = CustomEncryptor::new();
+    /// let encryptor = NoEncryption;
     /// let keystore = Keystore::new().with_encryptor(encryptor);
     /// ```
     pub fn with_encryptor(self, encryptor: impl KeyEncryption + 'static) -> Self {
