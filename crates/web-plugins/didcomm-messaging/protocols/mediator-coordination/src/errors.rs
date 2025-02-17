@@ -15,6 +15,8 @@ pub(crate) enum MediationError {
     UnexpectedMessageFormat,
     #[error("internal server error")]
     InternalServerError,
+    #[error("Service unavailable")]
+    ServiceUnavailable,
 }
 
 impl IntoResponse for MediationError {
@@ -26,6 +28,7 @@ impl IntoResponse for MediationError {
             MediationError::UncoordinatedSender => StatusCode::UNAUTHORIZED,
             MediationError::UnexpectedMessageFormat => StatusCode::BAD_REQUEST,
             MediationError::InternalServerError => StatusCode::INTERNAL_SERVER_ERROR,
+            MediationError::ServiceUnavailable => StatusCode::SERVICE_UNAVAILABLE,
         };
 
         let body = Json(serde_json::json!({
