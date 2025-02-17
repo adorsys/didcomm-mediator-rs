@@ -70,30 +70,6 @@ The output should look like this:
 
 ![image](docs/server-output.webp)
 
-
-### Testing
-
-The tests can be run with:
-
-```sh
-cargo test --workspace
-```
-
-or optionally with `cargo nextest` (you may want to [install](https://nexte.st/docs/installation/pre-built-binaries/) it first) if you want to speed-up the tests:
-
-```sh
-cargo nextest run --workspace
-```
-
-## Troubleshooting
-
-* **Build Errors**: Verify the required packages (**libssl-dev** and **pkg-config**) are installed, and you have the latest Rust and Cargo versions.
-* Use `cargo check` to identify missing dependencies:
-
-```sh
-cargo check
-```
-
 ## License
 
 This project is licensed under the Apache License. See the [LICENSE](https://github.com/adorsys/didcomm-mediator-rs/blob/main/LICENSE) file for details.
