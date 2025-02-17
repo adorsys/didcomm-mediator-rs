@@ -1,5 +1,4 @@
 [![CI](https://github.com/adorsys/didcomm-mediator-rs/actions/workflows/rust.yml/badge.svg)](https://github.com/adorsys/didcomm-mediator-rs/actions/workflows/rust.yml)
-[![CD](https://github.com/adorsys/didcomm-mediator-rs/actions/workflows/CD.yml/badge.svg)](https://github.com/adorsys/didcomm-mediator-rs/blob/main/.github/workflows/CD.yml)
 [![DIDComm Messaging Clients Utilities](https://img.shields.io/badge/DIDComm%20Messaging%20Clients%20Utilities-repo-blue.svg)](https://github.com/adorsys/didcomm-messaging-clients-utilities)
 [![DIDComm Messaging Spec](https://img.shields.io/badge/DIDComm%20Messaging-Specification-blue.svg)](https://identity.foundation/didcomm-messaging/spec/)
 [![License](https://img.shields.io/badge/license-Apache%202.0-brightgreen.svg)](https://github.com/adorsys/didcomm-mediator-rs/blob/main/LICENSE)
@@ -22,7 +21,7 @@ For further understanding checkout the [docs](docs/mediator-doc.md)<br>
 |[Cross-Domain Messaging/ Routing Protocol](https://identity.foundation/didcomm-messaging/spec/#routing-protocol-20) | ADOPTED | ✅|
 |[Trust Ping Ptotocol](https://identity.foundation/didcomm-messaging/spec/#trust-ping-protocol-20) | ADOPTED|✅|
 |[Discover Features Protocol](https://didcomm.org/discover-features/2.0/) | ADOPTED | ✅ |
-|[Out of band Messaging](https://identity.foundation/didcomm-messaging/spec/#out-of-band-messages) | ADOPTED | ⚪
+|[Out of band Messaging](https://identity.foundation/didcomm-messaging/spec/#out-of-band-messages) | ADOPTED | ✅
 |[Basic Message Protocol](https://didcomm.org/basicmessage/2.0/#:~:text=The%20BasicMessage%20protocol%20describes%20a,message%20type%20used%20to%20communicate.) | ADOPTED|⚪|
 |[Acks](https://github.com/hyperledger/aries-rfcs/tree/main/features/0015-acks)| ADOPTED |❌ |
 |[Present Proof Protocol](https://didcomm.org/present-proof/3.0/)| ADOPTED | ❌|
@@ -58,44 +57,18 @@ git clone git@github.com:adorsys/didcomm-mediator-rs.git
 
 To build and run the project:
 
-* Compile the project:
+* First you need to do a
 
 ```sh
-cargo build
+docker-compose up
 ```
 
-* Start the mediator service:
+* This command will pull the docker image of the mediator with all it's prerequisite and run the Mediator.
 
-```sh
-cargo run
-```
 
 The output should look like this:
 
-![image](docs/server-output.png)
-
-### Testing
-
-The tests can be run with:
-
-```sh
-cargo test --workspace
-```
-
-or optionally with `cargo nextest` (you may want to [install](https://nexte.st/docs/installation/pre-built-binaries/) it first) if you want to speed-up the tests:
-
-```sh
-cargo nextest run --workspace
-```
-
-## Troubleshooting
-
-* **Build Errors**: Verify the required packages (**libssl-dev** and **pkg-config**) are installed, and you have the latest Rust and Cargo versions.
-* Use `cargo check` to identify missing dependencies:
-
-```sh
-cargo check
-```
+![image](docs/server-output.webp)
 
 ## License
 
