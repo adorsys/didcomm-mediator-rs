@@ -60,19 +60,20 @@ To build and run the project:
 * First you need to do a
 
 ```sh
-docker compose up
+docker-compose up
 ```
 
 * This command will pull the docker image of the mediator with all it's prerequisite.
+
+
+The output should look like this:
+
+![image](docs/server-output.webp)
 
 * Run the Mediator
 ```sh
 docker compose up --build
 ```
-
-The output should look like this:
-
-![image](docs/server-output.png)
 
 ### Testing
 
