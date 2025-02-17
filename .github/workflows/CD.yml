@@ -32,25 +32,19 @@ jobs:
       - name: Push image
         run: |
           IMAGE_ID=ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME
-
+          
           # Ensure lowercase image ID
           IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
           
-          # Determine version tag
-          VERSION=$(echo "${{ github.ref }}" | sed -e 's|refs/heads/||' -e 's|refs/tags/||')
+          # Use Git SHA as version tag
+          VERSION=${{ github.sha }}
           
           echo "IMAGE_ID=$IMAGE_ID"
           echo "VERSION=$VERSION"
-
-          # Tag and push the image with the branch/tag-specific version
+          
+          # Tag and push the image with the unique SHA version
           docker tag $IMAGE_NAME $IMAGE_ID:$VERSION
           docker push $IMAGE_ID:$VERSION
-
-          # Only tag and push as "latest" if the branch is "main"
-          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
-            docker tag $IMAGE_NAME $IMAGE_ID:latest
-            docker push $IMAGE_ID:latest
-          fi
 
       - name: Install kubectl
         if: github.ref == 'refs/heads/main' # Only run if the branch is main
@@ -72,4 +66,4 @@ jobs:
       - name: Update Kubernetes deployment
         if: github.ref == 'refs/heads/main' # Only run if the branch is main
         run: |
-          kubectl set image deployment/mediator-deployment mediator-container=$IMAGE_ID:latest -n ${{ env.NAMESPACE }}
+          kubectl set image deployment/mediator-deployment mediator-container=$IMAGE_ID:$VERSION -n ${{ env.NAMESPACE }}
