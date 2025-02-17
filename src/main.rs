@@ -1,13 +1,12 @@
-use axum::{response::IntoResponse, routing::get, Json};
-use axum_prometheus::PrometheusMetricLayer;
+// src/main.rs
+use axum::routing::get;
 use didcomm_mediator::app;
 use eyre::{Result, WrapErr};
-use hyper::StatusCode;
-use mongodb::{options::ClientOptions, Client};
-use serde_json::json;
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
-use tower_http::trace::TraceLayer;
+
+mod health;
+mod metrics;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -41,18 +40,8 @@ async fn generic_server_with_graceful_shutdown(listener: TcpListener) -> Result<
     // Load plugins
     let (mut plugin_container, router) = app()?;
 
-    // Set up Prometheus metrics
-    let (prometheus_layer, metric_handle) = PrometheusMetricLayer::pair();
-
-    // Add health check endpoint, metrics, and trace layer
-    let router = router
-        .route("/health", get(health_check))
-        .route(
-            "/metrics",
-            get(move || async move { metric_handle.render() }),
-        )
-        .layer(prometheus_layer)
-        .layer(TraceLayer::new_for_http());
+    // Set up metrics and health check
+    let router = metrics::setup_metrics(router).route("/health", get(health::health_check));
 
     // Start the server
     axum::serve(listener, router)
@@ -65,36 +54,6 @@ async fn generic_server_with_graceful_shutdown(listener: TcpListener) -> Result<
             let _ = plugin_container.unload();
         }
     };
-
-    Ok(())
-}
-
-async fn health_check() -> impl IntoResponse {
-    let mongo_url =
-        std::env::var("MONGODB_URI").unwrap_or_else(|_| "mongodb://localhost:27017".to_string());
-
-    match check_mongo_connection(&mongo_url).await {
-        Ok(_) => (
-            StatusCode::OK,
-            Json(json!({ "status": "ok", "mongo": "connected" })),
-        ),
-        Err(err) => {
-            tracing::error!("Health check failed: {err}");
-            (
-                StatusCode::SERVICE_UNAVAILABLE,
-                Json(json!({ "status": "error", "error": err.to_string() })),
-            )
-        }
-    }
-}
-
-async fn check_mongo_connection(mongo_url: &str) -> Result<(), eyre::Report> {
-    let client_options = ClientOptions::parse(mongo_url).await?;
-    let client = Client::with_options(client_options)?;
-
-    // Try to list databases as a health check
-    let databases = client.list_database_names(None, None).await?;
-    tracing::debug!("Connected to MongoDB. Databases: {:?}", databases);
 
     Ok(())
 }
@@ -122,7 +81,6 @@ fn config_tracing() {
 
 #[cfg(test)]
 mod test {
-
     use reqwest::Client;
     use tokio::{task, time::Instant};
 
