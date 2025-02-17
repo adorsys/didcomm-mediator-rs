@@ -73,7 +73,6 @@ fn config_tracing() {
 }
 
 #[cfg(test)]
-
 mod test {
 
     use reqwest::Client;
