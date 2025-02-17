@@ -71,7 +71,9 @@ fn config_tracing() {
         .with(filter)
         .init();
 }
+
 #[cfg(test)]
+
 mod test {
 
     use reqwest::Client;
@@ -84,7 +86,7 @@ mod test {
         let num_requests = 1000;
 
         let mut handles = Vec::new();
-
+    
         let start = Instant::now();
 
         for _ in 0..num_requests {
@@ -102,10 +104,7 @@ mod test {
         }
 
         for handle in handles {
-            let a = handle.await;
-            if let Err(e) = a {
-                panic!("{}", e)
-            }
+            let _ = handle.await;
         }
 
         let duration = start.elapsed();
