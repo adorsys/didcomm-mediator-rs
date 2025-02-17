@@ -12,7 +12,7 @@ This system integrates real-time health checks and resource monitoring for the D
 - **Automated Alert**: Receive notifications for system anomalies like high CPU usage or slow API responses.
 #
 ### Server Endpoints
-- **Route:** ```/health```
+- **Route:** `/health`
 - **Description:** Checks the server's operational status.
 - **Response:**
     ```json
@@ -22,7 +22,7 @@ This system integrates real-time health checks and resource monitoring for the D
     ```
 
 ### Metrics Enpoint
-- **Route:** ```/metrics```
+- **Route:** `/metrics`
 - **Description:**  Exposes Prometheus-compatible metrics, which are scraped by Prometheus for monitoring.
 - **Response:** Raw Prometheus metrics data (e.g., CPU, memory usage).
 
@@ -45,7 +45,7 @@ Prometheus triggers alerts based on defined conditions:
 - **HighMemoryUsage:** Triggered if memory usage exceeds 85% for 2 minutes.   
 - **SlowAPIResponse:** Triggered if API response times are too slow (95th percentile > 1s).
 - **DiskSpaceLow:** Triggered if disk space is below 20%.  
-Alerts are routed to Alertmanager, which handles notification via "any" application(e.g slack discord etc) (configured in ```alertmanager.yml```).
+Alerts are routed to Alertmanager, which handles notification via "any" application(e.g slack discord etc) (configured in `alertmanager.yml`).
 
 ### Docker Setup
 The monitoring stack is managed using Docker Compose. It includes:
@@ -54,20 +54,21 @@ The monitoring stack is managed using Docker Compose. It includes:
 - **Alertmanager:** Sends notifications based on alerts.
 - **Node Exporter:** Exposes system metrics (CPU, memory, disk usage).
 ### Build and run
+
 ```bash
 docker compose up --build
 ```
 ### Access Grafana Dashboard:
-- **URL:** ```http://localhost:3001```
+- **URL:** `http://localhost:3001`
 #### Login: 
-- **username:** ```admin```
-- **password**: ```admin```
+- **username:** `admin`
+- **password**: `admin`
 
 ### Access Prometheus:
-- **URL:** ```http://localhost:9090```
+- **URL:** `http://localhost:9090`
 
 ### Access Alertmanager:
-- **URL:** ```http://localhost:9093```
+- **URL:** `http://localhost:9093`
 #
 ### Conclusion
 
