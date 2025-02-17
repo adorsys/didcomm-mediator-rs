@@ -20,12 +20,12 @@ This system integrates real-time health checks and resource monitoring for the D
         "Status": "OK",
     }
     ```
-#
+
 ### Metrics Enpoint
 - **Route:** ```/metrics```
 - **Description:**  Exposes Prometheus-compatible metrics, which are scraped by Prometheus for monitoring.
 - **Response:** Raw Prometheus metrics data (e.g., CPU, memory usage).
-#
+
 ### Prometheus Metrics
 
 Prometheus collects the following metrics:
@@ -34,7 +34,7 @@ Prometheus collects the following metrics:
 - **Disk Usage:** Monitors disk space. Alert if disk space is below 20%.
 - **API Response Time:** Measures API response times. Alert if the 95th percentile response time exceeds 1 second.
 - **HTTP Errors:** Tracks failed HTTP requests. Alert if failure rate exceeds 5% over 5 minutes.
-#
+
 ### Alerting
 
 Prometheus triggers alerts based on defined conditions:
@@ -46,7 +46,7 @@ Prometheus triggers alerts based on defined conditions:
 - **SlowAPIResponse:** Triggered if API response times are too slow (95th percentile > 1s).
 - **DiskSpaceLow:** Triggered if disk space is below 20%.  
 Alerts are routed to Alertmanager, which handles notification via "any" application(e.g slack discord etc) (configured in ```alertmanager.yml```).
-#
+
 ### Docker Setup
 The monitoring stack is managed using Docker Compose. It includes:
 - **Prometheus:** Collects metrics.
