@@ -124,6 +124,7 @@ did-endpoint = { workspace = true, optional = true }
 oob-messages = { workspace = true, optional = true }
 didcomm-messaging = { workspace = true, optional = true }
 reqwest.workspace = true
+mongodb = "2.0"
 
 
 [features]
