@@ -1,4 +1,3 @@
-// src/metrics.rs
 use axum::{routing::get, Router};
 use axum_prometheus::PrometheusMetricLayer;
 use tower_http::trace::TraceLayer;

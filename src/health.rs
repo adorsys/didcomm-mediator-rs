@@ -1,10 +1,8 @@
-// src/health.rs
 use axum::{response::IntoResponse, Json};
 use eyre::Result;
 use hyper::StatusCode;
 use mongodb::{options::ClientOptions, Client};
 use serde_json::json;
-use tracing;
 
 pub async fn health_check() -> impl IntoResponse {
     let mongo_url =
