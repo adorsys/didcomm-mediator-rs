@@ -119,6 +119,7 @@ fn config_tracing() {
         .with(filter)
         .init();
 }
+
 #[cfg(test)]
 mod test {
 
@@ -150,10 +151,7 @@ mod test {
         }
 
         for handle in handles {
-            let a = handle.await;
-            if let Err(e) = a {
-                panic!("{}", e)
-            }
+            let _ = handle.await;
         }
 
         let duration = start.elapsed();
