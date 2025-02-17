@@ -86,7 +86,7 @@ mod test {
         let num_requests = 1000;
 
         let mut handles = Vec::new();
-    
+
         let start = Instant::now();
 
         for _ in 0..num_requests {
