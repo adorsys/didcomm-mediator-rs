@@ -27,7 +27,7 @@ jobs:
         run: artillery run --output report.json load-test.yml
 
       - name: Upload test report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4 
         with:
           name: artillery-report
           path: report.json
