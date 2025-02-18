@@ -23,6 +23,39 @@ jobs:
       - name: Install Artillery
         run: npm install -g artillery
 
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Cache Cargo registry
+        uses: actions/cache@v3
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
+      - name: Cache Cargo build
+        uses: actions/cache@v3
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-build-
+
+      - name: Build the server
+        run: cargo build --release
+
+      - name: Start the server
+        run: cargo run --release &
+        env:
+          SERVER_LOCAL_PORT: 3000
+
+      - name: Wait for server to start
+        run: sleep 10
+
       - name: Run load test
         run: artillery run --output report.json load-test.yml
 
@@ -31,3 +64,6 @@ jobs:
         with:
           name: artillery-report
           path: report.json
+
+      - name: Stop the server
+        run: pkill -f "cargo run --release"
