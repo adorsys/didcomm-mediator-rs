@@ -1,32 +1,19 @@
 config:
   target: "http://127.0.0.1:3000"
   phases:
-    - duration: 30
-      arrivalRate: 20
-      rampTo: 100
-      name: "Warm-up phase"
-    - duration: 60
-      arrivalRate: 200
-      name: "Sustained high load"
-    - duration: 30
-      arrivalRate: 250
+    - duration: 15
+      arrivalRate: 10
       rampTo: 50
-      name: "Spike test"
+      name: "Quick Sanity Check"
     - duration: 30
-      arrivalRate: 300
-      name: "Failure Simulation"
-      loadBalancing: "roundRobin"
-    - duration: 30
-      arrivalRate: 200
-      rampTo: 0
-      name: "Cooldown"
-
+      arrivalRate: 50
+      name: "Short Load Test"
 scenarios:
   - name: "Basic Load Test"
     flow:
       - get:
           url: "/"
-          timeout: 5000
-          retry: 3 
+          timeout: 3000
+          retry: 2
           expect:
             statusCode: 200
