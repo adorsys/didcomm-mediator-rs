@@ -1,75 +1,85 @@
-# **Server Health Monitoring & Metrics Documentation**
+# DIDComm Mediator - Health Monitoring and Metrics
 
-### **Overview**
+### Overview
 
-This system integrates real-time health checks and resource monitoring for the DidComm Mediator server. It provides key metrics such as CPU load, memory usage, and API response times, all of which are captured by Prometheus and visualized in Grafana. Alerts are triggered for system anomalies, ensuring quick detection and response.
-#
-### **Key Features**
+This document outlines the health monitoring and metrics setup for the DIDComm Mediator server. It includes details on health check endpoints, system metrics collection, and alerting mechanisms to ensure high availability and performance.
 
-- **Health chceck endpoint**: To monitor server status.
-- **Prometheus Metrics**: Collect and scrape system and application-level metrics.
-- **Grafana Dashboad**: Visualize metrics and track performance.
-- **Automated Alert**: Receive notifications for system anomalies like high CPU usage or slow API responses.
-#
-### Server Endpoints
-- **Route:** `/health`
-- **Description:** Checks the server's operational status.
-- **Response:**
-    ```json
-    {
-        "Status": "OK",
-    }
-    ```
+### Health Check Endpoints
 
-### Metrics Enpoint
-- **Route:** `/metrics`
-- **Description:**  Exposes Prometheus-compatible metrics, which are scraped by Prometheus for monitoring.
-- **Response:** Raw Prometheus metrics data (e.g., CPU, memory usage).
+The server exposes a health check endpoint to monitor the status of the MongoDB connection and overall system health.
 
-### Prometheus Metrics
+**Endpoint:** `/health`
 
-Prometheus collects the following metrics:
-- **CPU Usage:** Tracks CPU time spent in different modes (idle, system, user). Alert if usageexceeds 80% for 2 minutes.
-- **Memory Usage:** Monitors available memory. Alert if usage exceeds 85% for 2 minutes.
-- **Disk Usage:** Monitors disk space. Alert if disk space is below 20%.
-- **API Response Time:** Measures API response times. Alert if the 95th percentile response time exceeds 1 second.
-- **HTTP Errors:** Tracks failed HTTP requests. Alert if failure rate exceeds 5% over 5 minutes.
+- Method: GET
 
-### Alerting
+- Response:
+  - `200 OK` if the server and MongoDB connection are healthy.
+  - `503 Service Unavailable` if MongoDB is unreachable.
 
-Prometheus triggers alerts based on defined conditions:
+### Metrics Collection
 
-**Important Alerts**
-- **InstanceDown:** Triggered if the server is unreachable for 30 seconds.
-- **HighCPUUsage:** Triggered if CPU usage is over 80% for 2 minutes.
-- **HighMemoryUsage:** Triggered if memory usage exceeds 85% for 2 minutes.   
-- **SlowAPIResponse:** Triggered if API response times are too slow (95th percentile > 1s).
-- **DiskSpaceLow:** Triggered if disk space is below 20%.  
-Alerts are routed to Alertmanager, which handles notification via "any" application(e.g slack discord etc) (configured in `alertmanager.yml`).
+The server collects and exposes metrics using Prometheus.
 
-### Docker Setup
-The monitoring stack is managed using Docker Compose. It includes:
-- **Prometheus:** Collects metrics.
-- **Grafana:** Visualizes metrics.
-- **Alertmanager:** Sends notifications based on alerts.
-- **Node Exporter:** Exposes system metrics (CPU, memory, disk usage).
-### Build and run
+**Endpoint:** `/metrics`
 
-```bash
-docker compose up --build
-```
-### Access Grafana Dashboard:
-- **URL:** `http://localhost:3001`
-#### Login: 
-- **username:** `admin`
-- **password**: `admin`
+**Method:** GET
 
-### Access Prometheus:
-- **URL:** `http://localhost:9090`
+**Description:** Exposes Prometheus-formatted metrics, including HTTP request counts, response times, and system resource usage.
 
-### Access Alertmanager:
-- **URL:** `http://localhost:9093`
-#
+**Integration:** Uses `axum_prometheus::PrometheusMetricLayer` to capture and expose relevant data.
+
+### Monitoring Stack
+
+The monitoring stack is based on Prometheus, Grafana, and Alertmanager.
+
+**Prometheus**
+
+- Scrapes metrics from the `/metrics` endpoint.
+- Tracks system resource usage via Node Exporter and MongoDB Exporter.
+- Scrape interval: 5s.
+
+**Grafana**
+
+- Visualizes metrics with preconfigured dashboards.
+- Dashboards include:
+  - API response times
+  - CPU and memory usage
+  - MongoDB connection status
+  - Number of active requests
+
+**Alertmanager**
+
+- Triggers alerts based on Prometheus rules.
+- Sends notifications to a configured Discord webhook.
+
+**Alerting Rules**
+
+| Alert Name             | Conditions                                                              | Severity | Action                               |
+| ---------------------- | ------------------------------------------------------------------------ | -------- | ------------------------------------- |
+| `InstanceDown`         | `up{job="didcomm-mediator"} == 0` for 10s                                  | Critical | Notify via Discord webhook             |
+| `HighCPUUsage`         | `(100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[2m])) * 100)) > 80` for 30s | Warning  | Notify via Discord webhook             |
+| `HighMemoryUsage`      | `(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85` for 1m | Warning  | Notify via Discord webhook             |
+| `SlowAPIResponse`      | `histogram_quantile(0.95, rate(api_response_time_seconds_bucket[5m])) > 1` for 2m | Warning  | Notify via Discord webhook             |
+| `MongoDBInstanceDown`  | `up{job="mongodb"} == 0` for 10s                                        | Critical | Notify via Discord webhook             |
+| `HighMongoDBConnections` | `mongodb_connections{state="current"} > 100` for 30s                      | Warning  | Notify via Discord webhook             |
+| `DiskSpaceLow` | `(1 - (node_filesystem_free_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"})) * 100 > 90` for 1h | Warning | Notify via Discord webhook |
+
+
+### Deployment Configuration
+
+The monitoring stack is defined in the values.yaml file. Key configurations include:
+
+- **MongoDB Monitoring:** Uses MongoDB Exporter to track performance.
+- **Prometheus Operator:** Manages metric collection.
+- **Node Exporter:** Monitors system resources.
+- **Alertmanager:** Configured for Discord notifications.
+
+### Future Improvements
+
+- Extend `/health` to include system metrics (CPU, memory, disk usage).
+- Enhance `/metrics` with request latency per endpoint.
+- Add structured logging with `tracing::instrument`.
+
 ### Conclusion
 
-This setup ensures continuous monitoring of the DidComm Mediator server’s health and performance. By leveraging Prometheus for metrics collection and Grafana for visualization, combined with real-time alerting via Alertmanager, the system provides a robust way to monitor and react to any issues that may arise.
+This setup ensures real-time visibility into the DIDComm Mediator's health and performance. It enables proactive issue detection and automated alerts for quick response to critical failures.
