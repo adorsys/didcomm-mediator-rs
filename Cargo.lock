@@ -3901,6 +3901,7 @@ dependencies = [
  "json-canon",
  "keystore",
  "mongodb",
+ "multibase",
  "parking_lot",
  "pin-project-lite",
  "serde",

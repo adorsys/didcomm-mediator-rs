@@ -43,8 +43,8 @@ pub(crate) async fn process_mediate_request(
 
     // Validate message type and return route
     ensure_jwm_type_is_mediation_request(&plain_message)?;
-    ensure_transport_return_route_is_decorated_all(&plain_message)
-        .map_err(|_| MediationError::NoReturnRouteAllDecoration)?;
+    // ensure_transport_return_route_is_decorated_all(&plain_message)
+    //     .map_err(|_| MediationError::NoReturnRouteAllDecoration)?;
 
     let mediator_did = &state.diddoc.id;
     let sender_did = plain_message.from.as_ref().unwrap();

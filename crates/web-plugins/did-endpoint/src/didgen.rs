@@ -119,7 +119,7 @@ where
         VerificationMethodType::Reference(kid) => kid,
         VerificationMethodType::Embedded(method) => method.id,
     };
-    let kid = util::handle_vm_id(&kid, diddoc);
+    let kid = util::handle_vm_id(&kid, diddoc, &key);
 
     // Create Secrets for the key
     let secret = Secrets {
@@ -198,9 +198,10 @@ where
                 .public_key
                 .as_ref()
                 .ok_or(String::from("Missing key"))?;
-            let kid = util::handle_vm_id(&method.id, &diddoc);
             match pubkey {
-                KeyFormat::Jwk(_) => validate_key(&kid, keystore)?,
+                KeyFormat::Jwk(key) => {
+                    let kid = util::handle_vm_id(&method.id, &diddoc, key);
+                    validate_key(&kid, keystore)?},
                 _ => return Err(String::from("Unsupported key format")),
             };
         }

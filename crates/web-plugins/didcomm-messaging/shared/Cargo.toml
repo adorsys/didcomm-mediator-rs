@@ -18,6 +18,7 @@ mongodb.workspace = true
 eyre.workspace = true
 dashmap.workspace = true
 parking_lot.workspace = true
+multibase.workspace = true
 pin-project-lite.workspace = true
 tokio = { workspace = true, features = ["full"] }
 didcomm = { workspace = true, features = ["uniffi"] }

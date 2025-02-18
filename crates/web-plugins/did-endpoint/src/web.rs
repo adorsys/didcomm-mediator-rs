@@ -98,10 +98,9 @@ async fn didpop(
             .as_ref()
             .expect("Verification methods should embed public keys.");
 
-        let kid = util::handle_vm_id(&method.id, &diddoc);
-
         let jwk = match pubkey {
-            KeyFormat::Jwk(_) => {
+            KeyFormat::Jwk(key) => {
+                let kid = util::handle_vm_id(&method.id, &diddoc, key);
                 let secret = task::block_in_place(|| {
                     Handle::current().block_on(async {
                         keystore

@@ -2,7 +2,8 @@ use async_trait::async_trait;
 use database::Repository;
 use did_utils::{
     crypto::PublicKeyFormat,
-    didcore::{Document, VerificationMethodType},
+    didcore::{Document, KeyFormat, VerificationMethodType},
+    jwk::Jwk,
     methods::{DidKey, DidPeer},
 };
 use didcomm::{
@@ -12,8 +13,9 @@ use didcomm::{
 };
 use keystore::Secrets;
 use mongodb::bson::doc;
+use multibase::Base;
 use serde_json::json;
-use std::{collections::HashSet, sync::Arc};
+use std::{collections::{HashMap, HashSet}, sync::Arc};
 
 #[derive(Clone)]
 pub struct LocalDIDResolver {
@@ -66,24 +68,51 @@ impl DIDResolver for LocalDIDResolver {
 }
 
 fn prepend_doc_id_to_vm_ids(diddoc: &mut Document) {
+    let mut key_mappings = HashMap::new();
+
     if let Some(verification_methods) = diddoc.verification_method.as_mut() {
         for vm in verification_methods.iter_mut() {
-            vm.id = diddoc.id.to_owned() + &vm.id;
+            if let Some(KeyFormat::Jwk(jwk)) = &vm.public_key {
+                let multicodec = jwk_to_multicodec(jwk);
+                let new_id = format!("{}#{}", diddoc.id, multicodec);
+                
+                key_mappings.insert(vm.id.clone(), new_id.clone());
+                vm.id = new_id;
+            }
         }
     }
 
-    let rel_prepend = |rel: &mut Option<Vec<VerificationMethodType>>| {
-        if let Some(rel) = rel {
-            for vm in rel.iter_mut() {
+    let update_rel_id = |rel: &mut Option<Vec<VerificationMethodType>>| {
+        if let Some(rel_vec) = rel {
+            for vm in rel_vec.iter_mut() {
                 if let VerificationMethodType::Reference(ref mut id) = vm {
-                    *id = diddoc.id.to_owned() + id;
+                    if let Some(new_id) = key_mappings.get(id) {
+                        *id = new_id.clone();
+                    }
                 }
             }
         }
     };
 
-    rel_prepend(&mut diddoc.authentication);
-    rel_prepend(&mut diddoc.key_agreement);
+    update_rel_id(&mut diddoc.authentication);
+    update_rel_id(&mut diddoc.assertion_method);
+    update_rel_id(&mut diddoc.capability_delegation);
+    update_rel_id(&mut diddoc.capability_invocation);
+    update_rel_id(&mut diddoc.key_agreement);
+}
+
+pub(crate) fn jwk_to_multicodec(jwk: &Jwk) -> String {
+    let jwk = json!(jwk);
+    let public_key = jwk["x"].as_str().unwrap();
+    let bytes = Base::Base64Url.decode(public_key).unwrap();
+    let alg = jwk["crv"].as_str().unwrap();
+
+    let multicodec_prefix = match alg {
+        "Ed25519" => [0xed, 0x01],
+        "X25519" => [0xec, 0x01],
+        _ => panic!("Unsupported algorithm"),
+    };
+    Base::Base58Btc.encode([multicodec_prefix.as_slice(), &bytes].concat())
 }
 
 #[derive(Clone)]

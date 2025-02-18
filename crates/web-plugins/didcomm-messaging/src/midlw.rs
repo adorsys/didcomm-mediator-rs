@@ -133,7 +133,7 @@ async fn unpack_payload(
         return Err(response.into_response());
     }
 
-    if plain_message.from.is_none() || !metadata.authenticated || metadata.anonymous_sender {
+    if !metadata.authenticated || metadata.anonymous_sender {
         let response = (StatusCode::BAD_REQUEST, Error::AnonymousPacker.json());
 
         return Err(response.into_response());
