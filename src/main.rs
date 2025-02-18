@@ -71,4 +71,3 @@ fn config_tracing() {
         .with(filter)
         .init();
 }
-

@@ -16,6 +16,21 @@ The purpose of these tests was to simulate high-load scenarios and potential fai
 
 Load tests were conducted using load-test.yml. Test reports were generated in JSON format for further analysis.
 
+### How to Run and Analyze Artillery Load Tests 
+
+**Step 1: Run the Load Test**
+- Execute the following command: 
+ ```bash
+artillery run --output report.json load-test.yml
+ ```
+ This command runs the test based on the configurations in `load-test.yml` file and save the results in `report.json`.
+
+**Step 2: Generate a Report**
+- Run this command to convert the JSON report into an HTML file:
+```bash
+artillery report report.json
+```
+This command will converte the json data in the `report.html` file which you can open in a browser for a detailed visualization.
 Results Summary
 ### 1. Initial Test Results (Moderate Load)
 - Total Requests: 30,300
