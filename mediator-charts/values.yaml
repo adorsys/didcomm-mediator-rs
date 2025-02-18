@@ -19,7 +19,6 @@ mongodb:
       - MediatorDB
     existingSecret: mediator-eks-secret
 
-  
   service: 
     nameOverride: "mongodb-service"
     type: ClusterIP
@@ -43,8 +42,10 @@ prometheus:
     tag: 0.80.0-debian-12-r1
     pullPolicy: IfNotPresent
 
-  ingress:
-    enabled: true
+  service:
+    type: NodePort  
+    port: 9090
+    nodePort: 30090  
 
   prometheusSpec:
     scrapeInterval: 5s
@@ -74,6 +75,11 @@ alertmanager:
     tag: 0.28.0-debian-12-r5
     pullPolicy: IfNotPresent
 
+  service:
+    type: NodePort  r
+    port: 9093
+    nodePort: 30093  
+
   config:
     global:
       resolve_timeout: 5m
@@ -95,15 +101,22 @@ grafana:
     registry: docker.io
     repository: bitnami/grafana
     tag: 11.5.1-debian-12-r1
-  admin: 
-  existingSecret: grafana-secret
+
+  admin:
+    existingSecret: grafana-secret
     user: GRAFANA_ADMIN_PASSWORD
     password: GRAFANA_ADMIN_PASSWORD
-    
+
+  service:
+    type: NodePort  
+    port: 3000
+    nodePort: 30300  
+
   grafana.ini:
     server:
       root_url: "%(protocol)s://%(domain)s/"
       serve_from_sub_path: true
+
   dashboardProviders:
     dashboardproviders.yaml:
       apiVersion: 1
@@ -116,6 +129,7 @@ grafana:
           editable: true
           options:
             path: /var/lib/grafana/dashboards
+
   dashboardsConfigMaps:
     - name: my-dashboard-configmap
       labels:
