@@ -18,7 +18,7 @@ pub fn setup_metrics(router: Router) -> Router {
     // Custom metrics
     let mut registry = Registry::default();
     let request_count = Counter::default();
-    let api_response_time = Histogram::new(vec![0.1, 0.5, 1.0, 2.0, 5.0].into_iter());
+    let api_response_time = Histogram::new(vec![0.1, 0.5, 1.0, 2.0, 5.0]);
 
     registry.register(
         "http_requests_total",
