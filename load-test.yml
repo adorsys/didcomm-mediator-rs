@@ -1,5 +1,5 @@
 config:
-  target: "http://127.0.0.1:3000"
+  target: "https://didcomm-mediator.eudi-adorsys.com/"
   phases:
     - duration: 15
       arrivalRate: 10
