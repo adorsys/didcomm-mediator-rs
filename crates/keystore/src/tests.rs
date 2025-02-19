@@ -69,7 +69,6 @@ mod test {
     use async_trait::async_trait;
     use did_utils::jwk::Jwk;
     use serde_json::json;
-    use tokio;
 
     // Simple mock encryptor that reverses the key.
     struct MockEncryptor;
