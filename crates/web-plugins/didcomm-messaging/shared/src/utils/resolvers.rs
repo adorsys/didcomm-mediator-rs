@@ -38,24 +38,21 @@ impl DIDResolver for LocalDIDResolver {
         }
 
         if did.starts_with("did:key") {
-            Ok(DidKey::new_full(true, PublicKeyFormat::Jwk)
+            let diddoc = DidKey::new_full(true, PublicKeyFormat::Jwk)
                 .expand(did)
-                .map(|doc| {
-                    serde_json::from_value(json!(Document {
-                        service: Some(vec![]),
-                        ..doc
-                    }))
-                    .ok()
-                })
-                .map_err(|e| Error::new(ErrorKind::DIDNotResolved, e))?)
+                .map_err(|e| Error::new(ErrorKind::DIDNotResolved, e))?;
+            let diddoc = serde_json::from_value(json!(Document {
+                service: Some(vec![]),
+                ..diddoc
+            }))?;
+            Ok(Some(diddoc))
         } else if did.starts_with("did:peer") {
-            Ok(DidPeer::with_format(PublicKeyFormat::Jwk)
+            let mut diddoc = DidPeer::with_format(PublicKeyFormat::Jwk)
                 .expand(did)
-                .map(|mut doc| {
-                    prepend_doc_id_to_vm_ids(&mut doc);
-                    serde_json::from_value(json!(doc)).ok()
-                })
-                .map_err(|e| Error::new(ErrorKind::DIDNotResolved, e))?)
+                .map_err(|e| Error::new(ErrorKind::DIDNotResolved, e))?;
+            prepend_doc_id_to_vm_ids(&mut diddoc);
+            let diddoc = serde_json::from_value(json!(diddoc))?;
+            Ok(Some(diddoc))
         } else {
             Err(Error::msg(
                 ErrorKind::Unsupported,
