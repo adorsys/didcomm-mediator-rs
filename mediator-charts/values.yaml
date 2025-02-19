@@ -43,9 +43,8 @@ prometheus:
     pullPolicy: IfNotPresent
 
   service:
-    type: NodePort  
+    type: ClusterIP 
     port: 9090
-    nodePort: 30090  
 
   prometheusSpec:
     scrapeInterval: 5s
@@ -76,9 +75,8 @@ alertmanager:
     pullPolicy: IfNotPresent
 
   service:
-    type: NodePort  r
+    type: ClusterIP 
     port: 9093
-    nodePort: 30093  
 
   config:
     global:
@@ -108,9 +106,8 @@ grafana:
     password: GRAFANA_ADMIN_PASSWORD
 
   service:
-    type: NodePort  
+    type: ClusterIP
     port: 3000
-    nodePort: 30300  
 
   grafana.ini:
     server:
