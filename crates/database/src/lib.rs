@@ -76,7 +76,6 @@ where
         let mut entities = Vec::new();
         let collection = self.get_collection();
 
-        // Lock the Mutex and get the Collection
         let mut cursor = collection.find(doc! {}).await?;
         while cursor.advance().await? {
             entities.push(cursor.deserialize_current()?);
