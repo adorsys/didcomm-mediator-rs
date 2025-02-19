@@ -29,7 +29,6 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
           ${{ runner.os }}-cargo
-      
 
     - name: Set up Rust
       uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -51,22 +50,8 @@ jobs:
     - name: Build Project
       run: cargo build --workspace --all-features
 
-    - name: Start the server
-      run: cargo run 
-      env:
-        SERVER_LOCAL_PORT: 3000
-
     - name: Run Tests
       run: cargo nextest run --workspace --all-features
-    
-    - name: Run load test
-      run: artillery run --output report.json load-test.yml
-
-    - name: Upload test report
-      uses: actions/upload-artifact@v4
-      with:
-        name: artillery-report
-        path: report.json
     
     - name: Lints checks
       run: |
