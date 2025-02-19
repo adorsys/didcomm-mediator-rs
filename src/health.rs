@@ -1,7 +1,7 @@
 use axum::{response::IntoResponse, Json};
 use eyre::Result;
 use hyper::StatusCode;
-use mongodb::{options::ClientOptions, Client};
+use mongodb::{bson::doc, options::ClientOptions, Client};
 use serde_json::json;
 
 pub async fn health_check() -> impl IntoResponse {
@@ -27,7 +27,14 @@ async fn check_mongo_connection(mongo_url: &str) -> Result<()> {
     let client_options = ClientOptions::parse(mongo_url).await?;
     let client = Client::with_options(client_options)?;
 
-    let databases = client.list_database_names(None, None).await?;
+    // Check if MongoDB is functional
+    let db = client.database("admin");
+    let ping_result = db.run_command(doc! { "ping": 1 }).await?;
+    if ping_result.get_f64("ok")? != 1.0 {
+        return Err(eyre::eyre!("MongoDB ping failed"));
+    }
+
+    let databases = client.list_database_names().await?;
     tracing::debug!("Connected to MongoDB. Databases: {:?}", databases);
 
     Ok(())

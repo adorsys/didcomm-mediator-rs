@@ -99,6 +99,7 @@ ed25519-dalek = "2.1.1"
 tracing-subscriber = "0.3.19"
 tower-http = "0.6.2"
 axum-prometheus = "0.8.0"
+prometheus-client = "0.23.1"
 base64ct = { version = "1.6.0", default-features = false }
 zeroize = { version = "1.8.1", default-features = false }
 
@@ -113,6 +114,7 @@ thiserror.workspace = true
 tracing.workspace = true
 lazy_static.workspace = true
 serde_json.workspace = true
+prometheus-client.workspace = true
 hyper.workspace = true
 http-body-util.workspace = true
 axum-prometheus.workspace = true
@@ -124,7 +126,8 @@ did-endpoint = { workspace = true, optional = true }
 oob-messages = { workspace = true, optional = true }
 didcomm-messaging = { workspace = true, optional = true }
 reqwest.workspace = true
-mongodb = "2.0"
+mongodb.workspace = true
+
 
 
 [features]
