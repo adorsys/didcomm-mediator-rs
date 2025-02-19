@@ -69,11 +69,7 @@ impl Error {
 
 impl Debug for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Error")
-            .field("kind", &self.kind)
-            .field("context", &self.context())
-            .field("source", &self.source())
-            .finish()
+        write!(f, "{}\n\nCaused by: {}", self.kind, self.source())
     }
 }
 
@@ -110,4 +106,8 @@ impl From<aws_sdk_kms::error::SdkError<DecryptError>> for Error {
     }
 }
 
-impl std::error::Error for Error {}
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
+        Some(self.source())
+    }
+}
