@@ -3,15 +3,13 @@
 [![DIDComm Messaging Spec](https://img.shields.io/badge/DIDComm%20Messaging-Specification-blue.svg)](https://identity.foundation/didcomm-messaging/spec/)
 [![License](https://img.shields.io/badge/license-Apache%202.0-brightgreen.svg)](https://github.com/adorsys/didcomm-mediator-rs/blob/main/LICENSE)
 
-
 # DIDComm-Mediator
 
 A DIDComm mediator is a cloud agent that facilitates secure, decentralized communication between mobile agents in the self-sovereign identity (SSI) ecosystem. This mediator acts as a cloud-based intermediary, enabling mobile agents to communicate without reliance on centralized infrastructures like Facebook, Signal, or Telegram.
 
+For further understanding checkout the [docs](docs/mediator-doc.md)  
 
-For further understanding checkout the [docs](docs/mediator-doc.md)<br>
-
-###  Project Feature Implementation Tracker
+## Project Feature Implementation Tracker
 
 |Message types  | Spec Status | Implementation Status|
 |---------------|-------------|----------------------|
@@ -55,16 +53,36 @@ git clone git@github.com:adorsys/didcomm-mediator-rs.git
 
 ## Running the Project
 
-To build and run the project:
+### Mongo DB
 
-* First you need to do a
+This project uses MongoDB as the database. You need to have [MongoDB](https://www.mongodb.com) installed and running on your system.
+
+### Environmental variables
+
+You need to create a **`.env`** file in the root directory of the project and add the following variables:
+
+```sh
+SERVER_PUBLIC_DOMAIN="http://localhost:8080"
+STORAGE_DIRPATH="./storage"
+MONGO_DBN="DIDComm_DB"
+MONGO_URI="mongodb://localhost:27017"
+```
+
+You can change the values to your own preferences.
+
+### Running with Docker Compose
+
+You can run the project with Docker Compose.
+
+* First change the `MONGO_URI` variable in the `.env` file to `mongodb://mongodb:27017`
+
+* Then run the following command:
 
 ```sh
 docker-compose up
 ```
 
-* This command will pull the docker image of the mediator with all it's prerequisite and run the Mediator.
-
+This command will build the docker image of the mediator server with all its prerequisites and run it.
 
 The output should look like this:
 
