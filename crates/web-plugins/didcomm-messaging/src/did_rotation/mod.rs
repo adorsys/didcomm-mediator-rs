@@ -1,48 +1,54 @@
 pub mod errors;
 
 use axum::response::{IntoResponse, Response};
-use database::{Repository, RepositoryError};
+use database::Repository;
 use did_utils::didcore::Document as DidDocument;
 use didcomm::{FromPrior, Message};
 use errors::RotationError;
 use mongodb::bson::doc;
 use shared::{repository::entity::Connection, utils::resolvers::LocalDIDResolver};
 use std::sync::Arc;
+use tracing::error;
 
 /// https://identity.foundation/didcomm-messaging/spec/#did-rotation
 pub async fn did_rotation(
     msg: Message,
     connection_repos: &Arc<dyn Repository<Connection>>,
 ) -> Result<(), Response> {
-    // Check if from_prior is none
-    if msg.from_prior.is_none() {
+    // Check if from_prior is present
+    let Some(jwt) = msg.from_prior else {
         return Ok(());
-    }
-    let jwt = msg.from_prior.unwrap();
+    };
+
     let did_resolver = LocalDIDResolver::new(&DidDocument::default());
 
     // decode and validate jwt signature
     let (from_prior, _kid) = FromPrior::unpack(&jwt, &did_resolver)
         .await
-        .map_err(|_| RotationError::InvalidFromPrior.json().into_response())?;
+        .map_err(|err| {
+            error!("Failed to unpack from_prior: {err:?}");
+            RotationError::InvalidFromPrior.json().into_response()
+        })?;
     let prev = from_prior.iss;
 
     // validate if did is  known
     match connection_repos
         .find_one_by(doc! {"client_did": &prev})
         .await
-        .unwrap()
-    {
+        .map_err(|err| {
+            error!("Failed to find connection: {err:?}");
+            RotationError::InternalServerError.json().into_response()
+        })? {
         Some(mut connection) => {
             // get new did for communication, if empty then we end the relationship
             let new = from_prior.sub;
 
             if new.is_empty() {
                 let id = connection.id.unwrap_or_default();
-                return connection_repos
-                    .delete_one(id)
-                    .await
-                    .map_err(|_| RotationError::TargetNotFound.json().into_response());
+                return connection_repos.delete_one(id).await.map_err(|err| {
+                    error!("Failed to delete connection: {err:?}");
+                    RotationError::InternalServerError.json().into_response()
+                });
             }
 
             let did_index = connection.keylist.iter().position(|did| did == &prev);
@@ -57,16 +63,16 @@ pub async fn did_rotation(
             }
 
             // store updated connection
-            let _confirmations: Result<Connection, RepositoryError> = match connection_repos
+            connection_repos
                 .update(Connection {
                     client_did: new,
                     ..connection
                 })
                 .await
-            {
-                Ok(conn) => Ok(conn),
-                Err(_) => return Err(RotationError::RepositoryError.json().into_response()),
-            };
+                .map_err(|err| {
+                    error!("Failed to update connection: {err:?}");
+                    RotationError::InternalServerError.json().into_response()
+                })?;
         }
 
         None => {
