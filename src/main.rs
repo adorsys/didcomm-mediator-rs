@@ -1,4 +1,5 @@
-use didcomm_mediator::app;
+use axum::routing::get;
+use didcomm_mediator::{app, health, metrics};
 use eyre::{Result, WrapErr};
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
@@ -13,7 +14,6 @@ async fn main() -> Result<()> {
 
     // Configure server
     let port = std::env::var("SERVER_LOCAL_PORT").unwrap();
-
     let port = port.parse().context("failed to parse port")?;
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
     let listener = TcpListener::bind(addr)
@@ -36,7 +36,10 @@ async fn generic_server_with_graceful_shutdown(listener: TcpListener) -> Result<
     // Load plugins
     let (mut plugin_container, router) = app()?;
 
-    // Start server
+    // Set up metrics and health check
+    let router = metrics::setup_metrics(router).route("/health", get(health::health_check));
+
+    // Start the server
     axum::serve(listener, router)
         .await
         .context("failed to start server")?;
