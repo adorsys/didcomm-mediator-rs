@@ -6,7 +6,7 @@ use serde_json::json;
 
 pub async fn health_check() -> impl IntoResponse {
     let mongo_url =
-        std::env::var("MONGODB_URI").unwrap_or_else(|_| "mongodb://localhost:27017".to_string());
+        std::env::var("MONGODB_URI").unwrap_or_else(|_| "mongodb://mongodb:27017".to_string());
 
     match check_mongo_connection(&mongo_url).await {
         Ok(_) => (
