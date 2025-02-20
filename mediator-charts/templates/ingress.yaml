@@ -24,21 +24,21 @@ spec:
         pathType: Prefix
         backend:
           service:
-            name: {{ .Release.Name }}-prometheus-server
+            name: prometheus
             port:
               number: 9090
       - path: /grafana-didcomm(/|$)(.*)
         pathType: Prefix
         backend:
           service:
-            name: {{ .Release.Name }}-grafana
+            name: grafana
             port:
               number: 3000
       - path: /alertmanager-didcomm(/|$)(.*)
         pathType: Prefix
         backend:
           service:
-            name: {{ .Release.Name }}-alertmanager
+            name: alertmanager
             port:
               number: 9093
   tls:

@@ -42,9 +42,15 @@ prometheus:
     tag: 0.80.0-debian-12-r1
     pullPolicy: IfNotPresent
 
-  service:
-    type: ClusterIP 
-    port: 9090
+  networkPolicy:
+    enabled: true
+    
+  service: 
+    nameOverride: "prometheus-service"
+    type: ClusterIP
+    portName: prometheus
+    ports:
+      prometheus: 9090
 
   prometheusSpec:
     scrapeInterval: 5s
@@ -69,14 +75,16 @@ prometheus:
 alertmanager:
   enabled: true
   image:
-    registry: docker.io
     repository: bitnami/alertmanager
     tag: 0.28.0-debian-12-r5
     pullPolicy: IfNotPresent
 
-  service:
-    type: ClusterIP 
-    port: 9093
+  service: 
+    nameOverride: "alertmanager-service"
+    type: ClusterIP
+    portName: alertmanager
+    ports:
+      alertmanager: 9093
 
   config:
     global:
@@ -105,9 +113,12 @@ grafana:
     user: GRAFANA_ADMIN_PASSWORD
     password: GRAFANA_ADMIN_PASSWORD
 
-  service:
+  service: 
+    nameOverride: "grafana-service"
     type: ClusterIP
-    port: 3000
+    portName: grafana
+    ports:
+      grafana: 3000
 
   grafana.ini:
     server:
@@ -115,6 +126,7 @@ grafana:
       serve_from_sub_path: true
 
   dashboardProviders:
+    enabled: true
     dashboardproviders.yaml:
       apiVersion: 1
       providers:
@@ -126,77 +138,84 @@ grafana:
           editable: true
           options:
             path: /var/lib/grafana/dashboards
+    configMapName: dashboard-configmap
+  
 
-  dashboardsConfigMaps:
-    - name: my-dashboard-configmap
-      labels:
-        grafana_dashboard: "1"
-      data:
-        didcomm-mediator.json: |
-          {
-            "dashboard": {
-              "panels": [
-                {
-                  "title": "API Response Time",
-                  "type": "graph",
-                  "targets": [
-                    {
-                      "expr": "histogram_quantile(0.95, rate(api_response_time_seconds_bucket[5m]))",
-                      "legendFormat": "95th percentile"
-                    }
-                  ]
-                },
-                {
-                  "title": "CPU Usage",
-                  "type": "graph",
-                  "targets": [
-                    {
-                      "expr": "100 - (avg by (instance) (rate(node_cpu_seconds_total{mode='idle'}[2m])) * 100",
-                      "legendFormat": "CPU Usage"
-                    }
-                  ]
-                },
-                {
-                  "title": "Memory Usage",
-                  "type": "graph",
-                  "targets": [
-                    {
-                      "expr": "(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100",
-                      "legendFormat": "Memory Usage"
-                    }
-                  ]
-                },
-                {
-                  "title": "MongoDB Connections",
-                  "type": "graph",
-                  "targets": [
-                    {
-                      "expr": "mongodb_connections{state='current'}",
-                      "legendFormat": "Connections"
-                    }
-                  ]
-                }
-              ]
-            }
-          }
+  # dashboardsConfigMaps:
+  #   - configMapName: dashboard-configmap
+  #     labels:
+  #       grafana_dashboard: "1"
+  #     data:
+  #       didcomm-mediator.json: |
+  #         {
+  #           "dashboard": {
+  #             "panels": [
+  #               {
+  #                 "title": "API Response Time",
+  #                 "type": "graph",
+  #                 "targets": [
+  #                   {
+  #                     "expr": "histogram_quantile(0.95, rate(api_response_time_seconds_bucket[5m]))",
+  #                     "legendFormat": "95th percentile"
+  #                   }
+  #                 ]
+  #               },
+  #               {
+  #                 "title": "CPU Usage",
+  #                 "type": "graph",
+  #                 "targets": [
+  #                   {
+  #                     "expr": "100 - (avg by (instance) (rate(node_cpu_seconds_total{mode='idle'}[2m])) * 100",
+  #                     "legendFormat": "CPU Usage"
+  #                   }
+  #                 ]
+  #               },
+  #               {
+  #                 "title": "Memory Usage",
+  #                 "type": "graph",
+  #                 "targets": [
+  #                   {
+  #                     "expr": "(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100",
+  #                     "legendFormat": "Memory Usage"
+  #                   }
+  #                 ]
+  #               },
+  #               {
+  #                 "title": "MongoDB Connections",
+  #                 "type": "graph",
+  #                 "targets": [
+  #                   {
+  #                     "expr": "mongodb_connections{state='current'}",
+  #                     "legendFormat": "Connections"
+  #                   }
+  #                 ]
+  #               }
+  #             ]
+  #           }
+  #         }
 
   volumes:
     - name: grafana-dashboards
       configMap:
-        name: my-dashboard-configmap
+        name: dashboard-configmap
 
   volumeMounts:
     - name: grafana-dashboards
       mountPath: /var/lib/grafana/dashboards
+      
 nodeExporter:
   enabled: true
   image:
     registry: docker.io
     repository: bitnami/node-exporter
     tag: 1.3.1-debian-12-r12
-  service:
-    port: 9100
-    targetPort: 9100
+    
+  service: 
+    nameOverride: "nodeExporter-service"
+    type: ClusterIP
+    portName: nodeExporter
+    ports:
+      nodeExporter: 9100
 
 kube-state-metrics:
   enabled: true
