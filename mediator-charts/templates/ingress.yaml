@@ -6,7 +6,6 @@ metadata:
   annotations:
     external-dns.alpha.kubernetes.io/hostname: {{ .Values.externalDnsHostname }}
     {{- toYaml .Values.mediator.ingress.annotations | nindent 4 }}
-    nginx.ingress.kubernetes.io/rewrite-target: /$2
 spec:
   ingressClassName: nginx
   rules:
@@ -20,21 +19,21 @@ spec:
             name: {{ .Release.Name }}-service
             port:
               number: 8080
-      - path: /prometheus-didcomm(/|$)(.*)
+      - path: /prometheus-didcomm
         pathType: Prefix
         backend:
           service:
             name: prometheus
             port:
               number: 9090
-      - path: /grafana-didcomm(/|$)(.*)
+      - path: /grafana-didcomm
         pathType: Prefix
         backend:
           service:
             name: grafana
             port:
               number: 3000
-      - path: /alertmanager-didcomm(/|$)(.*)
+      - path: /alertmanager-didcomm
         pathType: Prefix
         backend:
           service:
