@@ -11,9 +11,9 @@ mod repository;
 mod tests;
 
 // Public re-exports
+pub use encryptor::KeyEncryption;
 pub use error::{Error, ErrorKind};
 pub use repository::SecretRepository;
-pub use encryptor::KeyEncryption;
 
 use aws_sdk_kms::Client as KmsClient;
 use encryptor::{aws_kms::AwsKmsEncryptor, plaintext::NoEncryption};
@@ -156,15 +156,15 @@ impl Keystore {
     }
 
     /// Store a key in the keystore.
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```no_run
     /// use keystore::Keystore;
-    /// 
+    ///
     /// let key = Jwk::generate_ed25519();
     /// let key_id = "key1";
-    /// 
+    ///
     /// keystore.store(key_id, &key).await?;
     /// ```
     pub async fn store<T: Serialize>(&self, kid: &str, key: &T) -> Result<(), Error> {
@@ -175,12 +175,12 @@ impl Keystore {
     }
 
     /// Retrieve a key from the keystore with the specified key ID.
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```no_run
     /// use keystore::Keystore;
-    /// 
+    ///
     /// let key: Option<Jwk> = keystore.retrieve("key1").await?;
     /// ```
     pub async fn retrieve<T: for<'a> Deserialize<'a>>(
@@ -199,12 +199,12 @@ impl Keystore {
     }
 
     /// Delete a key from the keystore with the specified key ID.
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```no_run
     /// use keystore::Keystore;
-    /// 
+    ///
     /// keystore.delete("key1").await?;
     /// ```
     pub async fn delete(&self, kid: &str) -> Result<(), Error> {
