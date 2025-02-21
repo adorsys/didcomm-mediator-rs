@@ -1,8 +1,8 @@
-#![warn(missing_docs)]
-
 //! A library for securely storing cryptographic keys.
 //!
 //! The library provides an abstraction for storing, retrieving, and deleting cryptographic keys.
+
+#![warn(missing_docs)]
 
 mod encryptor;
 mod error;
@@ -10,17 +10,20 @@ mod repository;
 #[cfg(any(test, feature = "test-utils"))]
 mod tests;
 
+// Public re-exports
 pub use error::{Error, ErrorKind};
+pub use repository::SecretRepository;
+pub use encryptor::KeyEncryption;
 
 use aws_sdk_kms::Client as KmsClient;
-use encryptor::{aws_kms::AwsKmsEncryptor, plaintext::NoEncryption, KeyEncryption};
-use repository::{mongodb::MongoSecretRepository, no_repo::NoRepository, SecretRepository};
+use encryptor::{aws_kms::AwsKmsEncryptor, plaintext::NoEncryption};
+use repository::{mongodb::MongoSecretRepository, no_repo::NoRepository};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 /// The main type of the library.
 ///
-/// The `Keystore` provides an abstraction for storing, retrieving, and deleting cryptographic keys.
+/// The [`Keystore`] provides an abstraction for storing, retrieving, and deleting cryptographic keys.
 /// It can support multiple storage backends and encryption mechanisms that can be configured.
 ///
 /// # Usage
@@ -29,7 +32,7 @@ use std::sync::Arc;
 ///
 /// # Example
 /// ```no_run
-/// use keystore::{Keystore, NoEncryption};
+/// use keystore::Keystore;
 ///
 /// let repository = CustomRepository::new();
 /// let encryptor = CustomEncryptor::new();
@@ -140,7 +143,7 @@ impl Keystore {
     /// # Example
     ///
     /// ```no_run
-    /// use keystore::{Keystore, NoEncryption};
+    /// use keystore::Keystore;
     ///
     /// let encryptor = CustomEncryptor::new();
     /// let keystore = Keystore::new().with_encryptor(encryptor);
@@ -153,6 +156,17 @@ impl Keystore {
     }
 
     /// Store a key in the keystore.
+    /// 
+    /// # Example
+    /// 
+    /// ```no_run
+    /// use keystore::Keystore;
+    /// 
+    /// let key = Jwk::generate_ed25519();
+    /// let key_id = "key1";
+    /// 
+    /// keystore.store(key_id, &key).await?;
+    /// ```
     pub async fn store<T: Serialize>(&self, kid: &str, key: &T) -> Result<(), Error> {
         let key_bytes = serde_json::to_vec(key)?;
         let encrypted_key = self.encryptor.encrypt(&key_bytes).await?;
@@ -161,6 +175,14 @@ impl Keystore {
     }
 
     /// Retrieve a key from the keystore with the specified key ID.
+    /// 
+    /// # Example
+    /// 
+    /// ```no_run
+    /// use keystore::Keystore;
+    /// 
+    /// let key: Option<Jwk> = keystore.retrieve("key1").await?;
+    /// ```
     pub async fn retrieve<T: for<'a> Deserialize<'a>>(
         &self,
         kid: &str,
@@ -177,6 +199,14 @@ impl Keystore {
     }
 
     /// Delete a key from the keystore with the specified key ID.
+    /// 
+    /// # Example
+    /// 
+    /// ```no_run
+    /// use keystore::Keystore;
+    /// 
+    /// keystore.delete("key1").await?;
+    /// ```
     pub async fn delete(&self, kid: &str) -> Result<(), Error> {
         self.repository.delete(kid).await?;
         Ok(())
