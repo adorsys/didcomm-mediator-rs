@@ -55,7 +55,18 @@ git clone git@github.com:adorsys/didcomm-mediator-rs.git
 
 ### Mongo DB
 
-This project uses MongoDB as the database. You need to have [MongoDB](https://www.mongodb.com) installed and running on your system.
+This project uses MongoDB as the database. You need to have [MongoDB](https://www.mongodb.com) installed and running on your system then start the mongo shell:
+
+```sh
+mongosh
+```
+
+Another option is to use [Docker](https://www.docker.com):
+
+```sh
+docker pull mongo
+docker run --name mongodb -d mongo
+```
 
 ### Environmental variables
 
@@ -68,7 +79,13 @@ MONGO_DBN="DIDComm_DB"
 MONGO_URI="mongodb://localhost:27017"
 ```
 
-You can change the values to your own preferences.
+> The values can be changed according to your needs.  
+
+You can now start the mediator server:
+
+```sh
+cargo run
+```
 
 ### Running with Docker Compose
 
@@ -82,7 +99,7 @@ You can run the project with Docker Compose.
 docker-compose up
 ```
 
-This command will build the docker image of the mediator server with all its prerequisites and run it.
+This will build the docker image of the mediator server with all its prerequisites and run it.
 
 The output should look like this:
 
