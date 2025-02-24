@@ -50,7 +50,7 @@ async fn process_response(
                 )
                     .into_response()
             })
-            .unwrap_or_else(|err| err.into_response()),
+            .unwrap_or_else(|err| err),
             None => StatusCode::ACCEPTED.into_response(),
         },
         Err(response) => response,
