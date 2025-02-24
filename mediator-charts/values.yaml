@@ -105,7 +105,7 @@ grafana:
   admin:
     user: root
     existingSecret: mediator-eks-secret
-    existingSecretPasswordKey: GF_SECURITY_ADMIN_PASSWORD
+    existingSecretPasswordKey: grafana-password
 
   service: 
     nameOverride: "mediator-grafana"
@@ -267,7 +267,7 @@ externalSecret:
       name: mediator-eks-secret
       creationPolicy: Owner
   awssecretKey1: MONGO_PASSWORD
-  awssecretKey2:  mediator-secrets
+  awssecretKey2: MONGO_ROOT_PASSWORD
   awssecretKey3: GF_SECURITY_ADMIN_PASSWORD
 
 awsSecretName: mediator-secrets
