@@ -61,18 +61,24 @@ async fn test_retry_configuration() {
     let breaker = CircuitBreaker::new().retries(2);
 
     let attempts = Arc::new(AtomicUsize::new(0));
-    let attempts = attempts.clone();
+    let attempts_clone = attempts.clone();
 
-    let retry_operation = || async {
-        attempts.fetch_add(1, Ordering::AcqRel);
-        async { Err::<(), ()>(()) }.await
+    let retry_operation = || {
+        let attempts = attempts_clone.clone();
+        async move {
+            attempts.fetch_add(1, Ordering::AcqRel);
+            Err::<(), ()>(()) // Simulate a failure
+        }
     };
 
     let result = breaker.call(retry_operation).await;
+
+    // Verify the result matches the expected error type
     assert!(matches!(result, Err(Error::Inner(_))));
-    // the total number of attempts should be 2
+    // Verify that the total number of attempts was 2
     assert_eq!(attempts.load(Ordering::Relaxed), 2);
 }
+
 
 #[tokio::test]
 async fn test_timeout_reset() {
