@@ -55,11 +55,7 @@ git clone git@github.com:adorsys/didcomm-mediator-rs.git
 
 ### Mongo DB
 
-This project uses MongoDB as the database. You need to have [MongoDB](https://www.mongodb.com) installed and running on your system then start the mongo shell:
-
-```sh
-mongosh
-```
+This project uses MongoDB as the database. You need to have [MongoDB](https://www.mongodb.com) installed and running on your system.
 
 Another option is to use [Docker](https://www.docker.com):
 
