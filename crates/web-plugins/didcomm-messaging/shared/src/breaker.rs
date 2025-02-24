@@ -174,42 +174,42 @@ impl CircuitBreaker {
     // Call the future and handle the result depending on the circuit
     pub fn call<F, Fut, T, E>(&self, mut f: F) -> impl Future<Output = Result<T, Error<E>>>
     where
-    F: FnMut() -> Fut,
-    Fut: Future<Output = Result<T, E>>,
-{
-    let breaker = self.clone();
+        F: FnMut() -> Fut,
+        Fut: Future<Output = Result<T, E>>,
+    {
+        let breaker = self.clone();
 
-    async move {
-        if !breaker.should_allow_call() {
-            return Err(Error::CircuitOpen);
-        }
+        async move {
+            if !breaker.should_allow_call() {
+                return Err(Error::CircuitOpen);
+            }
 
-        let mut attempts = 0;
+            let mut attempts = 0;
 
-        loop {
-            attempts += 1;
-            let result = f().await;
+            loop {
+                attempts += 1;
+                let result = f().await;
 
-            match result {
-                Ok(val) => {
-                    breaker.success();
-                    return Ok(val);
-                }
-                Err(err) => {
-                    breaker.failure();
-
-                    if attempts >= breaker.inner.lock().max_retries {
-                        return Err(Error::Inner(err));
+                match result {
+                    Ok(val) => {
+                        breaker.success();
+                        return Ok(val);
                     }
+                    Err(err) => {
+                        breaker.failure();
 
-                    if !breaker.should_allow_call() {
-                        return Err(Error::CircuitOpen);
+                        if attempts >= breaker.inner.lock().max_retries {
+                            return Err(Error::Inner(err));
+                        }
+
+                        if !breaker.should_allow_call() {
+                            return Err(Error::CircuitOpen);
+                        }
                     }
                 }
             }
         }
     }
-}
 
     /// Check if the circuit breaker should allow a call
     pub fn should_allow_call(&self) -> bool {
@@ -277,7 +277,7 @@ impl CircuitBreaker {
             }
         }
     }
-} 
+}
 
 impl Default for CircuitBreaker {
     fn default() -> Self {

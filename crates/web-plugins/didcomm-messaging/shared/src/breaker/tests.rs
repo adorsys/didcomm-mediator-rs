@@ -79,7 +79,6 @@ async fn test_retry_configuration() {
     assert_eq!(attempts.load(Ordering::Relaxed), 2);
 }
 
-
 #[tokio::test]
 async fn test_timeout_reset() {
     let breaker = CircuitBreaker::new().reset_timeout(Duration::from_millis(100));
