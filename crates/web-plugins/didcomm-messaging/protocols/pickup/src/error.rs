@@ -3,7 +3,7 @@ use thiserror::Error;
 
 #[derive(Debug, Error, PartialEq)]
 pub(crate) enum PickupError {
-    #[error("Missing sender DID")]
+    #[error("Sender DID is missing in the message")]
     MissingSenderDID,
 
     #[error("{0}")]

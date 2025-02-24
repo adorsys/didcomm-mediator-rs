@@ -47,7 +47,7 @@ pub(crate) async fn process_mediate_request(
         .map_err(|_| MediationError::NoReturnRouteAllDecoration)?;
 
     let mediator_did = &state.diddoc.id;
-    let sender_did = plain_message.from.as_ref().unwrap();
+    let sender_did = sender_did(&plain_message)?;
 
     let repository = state
         .repository
@@ -82,7 +82,7 @@ pub(crate) async fn process_mediate_request(
                 MEDIATE_DENY_2_0.to_string(),
                 json!(Value::Null),
             )
-            .to(sender_did.clone())
+            .to(sender_did.to_owned())
             .from(mediator_did.clone())
             .finalize(),
         ));
@@ -281,11 +281,9 @@ pub(crate) async fn process_plain_keylist_update_message(
     // Circuit breaker check
     check_circuit_breaker(&state, KEYLIST_UPDATE_2_0)?;
 
-    let sender = message
-        .from
-        .expect("unpacking middleware failed to prevent anonymous senders");
+    let sender_did = sender_did(&message)?;
 
-    let keylist_update_body: KeylistUpdateBody = serde_json::from_value(message.body)
+    let keylist_update_body: KeylistUpdateBody = serde_json::from_value(message.body.clone())
         .map_err(|_| MediationError::UnexpectedMessageFormat)?;
 
     let repository = state
@@ -299,7 +297,7 @@ pub(crate) async fn process_plain_keylist_update_message(
             .call(|| {
                 repository
                     .connection_repository
-                    .find_one_by(doc! { "client_did": &sender })
+                    .find_one_by(doc! { "client_did": sender_did })
             })
             .await
             .map_err(|err| match err {
@@ -311,7 +309,7 @@ pub(crate) async fn process_plain_keylist_update_message(
             })?,
         None => repository
             .connection_repository
-            .find_one_by(doc! { "client_did": &sender })
+            .find_one_by(doc! { "client_did": sender_did })
             .await
             .map_err(|err| {
                 tracing::error!("Failed to find connection: {err:?}");
@@ -428,7 +426,7 @@ pub(crate) async fn process_plain_keylist_update_message(
                 updated: confirmations
             }),
         )
-        .to(sender)
+        .to(sender_did.to_owned())
         .from(mediator_did.to_owned())
         .finalize(),
     ))
@@ -441,9 +439,7 @@ pub(crate) async fn process_plain_keylist_query_message(
     // Circuit breaker check
     check_circuit_breaker(&state, KEYLIST_QUERY_2_0)?;
 
-    let sender = message
-        .from
-        .expect("unpacking middleware failed to prevent anonymous senders");
+    let sender_did = sender_did(&message)?;
 
     let repository = state
         .repository
@@ -456,7 +452,7 @@ pub(crate) async fn process_plain_keylist_query_message(
             .call(|| {
                 repository
                     .connection_repository
-                    .find_one_by(doc! { "client_did": &sender })
+                    .find_one_by(doc! { "client_did": sender_did })
             })
             .await
             .map_err(|err| match err {
@@ -468,7 +464,7 @@ pub(crate) async fn process_plain_keylist_query_message(
             })?,
         None => repository
             .connection_repository
-            .find_one_by(doc! { "client_did": &sender })
+            .find_one_by(doc! { "client_did": sender_did })
             .await
             .map_err(|err| {
                 tracing::error!("Failed to find connection: {err:?}");
@@ -497,7 +493,7 @@ pub(crate) async fn process_plain_keylist_query_message(
         KEYLIST_2_0.to_string(),
         json!(body),
     )
-    .to(sender)
+    .to(sender_did.to_owned())
     .from(mediator_did.clone())
     .finalize();
 
@@ -511,6 +507,14 @@ fn check_circuit_breaker(state: &Arc<AppState>, msg_type: &str) -> Result<(), Me
         .get(msg_type)
         .filter(|cb| !cb.should_allow_call())
         .map_or(Ok(()), |_| Err(MediationError::ServiceUnavailable))
+}
+
+#[inline]
+fn sender_did(message: &Message) -> Result<&str, MediationError> {
+    message
+        .from
+        .as_deref()
+        .ok_or(MediationError::MissingSenderDID)
 }
 
 #[cfg(test)]
