@@ -8,10 +8,10 @@ use crate::Error;
 /// Abstract interface for secret storage backends.
 #[async_trait]
 pub trait SecretRepository: Send + Sync {
-    /// Store a given secret bytes in the repository.
+    /// Store a given secret's bytes in the repository.
     async fn store(&self, kid: &str, key: &[u8]) -> Result<(), Error>;
 
-    /// Retrieve a secret bytes from the repository.
+    /// Retrieve a secret's bytes from the repository.
     async fn find(&self, kid: &str) -> Result<Option<Vec<u8>>, Error>;
 
     /// Delete a secret from the repository.
