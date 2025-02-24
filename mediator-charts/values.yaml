@@ -44,9 +44,9 @@ prometheus:
 
   networkPolicy:
     enabled: true
-    
+
   service: 
-    nameOverride: "prometheus-service"
+    nameOverride: "mediator-kube-prometheus-prometheus"
     type: ClusterIP
     portName: prometheus
     ports:
@@ -55,22 +55,16 @@ prometheus:
   prometheusSpec:
     scrapeInterval: 5s
     evaluationInterval: 10s
+    webExternalUrl: "https://didcomm-mediator.eudi-adorsys.com/prometheus"
+    routePrefix: "/prometheus"
+    additionalFlags:
+      - "--web.route-prefix=/prometheus"
+      - "--web.external-url=https://didcomm-mediator.eudi-adorsys.com/prometheus"
+
     additionalScrapeConfigs:
-      - job_name: 'didcomm-mediator'
-        static_configs:
-          - targets: ['didcomm-mediator.eudi-adorsys.com:8080']  
-            labels:
-              environment: "production"
-              service: "didcomm-mediator"
-      - job_name: 'node'
-        static_configs:
-          - targets: ['node_exporter:9100']
-      - job_name: 'mongodb'
-        static_configs:
-          - targets: ['mongodb-exporter:9216']  
-            labels:
-              environment: "production"
-              service: "mongodb"
+      name: prometheus-additional-scrape-configs
+      key: additional-scrape-configs.yaml
+
 
 alertmanager:
   enabled: true
@@ -80,20 +74,11 @@ alertmanager:
     pullPolicy: IfNotPresent
 
   service: 
-    nameOverride: "alertmanager-service"
+    nameOverride: "mediator-kube-prometheus-alertmanager"
     type: ClusterIP
     portName: alertmanager
     ports:
       alertmanager: 9093
-
-  persistence:
-    enabled: true
-    storageClass: "high-performance"
-    accessModes: 
-      - ReadWriteOnce
-    size: 10Gi
-    mountPath: /bitnami/alertmanger 
-
 
   config:
     global:
@@ -118,12 +103,12 @@ grafana:
     tag: 11.5.1-debian-12-r1
 
   admin:
-    existingSecret: grafana-secret
-    user: GRAFANA_ADMIN_PASSWORD
-    password: GRAFANA_ADMIN_PASSWORD
+    user: root
+    existingSecret: mediator-eks-secret
+    existingSecretPasswordKey: GF_SECURITY_ADMIN_PASSWORD
 
   service: 
-    nameOverride: "grafana-service"
+    nameOverride: "mediator-grafana"
     type: ClusterIP
     portName: grafana
     ports:
@@ -137,10 +122,9 @@ grafana:
     size: 10Gi
     mountPath: /bitnami/grafana 
 
-
   grafana.ini:
     server:
-      root_url: "%(protocol)s://%(domain)s/"
+      root_url: "https://didcomm-mediator.eudi-adorsys.com/grafana"
       serve_from_sub_path: true
 
   dashboardProviders:
@@ -157,69 +141,21 @@ grafana:
           options:
             path: /var/lib/grafana/dashboards
     configMapName: dashboard-configmap
-  
 
-  # dashboardsConfigMaps:
-  #   - configMapName: dashboard-configmap
-  #     labels:
-  #       grafana_dashboard: "1"
-  #     data:
-  #       didcomm-mediator.json: |
-  #         {
-  #           "dashboard": {
-  #             "panels": [
-  #               {
-  #                 "title": "API Response Time",
-  #                 "type": "graph",
-  #                 "targets": [
-  #                   {
-  #                     "expr": "histogram_quantile(0.95, rate(api_response_time_seconds_bucket[5m]))",
-  #                     "legendFormat": "95th percentile"
-  #                   }
-  #                 ]
-  #               },
-  #               {
-  #                 "title": "CPU Usage",
-  #                 "type": "graph",
-  #                 "targets": [
-  #                   {
-  #                     "expr": "100 - (avg by (instance) (rate(node_cpu_seconds_total{mode='idle'}[2m])) * 100",
-  #                     "legendFormat": "CPU Usage"
-  #                   }
-  #                 ]
-  #               },
-  #               {
-  #                 "title": "Memory Usage",
-  #                 "type": "graph",
-  #                 "targets": [
-  #                   {
-  #                     "expr": "(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100",
-  #                     "legendFormat": "Memory Usage"
-  #                   }
-  #                 ]
-  #               },
-  #               {
-  #                 "title": "MongoDB Connections",
-  #                 "type": "graph",
-  #                 "targets": [
-  #                   {
-  #                     "expr": "mongodb_connections{state='current'}",
-  #                     "legendFormat": "Connections"
-  #                   }
-  #                 ]
-  #               }
-  #             ]
-  #           }
-  #         }
+  dashboardsConfigMaps:
+    - configMapName: dashboard-configmap
+      namespace: didcomm-mediator
+      labels:
+        grafana_dashboard: "1"
 
-  volumes:
-    - name: grafana-dashboards
-      configMap:
-        name: dashboard-configmap
+volumes:
+  - name: grafana-dashboards
+    configMap:
+      name: dashboard-configmap
 
-  volumeMounts:
-    - name: grafana-dashboards
-      mountPath: /var/lib/grafana/dashboards
+volumeMounts:
+  - name: grafana-dashboards
+    mountPath: /var/lib/grafana/dashboards
       
 nodeExporter:
   enabled: true
@@ -245,6 +181,7 @@ prometheus-node-exporter:
   enabled: true
 
 prometheusRule:
+  enabled: true
   rules:
     - alert: InstanceDown
       expr: up{job="didcomm-mediator"} == 0
@@ -322,6 +259,7 @@ externalSecret:
   spec: 
     secretKey1: mongodb-passwords
     secretKey2: mongodb-root-password
+    secretKey3: grafana-password
     refreshInterval: 1h
     secretStoreRef:
       name: mediator-secret-store
@@ -329,6 +267,7 @@ externalSecret:
       name: mediator-eks-secret
       creationPolicy: Owner
   awssecretKey1: MONGO_PASSWORD
-  awssecretKey2: MONGO_ROOT_PASSWORD
+  awssecretKey2:  mediator-secrets
+  awssecretKey3: GF_SECURITY_ADMIN_PASSWORD
 
 awsSecretName: mediator-secrets
