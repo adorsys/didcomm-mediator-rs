@@ -116,7 +116,7 @@ fn are_all_ids_and_references_relative(diddoc: &DIDDocument) -> bool {
 
     #[inline]
     fn check_methods<T>(methods: &Option<Vec<T>>, f: impl Fn(&T) -> bool) -> bool {
-        methods.as_ref().map_or(true, |items| items.iter().all(f))
+        methods.as_ref().is_none_or(|items| items.iter().all(f))
     }
 
     check_methods(&diddoc.verification_method, |method| is_relative(&method.id))
