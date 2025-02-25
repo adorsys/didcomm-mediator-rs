@@ -8,7 +8,6 @@ metadata:
     nginx.ingress.kubernetes.io/configuration-snippet: |
       rewrite ^/prometheus$ /prometheus/ break;
       rewrite ^/prometheus/(.*) /$1 break;
-      rewrite ^/grafana/(.*) /$1 break;
       rewrite ^/alertmanager/(.*) /$1 break;
     {{- toYaml .Values.mediator.ingress.annotations | nindent 4 }}
 spec:
@@ -32,7 +31,7 @@ spec:
             port:
               number: 9090
       - path: /grafana
-        pathType: Prefix
+        pathType: ImplementationSpecific
         backend:
           service:
             name: mediator-grafana

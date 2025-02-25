@@ -61,10 +61,14 @@ prometheus:
       - "--web.route-prefix=/prometheus"
       - "--web.external-url=https://didcomm-mediator.eudi-adorsys.com/prometheus"
 
-    additionalScrapeConfigs:
-      name: prometheus-additional-scrape-configs
-      key: additional-scrape-configs.yaml
-
+  configuration: |
+    global:
+      scrape_interval: 15s
+    scrape_configs:
+      - job_name: "mediator"
+        metrics_path: "/metrics"
+        static_configs:
+          - targets: ["mediator-service.didcomm-mediator.svc.cluster.local:8080"]
 
 alertmanager:
   enabled: true
@@ -122,10 +126,9 @@ grafana:
     size: 10Gi
     mountPath: /bitnami/grafana 
 
-  grafana.ini:
-    server:
-      root_url: "https://didcomm-mediator.eudi-adorsys.com/grafana"
-      serve_from_sub_path: true
+  config:
+    useGrafanaIniFile: true
+    grafanaIniConfigMap: "grafana-configmap"
 
   dashboardProviders:
     enabled: true
@@ -148,14 +151,20 @@ grafana:
       labels:
         grafana_dashboard: "1"
 
-volumes:
-  - name: grafana-dashboards
-    configMap:
-      name: dashboard-configmap
+  volumes:
+    - name: grafana-config
+      configMap:
+        name: grafana-configmap
+    - name: grafana-dashboards
+      configMap:
+        name: dashboard-configmap
 
-volumeMounts:
-  - name: grafana-dashboards
-    mountPath: /var/lib/grafana/dashboards
+  volumeMounts:
+    - name: grafana-config
+      mountPath: /opt/bitnami/grafana/conf/grafana.ini
+      subPath: grafana.ini
+    - name: grafana-dashboards
+      mountPath: /var/lib/grafana/dashboards
       
 nodeExporter:
   enabled: true
