@@ -43,9 +43,12 @@ pub async fn unpack_didcomm_message(
     let (parts, body) = request.into_parts();
     let collected = match BodyExt::collect(body).await {
         Ok(collected) => collected,
-        Err(_) => {
-            tracing::error!("Failed to parse request body");
-            let response = (StatusCode::BAD_REQUEST, Error::InternalServer.json());
+        Err(err) => {
+            tracing::error!("Failed to parse request body: {err:?}");
+            let response = (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Error::InternalServer.json(),
+            );
 
             return response.into_response();
         }
@@ -81,7 +84,7 @@ pub async fn unpack_didcomm_message(
 
             next.run(request).await
         }
-        Err(response) => response.into_response(),
+        Err(response) => response,
     }
 }
 
@@ -120,7 +123,7 @@ async fn unpack_payload(
     .await;
 
     let (plain_message, metadata) = res.map_err(|err| {
-        error!("Failed to unpack message: {}, {}", err.kind(), err.source);
+        error!("Failed to unpack message: {err:?}");
         (StatusCode::BAD_REQUEST, Error::CouldNotUnpackMessage.json()).into_response()
     })?;
 
@@ -148,22 +151,22 @@ pub async fn pack_response_message(
     did_resolver: &LocalDIDResolver,
     secrets_resolver: &LocalSecretsResolver,
 ) -> Result<Value, Response> {
-    let from = msg.from.as_ref();
-    let to = msg.to.as_ref().and_then(|v| v.first());
-
-    if from.is_none() || to.is_none() {
+    let Some((from, to)) = msg
+        .from
+        .as_ref()
+        .zip(msg.to.as_ref().and_then(|v| v.first()))
+    else {
         tracing::error!("Failed to pack message: missing from or to field");
         let response = (
             StatusCode::INTERNAL_SERVER_ERROR,
             Error::InternalServer.json(),
         );
-
         return Err(response.into_response());
-    }
+    };
 
     msg.pack_encrypted(
-        to.unwrap(),
-        from.map(|x| x.as_str()),
+        to,
+        Some(from),
         None,
         did_resolver,
         secrets_resolver,
@@ -184,6 +187,8 @@ pub async fn pack_response_message(
 
 #[cfg(test)]
 mod tests {
+    use std::env;
+
     use super::*;
     use shared::utils::tests_utils::tests::*;
 
@@ -191,6 +196,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_pack_response_message_works() {
+        env::set_var("MASTER_KEY", "1234567890qwertyuiopasdfghjklxzc");
         let state = setup();
 
         let msg = Message::build(
