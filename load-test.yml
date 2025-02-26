@@ -4,10 +4,19 @@ config:
     - duration: 15
       arrivalRate: 10
       rampTo: 50
-      name: "Quick Sanity Check"
-    - duration: 30
+      name: "Warm-up Phase"
+    - duration: 60
       arrivalRate: 50
-      name: "Short Load Test"
+      name: "Sustained Load Phase"
+    - duration: 30
+      arrivalRate: 100
+      name: "Stress Phase"
+    - duration: 15
+      arrivalRate: 0
+      name: "Cooldown Phase"
+  thresholds:
+    - http_req_duration: ["p(95)<500"]  
+    - http_req_failed: ["rate<0.1"]     
 scenarios:
   - name: "Basic Load Test"
     flow:

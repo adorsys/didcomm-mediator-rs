@@ -6,15 +6,19 @@ The purpose of these tests was to simulate high-load scenarios and potential fai
 
 ### Test Methodology
 **Stress Test Parameters:**
+- Target Server: https://didcomm-mediator.eudi-adorsys.com
 
-- Multiple phases of load with increasing and decreasing traffic.
-- Simulated failure conditions (server crashes and network timeouts).
-- Maximum concurrent virtual users: 10,000
-- Duration: 5 minutes
-- Request timeout: 10 seconds
-- Tools Used:
+- Phases:
+    - Warm-up Phase: 15 seconds, increasing from 10 to 50 virtual users (VUs) per second.
+    - Sustained Load Phase: 60 seconds, constant load of 50 VUs per second.
+    - Stress Phase: 30 seconds, constant load of 100 VUs per second.
+    - Cooldown Phase: 15 seconds, decreasing load to 0 VUs per second.
 
-Load tests were conducted using load-test.yml. Test reports were generated in JSON format for further analysis.
+- Thresholds:
+    - Response Time: 95% of requests should complete within 500ms.
+    - Error Rate: Less than 10% of requests should fail.
+- Scenario:
+    - Basic Load Test: Sends HTTP GET requests to the root endpoint (/)    with a timeout of 3 seconds and 2 retries.
 
 ### How to Run and Analyze Artillery Load Tests 
 
@@ -31,83 +35,86 @@ artillery run --output report.json load-test.yml
 artillery report report.json
 ```
 This command will converte the json data in the `report.html` file which you can open in a browser for a detailed visualization.
-Results Summary
-### 1. Initial Test Results (Moderate Load)
-- Total Requests: 30,300
-- Successful Requests (HTTP 200): 30,300 (100%)
-- Errors: None
-- Average Response Time: 3.7 ms
-- Request Rate: 163 requests/second
-- 95th Percentile Response Time: 10.9 ms
-- Interpretation:
 
-The system handled the moderate load effortlessly with no errors, low latency, and consistent response times.
+**Results Summary**
 
-### 2. Recent Test Results (Extreme Load)
-- Total Requests: 507,001
-- Successful Requests (HTTP 200): 121,614 (24%)
-- Errors:
-    - `ETIMEDOUT:` 385,287
-    - `ECONNRESET:` 100
-- Average Response Time: 8,100.3 ms
-- Request Rate: 351 requests/second
-- 95th Percentile Response Time: 9,999 ms
-- Failed Virtual Users: 385,387
 
-**Interpretation:**
+| **Metric**               |  **Values**                    | 
+|--------------------------|--------------------------------|
+| **Total Requests**       | 6,450                          |
+| **Successful Requests**  | 6,450 (100%)                   |
+| **Failed Requests**      | 1 (ETIMEDOUT)                  |
+| **Average Response Time**| 3.7 ms                         |
+| **95th Percentile Time** | 2,893.5 ms (~2.9 seconds)      |
+| **99th Percentile (p99)** |3,464.1 ms (~3.5 seconds)      |
+| **Request Rate**         | 56 requests/second             |
+| **Virtual Users Created**| 6,450                          |
+| **Virtual Users Failed** | 1                              |
+| **Data Transferred**     | 146,321,361 bytes (~146 MB)    |
+| **Average Response Time**| 990.1 ms (~1 second)           |
 
-Under extreme load, the server became overwhelmed, resulting in significant delays and a high number of timeouts (`ETIMEDOUT`). Only 24% of requests were successful. The average response time increased dramatically compared to the initial test. Many virtual users failed to complete the test due to connection resets and timeouts.
+**Response Times**
+- Min: 71 ms
+- Max: 4,875 ms (~4.9 seconds)
+- Mean: 990.1 ms (~1 second)
+- Median: 772.9 ms (~0.8 seconds)
+- p95: 2,893.5 ms (~2.9 seconds)
+- p99: 3,464.1 ms (~3.5 seconds)
 
-### Comparison and Analysis
+**Errors**
+- Timeout Errors (ETIMEDOUT): 1
+    - One request timed out, likely due to high load or network latency.
 
-| **Metric**               |**Initial Test (Moderate Load)**| **Extreme Load Test**     | **Difference**                             |
-|--------------------------|--------------------------------|---------------------------|--------------------------------------------|
-| **Total Requests**       | 30,300                         | 507,001                   | Significant increase in request volume     |
-| **Successful Requests**  | 30,300 (100%)                  | 121,614 (24%)             | 76% failure rate under extreme load        |
-| **Errors**               | None                           | 385,387 (ETIMEDOUT)       | Timeout errors due to server overload      |
-| **Average Response Time**| 3.7 ms                         | 8,100.3 ms                | 2,186x increase in average response time   |
-| **95th Percentile Time** | 10.9 ms                        | 9,999 ms                  | Requests hit the timeout limit             |
-| **Request Rate**         | 163/sec                        | 351/sec                   | Higher request rate but with more failures |
-|                          |                                |                           |                                            |  
+### Interpretation of Results
+**1. Performance Under Load**
+- The server handled 6,450 requests with an average response time of ~1 second.
+- 95% of requests completed within ~2.9 seconds, and 99% of requests completed within ~3.5 seconds.
+- The maximum response time was ~4.9 seconds, indicating some requests experienced significant delays.
+
+**2. Error Analysis**
+- There was 1 timeout error (ETIMEDOUT), which caused a single virtual user to fail.
+
+- **This could be due to:**
+    - High server load during the stress phase.
+    - Network latency or connectivity issues.
+    - A bottleneck in the server (e.g., database, CPU, or memory).
+
+**3. Throughput**
+- The server processed 56 requests per second on average.
+- This throughput is acceptable for many applications but may need improvement for higher traffic scenarios.
+
+**4. Threshold Compliance**
+- Response Time Threshold: The p95 response time exceeded the threshold of 500ms, indicating that the server struggled to meet the performance target under high load.
+- Error Rate Threshold: The error rate was 0.015% (1 failure out of 6,450 requests), which is well below the 10% threshold.
 
 ### Key Observations
-**a. Response Time:**
+**Response Time Degradation:**
+- Response times increased significantly under high load, especially during the stress phase.
+- The p95 response time of ~2.9 seconds suggests that the server struggled to handle the increased traffic.
 
-The response time grew from milliseconds to several seconds under high load, indicating the server struggled to handle the increased traffic.
+**Timeout Error:**
 
-**b. Timeout Errors (ETIMEDOUT):**
+- The single timeout error indicates that the server may have reached its capacity limits during the stress phase.
 
-The majority of failures were due to timeouts, suggesting that the server reached its capacity limits and couldn’t respond within the 10-second threshold.
-
-**c. Connection Resets (ECONNRESET):**
-
-This indicates that the server forcefully closed some connections when it couldn’t process requests.
-
-**d. Request Rate:**
-
-The request rate increased from 163/sec to 351/sec, but with a high number of failures, suggesting the server hit a performance ceiling.
+**Scalability:**
+- The server performed well under moderate load but showed signs of strain under high load.
 
 ### Recommendations for Optimization
-**Scale the Infrastructure:**
 
-- **Horizontal Scaling:** Add more instances of the DIDComm mediator server behind a load balancer.
-- **Vertical Scaling:** Upgrade server resources (CPU, memory).
+**1. Scale the Infrastructure**
+- Horizontal Scaling: Add more instances of the DIDComm mediator server behind a load balancer to distribute the load.
+- Vertical Scaling: Upgrade server resources (CPU, memory) to handle higher traffic.
 
-**Introduce Caching:**
+**2. Optimize Application Code**
+- Database Queries: Review and optimize slow or inefficient database queries.
+- Caching: Implement caching for frequently accessed data (e.g., using Redis).
+- Asynchronous Processing: Use asynchronous I/O to improve concurrency and reduce response times.
 
-- Cache frequent responses to reduce server load.
-- Consider using Redis for in-memory caching.
+**4. Retry Logic**
+- Implement retry logic with exponential backoff for failed requests to improve reliability.
 
-**Optimize Application Code:**
+**5. Increase Timeout Threshold**
+- Consider increasing the request timeout from 3 seconds to 5 seconds to reduce timeout errors during high load.
 
-- Review and optimize any blocking operations or slow database queries.
-- Use asynchronous I/O wherever possible.
-
-**Monitor and Set Alerts**:
-
-- Use Prometheus and Grafana to set up alerts for high CPU usage, high response times, and increased error rates.
-- Ensure Discord webhooks notify you of critical failures.
-
-**Retry Logic:**
-
-Implement retry logic for critical requests, with exponential backoff to avoid overwhelming the server.
+**Conclusion**
+The DIDComm Mediator Server performed well under moderate load but showed signs of strain during the stress phase. The p95 response time exceeded the threshold, and there was 1 timeout error. To improve performance and scalability, consider scaling the infrastructure, optimizing the application code, and implementing caching.
