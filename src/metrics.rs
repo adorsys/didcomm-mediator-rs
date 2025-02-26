@@ -15,7 +15,7 @@ pub struct AppState {
 pub fn setup_metrics(router: Router) -> Router {
     let (prometheus_layer, metric_handle) = PrometheusMetricLayer::pair();
 
-    // Custom metrics
+    // Custom metric.
     let mut registry = Registry::default();
     let request_count = Counter::default();
     let api_response_time = Histogram::new(vec![0.1, 0.5, 1.0, 2.0, 5.0]);
