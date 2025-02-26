@@ -1,8 +1,8 @@
 use async_trait::async_trait;
+use database::Repository;
 use did_utils::{
     crypto::PublicKeyFormat,
     didcore::{Document, VerificationMethodType},
-    jwk::Jwk,
     methods::{DidKey, DidPeer},
 };
 use didcomm::{
@@ -10,9 +10,10 @@ use didcomm::{
     error::{Error, ErrorKind, Result},
     secrets::{Secret, SecretMaterial, SecretType, SecretsResolver},
 };
-use keystore::Keystore;
+use keystore::Secrets;
+use mongodb::bson::doc;
 use serde_json::json;
-use std::collections::HashSet;
+use std::{collections::HashSet, sync::Arc};
 
 #[derive(Clone)]
 pub struct LocalDIDResolver {
@@ -37,21 +38,24 @@ impl DIDResolver for LocalDIDResolver {
         }
 
         if did.starts_with("did:key") {
-            let diddoc = DidKey::new_full(true, PublicKeyFormat::Jwk)
+            Ok(DidKey::new_full(true, PublicKeyFormat::Jwk)
                 .expand(did)
-                .map_err(|e| Error::new(ErrorKind::DIDNotResolved, e))?;
-            let diddoc = serde_json::from_value(json!(Document {
-                service: Some(vec![]),
-                ..diddoc
-            }))?;
-            Ok(Some(diddoc))
+                .map(|doc| {
+                    serde_json::from_value(json!(Document {
+                        service: Some(vec![]),
+                        ..doc
+                    }))
+                    .ok()
+                })
+                .map_err(|e| Error::new(ErrorKind::DIDNotResolved, e))?)
         } else if did.starts_with("did:peer") {
-            let mut diddoc = DidPeer::with_format(PublicKeyFormat::Jwk)
+            Ok(DidPeer::with_format(PublicKeyFormat::Jwk)
                 .expand(did)
-                .map_err(|e| Error::new(ErrorKind::DIDNotResolved, e))?;
-            prepend_doc_id_to_vm_ids(&mut diddoc);
-            let diddoc = serde_json::from_value(json!(diddoc))?;
-            Ok(Some(diddoc))
+                .map(|mut doc| {
+                    prepend_doc_id_to_vm_ids(&mut doc);
+                    serde_json::from_value(json!(doc)).ok()
+                })
+                .map_err(|e| Error::new(ErrorKind::DIDNotResolved, e))?)
         } else {
             Err(Error::msg(
                 ErrorKind::Unsupported,
@@ -84,28 +88,29 @@ fn prepend_doc_id_to_vm_ids(diddoc: &mut Document) {
 
 #[derive(Clone)]
 pub struct LocalSecretsResolver {
-    keystore: Keystore,
+    keystore: Arc<dyn Repository<Secrets>>,
 }
 
 impl LocalSecretsResolver {
-    pub fn new(keystore: Keystore) -> Self {
+    pub fn new(keystore: Arc<dyn Repository<Secrets>>) -> Self {
         Self { keystore }
     }
 }
+
 #[async_trait]
 impl SecretsResolver for LocalSecretsResolver {
     async fn get_secret(&self, secret_id: &str) -> Result<Option<Secret>> {
         let secret = self
             .keystore
             .clone()
-            .retrieve::<Jwk>(secret_id)
+            .find_one_by(doc! {"kid": secret_id})
             .await
             .map(|s| {
                 s.map(|s| Secret {
-                    id: secret_id.to_string(),
+                    id: s.kid,
                     type_: SecretType::JsonWebKey2020,
                     secret_material: SecretMaterial::JWK {
-                        private_key_jwk: json!(s),
+                        private_key_jwk: json!(s.secret_material),
                     },
                 })
             })
@@ -121,7 +126,7 @@ impl SecretsResolver for LocalSecretsResolver {
             if self
                 .keystore
                 .clone()
-                .retrieve::<Jwk>(secret_id)
+                .find_one_by(doc! {"kid": *secret_id})
                 .await
                 .map_err(|e| Error::new(ErrorKind::IoError, e))?
                 .is_some()
@@ -140,6 +145,7 @@ mod tests {
 
     use super::*;
     use did_utils::jwk::Jwk;
+    use keystore::tests::MockKeyStore;
     use serde_json::Value;
 
     fn setup() -> Document {
@@ -279,7 +285,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_local_secrets_resolver_works() {
-        std::env::set_var("MASTER_KEY", "1234567890qwertyuiopasdfghjklxzc");
         let secret_id = "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7#z6LSbuUXWSgPfpiDBjUK6E7yiCKMN2eKJsXn5b55ZgqGz6Mr";
         let secret: Jwk = serde_json::from_str(
             r#"{
@@ -291,7 +296,13 @@ mod tests {
         )
         .unwrap();
 
-        let keystore = Keystore::with_mock_configs(vec![(secret_id.to_string(), secret)]);
+        let test_secret = Secrets {
+            id: None,
+            kid: secret_id.to_string(),
+            secret_material: secret,
+        };
+
+        let keystore = Arc::new(MockKeyStore::new(vec![test_secret]));
 
         let resolver = LocalSecretsResolver::new(keystore);
         let resolved = resolver.get_secret(secret_id).await.unwrap().unwrap();

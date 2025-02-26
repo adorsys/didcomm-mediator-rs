@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.4
 
 # Stage 1: Build
-FROM rust:1.83-alpine AS builder
+FROM rust:1.80-alpine AS builder
 
 WORKDIR /app
 

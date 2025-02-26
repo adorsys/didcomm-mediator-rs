@@ -8,7 +8,6 @@ use axum::{
 use chrono::Utc;
 use did_utils::{
     didcore::{Document, KeyFormat, Proofs},
-    jwk::Jwk,
     proof::{CryptoProof, EdDsaJcs2022, Proof, PROOF_TYPE_DATA_INTEGRITY_PROOF},
     vc::{VerifiableCredential, VerifiablePresentation},
 };
@@ -101,16 +100,19 @@ async fn didpop(
 
         let kid = util::handle_vm_id(&method.id, &diddoc);
 
-        let jwk: Jwk = match pubkey {
-            KeyFormat::Jwk(_) => task::block_in_place(|| {
-                Handle::current().block_on(async {
-                    keystore
-                        .retrieve(&kid)
-                        .await
-                        .expect("Error fetching secret")
-                        .expect("Missing key")
-                })
-            }),
+        let jwk = match pubkey {
+            KeyFormat::Jwk(_) => {
+                let secret = task::block_in_place(|| {
+                    Handle::current().block_on(async {
+                        keystore
+                            .find_one_by(doc! { "kid": kid.as_ref() })
+                            .await
+                            .expect("Error fetching secret")
+                            .expect("Missing key")
+                    })
+                });
+                secret.secret_material
+            }
             _ => panic!("Unexpected key format"),
         };
 
@@ -182,7 +184,7 @@ fn inspect_vm_relationship(diddoc: &Document, vm_id: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use std::{sync::Mutex, vec};
+    use std::sync::Mutex;
 
     use super::*;
     use crate::didgen::tests::*;
@@ -198,7 +200,6 @@ mod tests {
         vc::VerifiablePresentation,
     };
     use http_body_util::BodyExt;
-    use keystore::Keystore;
     use serde_json::json;
     use tower::util::ServiceExt;
 
@@ -227,9 +228,9 @@ mod tests {
         )
         .unwrap();
 
-        let kid = "did:peer:123#key-1".to_string();
         let mut mock_fs = MockFileSystem::new();
-        let mock_keystore = Keystore::with_mock_configs(vec![(kid, setup())]);
+        let mut mock_keystore = MockKeystore::new();
+        let secret = setup();
 
         // Simulate reading the did.json file
         mock_fs
@@ -256,10 +257,16 @@ mod tests {
                 .to_string())
             });
 
+        // Mock the keystore to return the secret for key-1
+        mock_keystore
+            .expect_find_one_by()
+            .withf(|filter| filter.get_str("kid").unwrap() == "did:peer:123#key-1")
+            .returning(move |_| Ok(Some(secret.clone())));
+
         // Setup state with mocks
         let state = DidEndPointState {
             filesystem: Arc::new(Mutex::new(mock_fs)),
-            keystore: mock_keystore,
+            keystore: Arc::new(mock_keystore),
         };
 
         let app = routes(Arc::new(state));

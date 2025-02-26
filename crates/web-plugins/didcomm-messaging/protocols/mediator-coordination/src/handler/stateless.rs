@@ -10,8 +10,8 @@ use crate::{
     },
 };
 use did_utils::didcore::VerificationMethodType;
-use did_utils::jwk::Jwk;
 use didcomm::Message;
+use mongodb::bson::doc;
 use serde_json::json;
 use shared::{
     midlw::ensure_transport_return_route_is_decorated_all,
@@ -91,8 +91,8 @@ pub(crate) async fn process_plain_mediation_request_over_dics(
         })?;
 
     // Extract assertion key
-    let jwk: Jwk = keystore
-        .retrieve(&kid)
+    let jwk = keystore
+        .find_one_by(doc! { "kid": kid.clone() })
         .await
         .map_err(|err| {
             tracing::error!("Error fetching secret: {err:?}");
@@ -101,7 +101,8 @@ pub(crate) async fn process_plain_mediation_request_over_dics(
         .ok_or_else(|| {
             tracing::error!("Secret not found");
             MediationError::InternalServerError
-        })?;
+        })?
+        .secret_material;
 
     // Issue verifiable credentials for DICs
     let vdic: Vec<_> = mediation_request

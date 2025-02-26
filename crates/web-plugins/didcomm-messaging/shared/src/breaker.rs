@@ -34,15 +34,15 @@ use tokio::time::Sleep;
 ///
 /// The behavior of the circuit breaker can be customized using the following builder methods:
 ///
-/// *   [`CircuitBreaker::retries(self, max_retries: usize)`]: Sets the maximum number of consecutive failures allowed before the circuit opens.
+/// *   [`retries(self, max_retries: usize)`](retries): Sets the maximum number of consecutive failures allowed before the circuit opens.
 ///     A value of 0 means the circuit will open on the first failure.
-/// *   [`CircuitBreaker::half_open_max_failures(self, max_retries: usize)`]: Sets the maximum number of attempts in half-open state
+/// *   [`half_open_max_failures(self, max_retries: usize)`](half_open_max_failures): Sets the maximum number of attempts in half-open state
 ///     before reopening the circuit.
-/// *   [`CircuitBreaker::reset_timeout(self, reset_timeout: Duration)`]: Sets the duration the circuit remains open after tripping.
+/// *   [`reset_timeout(self, reset_timeout: Duration)`](timeout): Sets the duration the circuit remains open after tripping.
 ///     After this timeout, the circuit transitions to the half-open state.
-/// *   [`CircuitBreaker::exponential_backoff(self, initial_delay: Duration)`]: Configures an exponential backoff strategy for retries.
+/// *   [`exponential_backoff(self, initial_delay: Duration)`](exponential_backoff): Configures an exponential backoff strategy for retries.
 ///     The delay between retries increases exponentially. This overrides any previously set backoff.
-/// *   [`CircuitBreaker::constant_backoff(self, delay: Duration)`]: Configures a constant backoff strategy for retries.
+/// *   [`constant_backoff(self, delay: Duration)`](constant_backoff): Configures a constant backoff strategy for retries.
 ///
 /// # Example
 ///

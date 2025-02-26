@@ -11,11 +11,10 @@ pub mod tests {
         error::Error as DidcommError, secrets::SecretsResolver, Message, PackEncryptedOptions,
         UnpackOptions,
     };
-    use keystore::Keystore;
-    use std::{env, sync::Arc};
+    use keystore::{tests::MockKeyStore, Secrets};
+    use std::sync::Arc;
 
     pub fn setup() -> Arc<AppState> {
-        env::set_var("MASTER_KEY", "1234567890qwertyuiopasdfghjklxzc");
         let public_domain = String::from("http://alice-mediator.com");
 
         let diddoc: Document = serde_json::from_str(
@@ -83,13 +82,16 @@ pub mod tests {
         )
         .unwrap();
 
-        let mediator_secret = (secret_id.to_string(), secret);
-        let keystore = Keystore::with_mock_configs(vec![mediator_secret]);
+        let mediator_secret = Secrets {
+            id: None,
+            kid: secret_id.to_string(),
+            secret_material: secret,
+        };
 
         let repository = AppStateRepository {
             connection_repository: Arc::new(MockConnectionRepository::from(vec![])),
             message_repository: Arc::new(MockMessagesRepository::from(vec![])),
-            keystore,
+            keystore: Arc::new(MockKeyStore::new(vec![mediator_secret])),
         };
 
         Arc::new(
@@ -124,8 +126,12 @@ pub mod tests {
         )
         .unwrap();
 
-        let test_secret = (secret_id.to_string(), secret);
-        let keystore = Keystore::with_mock_configs(vec![test_secret]);
+        let test_secret = Secrets {
+            id: None,
+            kid: secret_id.to_string(),
+            secret_material: secret,
+        };
+        let keystore = Arc::new(MockKeyStore::new(vec![test_secret]));
 
         LocalSecretsResolver::new(keystore)
     }
@@ -142,8 +148,12 @@ pub mod tests {
         )
         .unwrap();
 
-        let test_secret = (secret_id.to_string(), secret);
-        let keystore = Keystore::with_mock_configs(vec![test_secret]);
+        let test_secret = Secrets {
+            id: None,
+            kid: secret_id.to_string(),
+            secret_material: secret,
+        };
+        let keystore = Arc::new(MockKeyStore::new(vec![test_secret]));
 
         LocalSecretsResolver::new(keystore)
     }

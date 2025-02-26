@@ -21,17 +21,16 @@ mod tests {
     use chrono::Utc;
     use dashmap::DashMap;
     use did_utils::didcore::Document;
-    use keystore::Keystore;
+    use keystore::tests::MockKeyStore;
     use serde_json::json;
     use shared::{
         repository::tests::{MockConnectionRepository, MockMessagesRepository},
         state::AppStateRepository,
     };
-    use std::{env, sync::Arc};
+    use std::sync::Arc;
 
     #[test]
     fn test_handle_basic_message() {
-        env::set_var("MASTER_KEY", "0123456789QWERTYUIOPASDFGHJKLZXC");
         let diddoc: Document = serde_json::from_str(
                 r##"{
                     "@context": [
@@ -91,7 +90,7 @@ mod tests {
         let repository = AppStateRepository {
             connection_repository: Arc::new(MockConnectionRepository::from(vec![])),
             message_repository: Arc::new(MockMessagesRepository::from(vec![])),
-            keystore: Keystore::new(),
+            keystore: Arc::new(MockKeyStore::new(vec![])),
         };
         let state = Arc::new(
             AppState::from(

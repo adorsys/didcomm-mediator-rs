@@ -46,10 +46,6 @@ jobs:
           docker tag $IMAGE_NAME $IMAGE_ID:$VERSION
           docker push $IMAGE_ID:$VERSION
 
-          # Export the IMAGE_ID and VERSION as environment variables
-          echo "IMAGE_ID=$IMAGE_ID" >> $GITHUB_ENV
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
-
       - name: Install kubectl
         if: github.ref == 'refs/heads/main' # Only run if the branch is main
         uses: azure/setup-kubectl@v3
@@ -70,4 +66,4 @@ jobs:
       - name: Update Kubernetes deployment
         if: github.ref == 'refs/heads/main' # Only run if the branch is main
         run: |
-          kubectl set image deployment/mediator-deployment mediator-container=${{ env.IMAGE_ID }}:${{ env.VERSION }} -n ${{ env.NAMESPACE }}
+          kubectl set image deployment/mediator-deployment mediator-container=$IMAGE_ID:$VERSION -n ${{ env.NAMESPACE }}

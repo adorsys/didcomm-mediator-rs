@@ -50,7 +50,7 @@ async fn process_response(
                 )
                     .into_response()
             })
-            .unwrap_or_else(|err| err),
+            .unwrap_or_else(|err| err.into_response()),
             None => StatusCode::ACCEPTED.into_response(),
         },
         Err(response) => response,
@@ -136,7 +136,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_keylist_update_via_didcomm() {
-        std::env::set_var("MASTER_KEY", "1234567890qwertyuiopasdfghjklxzc");
         let mut container = MessagePluginContainer {
             loaded: false,
             collected_routes: vec![],

@@ -1,54 +1,48 @@
 pub mod errors;
 
 use axum::response::{IntoResponse, Response};
-use database::Repository;
+use database::{Repository, RepositoryError};
 use did_utils::didcore::Document as DidDocument;
 use didcomm::{FromPrior, Message};
 use errors::RotationError;
 use mongodb::bson::doc;
 use shared::{repository::entity::Connection, utils::resolvers::LocalDIDResolver};
 use std::sync::Arc;
-use tracing::error;
 
 /// https://identity.foundation/didcomm-messaging/spec/#did-rotation
 pub async fn did_rotation(
     msg: Message,
     connection_repos: &Arc<dyn Repository<Connection>>,
 ) -> Result<(), Response> {
-    // Check if from_prior is present
-    let Some(jwt) = msg.from_prior else {
+    // Check if from_prior is none
+    if msg.from_prior.is_none() {
         return Ok(());
-    };
-
+    }
+    let jwt = msg.from_prior.unwrap();
     let did_resolver = LocalDIDResolver::new(&DidDocument::default());
 
     // decode and validate jwt signature
     let (from_prior, _kid) = FromPrior::unpack(&jwt, &did_resolver)
         .await
-        .map_err(|err| {
-            error!("Failed to unpack from_prior: {err:?}");
-            RotationError::InvalidFromPrior.json().into_response()
-        })?;
+        .map_err(|_| RotationError::InvalidFromPrior.json().into_response())?;
     let prev = from_prior.iss;
 
     // validate if did is  known
     match connection_repos
         .find_one_by(doc! {"client_did": &prev})
         .await
-        .map_err(|err| {
-            error!("Failed to find connection: {err:?}");
-            RotationError::InternalServerError.json().into_response()
-        })? {
+        .unwrap()
+    {
         Some(mut connection) => {
             // get new did for communication, if empty then we end the relationship
             let new = from_prior.sub;
 
             if new.is_empty() {
                 let id = connection.id.unwrap_or_default();
-                return connection_repos.delete_one(id).await.map_err(|err| {
-                    error!("Failed to delete connection: {err:?}");
-                    RotationError::InternalServerError.json().into_response()
-                });
+                return connection_repos
+                    .delete_one(id)
+                    .await
+                    .map_err(|_| RotationError::TargetNotFound.json().into_response());
             }
 
             let did_index = connection.keylist.iter().position(|did| did == &prev);
@@ -63,16 +57,16 @@ pub async fn did_rotation(
             }
 
             // store updated connection
-            connection_repos
+            let _confirmations: Result<Connection, RepositoryError> = match connection_repos
                 .update(Connection {
                     client_did: new,
                     ..connection
                 })
                 .await
-                .map_err(|err| {
-                    error!("Failed to update connection: {err:?}");
-                    RotationError::InternalServerError.json().into_response()
-                })?;
+            {
+                Ok(conn) => Ok(conn),
+                Err(_) => return Err(RotationError::RepositoryError.json().into_response()),
+            };
         }
 
         None => {
@@ -91,7 +85,7 @@ mod test {
     use didcomm::secrets::SecretsResolver;
     use mongodb::bson::doc;
 
-    use keystore::Keystore;
+    use keystore::{tests::MockKeyStore, Secrets};
     use shared::{
         repository::{
             entity::Connection,
@@ -110,9 +104,11 @@ mod test {
     pub fn setup() -> Arc<AppState> {
         let public_domain = String::from("http://alice-mediator.com");
 
-        let keys: Vec<(String, Jwk)> = vec![(
-                String::from("did:peer:2.Vz6Mkf6r1uMJwoRAbzkuyj2RwPusdZhWSPeEknnTcKv2C2EN7.Ez6LSgbP4b3y8HVWG6C73WF2zLbzjDAPXjc33P2VfnVVHE347.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0#key-1"),
-                serde_json::from_str(
+        let keys = vec![
+            Secrets {
+                id: None,
+                kid: String::from("did:peer:2.Vz6Mkf6r1uMJwoRAbzkuyj2RwPusdZhWSPeEknnTcKv2C2EN7.Ez6LSgbP4b3y8HVWG6C73WF2zLbzjDAPXjc33P2VfnVVHE347.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0#key-1"),
+                secret_material: serde_json::from_str(
                     r#"{
                         "kty": "OKP",
                         "crv": "Ed25519",
@@ -121,9 +117,11 @@ mod test {
                     }"#,
                 )
                 .unwrap(),
-            ),(
-                String::from("did:peer:2.Vz6Mkf6r1uMJwoRAbzkuyj2RwPusdZhWSPeEknnTcKv2C2EN7.Ez6LSgbP4b3y8HVWG6C73WF2zLbzjDAPXjc33P2VfnVVHE347.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0#key-2"),
-                serde_json::from_str(
+            },
+            Secrets {
+                id: None,
+                kid: String::from("did:peer:2.Vz6Mkf6r1uMJwoRAbzkuyj2RwPusdZhWSPeEknnTcKv2C2EN7.Ez6LSgbP4b3y8HVWG6C73WF2zLbzjDAPXjc33P2VfnVVHE347.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0#key-2"),
+                secret_material: serde_json::from_str(
                     r#"{
                         "kty": "OKP",
                         "crv": "X25519",
@@ -132,13 +130,13 @@ mod test {
                     }"#,
                 )
                 .unwrap(),
-            ),
+            },
         ];
 
         let diddoc = didoc();
         let repository = AppStateRepository {
             connection_repository: Arc::new(MockConnectionRepository::from(_initial_connections())),
-            keystore: Keystore::with_mock_configs(keys),
+            keystore: Arc::new(MockKeyStore::new(keys)),
             message_repository: Arc::new(MockMessagesRepository::from(vec![])),
         };
 
@@ -253,8 +251,14 @@ mod test {
             )
             .unwrap();
 
-            let keystore = Keystore::with_mock_configs(vec![(secret_id.into(), secret_material)]);
-            LocalSecretsResolver::new(keystore)
+            let secret = Secrets {
+                id: None,
+                kid: secret_id.into(),
+                secret_material,
+            };
+
+            let keystore = MockKeyStore::new(vec![secret]);
+            LocalSecretsResolver::new(Arc::new(keystore))
         }
 
         let from_prior = FromPrior {

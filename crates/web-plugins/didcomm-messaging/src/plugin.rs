@@ -9,6 +9,7 @@ use shared::{
     breaker::CircuitBreaker,
     repository::{MongoConnectionRepository, MongoMessagesRepository},
     state::{AppState, AppStateRepository},
+    utils,
 };
 use std::{sync::Arc, time::Duration};
 use tokio::sync::RwLock;
@@ -55,7 +56,7 @@ impl Plugin for DidcommMessaging {
         let env = load_plugin_env()?;
 
         let mut filesystem = filesystem::StdFileSystem;
-        let keystore = keystore::Keystore::with_mongodb();
+        let keystore = keystore::KeyStore::get();
 
         // Expect DID document from file system
         if let Err(err) =
@@ -122,18 +123,17 @@ impl Plugin for DidcommMessaging {
 
         // Load crypto identity
         let fs = StdFileSystem;
-        let diddoc = shared::utils::read_diddoc(&fs, &env.storage_dirpath).map_err(|err| {
+        let diddoc = utils::read_diddoc(&fs, &env.storage_dirpath).map_err(|err| {
             PluginError::Other(format!(
                 "This should not occur following successful mounting: {:?}",
                 err
             ))
         })?;
-        let keystore = keystore::Keystore::with_mongodb();
 
         // Load persistence layer
         let repository = AppStateRepository {
             connection_repository: Arc::new(MongoConnectionRepository::from_db(db)),
-            keystore,
+            keystore: Arc::new(keystore::KeyStore::get()),
             message_repository: Arc::new(MongoMessagesRepository::from_db(db)),
         };
 
