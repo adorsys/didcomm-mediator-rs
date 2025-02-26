@@ -120,6 +120,7 @@ prometheus-client.workspace = true
 hyper.workspace = true
 http-body-util.workspace = true
 axum-prometheus.workspace = true
+mongodb.workspace = true
 tokio = { workspace = true, features = ["full"] }
 tracing-subscriber = { workspace = true, features = ["json"] }
 tower-http = { workspace = true, features = ["catch-panic", "trace", "cors"] }
@@ -127,7 +128,6 @@ chrono = { workspace = true, optional = true }
 did-endpoint = { workspace = true, optional = true }
 oob-messages = { workspace = true, optional = true }
 didcomm-messaging = { workspace = true, optional = true }
-mongodb.workspace = true
 
 
 [features]
