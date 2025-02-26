@@ -1,0 +1,28 @@
+config:
+  target: "https://didcomm-mediator.eudi-adorsys.com"
+  phases:
+    - duration: 15
+      arrivalRate: 10
+      rampTo: 50
+      name: "Warm-up Phase"
+    - duration: 60
+      arrivalRate: 50
+      name: "Sustained Load Phase"
+    - duration: 30
+      arrivalRate: 100
+      name: "Stress Phase"
+    - duration: 15
+      arrivalRate: 0
+      name: "Cooldown Phase"
+  thresholds:
+    - http_req_duration: ["p(95)<500"]  
+    - http_req_failed: ["rate<0.1"]     
+scenarios:
+  - name: "Basic Load Test"
+    flow:
+      - get:
+          url: "/"
+          timeout: 3000
+          retry: 2
+          expect:
+            statusCode: 200
