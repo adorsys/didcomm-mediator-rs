@@ -1,0 +1,18 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: mediator-service-monitor
+  namespace: didcomm-mediator
+  labels:
+    release: mediator-kube-prometheus
+spec:
+  selector:
+    matchLabels:
+      app: mediator 
+  namespaceSelector:
+    matchNames:
+      - didcomm-mediator
+  endpoints:
+  - port: https
+    path: /metrics
+    interval: 5s
