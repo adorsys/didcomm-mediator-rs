@@ -6,7 +6,6 @@ edition = "2021"
 [dependencies]
 shared.workspace = true
 did-utils.workspace = true
-keystore.workspace = true
 message-api.workspace = true
 
 mongodb.workspace = true
@@ -23,6 +22,7 @@ tokio = { workspace = true, features = ["full"] }
 axum = { workspace = true, features = ["macros"] }
 uuid = { workspace = true, features = ["v4"] }
 hyper = { workspace = true, features = ["full"] }
+
 
 [dev-dependencies]
 hyper = "1.5.2"
