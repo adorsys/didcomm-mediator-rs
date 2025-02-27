@@ -1,5 +1,5 @@
 //! Types for Coordinate Mediation v2.0
-//! See https://didcomm.org/coordinate-mediation/2.0
+//! See <https://didcomm.org/coordinate-mediation/2.0>
 
 use std::collections::HashMap;
 
@@ -226,26 +226,6 @@ pub struct KeylistQueryPaginate {
     pub offset: i32,
 }
 
-/// Response to key list query, containing retrieved keys.
-#[derive(Debug, Serialize, Deserialize, Clone, Default)]
-pub struct Keylist {
-    /// Uniquely identifies a keylist query response message.
-    pub id: String,
-
-    /// References the protocol URI of this concept.
-    ///
-    /// Typically `https://didcomm.org/coordinate-mediation/2.0/keylist`
-    #[serde(rename = "type")]
-    pub message_type: String,
-
-    /// Message body
-    pub body: KeylistBody,
-
-    /// Dynamic properties.
-    #[serde(flatten)]
-    pub additional_properties: Option<HashMap<String, Value>>,
-}
-
 #[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq, Eq)]
 pub struct KeylistBody {
     /// List of retrieved keys.
@@ -283,7 +263,7 @@ mod tests {
 
     use serde_json::{json, Value};
 
-    use shared::constants::*;
+    use crate::constants::*;
 
     #[test]
     fn can_serde_return_route_header_enum() {
@@ -579,25 +559,18 @@ mod tests {
 
     #[test]
     fn can_serialize_keylist_message() {
-        let keylist = Keylist {
-            id: "id_alice_keylist".to_string(),
-            message_type: KEYLIST_2_0.to_string(),
-            body: KeylistBody {
-                keys: vec![KeylistEntry {
-                    recipient_did: String::from("did:key:alice_identity_pub1@alice_mediator"),
-                }],
-                pagination: Some(KeylistPagination {
-                    count: 30,
-                    offset: 30,
-                    remaining: 100,
-                }),
-            },
-            additional_properties: None,
+        let keylist = KeylistBody {
+            keys: vec![KeylistEntry {
+                recipient_did: String::from("did:key:alice_identity_pub1@alice_mediator"),
+            }],
+            pagination: Some(KeylistPagination {
+                count: 30,
+                offset: 30,
+                remaining: 100,
+            }),
         };
-
+        let keylist = json!({"body": keylist });
         let expected = json!({
-            "id": "id_alice_keylist",
-            "type": "https://didcomm.org/coordinate-mediation/2.0/keylist",
             "body": {
                 "keys": [
                     {
@@ -620,9 +593,15 @@ mod tests {
 
     #[test]
     fn can_deserialize_keylist_message() {
+        /// to structure to avoid multiple serde calls in test
+        ///
+        #[derive(Deserialize, Serialize)]
+        pub struct Keylist {
+            /// Message body
+            pub body: KeylistBody,
+        }
+
         let msg = r#"{
-            "id": "id_alice_keylist",
-            "type": "https://didcomm.org/coordinate-mediation/2.0/keylist",
             "body": {
                 "keys": [
                     {
@@ -637,12 +616,7 @@ mod tests {
             }
         }"#;
 
-        // Assert deserialization
-
         let keylist: Keylist = serde_json::from_str(msg).unwrap();
-
-        assert_eq!(&keylist.id, "id_alice_keylist");
-        assert_eq!(&keylist.message_type, KEYLIST_2_0);
 
         assert_eq!(
             keylist.body,
@@ -672,7 +646,6 @@ mod tests {
             return_route: ReturnRouteHeader::All,
             id: "id_alice_mediation_request".to_string(),
             message_type: MEDIATE_REQUEST_2_0.to_string(),
-            ..Default::default()
         };
 
         let expected = json!({
@@ -713,7 +686,6 @@ mod tests {
             body: MediationGrantBody {
                 routing_did: "routing_did".to_string(),
             },
-            ..Default::default()
         };
 
         let expected = json!({
@@ -756,7 +728,6 @@ mod tests {
         let mediation_deny = MediationDeny {
             id: "id_alice_mediation_deny".to_string(),
             message_type: MEDIATE_DENY_2_0.to_string(),
-            ..Default::default()
         };
 
         let expected = json!({

@@ -1,0 +1,33 @@
+services:
+  mediator:
+    build:
+      context: .
+    container_name: didcomm-mediator
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env  
+    depends_on:
+      - mongodb
+    networks:
+      - mediator-network
+
+  mongodb:
+    image: mongo:latest
+    container_name: mongodb
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - mediator-network
+    healthcheck:
+      test: ["CMD", "mongo", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  mediator-network:
+    driver: bridge
+
+volumes:
+  mongo-data:

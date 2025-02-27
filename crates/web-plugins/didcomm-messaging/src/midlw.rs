@@ -1,18 +1,24 @@
 use axum::{
     body::Body,
     extract::State,
-    http::{header, Request, StatusCode},
+    http::{header, StatusCode},
     middleware::Next,
     response::{IntoResponse, Response},
 };
-use didcomm::{error::ErrorKind as DidcommErrorKind, Message, PackEncryptedOptions, UnpackOptions};
+use didcomm::{Message, PackEncryptedOptions, UnpackOptions};
+use http_body_util::BodyExt;
+use hyper::Request;
 use serde_json::Value;
 use std::sync::Arc;
+use tracing::error;
 
 // use super::{error::MediationError, AppState};
-use crate::{did_rotation::did_rotation::did_rotation, error::Error};
-use shared::{
+use crate::{
     constants::{DIDCOMM_ENCRYPTED_MIME_TYPE, DIDCOMM_ENCRYPTED_SHORT_MIME_TYPE},
+    did_rotation::did_rotation,
+    error::Error,
+};
+use shared::{
     state::{AppState, AppStateRepository},
     utils::resolvers::{LocalDIDResolver, LocalSecretsResolver},
 };
@@ -21,7 +27,7 @@ use shared::{
 pub async fn unpack_didcomm_message(
     State(state): State<Arc<AppState>>,
     request: Request<Body>,
-    next: Next<Body>,
+    next: Next,
 ) -> Response {
     // Enforce request content type to match `didcomm-encrypted+json`
     let content_type = request
@@ -35,18 +41,20 @@ pub async fn unpack_didcomm_message(
 
     // Extract request payload
     let (parts, body) = request.into_parts();
-    let bytes = match hyper::body::to_bytes(body).await {
-        Ok(bytes) => bytes,
-        Err(_) => {
+    let collected = match BodyExt::collect(body).await {
+        Ok(collected) => collected,
+        Err(err) => {
+            tracing::error!("Failed to parse request body: {err:?}");
             let response = (
-                StatusCode::BAD_REQUEST,
-                Error::UnparseablePayload.json(),
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Error::InternalServer.json(),
             );
 
             return response.into_response();
         }
     };
 
+    let bytes = collected.to_bytes();
     let payload = String::from_utf8_lossy(&bytes);
 
     // Attempt to unpack request payload
@@ -114,13 +122,9 @@ async fn unpack_payload(
     )
     .await;
 
-    let (plain_message, metadata) = res.map_err(|_| {
-        let response = (
-            StatusCode::BAD_REQUEST,
-            Error::MessageUnpackingFailure.json(),
-        );
-
-        response.into_response()
+    let (plain_message, metadata) = res.map_err(|err| {
+        error!("Failed to unpack message: {err:?}");
+        (StatusCode::BAD_REQUEST, Error::CouldNotUnpackMessage.json()).into_response()
     })?;
 
     if !metadata.encrypted {
@@ -133,10 +137,7 @@ async fn unpack_payload(
     }
 
     if plain_message.from.is_none() || !metadata.authenticated || metadata.anonymous_sender {
-        let response = (
-            StatusCode::BAD_REQUEST,
-            Error::AnonymousPacker.json(),
-        );
+        let response = (StatusCode::BAD_REQUEST, Error::AnonymousPacker.json());
 
         return Err(response.into_response());
     }
@@ -150,21 +151,22 @@ pub async fn pack_response_message(
     did_resolver: &LocalDIDResolver,
     secrets_resolver: &LocalSecretsResolver,
 ) -> Result<Value, Response> {
-    let from = msg.from.as_ref();
-    let to = msg.to.as_ref().and_then(|v| v.get(0));
-
-    if from.is_none() || to.is_none() {
+    let Some((from, to)) = msg
+        .from
+        .as_ref()
+        .zip(msg.to.as_ref().and_then(|v| v.first()))
+    else {
+        tracing::error!("Failed to pack message: missing from or to field");
         let response = (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Error::MessagePackingFailure(DidcommErrorKind::Malformed).json(),
+            Error::InternalServer.json(),
         );
-
         return Err(response.into_response());
-    }
+    };
 
     msg.pack_encrypted(
-        to.unwrap(),
-        from.map(|x| x.as_str()),
+        to,
+        Some(from),
         None,
         did_resolver,
         secrets_resolver,
@@ -173,9 +175,10 @@ pub async fn pack_response_message(
     .await
     .map(|(packed_message, _metadata)| serde_json::from_str(&packed_message).unwrap())
     .map_err(|err| {
+        tracing::error!("Failed to pack message: {err:?}");
         let response = (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Error::MessagePackingFailure(err.kind()).json(),
+            Error::InternalServer.json(),
         );
 
         response.into_response()
@@ -184,6 +187,8 @@ pub async fn pack_response_message(
 
 #[cfg(test)]
 mod tests {
+    use std::env;
+
     use super::*;
     use shared::utils::tests_utils::tests::*;
 
@@ -191,6 +196,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_pack_response_message_works() {
+        env::set_var("MASTER_KEY", "1234567890qwertyuiopasdfghjklxzc");
         let state = setup();
 
         let msg = Message::build(
@@ -239,7 +245,7 @@ mod tests {
                     .await
                     .unwrap_err(),
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Error::MessagePackingFailure(DidcommErrorKind::Malformed),
+                Error::InternalServer,
             )
             .await;
         }
@@ -265,7 +271,7 @@ mod tests {
                 .await
                 .unwrap_err(),
             StatusCode::INTERNAL_SERVER_ERROR,
-            Error::MessagePackingFailure(DidcommErrorKind::Unsupported),
+            Error::InternalServer,
         )
         .await;
     }
@@ -277,8 +283,8 @@ mod tests {
     async fn _assert_midlw_err(err: Response, status: StatusCode, mediation_error: Error) {
         assert_eq!(err.status(), status);
 
-        let body = hyper::body::to_bytes(err.into_body()).await.unwrap();
-        let body: Value = serde_json::from_slice(&body).unwrap();
+        let body = BodyExt::collect(err.into_body()).await.unwrap();
+        let body: Value = serde_json::from_slice(&body.to_bytes()).unwrap();
 
         assert_eq!(
             json_canon::to_string(&body).unwrap(),

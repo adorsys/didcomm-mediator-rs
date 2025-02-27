@@ -8,6 +8,7 @@ use axum::{
 use chrono::Utc;
 use did_utils::{
     didcore::{Document, KeyFormat, Proofs},
+    jwk::Jwk,
     proof::{CryptoProof, EdDsaJcs2022, Proof, PROOF_TYPE_DATA_INTEGRITY_PROOF},
     vc::{VerifiableCredential, VerifiablePresentation},
 };
@@ -36,7 +37,10 @@ async fn diddoc(State(state): State<Arc<DidEndPointState>>) -> Result<Json<Value
     let did_path = Path::new(&storage_dirpath).join("did.json");
 
     match filesystem.read_to_string(&did_path).as_ref() {
-        Ok(content) => Ok(Json(serde_json::from_str(&content).unwrap())),
+        Ok(content) => Ok(Json(serde_json::from_str(content).map_err(|_| {
+            tracing::error!("Unparseable did.json");
+            StatusCode::NOT_FOUND
+        })?)),
         Err(_) => Err(StatusCode::NOT_FOUND),
     }
 }
@@ -53,7 +57,7 @@ async fn didpop(
     let diddoc: Document = serde_json::from_value(diddoc_value.clone()).unwrap();
 
     let did_address = diddoc.id.clone();
-    let methods = diddoc.verification_method.clone().unwrap_or(vec![]);
+    let methods = diddoc.verification_method.clone().unwrap_or_default();
 
     // Build verifiable credential (VC)
     let vc: VerifiableCredential = serde_json::from_value(json!({
@@ -97,19 +101,16 @@ async fn didpop(
 
         let kid = util::handle_vm_id(&method.id, &diddoc);
 
-        let jwk = match pubkey {
-            KeyFormat::Jwk(_) => {
-                let secret = task::block_in_place(|| {
-                    Handle::current().block_on(async {
-                        keystore
-                            .find_one_by(doc! { "kid": kid.as_ref() })
-                            .await
-                            .expect("Error fetching secret")
-                            .expect("Missing key")
-                    })
-                });
-                secret.secret_material
-            }
+        let jwk: Jwk = match pubkey {
+            KeyFormat::Jwk(_) => task::block_in_place(|| {
+                Handle::current().block_on(async {
+                    keystore
+                        .retrieve(&kid)
+                        .await
+                        .expect("Error fetching secret")
+                        .expect("Missing key")
+                })
+            }),
             _ => panic!("Unexpected key format"),
         };
 
@@ -154,15 +155,15 @@ async fn didpop(
 fn inspect_vm_relationship(diddoc: &Document, vm_id: &str) -> Option<String> {
     let vrel = [
         (
-            json!(diddoc.authentication.clone().unwrap_or(vec![])),
+            json!(diddoc.authentication.clone().unwrap_or_default()),
             String::from("authentication"),
         ),
         (
-            json!(diddoc.assertion_method.clone().unwrap_or(vec![])),
+            json!(diddoc.assertion_method.clone().unwrap_or_default()),
             String::from("assertionMethod"),
         ),
         (
-            json!(diddoc.key_agreement.clone().unwrap_or(vec![])),
+            json!(diddoc.key_agreement.clone().unwrap_or_default()),
             String::from("keyAgreement"),
         ),
     ];
@@ -181,7 +182,7 @@ fn inspect_vm_relationship(diddoc: &Document, vm_id: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Mutex;
+    use std::{sync::Mutex, vec};
 
     use super::*;
     use crate::didgen::tests::*;
@@ -196,6 +197,8 @@ mod tests {
         proof::{CryptoProof, EdDsaJcs2022},
         vc::VerifiablePresentation,
     };
+    use http_body_util::BodyExt;
+    use keystore::Keystore;
     use serde_json::json;
     use tower::util::ServiceExt;
 
@@ -224,9 +227,9 @@ mod tests {
         )
         .unwrap();
 
+        let kid = "did:peer:123#key-1".to_string();
         let mut mock_fs = MockFileSystem::new();
-        let mut mock_keystore = MockKeystore::new();
-        let secret = setup();
+        let mock_keystore = Keystore::with_mock_configs(vec![(kid, setup())]);
 
         // Simulate reading the did.json file
         mock_fs
@@ -253,16 +256,10 @@ mod tests {
                 .to_string())
             });
 
-        // Mock the keystore to return the secret for key-1
-        mock_keystore
-            .expect_find_one_by()
-            .withf(|filter| filter.get_str("kid").unwrap() == "did:peer:123#key-1")
-            .returning(move |_| Ok(Some(secret.clone())));
-
         // Setup state with mocks
         let state = DidEndPointState {
             filesystem: Arc::new(Mutex::new(mock_fs)),
-            keystore: Arc::new(mock_keystore),
+            keystore: mock_keystore,
         };
 
         let app = routes(Arc::new(state));
@@ -281,11 +278,11 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::OK);
 
-        let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
-        let vp: VerifiablePresentation = serde_json::from_slice(&body).unwrap();
+        let body = BodyExt::collect(response.into_body()).await.unwrap();
+        let vp: VerifiablePresentation = serde_json::from_slice(&body.to_bytes()).unwrap();
 
-        let vc = vp.verifiable_credential.get(0).unwrap();
-        let diddoc = serde_json::from_value(json!(vc.credential_subject)).unwrap();
+        let vc = vp.verifiable_credential.first();
+        let diddoc = serde_json::from_value(json!(vc.unwrap().credential_subject)).unwrap();
 
         assert_eq!(
             json_canon::to_string(&diddoc).unwrap(),

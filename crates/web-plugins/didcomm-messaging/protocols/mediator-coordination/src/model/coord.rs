@@ -1,9 +1,9 @@
 use serde::{de::Error, Deserialize, Deserializer, Serialize};
 
-use shared::constants::MEDIATE_REQUEST_2_0;
+use crate::constants::MEDIATE_REQUEST_2_0;
 
 #[cfg(feature = "stateless")]
-use super::stateless::coord::MediationRequest as StatelessMediationRequest;
+use crate::model::stateless::coord::MediationRequest as StatelessMediationRequest;
 
 #[cfg(feature = "stateful")]
 use super::stateful::coord::MediationRequest as StatefulMediationRequest;
@@ -30,7 +30,7 @@ impl MediationRequest {
     where
         D: Deserializer<'de>,
     {
-        use crate::constant::MEDIATE_REQUEST_DIC_1_0;
+        use crate::constants::MEDIATE_REQUEST_DIC_1_0;
 
         match StatelessMediationRequest::deserialize(deserializer)? {
             mr if mr.message_type == MEDIATE_REQUEST_DIC_1_0 => Ok(mr),

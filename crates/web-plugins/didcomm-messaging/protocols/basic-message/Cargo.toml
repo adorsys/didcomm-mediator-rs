@@ -1,0 +1,19 @@
+[package]
+name = "basic-message"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+shared.workspace = true
+did-utils.workspace = true
+keystore.workspace = true
+didcomm.workspace = true
+serde_json.workspace = true
+axum = { workspace = true, features = ["macros"] }
+chrono.workspace = true
+
+[dev-dependencies]
+did-utils.workspace = true
+keystore.workspace = true
+dashmap.workspace = true
+shared = { workspace = true, features = ["test-utils"] }

@@ -3,15 +3,13 @@
 [![DIDComm Messaging Spec](https://img.shields.io/badge/DIDComm%20Messaging-Specification-blue.svg)](https://identity.foundation/didcomm-messaging/spec/)
 [![License](https://img.shields.io/badge/license-Apache%202.0-brightgreen.svg)](https://github.com/adorsys/didcomm-mediator-rs/blob/main/LICENSE)
 
-
-# Didcomm-mediator
+# DIDComm-Mediator
 
 A DIDComm mediator is a cloud agent that facilitates secure, decentralized communication between mobile agents in the self-sovereign identity (SSI) ecosystem. This mediator acts as a cloud-based intermediary, enabling mobile agents to communicate without reliance on centralized infrastructures like Facebook, Signal, or Telegram.
 
+For further understanding checkout the [docs](docs/mediator-doc.md)  
 
-For further understanding checkout the [docs](docs/mediator-doc.md)<br>
-
-###  Project Feature Implementation Tracker
+## Project Feature Implementation Tracker
 
 |Message types  | Spec Status | Implementation Status|
 |---------------|-------------|----------------------|
@@ -20,8 +18,8 @@ For further understanding checkout the [docs](docs/mediator-doc.md)<br>
 |[DID Rotation](https://didcomm.org/book/v2/didrotation) | ACCEPTED | ✅ |
 |[Cross-Domain Messaging/ Routing Protocol](https://identity.foundation/didcomm-messaging/spec/#routing-protocol-20) | ADOPTED | ✅|
 |[Trust Ping Ptotocol](https://identity.foundation/didcomm-messaging/spec/#trust-ping-protocol-20) | ADOPTED|✅|
-|[Discover Features Protocol](https://didcomm.org/discover-features/2.0/) | ADOPTED | ⚪ |
-|[Out of band Messaging](https://identity.foundation/didcomm-messaging/spec/#out-of-band-messages) | ADOPTED | ⚪
+|[Discover Features Protocol](https://didcomm.org/discover-features/2.0/) | ADOPTED | ✅ |
+|[Out of band Messaging](https://identity.foundation/didcomm-messaging/spec/#out-of-band-messages) | ADOPTED | ✅
 |[Basic Message Protocol](https://didcomm.org/basicmessage/2.0/#:~:text=The%20BasicMessage%20protocol%20describes%20a,message%20type%20used%20to%20communicate.) | ADOPTED|⚪|
 |[Acks](https://github.com/hyperledger/aries-rfcs/tree/main/features/0015-acks)| ADOPTED |❌ |
 |[Present Proof Protocol](https://didcomm.org/present-proof/3.0/)| ADOPTED | ❌|
@@ -55,46 +53,53 @@ git clone git@github.com:adorsys/didcomm-mediator-rs.git
 
 ## Running the Project
 
-To build and run the project:
+### Mongo DB
 
-* Compile the project:
+This project uses MongoDB as the database. You need to have [MongoDB](https://www.mongodb.com) installed and running on your system.
+
+Another option is to use [Docker](https://www.docker.com):
 
 ```sh
-cargo build
+docker pull mongo
+docker run --name mongodb -d mongo
 ```
 
-* Start the mediator service:
+### Environmental variables
+
+You need to create a **`.env`** file in the root directory of the project and add the following variables:
+
+```sh
+SERVER_PUBLIC_DOMAIN="http://localhost:8080"
+STORAGE_DIRPATH="./storage"
+MONGO_DBN="DIDComm_DB"
+MONGO_URI="mongodb://localhost:27017"
+```
+
+> The values can be changed according to your needs.  
+
+You can now start the mediator server:
 
 ```sh
 cargo run
 ```
 
+### Running with Docker Compose
+
+You can run the project with Docker Compose.
+
+* First change the `MONGO_URI` variable in the `.env` file to `mongodb://mongodb:27017`
+
+* Then run the following command:
+
+```sh
+docker-compose up
+```
+
+This will build the docker image of the mediator server with all its prerequisites and run it.
+
 The output should look like this:
 
-![image](docs/server-output.png)
-
-### Testing
-
-The tests can be run with:
-
-```sh
-cargo test --workspace
-```
-
-or optionally with `cargo nextest` (you may want to [install](https://nexte.st/docs/installation/pre-built-binaries/) it first) if you want to speed-up the tests:
-
-```sh
-cargo nextest run --workspace
-```
-
-## Troubleshooting
-
-* **Build Errors**: Verify the required packages (**libssl-dev** and **pkg-config**) are installed, and you have the latest Rust and Cargo versions.
-* Use `cargo check` to identify missing dependencies:
-
-```sh
-cargo check
-```
+![image](docs/server-output.webp)
 
 ## License
 

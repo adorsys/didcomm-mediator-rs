@@ -82,7 +82,7 @@ pub(crate) struct LiveDeliveryChange<'a> {
     pub(crate) id: &'a str,
 
     pub(crate) pthid: &'a str,
-    
+
     #[serde(rename = "type")]
     pub(crate) type_: &'a str,
 
@@ -110,7 +110,7 @@ impl<'a> From<LiveDeliveryChange<'a>> for MessageBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use didcomm::{MessageBuilder, Attachment};
+    use didcomm::{Attachment, MessageBuilder};
     use serde_json::{json, Value};
 
     #[test]
@@ -148,12 +148,16 @@ mod tests {
         let id = "12345";
         let thid = "67890";
         let type_ = "https://didcomm.org/messagepickup/3.0/delivery-response";
-        let attachment = Attachment::json(json!({"key": "value"})).id("123".to_owned()).finalize();
+        let attachment = Attachment::json(json!({"key": "value"}))
+            .id("123".to_owned())
+            .finalize();
         let response = DeliveryResponse {
             id,
             thid,
             type_,
-            body: BodyDeliveryResponse { recipient_did: None },
+            body: BodyDeliveryResponse {
+                recipient_did: None,
+            },
             attachments: vec![attachment.clone()],
         };
 

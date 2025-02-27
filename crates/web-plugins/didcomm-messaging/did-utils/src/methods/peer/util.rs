@@ -1,6 +1,6 @@
 use super::errors::DIDPeerMethodError;
 use crate::didcore::Document as DIDDocument;
-use crate::didcore::{VerificationMethodType, Service};
+use crate::didcore::{Service, VerificationMethodType};
 use serde_json::{json, Map, Value};
 
 pub(super) fn abbreviate_service_for_did_peer_2(service: &Service) -> Result<String, DIDPeerMethodError> {
@@ -116,7 +116,7 @@ fn are_all_ids_and_references_relative(diddoc: &DIDDocument) -> bool {
 
     #[inline]
     fn check_methods<T>(methods: &Option<Vec<T>>, f: impl Fn(&T) -> bool) -> bool {
-        methods.as_ref().map_or(true, |items| items.iter().all(f))
+        methods.as_ref().is_none_or(|items| items.iter().all(f))
     }
 
     check_methods(&diddoc.verification_method, |method| is_relative(&method.id))

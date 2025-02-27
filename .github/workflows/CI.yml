@@ -1,0 +1,61 @@
+name: CI
+
+on: [pull_request]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+
+jobs:
+
+  ci:
+    name: Build and test
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Cache dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/bin
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          target/
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          ${{ runner.os }}-cargo
+
+    - name: Set up Rust
+      uses: actions-rust-lang/setup-rust-toolchain@v1
+      with:
+        toolchain: stable
+        rustflags:
+
+    - name: Install Nextest test runner
+      uses: taiki-e/install-action@nextest
+
+    - name: Create example env file
+      run: |
+        chmod +x .github/scripts/test_config.sh
+        sh .github/scripts/test_config.sh
+
+    - name: Check Formatting
+      run: cargo fmt --all -- --check
+
+    - name: Build Project
+      run: cargo build --workspace --all-features
+
+    - name: Run Tests
+      run: cargo nextest run --workspace --all-features
+    
+    - name: Lints checks
+      run: |
+        cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+    - name: Check API documentation
+      run: cargo doc --workspace --all-features --no-deps

@@ -12,3 +12,4 @@ categories = ["cryptography"]
 
 [dependencies]
 axum.workspace = true
+thiserror.workspace = true

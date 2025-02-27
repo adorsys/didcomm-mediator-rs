@@ -7,17 +7,22 @@ edition = "2021"
 keystore.workspace = true
 shared.workspace = true
 database.workspace = true
+message-api.workspace = true
 
 mongodb.workspace = true
+tracing.workspace = true
+async-trait.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
+futures.workspace = true
 didcomm = { workspace = true, features = ["uniffi"] }
 hyper = { workspace = true, features = ["full"] }
 axum = { workspace = true, features = ["macros"] }
+tokio = { workspace = true, features = ["full"] }
 
 [dev-dependencies]
 keystore = { workspace = true, features = ["test-utils"] }
 shared = { workspace = true, features = ["test-utils"] }
 did-utils.workspace = true
 uuid = { workspace = true, features = ["v4"] }
-tokio = { version = "1.27.0", default-features = false, features = ["macros", "rt"] }
+tokio = { version = "1.42.0", default-features = false, features = ["macros", "rt"] }

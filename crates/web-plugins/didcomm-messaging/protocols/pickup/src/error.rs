@@ -2,8 +2,8 @@ use axum::{http::StatusCode, response::IntoResponse, Json};
 use thiserror::Error;
 
 #[derive(Debug, Error, PartialEq)]
-pub enum PickupError {
-    #[error("Missing sender DID")]
+pub(crate) enum PickupError {
+    #[error("Sender DID is missing in the message")]
     MissingSenderDID,
 
     #[error("{0}")]
@@ -14,6 +14,9 @@ pub enum PickupError {
 
     #[error("Malformed request. {0}")]
     MalformedRequest(String),
+
+    #[error("Service unavailable")]
+    ServiceUnavailable,
 }
 
 impl IntoResponse for PickupError {
@@ -24,6 +27,7 @@ impl IntoResponse for PickupError {
             }
             PickupError::InternalError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             PickupError::MissingClientConnection => StatusCode::UNAUTHORIZED,
+            PickupError::ServiceUnavailable => StatusCode::SERVICE_UNAVAILABLE,
         };
 
         let body = Json(serde_json::json!({

@@ -11,11 +11,14 @@ edition = "2021"
 
 [dependencies]
 serde_json.workspace = true
-chrono = { workspace = true, features = ["serde"] }
-hyper = { workspace = true, features = ["client", "http2"] }
 tokio.workspace = true
 serde.workspace = true
+axum.workspace = true
 hyper-tls.workspace = true
+http-body-util.workspace = true
+hyper-util ={ workspace = true, features = ["full"] }
+hyper = { workspace = true, features = ["full"] }
+chrono = { workspace = true, features = ["serde"] }
 
 # Cross-platform random number generator from os
 getrandom = { workspace = true, features = ["js"] }
@@ -44,10 +47,10 @@ subtle.workspace = true
 regex.workspace = true
 
 [dev-dependencies]
-hyper = { version = "0.14.26", features = ["server"] }
-async-std = { version = "1.12.0", features = ["attributes"] }
+hyper = { version = "1.5.2", features = ["server"] }
+async-std = { version = "1.13.0", features = ["attributes"] }
 hex = "0.4.3"
-tokio = { version = "1.27.0", default-features = false, features = [
+tokio = { version = "1.42.0", default-features = false, features = [
     "macros",
     "rt",
 ] }

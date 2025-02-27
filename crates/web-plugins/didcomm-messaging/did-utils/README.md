@@ -10,8 +10,11 @@ A Rust library for implementing reusable utility code for DID-based applications
 
 ## Installation
 
-```rust
-cargo install did-utils
+Add this to your `Cargo.toml`:
+
+```toml
+[dependencies]
+did-utils = "0.1"
 ```
 
 ## Usage
@@ -39,15 +42,14 @@ let encrypted_did_document = did_document.encrypt(&my_public_key);
 let decrypted_did_document = encrypted_did_document.decrypt(&my_private_key);
 ```
 
-## Dependencies
-
-* serde
-* sha2
-* x25519-dalek
-
 ## Documentation
 
 The documentation for the library is available here: https://docs.rs/did-utils/
+
+## Contributors
+
+* Bard
+* [Your name]
 
 ## License
 

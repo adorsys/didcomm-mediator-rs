@@ -1,0 +1,14 @@
+[package]
+name = "message-api"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+shared.workspace = true
+
+async-trait.workspace = true
+didcomm = { workspace = true, features = ["uniffi"] }
+axum = { workspace = true, features = ["macros"] }
+
+[dev-dependencies]
+shared = { workspace = true, features = ["test-utils"] }

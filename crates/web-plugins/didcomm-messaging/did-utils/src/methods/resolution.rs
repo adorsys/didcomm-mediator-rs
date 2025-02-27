@@ -14,19 +14,23 @@ use crate::{didcore::Document as DIDDocument, ldmodel::Context, methods::errors:
 /// Formerly known as "DID resolution input metadata", they provide
 /// additional configuration for the DID resolution process.
 ///
-/// See `<https://www.w3.org/TR/did-core/#did-resolution-options>`
+/// See [did resolution options][dro]
+///
+/// [dro]: https://www.w3.org/TR/did-core/#did-resolution-options
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct DIDResolutionOptions {
     // See https://www.w3.org/TR/did-spec-registries/#accept
     #[serde(skip_serializing_if = "Option::is_none")]
+    /// Accept header
     pub accept: Option<MediaType>,
     // See https://w3c.github.io/did-resolution/#caching
     #[serde(skip_serializing_if = "Option::is_none")]
+    /// Caching control
     pub no_cache: Option<bool>,
-    // Dynamic properties
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(flatten)]
+    /// Dynamic properties
     pub additional_properties: Option<HashMap<String, Value>>,
 }
 
@@ -36,35 +40,47 @@ pub struct DIDResolutionOptions {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ResolutionOutput {
-    // The @context property defines the vocabulary used in the JSON-LD document.
-    // It provides a way to map the keys in the JSON structure to specific terms,
-    // properties, and classes from external vocabularies.
+    /// The @context property defines the vocabulary used in the JSON-LD document.
+    /// It provides a way to map the keys in the JSON structure to specific terms,
+    /// properties, and classes from external vocabularies.
     #[serde(rename = "@context")]
     pub context: Context,
-    // See https://www.w3.org/TR/did-core/#dfn-diddocument
+    /// See [did document]
+    ///
+    /// [did document]: https://www.w3.org/TR/did-core/#dfn-diddocument
     pub did_document: Option<DIDDocument>,
-    // See https://www.w3.org/TR/did-core/#dfn-didresolutionmetadata
+    /// See [did resolution metadata][drm]
+    ///
+    /// [drm]: https://www.w3.org/TR/did-core/#dfn-didresolutionmetadata
     pub did_resolution_metadata: Option<DIDResolutionMetadata>,
-    // See https://www.w3.org/TR/did-core/#dfn-diddocumentmetadata
+    /// See [did document metadata][ddm]
+    ///
+    /// [ddm]: https://www.w3.org/TR/did-core/#dfn-diddocumentmetadata
     pub did_document_metadata: Option<DIDDocumentMetadata>,
-    // Dynamic properties
+    /// Dynamic properties
     #[serde(flatten)]
     pub additional_properties: Option<HashMap<String, Value>>,
 }
 
 /// DID Resolution Metadata.
 ///
-/// See `<https://www.w3.org/TR/did-core/#did-resolution-metadata>`
+/// See [did document metadata][ddm]
+///
+/// [ddm]: https://www.w3.org/TR/did-core/#dfn-diddocumentmetadata
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct DIDResolutionMetadata {
-    // See https://www.w3.org/TR/did-spec-registries/#error
+    /// See [did resolution error][dre]
+    ///
+    /// [dre]: https://www.w3.org/TR/did-spec-registries/#error
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<DIDResolutionError>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    // See https://www.w3.org/TR/did-spec-registries/#contenttype
+    /// See [content type][ct]
+    ///
+    /// [ct]: https://www.w3.org/TR/did-spec-registries/#contenttype
     pub content_type: Option<String>,
-    // Dynamic properties
+    /// Dynamic properties
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(flatten)]
     pub additional_properties: Option<HashMap<String, Value>>,
@@ -72,73 +88,83 @@ pub struct DIDResolutionMetadata {
 
 /// DID Document Metadata.
 ///
-/// See `<https://www.w3.org/TR/did-core/#did-document-metadata>`
+/// See [did document metadata][ddm]
+///
+/// [ddm]: https://www.w3.org/TR/did-core/#dfn-diddocumentmetadata
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct DIDDocumentMetadata {
-    // See https://www.w3.org/TR/did-spec-registries/#created
+    /// See [created] section in the DID specification registry
+    ///
+    /// [created]: https://www.w3.org/TR/did-spec-registries/#created
     #[serde(skip_serializing_if = "Option::is_none")]
     pub created: Option<DateTime<Utc>>,
-    // See https://www.w3.org/TR/did-spec-registries/#updated
+    /// See [updated] section in the DID specification registry
+    ///
+    /// [updated]: https://www.w3.org/TR/did-spec-registries/#updated
     #[serde(skip_serializing_if = "Option::is_none")]
     pub updated: Option<DateTime<Utc>>,
-    // See https://www.w3.org/TR/did-spec-registries/#deactivated
+    /// See [deactivated] section in the DID specification registry
+    ///
+    /// [deactivated]: https://www.w3.org/TR/did-spec-registries/#deactivated
     #[serde(skip_serializing_if = "Option::is_none")]
     pub deactivated: Option<bool>,
-    // See https://www.w3.org/TR/did-spec-registries/#next_update
+    /// See [next_update] section in the DID specification registry
+    ///
+    /// [next_update]: https://www.w3.org/TR/did-spec-registries/#next_update
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_update: Option<DateTime<Utc>>,
-    // See https://www.w3.org/TR/did-spec-registries/#version_id
+    /// See [version_id] section in the DID specification registry
+    ///
+    /// [version_id]: https://www.w3.org/TR/did-spec-registries/#version_id
     #[serde(skip_serializing_if = "Option::is_none")]
     pub version_id: Option<String>,
-    // See https://www.w3.org/TR/did-spec-registries/#next_version_id
+    /// See [next_version_id] section in the DID specification registry
+    ///
+    /// [next_version_id]: https://www.w3.org/TR/did-spec-registries/#next_version_id
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_version_id: Option<String>,
-    // See https://www.w3.org/TR/did-spec-registries/#equivalent_id
+    /// See [equivalent_id] section in the DID specification registry
+    ///
+    /// [equivalent_id]: https://www.w3.org/TR/did-spec-registries/#equivalent_id
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub equivalent_id: Vec<String>,
-    // See https://www.w3.org/TR/did-spec-registries/#canonical_id
+    /// See [canonical_id] section in the DID specification registry
+    ///
+    /// [canonical_id]: https://www.w3.org/TR/did-spec-registries/#canonical_id
     #[serde(skip_serializing_if = "Option::is_none")]
     pub canonical_id: Option<String>,
-    // Dynamic properties
+    /// Dynamic properties
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(flatten)]
     pub additional_properties: Option<HashMap<String, Value>>,
 }
 
 /// DID URL Dereferencing Options.
-///
-/// See `<https://www.w3.org/TR/did-core/#did-url-dereferencing-options>`
 pub type DereferencingOptions = DIDResolutionOptions;
 
 /// DID URL Dereferencing Metadata.
-///
-/// See `<https://www.w3.org/TR/did-core/#did-url-dereferencing-metadata>`
 pub type DereferencingMetadata = DIDResolutionMetadata;
 
 /// Content Metadata.
-///
-/// See `<https://www.w3.org/TR/did-core/#metadata-structure>`
 pub type ContentMetadata = DIDDocumentMetadata;
 
 /// Dereferencing Output.
-///
-/// See `<https://www.w3.org/TR/did-core/#did-url-dereferencing>`
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct DereferencingOutput {
-    // The @context property defines the vocabulary used in the JSON-LD document.
-    // It provides a way to map the keys in the JSON structure to specific terms,
-    // properties, and classes from external vocabularies.
+    /// The @context property defines the vocabulary used in the JSON-LD document.
+    /// It provides a way to map the keys in the JSON structure to specific terms,
+    /// properties, and classes from external vocabularies.
     #[serde(rename = "@context")]
     pub context: Context,
-    // See https://www.w3.org/TR/did-core/#dfn-diddocument
+    /// The content of the dereferenced document
     pub content: Option<Content>,
-    // See https://www.w3.org/TR/did-core/#did-url-dereferencing-metadata
+    /// The dereferencing metadata
     pub dereferencing_metadata: Option<DereferencingMetadata>,
-    // See https://www.w3.org/TR/did-core/#dfn-diddocumentmetadata
+    /// The content metadata
     pub content_metadata: Option<ContentMetadata>,
-    // Dynamic properties
+    /// Dynamic properties
     #[serde(flatten)]
     pub additional_properties: Option<HashMap<String, Value>>,
 }
@@ -148,7 +174,7 @@ pub struct DereferencingOutput {
 #[serde(untagged)]
 pub enum Content {
     /// DID Document
-    DIDDocument(DIDDocument),
+    DIDDocument(Box<DIDDocument>),
     /// URL
     URL(String),
     /// Other (e.g. verification method map)
@@ -159,8 +185,11 @@ pub enum Content {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
 pub enum MediaType {
+    /// JSON
     Json,
+    /// DID JSON
     DidJson,
+    /// DID LD JSON
     DidLdJson,
 }
 
@@ -212,7 +241,7 @@ pub(super) fn dereference_did_document(
     } else if !query.is_empty() {
         // Resort to returning whole DID document as other query parameters
         // are not supported by this default dereferencing implementation.
-        return Ok(Content::DIDDocument(diddoc.clone()));
+        return Ok(Content::DIDDocument(Box::new(diddoc.clone())));
     }
 
     // Secondary resource without primary resource
@@ -242,7 +271,7 @@ pub(super) fn dereference_did_document(
     }
 
     // Resort to returning whole DID document
-    Ok(Content::DIDDocument(diddoc.clone()))
+    Ok(Content::DIDDocument(Box::new(diddoc.clone())))
 }
 
 #[cfg(test)]

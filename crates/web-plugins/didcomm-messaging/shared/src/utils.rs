@@ -2,7 +2,7 @@ pub mod resolvers;
 pub mod tests_utils;
 
 use did_utils::{
-    didcore::{VerificationMethodType, Document, KeyFormat, VerificationMethod},
+    didcore::{Document, KeyFormat, VerificationMethod, VerificationMethodType},
     jwk::Jwk,
 };
 use filesystem::FileSystem;
@@ -63,7 +63,7 @@ macro_rules! extract_key_from_diddoc {
 ///
 /// if present, return its verification method ID and JWK representation.
 pub fn extract_authentication_key(diddoc: &Document) -> Option<(String, Jwk)> {
-    let method = diddoc.authentication.as_ref()?.get(0)?;
+    let method = diddoc.authentication.as_ref()?.first()?;
     extract_key_from_diddoc!(VerificationMethodType)(diddoc, method)
 }
 
@@ -71,7 +71,7 @@ pub fn extract_authentication_key(diddoc: &Document) -> Option<(String, Jwk)> {
 ///
 /// if present, return its verification method ID and JWK representation.
 pub fn extract_agreement_key(diddoc: &Document) -> Option<(String, Jwk)> {
-    let method = diddoc.key_agreement.as_ref()?.get(0)?;
+    let method = diddoc.key_agreement.as_ref()?.first()?;
     extract_key_from_diddoc!(VerificationMethodType)(diddoc, method)
 }
 
@@ -104,10 +104,7 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(
-            vm_id,
-            "#key-2"
-        );
+        assert_eq!(vm_id, "#key-2");
         assert_eq!(
             json_canon::to_string(&jwk).unwrap(),
             json_canon::to_string(&expected_jwk).unwrap()
@@ -128,10 +125,7 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(
-            vm_id,
-            "#key-1"
-        );
+        assert_eq!(vm_id, "#key-1");
         assert_eq!(
             json_canon::to_string(&jwk).unwrap(),
             json_canon::to_string(&expected_jwk).unwrap()

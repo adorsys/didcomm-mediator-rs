@@ -1,34 +1,45 @@
-use axum::Server;
 use didcomm_mediator::app;
+use eyre::{Result, WrapErr};
 use std::net::SocketAddr;
+use tokio::net::TcpListener;
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<()> {
     // Load dotenv-flow variables
-    dotenv_flow::dotenv_flow().ok();
+    dotenv_flow::dotenv_flow()?;
 
     // Enable logging
     config_tracing();
 
-    // Start server
-    let port = std::env::var("SERVER_LOCAL_PORT").unwrap_or("3000".to_owned());
-    let addr: SocketAddr = format!("127.0.0.1:{port}").parse().unwrap();
+    // Configure server
+    let port = std::env::var("SERVER_LOCAL_PORT").unwrap();
 
-    tracing::info!("listening on {addr}");
-    generic_server_with_graceful_shutdown(addr).await;
+    let port = port.parse().context("failed to parse port")?;
+    let addr = SocketAddr::from(([0, 0, 0, 0], port));
+    let listener = TcpListener::bind(addr)
+        .await
+        .context("failed to parse address")?;
+
+    tracing::debug!("listening on {addr}");
+
+    generic_server_with_graceful_shutdown(listener)
+        .await
+        .map_err(|err| {
+            tracing::error!("{err:?}");
+            err
+        })?;
+
+    Ok(())
 }
 
-async fn generic_server_with_graceful_shutdown(addr: SocketAddr) {
+async fn generic_server_with_graceful_shutdown(listener: TcpListener) -> Result<()> {
     // Load plugins
-    let (mut plugin_container, router) = app();
+    let (mut plugin_container, router) = app()?;
 
-    // Spawn task for server
-    tokio::spawn(async move {
-        Server::bind(&addr)
-            .serve(router.into_make_service())
-            .await
-            .unwrap();
-    });
+    // Start server
+    axum::serve(listener, router)
+        .await
+        .context("failed to start server")?;
 
     tokio::select! {
         _ = tokio::signal::ctrl_c() => {
@@ -36,9 +47,16 @@ async fn generic_server_with_graceful_shutdown(addr: SocketAddr) {
             let _ = plugin_container.unload();
         }
     };
+
+    Ok(())
 }
 
 fn config_tracing() {
+    // Enable errors backtrace
+    if std::env::var("RUST_LIB_BACKTRACE").is_err() {
+        std::env::set_var("RUST_LIB_BACKTRACE", "1")
+    }
+
     use tracing::Level;
     use tracing_subscriber::{filter, layer::SubscriberExt, util::SubscriberInitExt};
 

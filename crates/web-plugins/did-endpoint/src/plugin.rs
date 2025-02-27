@@ -1,10 +1,9 @@
 use super::{didgen, web};
 use axum::Router;
-use database::Repository;
-use keystore::Secrets;
+use filesystem::FileSystem;
+use keystore::Keystore;
 use plugin_api::{Plugin, PluginError};
 use std::sync::{Arc, Mutex};
-use filesystem::FileSystem;
 
 #[derive(Default)]
 pub struct DidEndpoint {
@@ -19,19 +18,16 @@ struct DidEndpointEnv {
 
 #[derive(Clone)]
 pub(crate) struct DidEndPointState {
-    pub(crate) keystore: Arc<dyn Repository<Secrets>>,
+    pub(crate) keystore: Keystore,
     pub(crate) filesystem: Arc<Mutex<dyn FileSystem>>,
 }
 
 fn get_env() -> Result<DidEndpointEnv, PluginError> {
-    let storage_dirpath = std::env::var("STORAGE_DIRPATH").map_err(|_| {
-        tracing::error!("STORAGE_DIRPATH env variable required");
-        PluginError::InitError
-    })?;
+    let storage_dirpath = std::env::var("STORAGE_DIRPATH")
+        .map_err(|_| PluginError::InitError("STORAGE_DIRPATH env variable required".to_owned()))?;
 
     let server_public_domain = std::env::var("SERVER_PUBLIC_DOMAIN").map_err(|_| {
-        tracing::error!("SERVER_PUBLIC_DOMAIN env variable required");
-        PluginError::InitError
+        PluginError::InitError("SERVER_PUBLIC_DOMAIN env variable required".to_owned())
     })?;
 
     Ok(DidEndpointEnv {
@@ -48,7 +44,7 @@ impl Plugin for DidEndpoint {
     fn mount(&mut self) -> Result<(), PluginError> {
         let env = get_env()?;
         let mut filesystem = filesystem::StdFileSystem;
-        let keystore = keystore::KeyStore::get();
+        let keystore = Keystore::with_mongodb();
 
         if didgen::validate_diddoc(env.storage_dirpath.as_ref(), &keystore, &mut filesystem)
             .is_err()
@@ -62,14 +58,15 @@ impl Plugin for DidEndpoint {
                 &mut filesystem,
             )
             .map_err(|_| {
-                tracing::error!("failed to generate an initial keystore and its DID document");
-                PluginError::InitError
+                PluginError::InitError(
+                    "failed to generate an initial keystore and its DID document".to_owned(),
+                )
             })?;
         };
 
         self.env = Some(env);
         self.state = Some(DidEndPointState {
-            keystore: Arc::new(keystore),
+            keystore,
             filesystem: Arc::new(Mutex::new(filesystem)),
         });
 
@@ -80,8 +77,10 @@ impl Plugin for DidEndpoint {
         Ok(())
     }
 
-    fn routes(&self) -> Router {
-        let state = self.state.as_ref().expect("Plugin not mounted");
-        web::routes(Arc::new(state.clone()))
+    fn routes(&self) -> Result<Router, PluginError> {
+        let state = self.state.as_ref().ok_or(PluginError::Other(
+            "missing state, plugin not mounted".to_owned(),
+        ))?;
+        Ok(web::routes(Arc::new(state.clone())))
     }
 }

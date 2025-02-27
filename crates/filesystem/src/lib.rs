@@ -1,8 +1,7 @@
-use nix::fcntl::{flock, FlockArg};
+use nix::fcntl::{Flock, FlockArg};
 use std::{
     fs::OpenOptions,
     io::{Error as IoError, ErrorKind, Result as IoResult},
-    os::unix::io::AsRawFd,
     path::Path,
 };
 
@@ -54,17 +53,25 @@ impl FileSystem for StdFileSystem {
         let file = OpenOptions::new()
             .read(true)
             .write(true)
+            .truncate(true)
             .create(true)
-            .open(&path)?;
+            .open(path)?;
 
         // Acquire an exclusive lock before writing to the file
-        flock(file.as_raw_fd(), FlockArg::LockExclusive)
+        let file = Flock::lock(file, FlockArg::LockExclusive)
             .map_err(|_| IoError::new(ErrorKind::Other, "Error acquiring file lock"))?;
 
-        std::fs::write(path, &content).expect("Error saving base64-encoded image to file");
+        std::fs::write(path, content).map_err(|_| {
+            IoError::new(
+                ErrorKind::Other,
+                "Error saving base64-encoded image to file",
+            )
+        })?;
 
         // Release the lock after writing to the file
-        flock(file.as_raw_fd(), FlockArg::Unlock).expect("Error releasing file lock");
+        file.unlock()
+            .map_err(|_| IoError::new(ErrorKind::Other, "Error releasing file lock"))?;
+
         Ok(())
     }
 
@@ -112,11 +119,16 @@ mod tests {
 
     impl FileSystem for MockFileSystem {
         fn read_to_string(&self, path: &Path) -> IoResult<String> {
-            Ok(self.map.get(path.to_str().unwrap()).cloned().unwrap_or_default())
+            Ok(self
+                .map
+                .get(path.to_str().unwrap())
+                .cloned()
+                .unwrap_or_default())
         }
 
         fn write(&mut self, path: &Path, content: &str) -> IoResult<()> {
-            self.map.insert(path.to_str().unwrap().to_string(), content.to_string());
+            self.map
+                .insert(path.to_str().unwrap().to_string(), content.to_string());
             Ok(())
         }
 

@@ -1,6 +1,6 @@
 # Server plugin API
 
-The server used for this project provides a system for building versatile applications by integrating functionalities offered by configurable plugins via the plugin API.
+An interface that can be used by a generic server to build versatile applications by integrating functionalities offered by configurable plugins via the plugin API. It is part of the [Didcomm Mediator](https://github.com/adorsys/didcomm-mediator-rs/) project.
 
 ## Features
 
@@ -51,9 +51,9 @@ impl Plugin for MyPlugin {
         Ok(())
     }
 
-    fn routes(&self) -> Router {
+    fn routes(&self) -> Result<Router, PluginError> {
         // Define and return routes here
-        Router::new().route("/myplugin", get(my_plugin_handler))
+        Router::new().route("/myplugin", get(my_plugin_handler))?
     }
 }
 

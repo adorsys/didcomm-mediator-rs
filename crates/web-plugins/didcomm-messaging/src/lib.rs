@@ -1,3 +1,4 @@
+mod constants;
 mod did_rotation;
 mod error;
 mod manager;

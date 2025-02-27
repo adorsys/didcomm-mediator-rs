@@ -1,8 +1,8 @@
-pub(crate) mod handler;
 #[cfg(feature = "plugin-index")]
 pub(crate) mod index;
+pub(crate) mod manager;
 
-pub use handler::{PluginContainer, PluginContainerError};
+pub use manager::{PluginContainer, PluginContainerError};
 
 use lazy_static::lazy_static;
 use std::sync::{Arc, Mutex};
@@ -16,8 +16,10 @@ lazy_static! {
         #[cfg(feature = "plugin-did_endpoint")]
         Arc::new(Mutex::new(did_endpoint::plugin::DidEndpoint::default())),
         #[cfg(feature = "plugin-oob_messages")]
-        Arc::new(Mutex::new(oob_messages::plugin::OOBMessages {})),
+        Arc::new(Mutex::new(oob_messages::plugin::OOBMessages::default())),
         #[cfg(feature = "plugin-didcomm_messaging")]
-        Arc::new(Mutex::new(didcomm_messaging::plugin::MediatorCoordination::default())),
+        Arc::new(Mutex::new(
+            didcomm_messaging::plugin::DidcommMessaging::default()
+        )),
     ];
 }
