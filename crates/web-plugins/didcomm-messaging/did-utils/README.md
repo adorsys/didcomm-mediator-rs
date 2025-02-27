@@ -44,8 +44,13 @@ let decrypted_did_document = encrypted_did_document.decrypt(&my_private_key);
 
 ## Documentation
 
-The documentation for the library is available [here](https://docs.rs/did-utils)
+The documentation for the library is available here: https://docs.rs/did-utils/
+
+## Contributors
+
+* Bard
+* [Your name]
 
 ## License
 
-The library is licensed under the MIT License.
+The library is licensed under the Apache License.

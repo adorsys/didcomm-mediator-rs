@@ -2,6 +2,12 @@
 name = "plugin-api"
 version = "0.1.0"
 edition = "2021"
+authors = ["adorsys GmbH Co. KG"] 
+license = "Apache-2.0"
+description = "The `plugin-api` is a core component of the DIDComm Mediator system, designed to facilitate secure, decentralized communication within the Self-Sovereign Identity (SSI) ecosystem."
+repository = "https://github.com/adorsys/didcomm-mediator-rs/tree/main/crates/plugin-api"
+keywords = ["plugin-api", "didcomm", "didcomm mediator", "didcomm messaging", "rust mediator"]
+categories = ["cryptography"]
 
 
 [dependencies]

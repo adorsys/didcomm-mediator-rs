@@ -1,6 +1,12 @@
 [package]
-name = "did-utils"
-version = "0.1.0"
+name = "did-utils" 
+version = "0.1.0" 
+authors = ["adorsys GmbH Co. KG"] 
+license = "Apache-2.0"
+description = "A Rust library for implementing reusable utility code for DID-based applications"
+repository = "https://github.com/adorsys/didcomm-mediator-rs/tree/main/crates/web-plugins/didcomm-messaging/did-utils"
+keywords = ["did-utils","didcomm", "didcomm-messaging"]
+categories = ["cryptography"]
 edition = "2021"
 
 [dependencies]
