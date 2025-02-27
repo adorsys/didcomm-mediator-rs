@@ -3,6 +3,12 @@ kind: Service
 metadata:
   name: {{ .Release.Name }}-service
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Release.Name }}
+  {{- with .Values.mediator.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 spec:
   selector:
     app: {{ .Release.Name }}
@@ -11,3 +17,4 @@ spec:
     port: 8080
     targetPort: 8080
   type: ClusterIP
+

@@ -1,0 +1,54 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dashboard-configmap
+  labels:
+    grafana_dashboard: "1"
+data:
+  didcomm-mediator.json: |
+    {
+      "dashboard": {
+        "panels": [
+          {
+            "title": "API Response Time",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "histogram_quantile(0.95, rate(api_response_time_seconds_bucket[5m]))",
+                "legendFormat": "95th percentile"
+              }
+            ]
+          },
+          {
+            "title": "CPU Usage",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "100 - (avg by (instance) (rate(node_cpu_seconds_total{mode='idle'}[2m])) * 100)",
+                "legendFormat": "CPU Usage"
+              }
+            ]
+          },
+          {
+            "title": "Memory Usage",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100",
+                "legendFormat": "Memory Usage"
+              }
+            ]
+          },
+          {
+            "title": "MongoDB Connections",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "mongodb_connections{state='current'}",
+                "legendFormat": "Connections"
+              }
+            ]
+          }
+        ]
+      }
+    }
