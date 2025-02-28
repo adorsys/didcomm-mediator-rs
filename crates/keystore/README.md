@@ -1,18 +1,22 @@
 # Keystore Crate
 
-The `keystore` crate is a utility library for managing cryptographic secrets. It is used in the [Didcomm Mediator](https://github.com/adorsys/didcomm-mediator-rs/) to store and retrieve cryptographic keys for DIDcomm interactions.
+The `keystore` crate is a utility library for managing cryptographic secrets. It is used in the [Didcomm Mediator](https://github.com/adorsys/didcomm-mediator-rs/) to securely store, retrieve and delete cryptographic keys for DIDcomm interactions.
 
 ## Usage
 
 This crate is internal to the [Didcomm Mediator](https://github.com/adorsys/didcomm-mediator-rs/). Below is an example of interacting with the keystore:
 
 ```rust
-use keystore::{KeyStore, Secrets};
-use mongodb::bson::{doc, Bson, Document};
+use keystore::KeyStore;
 use did_utils::jwk::Jwk;
 
+// Create a new AWS KMS client
+let config = aws_config::load_from_env().await;
+let client = aws_sdk_kms::Client::new(&config);
+let key_id = "test-key".to_string();
+
 // Initialize the keystore
-let keystore = KeyStore::get();
+let keystore = KeyStore::with_aws_kms(client, key_id);
 
 let jwk: Jwk = serde_json::from_str(
     r#"{
@@ -25,16 +29,11 @@ let jwk: Jwk = serde_json::from_str(
 .unwrap();
 
 // Store a secret
-let secret = Secrets {
-    id: Some(ObjectId::new()),
-    kid: "key-1".to_string(),
-    secret_material: jwk,
-};
-keystore.store(secret).await?;
+keystore.store("key-1", &jwk).await?;
 
 // Retrieve a secret by ID
-let secret = keystore.find_one(doc! {"kid": "key-1"}).await?;
+let secret: Option<Jwk> = keystore.retrieve("key-1").await?;
 
 // Delete a secret by ID
-keystore.delete_one(secret.id.unwrap()).await?;
+keystore.delete("key-1").await?;
 ```

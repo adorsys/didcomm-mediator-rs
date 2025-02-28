@@ -20,7 +20,7 @@ let storage_dirpath = std::env::var("STORAGE_DIRPATH").unwrap(),
 let server_public_domain = std::env::var("SERVER_PUBLIC_DOMAIN").unwrap();
 
 let mut filesystem = filesystem::StdFileSystem;
-let keystore = keystore::KeyStore::get();
+let keystore = keystore::KeyStore::with_mongodb();
 
 // Generate and persist a new DID document
 didgen::didgen(
