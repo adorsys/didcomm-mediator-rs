@@ -74,3 +74,24 @@ lazy_static! {
     ];
 }
 ```
+
+* **Add the plugin in the root `Cargo.toml`**
+
+```toml
+[workspace]
+members = [
+    ...
+    "crates/web-plugins/my-plugin-name",
+]
+
+[workspace.dependencies]
+my-plugin-name = { path = "./crates/web-plugins/my-plugin-name", version = "0.1.0" }
+
+[features]
+default = [
+    ...
+    "plugin-myplugin"
+]
+
+my-plugin-name = [deps:my-plugin-name]
+```

@@ -41,12 +41,12 @@ impl Identifiable for MyEntity {
 
 ```rust
 struct MyEntityRepository {
-    collection: Arc<RwLock<Collection<MyEntity>>>,
+    collection: Collection<MyEntity>,
 }
 
 #[async_trait]
 impl Repository<MyEntity> for MyEntityRepository {
-    fn get_collection(&self) -> Arc<RwLock<Collection<MyEntity>>> {
+    fn get_collection(&self) -> Collection<MyEntity> {
         self.collection.clone()
     }
 }
@@ -57,7 +57,7 @@ impl Repository<MyEntity> for MyEntityRepository {
 ```rust
 let db = get_or_init_database();
 let repo = MyEntityRepository {
-    collection: Arc::new(RwLock::new(db.read().await.collection("my_entities"))),
+    collection: db.collection("my_entities"),
 };
 let entity = MyEntity { id: None, name: "example".to_string() };
 repo.store(entity).await?;
