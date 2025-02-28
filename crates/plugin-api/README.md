@@ -93,5 +93,5 @@ default = [
     "plugin-myplugin"
 ]
 
-my-plugin-name = [deps:my-plugin-name]
+plugin-myplugin = [deps:my-plugin-name]
 ```
