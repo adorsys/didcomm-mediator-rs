@@ -21,7 +21,7 @@ jobs:
         env:
           ARTILLERY_CLOUD_KEY: ${{ secrets.ARTILLERY_CLOUD_KEY }}
         with:
-          command: cloud run load-test.yml
+          command: artillery run load-test.yml
 
       - name: Display test result link
         run: |
