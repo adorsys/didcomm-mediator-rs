@@ -18,10 +18,12 @@ jobs:
       - name: Run load test with Artillery Cloud
         id: run_test
         uses: artilleryio/action-cli@v1
+        timeout-minutes: 15
+        with:
+          command: run-fargate load-test.yml --count 5 --output report.json --record
         env:
           ARTILLERY_CLOUD_KEY: ${{ secrets.ARTILLERY_CLOUD_KEY }} 
-        with:
-          command: cloud run load-test.yml
+
 
       - name: Display test result link
         run: |
