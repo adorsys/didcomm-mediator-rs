@@ -75,13 +75,6 @@ prometheus:
         static_configs:
           - targets: ["mediator-service.didcomm-mediator.svc.cluster.local:8080"]
       - job_name: "mediator-health"
-        metrics_path: "/health"
-        static_configs:
-          - targets: ["mediator-service.didcomm-mediator.svc.cluster.local:8080"]
-      - job_name: "mongodb"
-        metrics_path: "/metrics"
-        static_configs:
-          - targets: ["mongodb-service.didcomm-mediator.svc.cluster.local:27017"]
 
 
 
