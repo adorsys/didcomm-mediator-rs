@@ -26,7 +26,7 @@ jobs:
           command: run --output report.json load-test.yml  
 
       - name: Convert report to HTML
-        run: artillery report report.json --output report.html
+        run: artillery report report.json 
 
       - name: Upload test report
         uses: actions/upload-artifact@v4
