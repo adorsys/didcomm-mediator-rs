@@ -22,7 +22,7 @@ jobs:
         env:
           ARTILLERY_CLOUD_KEY: ${{ secrets.ARTILLERY_CLOUD_KEY }} 
         with:
-          command: run-fargate load-test.yml --count 5 --output report.json --record
+          command: run load-test.yml --count 5 --output report.json --record
 
       - name: Display test result link
         run: |
