@@ -12,24 +12,27 @@ jobs:
   load-test:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Run load test with Artillery Cloud
-        id: run_test
-        uses: artilleryio/action-cli@v1
-        timeout-minutes: 15
-        env:
-          ARTILLERY_CLOUD_KEY: ${{ secrets.ARTILLERY_CLOUD_KEY }} 
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
         with:
-          command: run load-test.yml --count 5 --output report.json --record
+          node-version: 18
 
-      - name: Display test result link
-        run: |
-          echo "View the test results on Artillery Cloud: ${{ steps.run_test.outputs.result_url }}"
+      - name: Run load test with Artillery CI
+        uses: artilleryio/action-cli@v1
+        with:
+          command: run --output report.json load-test.yml
 
-      - name: Check test results
-        if: failure()
-        run: |
-          echo "Load test failed. Please check the results."
-          exit 1
+      - name: Install Artillery (for report generation)
+        run: npm install -g artillery
+
+      - name: Convert report to HTML
+        run: artillery report report.json --output report.html
+
+      - name: Upload test report
+        uses: actions/upload-artifact@v4
+        with:
+          name: artillery-report
+          path: report.html
