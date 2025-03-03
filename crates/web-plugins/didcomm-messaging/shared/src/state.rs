@@ -1,7 +1,7 @@
 use dashmap::DashMap;
 use database::Repository;
 use did_utils::didcore::Document;
-use keystore::Secrets;
+use keystore::Keystore;
 use std::sync::Arc;
 
 use crate::{
@@ -31,7 +31,7 @@ pub struct AppState {
 pub struct AppStateRepository {
     pub connection_repository: Arc<dyn Repository<Connection>>,
     pub message_repository: Arc<dyn Repository<RoutedMessage>>,
-    pub keystore: Arc<dyn Repository<Secrets>>,
+    pub keystore: Keystore,
 }
 
 impl AppState {
@@ -48,6 +48,7 @@ impl AppState {
             .ok_or_else(|| eyre::eyre!("Missing persistence layer"))?
             .keystore
             .clone();
+
         let secrets_resolver = LocalSecretsResolver::new(keystore);
 
         Ok(Self {

@@ -1,0 +1,73 @@
+name: Publish Image & Deploy
+
+on:
+  push:
+    branches:
+      - '*'  
+    tags:
+      - 'v*' 
+
+env:
+  IMAGE_NAME: didcomm-mediator-rs
+  NAMESPACE: didcomm-mediator
+  CLUSTER_NAME: datev-wallet-cluster
+  AWS_REGION: eu-central-1
+
+jobs:
+  push-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build . --file Dockerfile --tag $IMAGE_NAME --label "runnumber=${GITHUB_RUN_ID}"
+
+      - name: Log in to GitHub Container Registry (GHCR)
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Push image
+        run: |
+          IMAGE_ID=ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME
+          
+          # Ensure lowercase image ID
+          IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
+          
+          # Use Git SHA as version tag
+          VERSION=${{ github.sha }}
+          
+          echo "IMAGE_ID=$IMAGE_ID"
+          echo "VERSION=$VERSION"
+          
+          # Tag and push the image with the unique SHA version
+          docker tag $IMAGE_NAME $IMAGE_ID:$VERSION
+          docker push $IMAGE_ID:$VERSION
+
+          # Export the IMAGE_ID and VERSION as environment variables
+          echo "IMAGE_ID=$IMAGE_ID" >> $GITHUB_ENV
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Install kubectl
+        if: github.ref == 'refs/heads/main' # Only run if the branch is main
+        uses: azure/setup-kubectl@v3
+
+      - name: Configure AWS credentials
+        if: github.ref == 'refs/heads/main' # Only run if the branch is main
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update kubeconfig for EKS
+        if: github.ref == 'refs/heads/main' # Only run if the branch is main
+        run: |
+          aws eks update-kubeconfig --name ${{ env.CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
+
+      - name: Update Kubernetes deployment
+        if: github.ref == 'refs/heads/main' # Only run if the branch is main
+        run: |
+          kubectl set image deployment/mediator-deployment mediator-container=${{ env.IMAGE_ID }}:${{ env.VERSION }} -n ${{ env.NAMESPACE }}
