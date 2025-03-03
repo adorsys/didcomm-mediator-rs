@@ -99,46 +99,46 @@ async fn test_timeout_reset() {
 
 // #[tokio::test]
 // async fn test_exponential_backoff() {
-    // let breaker = CircuitBreaker::new()
-       // .retries(3)
-       // .exponential_backoff(Duration::from_millis(100));
+// let breaker = CircuitBreaker::new()
+// .retries(3)
+// .exponential_backoff(Duration::from_millis(100));
 
-    // let start = Instant::now();
-   //  let _ = breaker.call(|| async { Err::<(), ()>(()) }).await;
-   // let elapsed = start.elapsed();
+// let start = Instant::now();
+//  let _ = breaker.call(|| async { Err::<(), ()>(()) }).await;
+// let elapsed = start.elapsed();
 
-    // Log the elapsed time for debugging
-    // println!("Elapsed time: {:?}", elapsed);
+// Log the elapsed time for debugging
+// println!("Elapsed time: {:?}", elapsed);
 
-    // After the first failure, we wait 100ms before retrying
-    // After the second failure, we wait 200ms before retrying
-    // After the third failure, we should not retry anymore, and the circuit should open
-    // assert!(elapsed >= Duration::from_millis(290) && elapsed < Duration::from_millis(600)); // Widen range further
-    // assert!(!breaker.should_allow_call()); // Circuit should be open after 3 retries
+// After the first failure, we wait 100ms before retrying
+// After the second failure, we wait 200ms before retrying
+// After the third failure, we should not retry anymore, and the circuit should open
+// assert!(elapsed >= Duration::from_millis(290) && elapsed < Duration::from_millis(600)); // Widen range further
+// assert!(!breaker.should_allow_call()); // Circuit should be open after 3 retries
 // }
 
 // #[tokio::test]
 // async fn test_half_open_state_failure() {
-   // let breaker = CircuitBreaker::new()
-   //     .retries(1) // Allow 1 retry
-   //     .reset_timeout(Duration::from_millis(100));
+// let breaker = CircuitBreaker::new()
+//     .retries(1) // Allow 1 retry
+//     .reset_timeout(Duration::from_millis(100));
 
-    // Trigger a failure to open the circuit
- //   let _ = breaker.call(|| async { Err::<(), ()>(()) }).await;
-  //  assert!(!breaker.should_allow_call()); // Circuit should be open
+// Trigger a failure to open the circuit
+//   let _ = breaker.call(|| async { Err::<(), ()>(()) }).await;
+//  assert!(!breaker.should_allow_call()); // Circuit should be open
 
-    // Wait for the reset timeout to allow the circuit to move to half-open state
-   // sleep(Duration::from_millis(150)).await;
+// Wait for the reset timeout to allow the circuit to move to half-open state
+// sleep(Duration::from_millis(150)).await;
 
-    // Verify the circuit is in the half-open state
-  //  assert!(breaker.should_allow_call());
-  //  assert_eq!(breaker.inner.lock().state, CircuitState::HalfOpen);
+// Verify the circuit is in the half-open state
+//  assert!(breaker.should_allow_call());
+//  assert_eq!(breaker.inner.lock().state, CircuitState::HalfOpen);
 
-    // Call again and trigger another failure
-  //  let result = breaker.call(|| async { Err::<(), ()>(()) }).await;
+// Call again and trigger another failure
+//  let result = breaker.call(|| async { Err::<(), ()>(()) }).await;
 
-    // The circuit should open again after this failure
-  //  assert_eq!(result, Err(Error::CircuitOpen)); // Circuit should be open again after failure
+// The circuit should open again after this failure
+//  assert_eq!(result, Err(Error::CircuitOpen)); // Circuit should be open again after failure
 //    assert_eq!(breaker.inner.lock().state, CircuitState::Open);
 // }
 
