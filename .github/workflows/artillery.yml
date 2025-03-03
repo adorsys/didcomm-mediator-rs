@@ -15,21 +15,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-
-      - name: Execute load test with Artillery Cloud
+      - name: Run load test with Artillery Cloud
         id: run_test
+        uses: artilleryio/action-cli@v1
         env:
-          ARTILLERY_CLOUD_KEY: ${{ secrets.ARTILLERY_CLOUD_KEY }} 
-        run: |
-          OUTPUT=$(artillery cloud run load-test.yml)
-          echo "$OUTPUT"
-          # Extract the test result URL from the output
-          RESULT_URL=$(echo "$OUTPUT" | grep -oP 'https://cloud.artillery.io/[^\s]+')
-          echo "::set-output name=result_url::$RESULT_URL"
+          ARTILLERY_CLOUD_KEY: ${{ secrets.ARTILLERY_CLOUD_KEY }}
+        with:
+          command: cloud run load-test.yml
 
       - name: Display test result link
         run: |
