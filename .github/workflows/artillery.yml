@@ -13,21 +13,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4  
 
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
           node-version: 18
 
-      - name: Install Artillery
-        run: npm install -g artillery
+      - name: Run load test with Artillery CI
+        uses: artilleryio/action-cli@v1
+        with:
+          command: run --output report.json load-test.yml  
 
-      - name: Run load test
-        run: artillery run --output report.json load-test.yml
+      - name: Convert report to HTML
+        run: artillery report report.json --output report.html
 
       - name: Upload test report
         uses: actions/upload-artifact@v4
         with:
           name: artillery-report
-          path: report.json
+          path: report.html
