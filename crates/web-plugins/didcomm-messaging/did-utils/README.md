@@ -48,8 +48,8 @@ The documentation for the library is available here: https://docs.rs/did-utils/
 
 ## Contributors
 
-* Bard
-* [Your name]
+* Francis Pouatcha
+* Hermann Awatsa
 
 ## License
 
