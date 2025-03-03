@@ -21,7 +21,13 @@ jobs:
         env:
           ARTILLERY_CLOUD_KEY: ${{ secrets.ARTILLERY_CLOUD_KEY }}
         with:
-          command: artillery run load-test.yml
+          command: run load-test.yml --output report.json 
+
+      - name: Upload results to Artillery Cloud
+        run: |
+          npx artillery@latest cloud report.json
+        env:
+          ARTILLERY_CLOUD_KEY: ${{ secrets.ARTILLERY_CLOUD_KEY }}
 
       - name: Display test result link
         run: |
