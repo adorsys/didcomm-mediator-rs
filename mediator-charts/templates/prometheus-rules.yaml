@@ -1,0 +1,44 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: mediator-alert-rules
+  labels:
+    release: {{ .Release.Name }}
+spec:
+  groups:
+  - name: mediator.rules
+    rules:
+      - alert: InstanceDown
+        expr: up{job="mediator-service"} == 0
+        for: 10s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Instance {{ "{{" }} $labels.instance {{ "}}" }} is down"
+          description: "The instance {{ "{{" }} $labels.instance {{ "}}" }} is not responding."
+      - alert: HighCPUUsage
+        expr: (100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[2m])) * 100)) > 80
+        for: 30s
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU Usage on {{ "{{" }} $labels.instance {{ "}}" }}"
+          description: "CPU usage is above 80% for the last 2 minutes."
+
+      - alert: HighMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High Memory Usage on {{ "{{" }} $labels.instance {{ "}}" }}"
+          description: "Memory usage is above 85% for the last 2 minutes."
+
+      - alert: SlowAPIResponse
+        expr: histogram_quantile(0.95, rate(api_response_time_seconds_bucket[5m])) > 1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Slow API responses on {{ "{{" }} $labels.instance {{ "}}" }}"
+          description: "95th percentile of API response times is above 1 second for more than 5 minutes."

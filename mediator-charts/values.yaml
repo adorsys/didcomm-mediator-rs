@@ -60,6 +60,9 @@ prometheus:
     additionalFlags:
       - "--web.route-prefix=/prometheus"
       - "--web.external-url=https://didcomm-mediator.eudi-adorsys.com/prometheus"
+    ruleSelector:
+      matchLabels:
+        release: mediator
 
   configuration: |
     global:
@@ -67,10 +70,20 @@ prometheus:
       evaluation_interval: 15s
 
     scrape_configs:
-      - job_name: "mediator"
+      - job_name: "mediator-service"
         metrics_path: "/metrics"
         static_configs:
           - targets: ["mediator-service.didcomm-mediator.svc.cluster.local:8080"]
+      - job_name: "mediator-health"
+        metrics_path: "/health"
+        static_configs:
+          - targets: ["mediator-service.didcomm-mediator.svc.cluster.local:8080"]
+      - job_name: "mongodb"
+        metrics_path: "/metrics"
+        static_configs:
+          - targets: ["mongodb-service.didcomm-mediator.svc.cluster.local:27017"]
+
+
 
   additionalServiceMonitors:
     - name: "mediator-service-monitor"
@@ -84,6 +97,17 @@ prometheus:
         - port: https
           interval: 15s
           path: /metrics
+
+    - name: "mongodb-exporter-monitor"
+      selector:
+        matchLabels:
+          app: mongodb-exporter
+      namespaceSelector:
+        matchNames:
+          - didcomm-mediator
+      endpoints:
+        - port: metrics
+          interval: 15s
 
 alertmanager:
   enabled: true
@@ -99,6 +123,9 @@ alertmanager:
     ports:
       alertmanager: 9093
 
+  secrets:
+    - mediator-eks-secret  
+
   config:
     global:
       resolve_timeout: 5m
@@ -111,7 +138,7 @@ alertmanager:
     receivers:
       - name: 'discord_webhook'
         webhook_configs:
-          - url: 'https://discord.com/api/webhooks/1339519604564824136/p4F_iBFo7FDK12pqwjTdnX15KBjHOazAyx_wVrPeVuT7Aa-rkwp7rXl0OMuAtOe-lmCe'
+          - url: '{{ `{{` }} (index .Values "mediator-eks-secret" "discord-webhook-secret") {{ `}}` }}'
             send_resolved: true
 
 grafana:
@@ -144,24 +171,23 @@ grafana:
   config:
     useGrafanaIniFile: true
     grafanaIniConfigMap: "grafana-configmap"
-
+    
   dashboardProviders:
-    enabled: true
     dashboardproviders.yaml:
       apiVersion: 1
       providers:
-        - name: 'default'
-          orgId: 1
-          folder: ''
-          type: file
-          disableDeletion: false
-          editable: true
-          options:
-            path: /var/lib/grafana/dashboards
-    configMapName: dashboard-configmap
+      - name: 'default'
+        orgId: 1
+        folder: ''
+        type: file
+        disableDeletion: false
+        editable: true
+        options:
+          path: /opt/bitnami/grafana/dashboards/didcomm-mediator.json
 
   dashboardsConfigMaps:
     - configMapName: dashboard-configmap
+      fileName: didcomm-mediator.json
       namespace: didcomm-mediator
       labels:
         grafana_dashboard: "1"
@@ -175,11 +201,11 @@ grafana:
         name: dashboard-configmap
 
   volumeMounts:
+    - name: grafana-dashboards
+      mountPath: /opt/bitnami/grafana/dashboards
     - name: grafana-config
       mountPath: /opt/bitnami/grafana/conf/grafana.ini
       subPath: grafana.ini
-    - name: grafana-dashboards
-      mountPath: /var/lib/grafana/dashboards
       
 nodeExporter:
   enabled: true
@@ -203,63 +229,6 @@ kube-state-metrics:
 
 prometheus-node-exporter:
   enabled: true
-
-prometheusRule:
-  enabled: true
-  rules:
-    - alert: InstanceDown
-      expr: up{job="didcomm-mediator"} == 0
-      for: 10s
-      labels:
-        severity: critical
-      annotations:
-        summary: "Instance {{ $labels.instance }} is down"
-        description: "The instance {{ $labels.instance }} is not responding."
-
-    - alert: HighCPUUsage
-      expr: (100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[2m])) * 100)) > 80
-      for: 30s
-      labels:
-        severity: warning
-      annotations:
-        summary: "High CPU Usage on {{ $labels.instance }}"
-        description: "CPU usage is above 80% for the last 2 minutes."
-
-    - alert: HighMemoryUsage
-      expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
-      for: 1m
-      labels:
-        severity: warning
-      annotations:
-        summary: "High Memory Usage on {{ $labels.instance }}"
-        description: "Memory usage is above 85% for the last 2 minutes."
-
-    - alert: SlowAPIResponse
-      expr: histogram_quantile(0.95, rate(api_response_time_seconds_bucket[5m])) > 1
-      for: 2m
-      labels:
-        severity: warning
-      annotations:
-        summary: "Slow API responses on {{ $labels.instance }}"
-        description: "95th percentile of API response times is above 1 second for more than 5 minutes."
-
-    - alert: MongoDBInstanceDown
-      expr: up{job="mongodb"} == 0
-      for: 10s
-      labels:
-        severity: critical
-      annotations:
-        summary: "MongoDB instance is down"
-        description: "The MongoDB instance {{ $labels.instance }} is not responding."
-
-    - alert: HighMongoDBConnections
-      expr: mongodb_connections{state="current"} > 100
-      for: 30s
-      labels:
-        severity: warning
-      annotations:
-        summary: "High number of MongoDB connections"
-        description: "MongoDB has more than 100 active connections."
 
 mediator:
   image:
@@ -291,6 +260,7 @@ externalSecret:
     secretKey1: mongodb-passwords
     secretKey2: mongodb-root-password
     secretKey3: grafana-password
+    secretKey4: discord-webhook-secret
     refreshInterval: 1h
     secretStoreRef:
       name: mediator-secret-store
@@ -300,5 +270,6 @@ externalSecret:
   awssecretKey1: MONGO_PASSWORD
   awssecretKey2: MONGO_ROOT_PASSWORD
   awssecretKey3: GF_SECURITY_ADMIN_PASSWORD
+  awssecretKey4: DISCORD_WEBHOOK_SECRET
 
 awsSecretName: mediator-secrets
