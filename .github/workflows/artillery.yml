@@ -19,16 +19,16 @@ jobs:
         id: run_test
         uses: artilleryio/action-cli@v1
         env:
-          ARTILLERY_CLOUD_KEY: ${{ secrets.ARTILLERY_CLOUD_KEY }}
+          ARTILLERY_CLOUD_KEY: ${{ secrets.ARTILLERY_CLOUD_KEY }} 
         with:
-          command: run load-test.yml --output report.json 
-
-      - name: Upload results to Artillery Cloud
-        run: |
-          npx artillery@latest cloud report.json
-        env:
-          ARTILLERY_CLOUD_KEY: ${{ secrets.ARTILLERY_CLOUD_KEY }}
+          command: cloud run load-test.yml
 
       - name: Display test result link
         run: |
           echo "View the test results on Artillery Cloud: ${{ steps.run_test.outputs.result_url }}"
+
+      - name: Check test results
+        if: failure()
+        run: |
+          echo "Load test failed. Please check the results."
+          exit 1
