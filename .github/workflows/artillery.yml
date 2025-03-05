@@ -28,15 +28,3 @@ jobs:
         with:
           name: artillery-test-results
           path: test-report.json
-
-      - name: Comment PR with Test Results
-        if: github.event_name == 'pull_request'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.name,
-              body: `🎯 Load Test Results\n\nTest results have been uploaded as artifacts.`
-            })
