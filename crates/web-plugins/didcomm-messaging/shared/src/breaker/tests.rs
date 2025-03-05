@@ -97,25 +97,25 @@ async fn test_timeout_reset() {
     assert_eq!(breaker.inner.lock().state, CircuitState::Closed);
 }
 
-// #[tokio::test]
-// async fn test_exponential_backoff() {
-// let breaker = CircuitBreaker::new()
-// .retries(3)
-// .exponential_backoff(Duration::from_millis(100));
+ #[tokio::test]
+ async fn test_exponential_backoff() {
+ let breaker = CircuitBreaker::new()
+ .retries(3)
+ .exponential_backoff(Duration::from_millis(100));
 
-// let start = Instant::now();
-//  let _ = breaker.call(|| async { Err::<(), ()>(()) }).await;
-// let elapsed = start.elapsed();
+ let start = Instant::now();
+ let _ = breaker.call(|| async { Err::<(), ()>(()) }).await;
+ let elapsed = start.elapsed();
 
 // Log the elapsed time for debugging
-// println!("Elapsed time: {:?}", elapsed);
+ println!("Elapsed time: {:?}", elapsed);
 
 // After the first failure, we wait 100ms before retrying
 // After the second failure, we wait 200ms before retrying
 // After the third failure, we should not retry anymore, and the circuit should open
-// assert!(elapsed >= Duration::from_millis(290) && elapsed < Duration::from_millis(600)); // Widen range further
-// assert!(!breaker.should_allow_call()); // Circuit should be open after 3 retries
-// }
+ assert!(elapsed >= Duration::from_millis(300) && elapsed < Duration::from_millis(600)); // Widen range further
+ assert!(!breaker.should_allow_call()); // Circuit should be open after 3 retries
+ }
 
 // #[tokio::test]
 // async fn test_half_open_state_failure() {

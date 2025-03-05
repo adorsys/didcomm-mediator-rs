@@ -172,42 +172,15 @@ impl CircuitBreaker {
     }
 
     // Call the future and handle the result depending on the circuit
-    pub fn call<F, Fut, T, E>(&self, mut f: F) -> impl Future<Output = Result<T, Error<E>>>
+    pub fn call<F, Fut, T, E>(&self, f: F) -> ResultFuture<F, Fut>
     where
         F: FnMut() -> Fut,
         Fut: Future<Output = Result<T, E>>,
     {
-        let breaker = self.clone();
-
-        async move {
-            if !breaker.should_allow_call() {
-                return Err(Error::CircuitOpen);
-            }
-
-            let mut attempts = 0;
-
-            loop {
-                attempts += 1;
-                let result = f().await;
-
-                match result {
-                    Ok(val) => {
-                        breaker.success();
-                        return Ok(val);
-                    }
-                    Err(err) => {
-                        breaker.failure();
-
-                        if attempts >= breaker.inner.lock().max_retries {
-                            return Err(Error::Inner(err));
-                        }
-
-                        if !breaker.should_allow_call() {
-                            return Err(Error::CircuitOpen);
-                        }
-                    }
-                }
-            }
+        ResultFuture {
+            factory: f,
+            state: State::Initial,
+            breaker: self.clone(),
         }
     }
 
