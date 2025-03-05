@@ -20,7 +20,7 @@ jobs:
         env:
           ARTILLERY_AUTH_TOKEN: ${{ secrets.ARTILLERY_AUTH_TOKEN }}
         with:
-          command: "run --platform cloud --output cloud-test.json load-test.yml"
+          command: "cloud:test --output cloud-test.json load-test.yml"
 
       - name: Get Test Results
         run: |
