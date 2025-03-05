@@ -42,3 +42,41 @@ spec:
         annotations:
           summary: "Slow API responses on {{ "{{" }} $labels.instance {{ "}}" }}"
           description: "95th percentile of API response times is above 1 second for more than 5 minutes."
+
+  - name: mongodb.rules
+    rules:
+      - alert: MongoDBDown
+        expr: mongodb_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "MongoDB instance {{ "{{" }} $labels.instance {{ "}}" }} is down"
+          description: "MongoDB instance has been down for more than 1 minute"
+
+      - alert: MongoDBHighConnections
+        expr: mongodb_connections{state="current"} > 80
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High number of connections on {{ "{{" }} $labels.instance {{ "}}" }}"
+          description: "MongoDB is experiencing high number of connections"
+
+      - alert: MongoDBHighLatency
+        expr: rate(mongodb_op_latencies_latency_total[5m]) / rate(mongodb_op_latencies_ops_total[5m]) > 100
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High operation latency on {{ "{{" }} $labels.instance {{ "}}" }}"
+          description: "MongoDB operations are taking longer than usual"
+
+      - alert: MongoDBLowMemory
+        expr: (mongodb_memory{type="resident"} / mongodb_memory{type="mapped"}) * 100 > 90
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low memory on MongoDB {{ "{{" }} $labels.instance {{ "}}" }}"
+          description: "MongoDB is using more than 90% of its allocated memory"

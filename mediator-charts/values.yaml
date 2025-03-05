@@ -19,6 +19,15 @@ mongodb:
       - MediatorDB
     existingSecret: mediator-eks-secret
 
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+      additionalLabels:
+        release: mediator-kube-prometheus
+    prometheusRule:
+      enabled: true
+      
   service: 
     nameOverride: "mongodb-service"
     type: ClusterIP

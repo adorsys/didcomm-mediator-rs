@@ -4,51 +4,144 @@ metadata:
   name: dashboard-configmap
   labels:
     grafana_dashboard: "1"
+    app: mediator
 data:
   didcomm-mediator.json: |
     {
-      "dashboard": {
-        "panels": [
-          {
-            "title": "API Response Time",
-            "type": "graph",
-            "targets": [
-              {
-                "expr": "histogram_quantile(0.95, rate(api_response_time_seconds_bucket[5m]))",
-                "legendFormat": "95th percentile"
-              }
-            ]
+      "annotations": {
+        "list": []
+      },
+      "editable": true,
+      "fiscalYearStartMonth": 0,
+      "graphTooltip": 0,
+      "links": [],
+      "liveNow": false,
+      "panels": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
           },
-          {
-            "title": "CPU Usage",
-            "type": "graph",
-            "targets": [
-              {
-                "expr": "100 - (avg by (instance) (rate(node_cpu_seconds_total{mode='idle'}[2m])) * 100)",
-                "legendFormat": "CPU Usage"
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
               }
-            ]
+            }
           },
-          {
-            "title": "Memory Usage",
-            "type": "graph",
-            "targets": [
-              {
-                "expr": "(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100",
-                "legendFormat": "Memory Usage"
-              }
-            ]
-          },
-          {
-            "title": "MongoDB Connections",
-            "type": "graph",
-            "targets": [
-              {
-                "expr": "mongodb_connections{state='current'}",
-                "legendFormat": "Connections"
-              }
-            ]
-          }
-        ]
-      }
+          "title": "API Response Time",
+          "type": "timeseries",
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, rate(api_response_time_seconds_bucket[5m]))",
+              "legendFormat": "95th percentile"
+            }
+          ]
+        },
+        {
+          "title": "CPU Usage",
+          "type": "graph",
+          "targets": [
+            {
+              "expr": "rate(node_cpu_seconds_total[5m])",
+              "legendFormat": "CPU Usage"
+            }
+          ]
+        },
+        {
+          "title": "Memory Usage",
+          "type": "graph",
+          "targets": [
+            {
+              "expr": "rate(node_memory_MemTotal_bytes[5m])",
+              "legendFormat": "Memory Usage"
+            }
+          ]
+        },
+        {
+          "title": "MongoDB Metrics",
+          "panels": [
+            {
+              "title": "MongoDB Connections",
+              "type": "graph",
+              "targets": [
+                {
+                  "expr": "mongodb_connections{state='current'}",
+                  "legendFormat": "Current Connections"
+                },
+                {
+                  "expr": "mongodb_connections{state='available'}",
+                  "legendFormat": "Available Connections"
+                }
+              ]
+            },
+            {
+              "title": "MongoDB Operation Latency",
+              "type": "graph",
+              "targets": [
+                {
+                  "expr": "rate(mongodb_op_latencies_latency_total[5m]) / rate(mongodb_op_latencies_ops_total[5m])",
+                  "legendFormat": "Operation Latency"
+                }
+              ]
+            },
+            {
+              "title": "MongoDB Memory Usage",
+              "type": "graph",
+              "targets": [
+                {
+                  "expr": "(mongodb_memory{type='resident'} / mongodb_memory{type='mapped'}) * 100",
+                  "legendFormat": "Memory Usage %"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "refresh": "5s",
+      "schemaVersion": 38,
+      "style": "dark",
+      "tags": [],
+      "templating": {
+        "list": []
+      },
+      "time": {
+        "from": "now-6h",
+        "to": "now"
+      },
+      "timepicker": {},
+      "timezone": "",
+      "title": "DIDComm Mediator Dashboard",
+      "version": 1,
+      "weekStart": ""
     }

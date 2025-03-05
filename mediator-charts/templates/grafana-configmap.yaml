@@ -9,3 +9,9 @@ data:
     [server]
     root_url = "https://didcomm-mediator.eudi-adorsys.com/grafana/"
     serve_from_sub_path = true
+
+    [dashboards]
+    default_home_dashboard_path = /opt/bitnami/grafana/dashboards/didcomm-mediator.json
+
+    [paths]
+    provisioning = /opt/bitnami/grafana/conf/provisioning
