@@ -15,24 +15,29 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: 18
-
-      - name: Run load test with Artillery CI
+      - name: Run load test with Artillery Cloud
         uses: artilleryio/action-cli@v1
+        env:
+          ARTILLERY_AUTH_TOKEN: ${{ secrets.ARTILLERY_AUTH_TOKEN }}
         with:
-          command: run --output report.json load-test.yml
+          command: "cloud --output cloud-test.json load-test.yml"
+          secrets: inherit
 
-      - name: Install Artillery (for report generation)
-        run: npm install -g artillery
+      - name: Get Test Results
+        run: |
+          echo "Load test completed!"
+          echo "View detailed results at: https://cloud.artillery.io/tests/${TEST_ID}"
 
-      - name: Convert report to HTML
-        run: artillery report report.json --output report.html
-
-      - name: Upload test report
-        uses: actions/upload-artifact@v4
+      - name: Comment PR with Test Results
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        env:
+          TEST_ID: ${{ env.TEST_ID }}
         with:
-          name: artillery-report
-          path: report.html
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.name,
+              body: `🎯 Load Test Results\n\nView detailed results here: https://cloud.artillery.io/tests/${process.env.TEST_ID}`
+            })
