@@ -27,4 +27,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: artillery-test-results
-          path: test-report.json
+          path: reports/report.json
