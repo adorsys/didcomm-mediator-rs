@@ -1,0 +1,39 @@
+name: Load Test
+
+on:
+  push:
+    branches:
+      - main  
+  pull_request:
+    branches:
+      - main  
+
+jobs:
+  load-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check and create report directory if not exists
+        run: |
+          if [ ! -d "report" ]; then
+            echo "Creating report directory..."
+            mkdir report
+          else
+            echo "Report directory already exists"
+          fi
+
+      - name: Run load test with Artillery
+        uses: artilleryio/action-cli@v1
+        env:
+          ARTILLERY_AUTH_TOKEN: ${{ secrets.ARTILLERY_AUTH_TOKEN }}
+        with:
+          command: "run --output report/test-report.json load-test.yml"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: artillery-test-results
+          path: report/test-report.json
