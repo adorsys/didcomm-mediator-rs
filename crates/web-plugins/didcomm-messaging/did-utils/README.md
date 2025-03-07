@@ -20,8 +20,13 @@ did-utils = "0.1"
 
 ## Documentation
 
-The documentation for the library is available [here](https://docs.rs/did-utils)
+The documentation for the library is available here: https://docs.rs/did-utils/
+
+## Contributors
+
+* Francis Pouatcha
+* Hermann Awatsa
 
 ## License
 
-The library is licensed under the MIT License.
+The library is licensed under the Apache License.
