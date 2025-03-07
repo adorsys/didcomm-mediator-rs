@@ -74,12 +74,6 @@ The monitoring stack is defined in the values.yaml file. Key configurations incl
 - **Node Exporter:** Monitors system resources.
 - **Alertmanager:** Configured for Discord notifications.
 
-### Future Improvements
-
-- Extend `/health` to include system metrics (CPU, memory, disk usage).
-- Enhance `/metrics` with request latency per endpoint.
-- Add structured logging with `tracing::instrument`.
-
 ### Conclusion
 
 This setup ensures real-time visibility into the DIDComm Mediator's health and performance. It enables proactive issue detection and automated alerts for quick response to critical failures.
