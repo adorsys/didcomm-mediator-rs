@@ -133,7 +133,8 @@ async fn unpack_payload(
         return Err(response.into_response());
     }
 
-    if plain_message.type_ != "https://didcomm.org/routing/2.0/forward"
+    const FORWARD_PROTOCOL: &str = "https://didcomm.org/routing/2.0/forward";
+    if plain_message.type_ != FORWARD_PROTOCOL
         && (plain_message.from.is_none() || !metadata.authenticated || metadata.anonymous_sender)
     {
         let response = (StatusCode::BAD_REQUEST, Error::AnonymousPacker.json());
