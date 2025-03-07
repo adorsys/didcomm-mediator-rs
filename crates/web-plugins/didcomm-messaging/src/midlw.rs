@@ -135,7 +135,6 @@ async fn unpack_payload(
         return Err(response.into_response());
     }
 
-    const ROUTING_PROTOCOL_MSG_TYPE: &str = "https://didcomm.org/routing/2.0/forward";
     if plain_message.type_ != ROUTING_PROTOCOL_MSG_TYPE
         && (plain_message.from.is_none() || !metadata.authenticated || metadata.anonymous_sender)
     {
