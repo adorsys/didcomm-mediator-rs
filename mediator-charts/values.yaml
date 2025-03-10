@@ -19,7 +19,15 @@ mongodb:
       - MediatorDB
     existingSecret: mediator-eks-secret
 
-  
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+      additionalLabels:
+        release: mediator-kube-prometheus
+    prometheusRule:
+      enabled: true
+      
   service: 
     nameOverride: "mongodb-service"
     type: ClusterIP
@@ -35,6 +43,195 @@ mongodb:
     size: 10Gi
     mountPath: /bitnami/mongodb 
 
+prometheus:
+  enabled: true
+  image:
+    registry: docker.io
+    repository: bitnami/prometheus-operator
+    tag: 0.80.0-debian-12-r1
+    pullPolicy: IfNotPresent
+
+  networkPolicy:
+    enabled: true
+
+  service: 
+    nameOverride: "mediator-kube-prometheus-prometheus"
+    type: ClusterIP
+    portName: prometheus
+    ports:
+      prometheus: 9090
+
+  prometheusSpec:
+    scrapeInterval: 5s
+    evaluationInterval: 10s
+    webExternalUrl: "https://didcomm-mediator.eudi-adorsys.com/prometheus"
+    routePrefix: "/prometheus"
+    additionalFlags:
+      - "--web.route-prefix=/prometheus"
+      - "--web.external-url=https://didcomm-mediator.eudi-adorsys.com/prometheus"
+    ruleSelector:
+      matchLabels:
+        release: mediator
+
+  configuration: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+
+    scrape_configs:
+      - job_name: "mediator-service"
+        metrics_path: "/metrics"
+        static_configs:
+          - targets: ["mediator-service.didcomm-mediator.svc.cluster.local:8080"]
+      - job_name: "mediator-health"
+
+
+
+  additionalServiceMonitors:
+    - name: "mediator-service-monitor"
+      selector:
+        matchLabels:
+          app: mediator
+      namespaceSelector:
+        matchNames:
+          - didcomm-mediator
+      endpoints:
+        - port: https
+          interval: 15s
+          path: /metrics
+
+    - name: "mongodb-exporter-monitor"
+      selector:
+        matchLabels:
+          app: mongodb-exporter
+      namespaceSelector:
+        matchNames:
+          - didcomm-mediator
+      endpoints:
+        - port: metrics
+          interval: 15s
+
+alertmanager:
+  enabled: true
+  image:
+    repository: bitnami/alertmanager
+    tag: 0.28.0-debian-12-r5
+    pullPolicy: IfNotPresent
+
+  service: 
+    nameOverride: "mediator-kube-prometheus-alertmanager"
+    type: ClusterIP
+    portName: alertmanager
+    ports:
+      alertmanager: 9093
+
+  secrets:
+    - mediator-eks-secret  
+
+  config:
+    global:
+      resolve_timeout: 5m
+    route:
+      group_by: ['alertname']
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 4h
+      receiver: 'discord_webhook'
+    receivers:
+      - name: 'discord_webhook'
+        webhook_configs:
+          - url: '{{ `{{` }} (index .Values "mediator-eks-secret" "discord-webhook-secret") {{ `}}` }}'
+            send_resolved: true
+
+grafana:
+  enabled: true
+  image:
+    registry: docker.io
+    repository: bitnami/grafana
+    tag: 11.5.1-debian-12-r1
+
+  admin:
+    user: root
+    existingSecret: mediator-eks-secret
+    existingSecretPasswordKey: grafana-password
+
+  service: 
+    nameOverride: "mediator-grafana"
+    type: ClusterIP
+    portName: grafana
+    ports:
+      grafana: 3000
+
+  persistence:
+    enabled: true
+    storageClass: "high-performance"
+    accessModes: 
+      - ReadWriteOnce
+    size: 10Gi
+    mountPath: /bitnami/grafana 
+
+  config:
+    useGrafanaIniFile: true
+    grafanaIniConfigMap: "grafana-configmap"
+    
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+      - name: 'default'
+        orgId: 1
+        folder: ''
+        type: file
+        disableDeletion: false
+        editable: true
+        options:
+          path: /opt/bitnami/grafana/dashboards/didcomm-mediator.json
+
+  dashboardsConfigMaps:
+    - configMapName: dashboard-configmap
+      fileName: didcomm-mediator.json
+      namespace: didcomm-mediator
+      labels:
+        grafana_dashboard: "1"
+
+  volumes:
+    - name: grafana-config
+      configMap:
+        name: grafana-configmap
+    - name: grafana-dashboards
+      configMap:
+        name: dashboard-configmap
+
+  volumeMounts:
+    - name: grafana-dashboards
+      mountPath: /opt/bitnami/grafana/dashboards
+    - name: grafana-config
+      mountPath: /opt/bitnami/grafana/conf/grafana.ini
+      subPath: grafana.ini
+      
+nodeExporter:
+  enabled: true
+  image:
+    registry: docker.io
+    repository: bitnami/node-exporter
+    tag: 1.3.1-debian-12-r12
+
+  service: 
+    nameOverride: "nodeExporter-service"
+    type: ClusterIP
+    portName: nodeExporter
+    ports:
+      nodeExporter: 9100
+  
+  networkPolicy:
+    enabled: true
+
+kube-state-metrics:
+  enabled: true
+
+prometheus-node-exporter:
+  enabled: true
+
 mediator:
   image:
     repository: ghcr.io/adorsys/didcomm-mediator-rs
@@ -47,6 +244,13 @@ mediator:
     secretName: mediator-tls
     annotations:
       cert-manager.io/cluster-issuer: letsencrypt-prod
+  service:
+    annotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/path: "/metrics"
+      prometheus.io/port: "8080"
+    labels: 
+      app: mediator
 
   configmap:
     name: mediator-configmap
@@ -57,6 +261,8 @@ externalSecret:
   spec: 
     secretKey1: mongodb-passwords
     secretKey2: mongodb-root-password
+    secretKey3: grafana-password
+    secretKey4: discord-webhook-secret
     refreshInterval: 1h
     secretStoreRef:
       name: mediator-secret-store
@@ -65,5 +271,7 @@ externalSecret:
       creationPolicy: Owner
   awssecretKey1: MONGO_PASSWORD
   awssecretKey2: MONGO_ROOT_PASSWORD
+  awssecretKey3: GF_SECURITY_ADMIN_PASSWORD
+  awssecretKey4: DISCORD_WEBHOOK_SECRET
 
 awsSecretName: mediator-secrets
