@@ -13,7 +13,7 @@ fn is_parsefallback(message: &Message) -> Result<bool, SharedError> {
     if let Some(msg) = msg {
         let de_msg: Vec<FallBackHeader> = serde_json::from_value(msg.to_owned())
             .map_err(|e| SharedError::Generic(e.to_string()))?;
-        Ok(de_msg.iter().find(|rr| rr.return_route == "all").is_some())
+        Ok(de_msg.iter().any(|rr| rr.return_route == "all"))
     } else {
         Ok(false)
     }
