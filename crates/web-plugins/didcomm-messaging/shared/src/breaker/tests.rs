@@ -70,8 +70,8 @@ async fn test_retry_configuration() {
 
     let result = breaker.call(retry_operation).await;
     assert!(matches!(result, Err(Error::Inner(_))));
-    // the total number of attempts should be 2
-    assert_eq!(attempts.load(Ordering::Relaxed), 2);
+    // the total number of attempts should be 3 (initial attempt + 2 retries)
+    assert_eq!(attempts.load(Ordering::Relaxed), 3);
 }
 
 #[tokio::test]
@@ -102,10 +102,11 @@ async fn test_exponential_backoff() {
     let _ = breaker.call(|| async { Err::<(), ()>(()) }).await;
     let elapsed = start.elapsed();
 
-    // After the first failure, we wait 100ms before retrying
-    // After the second failure, we wait 200ms before retrying
-    // The total elapsed time should be near 300ms
-    assert!(elapsed >= Duration::from_millis(300) && elapsed < Duration::from_millis(400));
+    // After the first failure, we wait 100ms before retrying (first retry)
+    // After the second failure, we wait 200ms before retrying (second retry)
+    // After the third failure, we wait 400ms before retrying (third retry)
+    // The total elapsed time should be near 700ms
+    assert!(elapsed >= Duration::from_millis(700) && elapsed < Duration::from_millis(800));
     assert!(!breaker.should_allow_call());
 }
 
@@ -119,10 +120,11 @@ async fn test_constant_backoff() {
     let _ = breaker.call(|| async { Err::<(), ()>(()) }).await;
     let elapsed = start.elapsed();
 
-    // We wait 100ms after the first failure
-    // We wait for another 100ms after the second failure
-    // After the third failure, the total elapsed time should be near 200ms
-    assert!(elapsed >= Duration::from_millis(200) && elapsed < Duration::from_millis(300));
+    // We wait 100ms after the first failure (first retry)
+    // We wait for another 100ms after the second failure (second retry)
+    // We wait for another 100ms after the third failure (third retry)
+    // After the third failure, the total elapsed time should be near 300ms
+    assert!(elapsed >= Duration::from_millis(300) && elapsed < Duration::from_millis(400));
     assert!(!breaker.should_allow_call());
 }
 
@@ -136,7 +138,7 @@ async fn test_half_open_state_failure() {
     assert!(!breaker.should_allow_call());
 
     // We wait for reset timeout
-    sleep(Duration::from_millis(150)).await;
+    sleep(Duration::from_millis(100)).await;
 
     // The circuit should be in half-open state
     assert!(breaker.should_allow_call());
@@ -160,12 +162,15 @@ async fn test_half_open_multiple_failures_allowed() {
     sleep(Duration::from_millis(100)).await;
 
     // The circuit should be in half-open state
+    assert!(breaker.should_allow_call());
+    assert_eq!(breaker.inner.lock().state, CircuitState::HalfOpen);
     // and should allow 2 more failures
     let _ = breaker.call(|| async { Err::<(), ()>(()) }).await;
     let result = breaker.call(|| async { Err::<(), ()>(()) }).await;
+    assert_eq!(breaker.inner.lock().failure_count, 2);
     assert!(matches!(result, Err(Error::Inner(_))));
 
-    // Additional failure in half-open should open circuit
+    // At this point, the circuit should be open again and should reject the call
     let result = breaker.call(|| async { Err::<(), ()>(()) }).await;
     assert!(matches!(result, Err(Error::CircuitOpen)));
 }
