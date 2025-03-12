@@ -1,17 +1,35 @@
 use crate::errors::SharedError;
 use didcomm::Message;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
+
+#[derive(Debug, Serialize, Deserialize)]
+struct FallBackHeader {
+    pub return_route: String,
+}
+
+fn is_parsefallback(message: &Message) -> Result<bool, SharedError> {
+    let msg = message.extra_headers.get("custom_headers");
+    if let Some(msg) = msg {
+        let de_msg: Vec<FallBackHeader> = serde_json::from_value(msg.to_owned())
+            .map_err(|e| SharedError::Generic(e.to_string()))?;
+        Ok(de_msg.iter().find(|rr| rr.return_route == "all").is_some())
+    } else {
+        Ok(false)
+    }
+}
 
 /// Validate explicit decoration on message to receive response on same route.
 pub fn ensure_transport_return_route_is_decorated_all(
     message: &Message,
 ) -> Result<(), SharedError> {
-    if message
+    let bool = message
         .extra_headers
         .get("return_route")
         .and_then(Value::as_str)
-        != Some("all")
-    {
+        == Some("all");
+
+    if !(bool | is_parsefallback(message)?) {
         return Err(SharedError::NoReturnRouteAllDecoration);
     }
 

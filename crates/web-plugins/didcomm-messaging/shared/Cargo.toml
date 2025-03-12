@@ -21,6 +21,7 @@ parking_lot.workspace = true
 pin-project-lite.workspace = true
 tokio = { workspace = true, features = ["full"] }
 didcomm = { workspace = true, features = ["uniffi"] }
+anyhow.workspace = true
 
 [dev-dependencies]
 json-canon = "0.1.3"
