@@ -5,5 +5,5 @@ pub enum SharedError {
     #[error("message must be decorated with return route all extension")]
     NoReturnRouteAllDecoration,
     #[error("error {0}")]
-    Generic(String)
+    Generic(String),
 }
