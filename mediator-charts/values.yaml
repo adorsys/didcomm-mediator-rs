@@ -125,23 +125,19 @@ alertmanager:
     ports:
       alertmanager: 9093
 
-  secrets:
-    - mediator-eks-secret  
+  configMaps:
+    - name: alertmanager-discord-template
+      mountPath: /etc/alertmanager/templates
 
-  config:
-    global:
-      resolve_timeout: 5m
-    route:
-      group_by: ['alertname']
-      group_wait: 30s
-      group_interval: 5m
-      repeat_interval: 4h
-      receiver: 'discord_webhook'
-    receivers:
-      - name: 'discord_webhook'
-        webhook_configs:
-          - url: '{{ `{{` }} (index .Values "mediator-eks-secret" "discord-webhook-secret") {{ `}}` }}'
-            send_resolved: true
+  extraVolumeMounts:
+    - name: discord-templates
+      mountPath: /etc/alertmanager/templates
+      readOnly: true
+
+  extraVolumes:
+    - name: discord-templates
+      configMap:
+        name: alertmanager-discord-template
 
 grafana:
   enabled: true
