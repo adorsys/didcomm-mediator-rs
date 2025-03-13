@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alertmanager-discord-template
+  namespace: didcomm-mediator
+data:
+  discord.tmpl: |
+    {{ define "discord.default.message" }}
+    {
+      "content": "{{ range .Alerts }}{{ .Annotations.summary }}\n{{ .Annotations.description }}{{ end }}"
+    }
+    {{ end }}

@@ -2,5 +2,14 @@ dependencies:
 - name: mongodb
   repository: https://charts.bitnami.com/bitnami
   version: 16.4.2
-digest: sha256:200f4f4f4d4a824035a786b19d75086e928760b36c05f35ce47c728ead61f039
-generated: "2025-02-03T13:18:21.203650833+01:00"
+- name: kube-prometheus
+  repository: https://charts.bitnami.com/bitnami
+  version: 11.0.2
+- name: grafana
+  repository: https://charts.bitnami.com/bitnami
+  version: 11.4.7
+- name: node-exporter
+  repository: https://charts.bitnami.com/bitnami
+  version: 4.5.6
+digest: sha256:be3457f7886a839f922cf27d199d8733f9f4315ba1262b36da9b97ac7bd62fc4
+generated: "2025-03-11T10:55:45.883092405+01:00"
