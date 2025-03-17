@@ -1,0 +1,57 @@
+name: Automatic Release
+
+on:
+  schedule:
+    # Runs every 3 weeks on Monday at 12:00 UTC
+    - cron: "0 12 * * 1"
+
+  workflow_dispatch: # Allows manual triggering of the workflow
+    inputs:
+      release_notes:
+        description: 'This is the initial release of didcomm-mediator-rs, a Rust implementation of a mediator for the DIDComm v2 protocol. The mediator facilitates secure, decentralized communication by managing routing and keylist functionality for agents in a Self-Sovereign Identity (SSI) ecosystem.'
+        required: false
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: stable
+
+    - name: Install Dependencies
+      run: cargo build --release
+
+    - name: Bump Version
+      id: version
+      run: |
+        version=$(cargo pkgid | grep -oP '(?<=#).*') # Extract current version
+        new_version=$(echo $version | awk -F. '{$NF+=1; print $0}' OFS=.) # Increment patch
+        echo "new_version=$new_version" >> $GITHUB_ENV
+        echo "::set-output name=version::$new_version"
+
+    - name: Commit Version Change
+      if: ${{ github.event_name != 'workflow_dispatch' }}
+      run: |
+        git config --global user.name "github-actions"
+        git config --global user.email "github-actions@users.noreply.github.com"
+        git checkout -b release/${{ env.new_version }}
+        sed -i "s/version = \".*\"/version = \"${{ env.new_version }}\"/" Cargo.toml
+        git commit -am "Release ${{ env.new_version }}"
+        git push origin release/${{ env.new_version }}
+
+    - name: Create GitHub Release
+      uses: actions/create-release@v1
+      with:
+        tag_name: "v${{ env.new_version }}"
+        release_name: "Release ${{ env.new_version }}"
+        body: ${{ github.event.inputs.release_notes || 'Scheduled Release' }}
+        draft: false
+        prerelease: false
