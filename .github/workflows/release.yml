@@ -8,7 +8,7 @@ on:
   workflow_dispatch: # Allows manual triggering of the workflow
     inputs:
       release_notes:
-        description: 'This is the initial release of didcomm-mediator-rs, a Rust implementation of a mediator for the DIDComm v2 protocol. The mediator facilitates secure, decentralized communication by managing routing and keylist functionality for agents in a Self-Sovereign Identity (SSI) ecosystem.'
+        description: 'This is the initial release of didcomm-mediator-rs, a Rust implementation of a mediator for the DIDComm v2 protocol. The mediator facilitates secure, decentralized communication by managing routing of DIDComm messages for mobile agents in a Self-Sovereign Identity (SSI) ecosystem.'
         required: false
 
 jobs:
@@ -18,15 +18,15 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4.2.2
 
     - name: Set up Rust
-      uses: actions-rs/toolchain@v1
+      uses: actions-rust-lang/setup-rust-toolchain@v1
       with:
-        profile: minimal
         toolchain: stable
+        override: true
 
-    - name: Install Dependencies
+    - name: Build the project
       run: cargo build --release
 
     - name: Bump Version
