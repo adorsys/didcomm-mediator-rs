@@ -15,13 +15,15 @@ use tracing::error;
 // use super::{error::MediationError, AppState};
 use crate::{
     constants::{DIDCOMM_ENCRYPTED_MIME_TYPE, DIDCOMM_ENCRYPTED_SHORT_MIME_TYPE},
-    did_rotation::did_rotation,
+    did_rotation::handler::did_rotation,
     error::Error,
 };
 use shared::{
     state::{AppState, AppStateRepository},
     utils::resolvers::{LocalDIDResolver, LocalSecretsResolver},
 };
+
+const ROUTING_PROTOCOL_MSG_TYPE: &str = "https://didcomm.org/routing/2.0/forward";
 
 /// Middleware to unpack DIDComm messages for unified handler
 pub async fn unpack_didcomm_message(
@@ -136,7 +138,9 @@ async fn unpack_payload(
         return Err(response.into_response());
     }
 
-    if plain_message.from.is_none() || !metadata.authenticated || metadata.anonymous_sender {
+    if plain_message.type_ != ROUTING_PROTOCOL_MSG_TYPE
+        && (plain_message.from.is_none() || !metadata.authenticated || metadata.anonymous_sender)
+    {
         let response = (StatusCode::BAD_REQUEST, Error::AnonymousPacker.json());
 
         return Err(response.into_response());
