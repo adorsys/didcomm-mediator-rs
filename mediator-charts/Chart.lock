@@ -3,13 +3,10 @@ dependencies:
   repository: https://charts.bitnami.com/bitnami
   version: 16.4.2
 - name: kube-prometheus
-  repository: https://charts.bitnami.com/bitnami
-  version: 11.0.2
+  repository: oci://registry-1.docker.io/bitnamicharts
+  version: 11.1.3
 - name: grafana
   repository: https://charts.bitnami.com/bitnami
   version: 11.4.7
-- name: node-exporter
-  repository: https://charts.bitnami.com/bitnami
-  version: 4.5.6
-digest: sha256:be3457f7886a839f922cf27d199d8733f9f4315ba1262b36da9b97ac7bd62fc4
-generated: "2025-03-11T10:55:45.883092405+01:00"
+digest: sha256:6d053e674bc63cca53f9f7025228c81ecb14606679641e8e902c89b704e4bd69
+generated: "2025-03-18T16:45:43.120521089+01:00"

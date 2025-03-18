@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Secret
 metadata:
-  name: alertmanager-mediator-kube-prometheus-alertmanager
+  name: alertmanager-{{ template "kube-prometheus.alertmanager.fullname" . }}
   namespace: didcomm-mediator
 type: Opaque
 stringData:
