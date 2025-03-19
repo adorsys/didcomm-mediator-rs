@@ -1,15 +1,15 @@
-name: Automatic Release
+name: Release Workflow
 
 on:
   schedule:
-    # Runs every 3 weeks on Monday at 12:00 UTC
+    # Runs every Monday at 12:00 UTC
     - cron: "0 12 * * 1"
 
   workflow_dispatch: # Allows manual triggering of the workflow
     inputs:
       release_notes:
         description: 'This is the initial release of didcomm-mediator-rs, a Rust implementation of a mediator for the DIDComm v2 protocol. The mediator facilitates secure, decentralized communication by managing routing of DIDComm messages for mobile agents in a Self-Sovereign Identity (SSI) ecosystem.'
-        required: false
+        required: true
 
 jobs:
   release:
@@ -26,8 +26,39 @@ jobs:
         toolchain: stable
         override: true
 
+    - name: Check for Changes
+      id: check_changes
+      run: |
+        # Fetch tags to compare with the latest release
+        git fetch --tags
+        
+        # Get the latest tag and compare it with the current branch
+        latest_tag=$(git describe --tags $(git rev-list --tags --max-count=1))
+        echo "Latest tag: $latest_tag"
+        
+        # Check for differences
+        if [ -z "$latest_tag" ] || [ "$(git diff $latest_tag --stat)" != "" ]; then
+          echo "Changes detected since the last release."
+          echo "proceed=true" >> $GITHUB_ENV
+        else
+          echo "No changes detected since the last release."
+          echo "proceed=false" >> $GITHUB_ENV
+        fi
+
+    - name: Exit if No Changes
+      if: env.proceed == 'false'
+      run: |
+        echo "No changes to release. Exiting..."
+        exit 0
+
     - name: Build the project
       run: cargo build --release
+
+    - name: Run Cron Script
+      run: |
+        set -e # Exit on any error
+        chmod +x ./scripts/cron_script.sh
+        ./scripts/cron_script.sh
 
     - name: Bump Version
       id: version
@@ -35,17 +66,31 @@ jobs:
         version=$(cargo pkgid | grep -oP '(?<=#).*') # Extract current version
         new_version=$(echo $version | awk -F. '{$NF+=1; print $0}' OFS=.) # Increment patch
         echo "new_version=$new_version" >> $GITHUB_ENV
-        echo "::set-output name=version::$new_version"
 
-    - name: Commit Version Change
-      if: ${{ github.event_name != 'workflow_dispatch' }}
+    - name: Configure Git
       run: |
-        git config --global user.name "github-actions"
         git config --global user.email "github-actions@users.noreply.github.com"
-        git checkout -b release/${{ env.new_version }}
-        sed -i "s/version = \".*\"/version = \"${{ env.new_version }}\"/" Cargo.toml
-        git commit -am "Release ${{ env.new_version }}"
-        git push origin release/${{ env.new_version }}
+        git config --global user.name "github-actions"
+
+    - name: Create Release Branch and Commit Changes
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const newVersion = process.env.new_version;
+          const exec = require("@actions/exec");
+            
+          // Create a new branch
+          await exec.exec("git", ["checkout", "-b", `release/${newVersion}`]);
+  
+          // Update version in Cargo.toml
+          const fs = require("fs");
+          const cargoToml = fs.readFileSync("Cargo.toml", "utf-8");
+          const updatedCargoToml = cargoToml.replace(/version = ".*"/, `version = "${newVersion}"`);
+          fs.writeFileSync("Cargo.toml", updatedCargoToml);
+  
+          // Commit and push changes
+          await exec.exec("git", ["commit", "-am", `Release ${newVersion}`]);
+          await exec.exec("git", ["push", "origin", `release/${newVersion}`]);
 
     - name: Create GitHub Release
       uses: actions/create-release@v1
