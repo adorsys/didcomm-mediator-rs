@@ -1,102 +1,235 @@
 name: Release Workflow
 
 on:
-  schedule:
-    # Runs every Monday at 12:00 UTC
-    - cron: "0 12 * * 1"
-
-  workflow_dispatch: # Allows manual triggering of the workflow
+  workflow_dispatch:
     inputs:
-      release_notes:
-        description: 'This is the initial release of didcomm-mediator-rs, a Rust implementation of a mediator for the DIDComm v2 protocol. The mediator facilitates secure, decentralized communication by managing routing of DIDComm messages for mobile agents in a Self-Sovereign Identity (SSI) ecosystem.'
+      type:
+        description: 'Type of release (major/minor/patch)'
         required: true
+        default: 'minor'
+      dry_run:
+        description: 'Dry run (true/false)'
+        required: true
+        default: 'true'
+      skip_tests:
+        description: 'Skip tests (true/false)'
+        required: true
+        default: 'false'
+
+env:
+  CARGO_TERM_COLOR: always
 
 jobs:
-  release:
-    name: Create Release
-    runs-on: ubuntu-latest
-
+  test:
+    strategy:
+      matrix:
+        os: [ ubuntu-latest, macos-13, macos-14, windows-latest ]
+    runs-on: ${{ matrix.os }}
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4.2.2
+      - name: Checkout
+        uses: actions/checkout@v3
 
-    - name: Set up Rust
-      uses: actions-rust-lang/setup-rust-toolchain@v1
-      with:
-        toolchain: stable
-        override: true
+      - name: Ensure Cargo Directories Exist for Cache Restore
+        run: |
+          mkdir -p ~/.cargo/registry
+          mkdir -p ~/.cargo/index
+          mkdir -p target          
+        shell: bash
 
-    - name: Check for Changes
-      id: check_changes
-      run: |
-        # Fetch tags to compare with the latest release
-        git fetch --tags
-        
-        # Get the latest tag and compare it with the current branch
-        latest_tag=$(git describe --tags $(git rev-list --tags --max-count=1))
-        echo "Latest tag: $latest_tag"
-        
-        # Check for differences
-        if [ -z "$latest_tag" ] || [ "$(git diff $latest_tag --stat)" != "" ]; then
-          echo "Changes detected since the last release."
-          echo "proceed=true" >> $GITHUB_ENV
-        else
-          echo "No changes detected since the last release."
-          echo "proceed=false" >> $GITHUB_ENV
-        fi
+      - name: Cache Cargo Registry, Index, Build
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/index
+            target            
+          key: ${{ runner.os }}-${{ runner.arch }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+          restore-keys: |
+            cargo-build-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/Cargo.toml') }}
+            cargo-build-${{ runner.os }}-${{ runner.arch }}-            
 
-    - name: Exit if No Changes
-      if: env.proceed == 'false'
-      run: |
-        echo "No changes to release. Exiting..."
-        exit 0
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
 
-    - name: Build the project
-      run: cargo build --release
+      - name: Build
+        run: cargo build --verbose
 
-    - name: Run Cron Script
-      run: |
-        set -e # Exit on any error
-        chmod +x ./scripts/cron_script.sh
-        ./scripts/cron_script.sh
+      - name: Run Tests
+        if: ${{ github.event.inputs.skip_tests == 'false' }}
+        run: cargo test --verbose
 
-    - name: Bump Version
-      id: version
-      run: |
-        version=$(cargo pkgid | grep -oP '(?<=#).*') # Extract current version
-        new_version=$(echo $version | awk -F. '{$NF+=1; print $0}' OFS=.) # Increment patch
-        echo "new_version=$new_version" >> $GITHUB_ENV
+  prepare-release:
+    needs: test
+    runs-on: ubuntu-latest
+    outputs:
+      rr_cargo_version: ${{ steps.get-version.outputs.VERSION }}
+      workflow_git_tag: ${{ steps.get-version.outputs.WORKFLOW_GIT_TAG }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_TOKEN }}
 
-    - name: Configure Git
-      run: |
-        git config --global user.email "github-actions@users.noreply.github.com"
-        git config --global user.name "github-actions"
+      - name: Ensure Cargo Directories Exist for Cache Restore
+        run: |
+          mkdir -p ~/.cargo/registry
+          mkdir -p ~/.cargo/index
+          mkdir -p target          
+        shell: bash
 
-    - name: Create Release Branch and Commit Changes
-      uses: actions/github-script@v6
-      with:
-        script: |
-          const newVersion = process.env.new_version;
-          const exec = require("@actions/exec");
-            
-          // Create a new branch
-          await exec.exec("git", ["checkout", "-b", `release/${newVersion}`]);
-  
-          // Update version in Cargo.toml
-          const fs = require("fs");
-          const cargoToml = fs.readFileSync("Cargo.toml", "utf-8");
-          const updatedCargoToml = cargoToml.replace(/version = ".*"/, `version = "${newVersion}"`);
-          fs.writeFileSync("Cargo.toml", updatedCargoToml);
-  
-          // Commit and push changes
-          await exec.exec("git", ["commit", "-am", `Release ${newVersion}`]);
-          await exec.exec("git", ["push", "origin", `release/${newVersion}`]);
+      - name: Cache Cargo Registry, Index, Build
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/index
+            target            
+          key: ${{ runner.os }}-${{ runner.arch }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+          restore-keys: |
+            cargo-build-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/Cargo.toml') }}
+            cargo-build-${{ runner.os }}-${{ runner.arch }}-            
 
-    - name: Create GitHub Release
-      uses: actions/create-release@v1
-      with:
-        tag_name: "v${{ env.new_version }}"
-        release_name: "Release ${{ env.new_version }}"
-        body: ${{ github.event.inputs.release_notes || 'Scheduled Release' }}
-        draft: false
-        prerelease: false
+      - name: Cache Cargo Binaries
+        uses: actions/cache@v3
+        with:
+          path: ~/.cargo/bin
+          key: cargo-bin-${{ runner.os }}-${{ runner.arch }}-v1
+          restore-keys: |
+            cargo-bin-${{ runner.os }}-${{ runner.arch }}-            
+
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Install cargo-release
+        run: |
+          if ! command -v cargo-release &> /dev/null; then
+            echo "Installing cargo-release..."
+            cargo install cargo-release
+          else
+            INSTALLED_VERSION=$(cargo release --version || echo "unknown")
+            echo "cargo-release already installed (version: $INSTALLED_VERSION). Skipping installation."
+          fi          
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "GitHub Action"
+          git config --global user.email "action@github.com"          
+
+      - name: Update Cargo.toml version and push to GitHub
+        run: |
+          REL_TYPE=${{ github.event.inputs.type }}
+          DRY_RUN=${{ github.event.inputs.dry_run }}
+
+          # Execute version update
+          if [ "$DRY_RUN" = "false" ]; then
+            echo "Updating version in Cargo.toml"
+            cargo release --verbose --execute --no-confirm $REL_TYPE --no-publish --no-verify
+          else
+            echo "Dry run: showing changes without executing"
+            cargo release --verbose $REL_TYPE --no-publish --no-verify
+          fi          
+
+      - name: Get Version from Cargo.toml
+        id: get-version
+        run: |
+          VERSION=$(grep '^version = ' Cargo.toml | sed -E 's/version = "(.*)"/\1/')
+          echo "VERSION=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "WORKFLOW_GIT_TAG=v$VERSION" >> "$GITHUB_OUTPUT"          
+
+  release:
+    needs: prepare-release
+    if: ${{ github.event.inputs.dry_run == 'false' }}
+    strategy:
+      matrix:
+        os: [ ubuntu-latest, macos-13, macos-14, windows-latest ]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Ensure Cargo Directories Exist for Cache Restore
+        run: |
+          mkdir -p ~/.cargo/registry
+          mkdir -p ~/.cargo/index
+          mkdir -p target          
+        shell: bash
+
+      - name: Cache Cargo Registry, Index, Build
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/index
+            target            
+          key: ${{ runner.os }}-${{ runner.arch }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+          restore-keys: |
+            cargo-build-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/Cargo.toml') }}
+            cargo-build-${{ runner.os }}-${{ runner.arch }}-            
+
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Build Release
+        run: cargo build --release --verbose
+
+      - name: Copy release binary to root
+        shell: bash
+        run: |
+          if [[ -f "target/release/rapidrecast" ]]; then
+            cp target/release/rapidrecast .
+          elif [[ -f "target/release/rapidrecast.exe" ]]; then
+            cp target/release/rapidrecast.exe .
+          else
+            echo "No binary to copy for this OS."
+          fi          
+
+      - name: Get Build Info
+        id: build-info
+        shell: bash
+        run: |
+          OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+          ARCH=$(uname -m)
+          TARGET=""
+          case "$OS" in
+            linux) TARGET="$ARCH-unknown-linux-gnu" ;;
+            darwin) TARGET="$ARCH-apple-darwin" ;;
+            msys*|cygwin*|mingw*) TARGET="$ARCH-pc-windows-msvc" ;;
+          esac
+          VERSION=$(grep '^version = ' Cargo.toml | sed -E 's/version = "(.*)"/\1/')
+          FILENAME="rapidrecast-v${VERSION}-${TARGET}"
+          echo "OS=$OS" >> "$GITHUB_ENV"
+          echo "ARCH=$ARCH" >> "$GITHUB_ENV"
+          echo "TARGET=$TARGET" >> "$GITHUB_ENV"
+          echo "FILENAME=$FILENAME" >> "$GITHUB_ENV"          
+
+      - name: Compress tar.gz
+        uses: ksm2/archive-action@v1
+        with:
+          name: "${{ env.FILENAME }}"
+          format: "tar.gz"
+          include: "{rapidrecast,rapidrecast.exe,README.md,LICENSE}"
+
+      - name: Compress zip
+        uses: ksm2/archive-action@v1
+        with:
+          name: "${{ env.FILENAME }}"
+          format: "zip"
+          include: "{rapidrecast,rapidrecast.exe,README.md,LICENSE}"
+
+      - name: Create or Update Release
+        env:
+          VERSION: ${{ needs.prepare-release.outputs.rr_cargo_version }}
+          WORKFLOW_GIT_TAG: ${{ needs.prepare-release.outputs.workflow_git_tag}}
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "${{ env.FILENAME }}.tar.gz,${{ env.FILENAME }}.zip"
+          allowUpdates: 'true'
+          generateReleaseNotes: 'true'
+          token: ${{ secrets.RELEASE_TOKEN }}
+          tag: ${{ env.WORKFLOW_GIT_TAG }}
