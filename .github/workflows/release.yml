@@ -49,7 +49,7 @@ jobs:
             cargo-build-${{ runner.os }}-${{ runner.arch }}-            
 
       - name: Set up Rust
-        uses: actions-rs/toolchain@v1
+        uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: stable
 
