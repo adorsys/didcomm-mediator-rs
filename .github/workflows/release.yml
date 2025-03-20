@@ -1,6 +1,9 @@
 name: Release Workflow
 
 on:
+  push:
+    branches:
+      - 340-release-update
   workflow_dispatch:
     inputs:
       type:
