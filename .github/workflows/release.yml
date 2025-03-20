@@ -26,7 +26,7 @@ jobs:
   test:
     strategy:
       matrix:
-        os: [ ubuntu-latest, macos-13, macos-14 ]
+        os: [ ubuntu-latest, macos-13, macos-14, windows-latest ]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
@@ -148,7 +148,7 @@ jobs:
     if: ${{ github.event.inputs.dry_run == 'false' }}
     strategy:
       matrix:
-        os: [ ubuntu-latest, macos-13, macos-14 ]
+        os: [ ubuntu-latest, macos-13, macos-14, windows-latest ]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
@@ -186,6 +186,8 @@ jobs:
         run: |
           if [[ -f "target/release/didcomm-mediator" ]]; then
             cp target/release/didcomm-mediator .
+          elif [[ -f "target/release/didcomm-mediator.exe" ]]; then
+            cp target/release/didcomm-mediator.exe .
           else
             echo "No binary to copy for this OS."
           fi          
@@ -200,6 +202,7 @@ jobs:
           case "$OS" in
             linux) TARGET="$ARCH-unknown-linux-gnu" ;;
             darwin) TARGET="$ARCH-apple-darwin" ;;
+            msys*|cygwin*|mingw*) TARGET="$ARCH-pc-windows-msvc" ;;
           esac
           VERSION=$(grep '^version = ' Cargo.toml | sed -E 's/version = "(.*)"/\1/')
           FILENAME="didcomm-mediator-v${VERSION}-${TARGET}"
@@ -213,14 +216,14 @@ jobs:
         with:
           name: "${{ env.FILENAME }}"
           format: "tar.gz"
-          include: "{didcomm-mediator,README.md,LICENSE}"
+          include: "{didcomm-mediator,didcomm-mediator.exe,README.md,LICENSE}"
 
       - name: Compress zip
         uses: ksm2/archive-action@v1
         with:
           name: "${{ env.FILENAME }}"
           format: "zip"
-          include: "{didcomm-mediator,README.md,LICENSE}"
+          include: "{didcomm-mediator,didcomm-mediator.exe,README.md,LICENSE}"
 
       - name: Create or Update Release
         env:
@@ -233,3 +236,4 @@ jobs:
           generateReleaseNotes: 'true'
           token: ${{ secrets.RELEASE_TOKEN }}
           tag: ${{ env.WORKFLOW_GIT_TAG }}
+          
