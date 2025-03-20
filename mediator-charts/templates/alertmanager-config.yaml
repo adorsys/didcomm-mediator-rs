@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Secret
 metadata:
-  name: alertmanager-{{ template "kube-prometheus.alertmanager.fullname" . }}
+  name: alertmanager-mediator-kube-prometheus-alertmanager
   namespace: didcomm-mediator
 type: Opaque
 stringData:
@@ -9,15 +9,15 @@ stringData:
     global:
       resolve_timeout: 5m
     route:
-      receiver: 'discord_webhook'
+      receiver: 'discord'
       group_by: ['alertname']
       group_wait: 30s
       group_interval: 5m
       repeat_interval: 4h
     receivers:
-      - name: 'discord_webhook'
+      - name: 'discord'
         webhook_configs:
-          - url: 'https://discordapp.com/api/webhooks/1339519604564824136/p4F_iBFo7FDK12pqwjTdnX15KBjHOazAyx_wVrPeVuT7Aa-rkwp7rXl0OMuAtOe-lmCe'
+          - url_file: '/etc/prometheus/secrets/mediator-eks-secret/discord-webhook-secret'
             send_resolved: true
     templates:
-      - '/etc/alertmanager/templates/discord.tmpl'
+      - '/etc/alertmanager/discord.tmpl'

@@ -43,123 +43,85 @@ mongodb:
     size: 10Gi
     mountPath: /bitnami/mongodb 
 
-prometheus:
-  enabled: true
-  scrapeInterval: 5s
-  evaluationInterval: 10s
-  externalUrl: "https://didcomm-mediator.eudi-adorsys.com/prometheus"
-  routePrefix: "/prometheus"
-  ruleSelector:
-    matchLabels:
-      app: mediator
-  scrapeInterval: 15s
-  evaluationInterval: 15s
-  alertingEndpoints: ["mediator-kube-prometheus-alertmanager.didcomm-mediator.svc.cluster.local:9093"]
-  additionalScrapeConfigs:
+kube-prometheus:
+  prometheus:
     enabled: true
-    type: internal
-    internal:
-      jobList:
-        - job_name: 'mediator-service'
-          metrics_path: /metrics
-          static_configs:
-            - targets: ['mediator-service.didcomm-mediator.svc.cluster.local:8080']
+    image:
+      registry: docker.io
+      repository: bitnami/prometheus
+      tag: 2.55.1-debian-12-r14
+      pullPolicy: IfNotPresent
+    networkPolicy:
+      enabled: true
+    scrapeInterval: 5s
+    evaluationInterval: 10s
+    alertingEndpoints:
+      - namespace: didcomm-mediator
+        name: mediator-kube-prometheus-alertmanager
+        port: 9090
+    ruleSelector:
+      matchLabels:
+        app: mediator
+    scrapeInterval: 15s
+    evaluationInterval: 15s
+    secrets: ["alertmanager-mediator-kube-prometheus-alertmanager", "mediator-eks-secret"]
+    service:
+      type: ClusterIP
+      portName: prometheus
+      ports:
+        http: 9090
+    # additionalPrometheusRules:
+    #   - name: mediator-alert-rules
+    #     groups:
+    #       - name: mediator.rules
+    #         rules:
+    #           - alert: InstanceDown
+    #             expr: up{job="mediator-service"} == 0
+    #             for: 10s
+    #             labels:
+    #               severity: critical
+    #             annotations:
+    #               summary: "Instance {{ $labels.instance }} is down"
+    #               description: "The instance {{ $labels.instance }} is not responding."
+  # alertmanager:
+  #   enabled: true
+  #   externalConfig: true
+  #   image:
+  #     registry: docker.io
+  #     repository: bitnami/alertmanager
+  #     tag: 0.28.1-debian-12-r0
+  #   service:
+  #     type: ClusterIP
+  #     ports:
+  #       http: 9093
+  #   networkPolicy:
+  #     enabled: true
+  #   secrets: ["alertmanager-mediator-kube-prometheus-alertmanager"]
+  #   configSecret: ["alertmanager-mediator-mediator-charts-alertmanager"]
+  #   templateFiles:
+  #     discord.tmpl: |-
+  #       {{ define "discord.default.message" }}
+  #       {
+  #         "content": "{{ range .Alerts }}{{ .Annotations.summary }}\n{{ .Annotations.description }}{{ end }}"
+  #       }
+  #       {{ end }}
+  # exporters:
+  #   node-exporter:
+  #     enabled: true
+  #   kube-state-metrics:
+  #     enabled: true
 
-  image:
-    registry: docker.io
-    repository: bitnami/prometheus
-    tag: 2.55.1-debian-12-r14
-    pullPolicy: IfNotPresent
+  # node-exporter:
+  #   service:
+  #     labels:
+  #       jobLabel: node-exporter
+  #   serviceMonitor:
+  #     enabled: true
 
-  containerSecurityContext:
-    enabled: true
-    seLinuxOptions: {}
-    runAsUser: 1001
-    runAsGroup: 1001
-    runAsNonRoot: true
-    privileged: false
-    readOnlyRootFilesystem: true
-    allowPrivilegeEscalation: false
-
-  networkPolicy:
-    enabled: true
-
-  service: 
-    nameOverride: "mediator-kube-prometheus-prometheus"
-    type: ClusterIP
-    portName: prometheus
-    ports:
-      http: 9090
-
-  serviceMonitor:
-    enabled: true
-    path: /metrics
-    jobLabel: "mediator"
-    interval: "15s"
-    labels:
-      prometheus: "monitoring"
-    annotations:
-      prometheus.io/scrape: "true"
-    extraParameters:
-      tlsConfig:
-        insecureSkipVerify: true
-    sampleLimit: 5000
-
-
-alertmanager:
-  enabled: true
-  externalConfig: true
-  image:
-    registry: docker.io
-    repository: bitnami/alertmanager
-    tag: 0.28.1-debian-12-r0
-  service:
-    type: ClusterIP
-    ports:
-      http: 9093
-  networkPolicy:
-    enabled: true
-  secrets: ["alertmanager-mediator-mediator-charts-alertmanager"]
-  configSecret: ["alertmanager-mediator-mediator-charts-alertmanager"]
-  # config:
-  #   global:
-  #     resolve_timeout: 5m
-  #   route:
-  #     receiver: discord
-  #     group_by: ['alertname']
-  #     group_wait: 30s
-  #     group_interval: 5m
-  #     repeat_interval: 4h
-  #   receivers:
-  #     - name: discord
-  #       webhook_configs:
-  #         - url: 'https://discordapp.com/api/webhooks/1339519604564824136/p4F_iBFo7FDK12pqwjTdnX15KBjHOazAyx_wVrPeVuT7Aa-rkwp7rXl0OMuAtOe-lmCe'
-  #           send_resolved: true
-  # templateFiles:
-  #   discord.tmpl: |-
-  #     {{ define "discord.default.message" }}
-  #     {
-  #       "content": "{{ range .Alerts }}{{ .Annotations.summary }}\n{{ .Annotations.description }}{{ end }}"
-  #     }
-  #     {{ end }}
-
-exporters:
-  node-exporter:
-    enabled: true
-  kube-state-metrics:
-    enabled: true
-
-node-exporter:
-  service:
-    labels:
-      jobLabel: node-exporter
-  serviceMonitor:
-    enabled: true
-
-kube-state-metrics:
-  serviceMonitor:
-    enabled: true
-    honorLabels: true
+  # kube-state-metrics:
+  #   serviceMonitor:
+  #     enabled: true
+  #     honorLabels: true
 
 grafana:
   enabled: true
