@@ -1,4 +1,4 @@
-use nix::fcntl::{Flock, FlockArg,};
+use nix::fcntl::{Flock, FlockArg};
 use std::{
     fs::OpenOptions,
     io::{Error as IoError, ErrorKind, Result as IoResult},
