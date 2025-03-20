@@ -181,10 +181,10 @@ jobs:
       - name: Copy release binary to root
         shell: bash
         run: |
-          if [[ -f "target/release/rapidrecast" ]]; then
-            cp target/release/rapidrecast .
-          elif [[ -f "target/release/rapidrecast.exe" ]]; then
-            cp target/release/rapidrecast.exe .
+          if [[ -f "target/release/didcomm-mediator" ]]; then
+            cp target/release/didcomm-mediator .
+          elif [[ -f "target/release/didcomm-mediator.exe" ]]; then
+            cp target/release/didcomm-mediator.exe .
           else
             echo "No binary to copy for this OS."
           fi          
@@ -202,7 +202,7 @@ jobs:
             msys*|cygwin*|mingw*) TARGET="$ARCH-pc-windows-msvc" ;;
           esac
           VERSION=$(grep '^version = ' Cargo.toml | sed -E 's/version = "(.*)"/\1/')
-          FILENAME="rapidrecast-v${VERSION}-${TARGET}"
+          FILENAME="didcomm-mediator-v${VERSION}-${TARGET}"
           echo "OS=$OS" >> "$GITHUB_ENV"
           echo "ARCH=$ARCH" >> "$GITHUB_ENV"
           echo "TARGET=$TARGET" >> "$GITHUB_ENV"
@@ -213,14 +213,14 @@ jobs:
         with:
           name: "${{ env.FILENAME }}"
           format: "tar.gz"
-          include: "{rapidrecast,rapidrecast.exe,README.md,LICENSE}"
+          include: "{didcomm-mediator,didcomm-mediator.exe,README.md,LICENSE}"
 
       - name: Compress zip
         uses: ksm2/archive-action@v1
         with:
           name: "${{ env.FILENAME }}"
           format: "zip"
-          include: "{rapidrecast,rapidrecast.exe,README.md,LICENSE}"
+          include: "{didcomm-mediator,didcomm-mediator.exe,README.md,LICENSE}"
 
       - name: Create or Update Release
         env:
