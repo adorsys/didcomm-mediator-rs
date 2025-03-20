@@ -20,12 +20,12 @@ use tokio::time::Sleep;
 ///
 /// *   **Closed:** The circuit is operating normally, and operations are allowed to proceed.
 /// *   **Open:** Operations are immediately rejected without being executed. This prevents overloading the failing service.
-/// *   **Half-Open:** After a timeout period, the circuit enters a half-open state, allowing a single operation to attempt execution.
+/// *   **Half-Open:** After a timeout period, the circuit enters a half-open state, allowing a limited number of operations to be executed.
 ///       If the probe succeeds, the circuit closes; otherwise, it returns to the open state.
 ///
 /// By default, the circuit breaker is configured with the following:
 ///
-/// *   A single retry attempt.
+/// *   No retry attempt after a failure.
 /// *   A default reset timeout of 30 seconds.
 /// *   One retry attempt in half-open state.
 /// *   No delay between retries.
@@ -43,6 +43,7 @@ use tokio::time::Sleep;
 /// *   [`CircuitBreaker::exponential_backoff(self, initial_delay: Duration)`]: Configures an exponential backoff strategy for retries.
 ///     The delay between retries increases exponentially. This overrides any previously set backoff.
 /// *   [`CircuitBreaker::constant_backoff(self, delay: Duration)`]: Configures a constant backoff strategy for retries.
+///     The delay between retries remains constant. This overrides any previously set backoff.
 ///
 /// # Example
 ///
@@ -235,13 +236,14 @@ impl CircuitBreaker {
             CircuitState::Open => {}
             CircuitState::Closed => {
                 config.failure_count += 1;
-                if config.failure_count >= config.max_retries {
+                if config.failure_count > config.max_retries {
                     config.state = CircuitState::Open;
                     config.opened_at = Some(Instant::now());
                 }
             }
             CircuitState::HalfOpen => {
                 config.half_open_failure_count += 1;
+                config.failure_count += 1;
                 if config.half_open_failure_count >= config.half_open_max_retries {
                     config.state = CircuitState::Open;
                     config.opened_at = Some(Instant::now());
@@ -313,7 +315,7 @@ where
                             this.breaker.failure();
 
                             let guard = this.breaker.inner.lock();
-                            if guard.failure_count >= guard.max_retries {
+                            if guard.failure_count > guard.max_retries {
                                 return Poll::Ready(Err(Error::Inner(error)));
                             }
 
