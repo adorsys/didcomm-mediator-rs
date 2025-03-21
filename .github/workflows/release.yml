@@ -124,8 +124,13 @@ jobs:
 
       - name: Update Cargo.toml version and push to GitHub
         run: |
-          REL_TYPE="v0.1.1"
+          REL_TYPE=${{ github.event.inputs.type }}
           DRY_RUN=${{ github.event.inputs.dry_run }}
+
+          # Remove 'v' prefix if provided for version input
+          if [[ "$REL_TYPE" =~ ^v ]]; then
+            REL_TYPE="${REL_TYPE:1}"
+          fi
 
           # Execute version update
           if [ "$DRY_RUN" = "false" ]; then
