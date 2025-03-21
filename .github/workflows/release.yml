@@ -124,7 +124,7 @@ jobs:
 
       - name: Update Cargo.toml version and push to GitHub
         run: |
-          REL_TYPE=${{ github.event.inputs.type }}
+          REL_TYPE="v0.1.1"
           DRY_RUN=${{ github.event.inputs.dry_run }}
 
           # Execute version update
@@ -139,7 +139,7 @@ jobs:
       - name: Get Version from Cargo.toml
         id: get-version
         run: |
-          VERSION=$(grep '^version = ' Cargo.toml | sed -E 's/version = "(.*)"/\1/')
+          VERSION=$(grep '^version = ' Cargo.toml | sed -E 's/version = \"(.*)\"/\1/')
           echo "VERSION=$VERSION" >> "$GITHUB_OUTPUT"
           echo "WORKFLOW_GIT_TAG=v$VERSION" >> "$GITHUB_OUTPUT"          
 
@@ -201,7 +201,7 @@ jobs:
             linux) TARGET="$ARCH-unknown-linux-gnu" ;;
             darwin) TARGET="$ARCH-apple-darwin" ;;
           esac
-          VERSION=$(grep '^version = ' Cargo.toml | sed -E 's/version = "(.*)"/\1/')
+          VERSION=$(grep '^version = ' Cargo.toml | sed -E 's/version = \"(.*)\"/\1/')
           FILENAME="didcomm-mediator-v${VERSION}-${TARGET}"
           echo "OS=$OS" >> "$GITHUB_ENV"
           echo "ARCH=$ARCH" >> "$GITHUB_ENV"
