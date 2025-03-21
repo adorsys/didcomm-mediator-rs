@@ -3,7 +3,7 @@ kind: PrometheusRule
 metadata:
   name: mediator-alert-rules
   labels:
-    release: {{ .Release.Name }}
+    app: {{ .Release.Name }}
 spec:
   groups:
   - name: mediator.rules

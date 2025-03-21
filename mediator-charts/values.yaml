@@ -55,73 +55,29 @@ kube-prometheus:
       enabled: true
     scrapeInterval: 5s
     evaluationInterval: 10s
+
     alertingEndpoints:
       - namespace: didcomm-mediator
         name: mediator-kube-prometheus-alertmanager
-        port: 9090
+        port: 9093
     ruleSelector:
       matchLabels:
         app: mediator
     scrapeInterval: 15s
     evaluationInterval: 15s
     secrets: ["alertmanager-mediator-kube-prometheus-alertmanager", "mediator-eks-secret"]
+
     service:
       type: ClusterIP
       portName: prometheus
       ports:
         http: 9090
-    # additionalPrometheusRules:
-    #   - name: mediator-alert-rules
-    #     groups:
-    #       - name: mediator.rules
-    #         rules:
-    #           - alert: InstanceDown
-    #             expr: up{job="mediator-service"} == 0
-    #             for: 10s
-    #             labels:
-    #               severity: critical
-    #             annotations:
-    #               summary: "Instance {{ $labels.instance }} is down"
-    #               description: "The instance {{ $labels.instance }} is not responding."
-  # alertmanager:
-  #   enabled: true
-  #   externalConfig: true
-  #   image:
-  #     registry: docker.io
-  #     repository: bitnami/alertmanager
-  #     tag: 0.28.1-debian-12-r0
-  #   service:
-  #     type: ClusterIP
-  #     ports:
-  #       http: 9093
-  #   networkPolicy:
-  #     enabled: true
-  #   secrets: ["alertmanager-mediator-kube-prometheus-alertmanager"]
-  #   configSecret: ["alertmanager-mediator-mediator-charts-alertmanager"]
-  #   templateFiles:
-  #     discord.tmpl: |-
-  #       {{ define "discord.default.message" }}
-  #       {
-  #         "content": "{{ range .Alerts }}{{ .Annotations.summary }}\n{{ .Annotations.description }}{{ end }}"
-  #       }
-  #       {{ end }}
-  # exporters:
-  #   node-exporter:
-  #     enabled: true
-  #   kube-state-metrics:
-  #     enabled: true
 
-  # node-exporter:
-  #   service:
-  #     labels:
-  #       jobLabel: node-exporter
-  #   serviceMonitor:
-  #     enabled: true
-
-  # kube-state-metrics:
-  #   serviceMonitor:
-  #     enabled: true
-  #     honorLabels: true
+  alertmanager:
+    enabled: true
+    secrets: ["alertmanager-mediator-kube-prometheus-alertmanager", "mediator-eks-secret"]
+    configMaps: ["alertmanager-discord-template"]
+    logLevel: debug
 
 grafana:
   enabled: true

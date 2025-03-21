@@ -16,8 +16,9 @@ stringData:
       repeat_interval: 4h
     receivers:
       - name: 'discord'
-        webhook_configs:
-          - url_file: '/etc/prometheus/secrets/mediator-eks-secret/discord-webhook-secret'
+        discord_configs:
+          - url_file: '/etc/alertmanager/secrets/mediator-eks-secret/discord-webhook-secret'
             send_resolved: true
+            message: '{{ template "discord.default.message" . }}'
     templates:
-      - '/etc/alertmanager/discord.tmpl'
+      - '/etc/alertmanager/configmaps/alertmanager-discord-template/*.tmpl'
