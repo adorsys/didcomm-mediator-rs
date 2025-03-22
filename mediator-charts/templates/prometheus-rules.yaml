@@ -14,15 +14,15 @@ spec:
         labels:
           severity: critical
         annotations:
-          summary: "Instance {{ "{{" }} $labels.instance {{ "}}" }} is down"
-          description: "The instance {{ "{{" }} $labels.instance {{ "}}" }} is not responding."
+          summary: "Instance {{`{{ $labels.instance }}`}} is down"
+          description: "The instance {{`{{ $labels.instance }}`}} is not responding."
       - alert: HighCPUUsage
         expr: (100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[2m])) * 100)) > 80
         for: 30s
         labels:
           severity: warning
         annotations:
-          summary: "High CPU Usage on {{ "{{" }} $labels.instance {{ "}}" }}"
+          summary: "High CPU Usage on {{`{{ $labels.instance }}`}}"
           description: "CPU usage is above 80% for the last 2 minutes."
 
       - alert: HighMemoryUsage
@@ -31,7 +31,7 @@ spec:
         labels:
           severity: warning
         annotations:
-          summary: "High Memory Usage on {{ "{{" }} $labels.instance {{ "}}" }}"
+          summary: "High Memory Usage on {{`{{ $labels.instance }}`}}"
           description: "Memory usage is above 85% for the last 2 minutes."
 
       - alert: SlowAPIResponse
@@ -40,7 +40,7 @@ spec:
         labels:
           severity: warning
         annotations:
-          summary: "Slow API responses on {{ "{{" }} $labels.instance {{ "}}" }}"
+          summary: "Slow API responses on {{`{{ $labels.instance }}`}}"
           description: "95th percentile of API response times is above 1 second for more than 5 minutes."
 
   - name: mongodb.rules
@@ -51,7 +51,7 @@ spec:
         labels:
           severity: critical
         annotations:
-          summary: "MongoDB instance {{ "{{" }} $labels.instance {{ "}}" }} is down"
+          summary: "MongoDB instance {{`{{ $labels.instance }}`}} is down"
           description: "MongoDB instance has been down for more than 1 minute"
 
       - alert: MongoDBHighConnections
@@ -60,7 +60,7 @@ spec:
         labels:
           severity: warning
         annotations:
-          summary: "High number of connections on {{ "{{" }} $labels.instance {{ "}}" }}"
+          summary: "High number of connections on {{`{{ $labels.instance }}`}}"
           description: "MongoDB is experiencing high number of connections"
 
       - alert: MongoDBHighLatency
@@ -69,7 +69,7 @@ spec:
         labels:
           severity: warning
         annotations:
-          summary: "High operation latency on {{ "{{" }} $labels.instance {{ "}}" }}"
+          summary: "High operation latency on {{`{{ $labels.instance }}`}}"
           description: "MongoDB operations are taking longer than usual"
 
       - alert: MongoDBLowMemory
@@ -78,5 +78,5 @@ spec:
         labels:
           severity: warning
         annotations:
-          summary: "Low memory on MongoDB {{ "{{" }} $labels.instance {{ "}}" }}"
+          summary: "Low memory on MongoDB {{`{{ $labels.instance }}`}}"
           description: "MongoDB is using more than 90% of its allocated memory"

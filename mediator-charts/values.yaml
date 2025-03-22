@@ -77,7 +77,6 @@ kube-prometheus:
     enabled: true
     secrets: ["alertmanager-mediator-kube-prometheus-alertmanager", "mediator-eks-secret"]
     configMaps: ["alertmanager-discord-template"]
-    logLevel: debug
 
 grafana:
   enabled: true
