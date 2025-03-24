@@ -2,7 +2,7 @@ apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
   name: mongodb-service-monitor
-  namespace: didcomm-mediator
+  namespace: {{ .Release.Namespace }}
   labels:
     release: mediator-kube-prometheus
 spec:
