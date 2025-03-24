@@ -5,8 +5,8 @@ on:
     branches:
       - main
     tags:
-      - 'v*' 
-
+      - 'v*'
+      
 env:
   IMAGE_NAME: didcomm-mediator-rs
   NAMESPACE: didcomm-mediator
@@ -21,49 +21,38 @@ jobs:
       contents: read
 
     steps:
-      - uses: actions/checkout@v4
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Build image
-        run: docker build . --file Dockerfile --tag $IMAGE_NAME --label "runnumber=${GITHUB_RUN_ID}"
+      - name: 🔐 Log in to GitHub Container Registry (GHCR)
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Log in to GitHub Container Registry (GHCR)
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+      - name: 🐳 Build and Push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
-      - name: Push image
-        run: |
-          IMAGE_ID=ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME
-          
-          # Ensure lowercase image ID
-          IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
-          
-          # Use Git SHA as version tag
-          VERSION=${{ github.sha }}
-          
-          echo "IMAGE_ID=$IMAGE_ID"
-          echo "VERSION=$VERSION"
-          
-          # Tag and push the image with the unique SHA version
-          docker tag $IMAGE_NAME $IMAGE_ID:$VERSION
-          docker push $IMAGE_ID:$VERSION
+      - name: 📥 Install kubectl
+        uses: azure/setup-kubectl@v4
 
-          # Export the IMAGE_ID and VERSION as environment variables
-          echo "IMAGE_ID=$IMAGE_ID" >> $GITHUB_ENV
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
-
-      - name: Install kubectl
-        uses: azure/setup-kubectl@v3
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v3
+      - name: 🔐 Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Update kubeconfig for EKS
+      - name: 🛠️ Update kubeconfig for EKS
         run: |
           aws eks update-kubeconfig --name ${{ env.CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
 
-      - name: Update Kubernetes deployment
+      - name: 🚀 Update Kubernetes deployment
         run: |
-          kubectl set image deployment/mediator-deployment mediator-container=${{ env.IMAGE_ID }}:${{ env.VERSION }} -n ${{ env.NAMESPACE }}
+          kubectl set image deployment/mediator-deployment mediator-container=ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ github.sha }} -n ${{ env.NAMESPACE }}
