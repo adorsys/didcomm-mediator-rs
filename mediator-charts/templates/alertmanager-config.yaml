@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Secret
 metadata:
-  name: alertmanager-mediator-kube-prometheus-alertmanager
+  name: alertmanager-{{ .Release.Name }}-kube-prometheus-alertmanager
   namespace: {{ .Release.Namespace }}
 type: Opaque
 stringData:

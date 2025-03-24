@@ -65,18 +65,11 @@ kube-prometheus:
         app: mediator
     scrapeInterval: 15s
     evaluationInterval: 15s
-    secrets: ["alertmanager-mediator-kube-prometheus-alertmanager", "mediator-eks-secret"]
-
     service:
       type: ClusterIP
       portName: prometheus
       ports:
         http: 9090
-
-  alertmanager:
-    enabled: true
-    secrets: ["alertmanager-mediator-kube-prometheus-alertmanager", "mediator-eks-secret"]
-    configMaps: ["alertmanager-discord-template"]
 
 grafana:
   enabled: true
