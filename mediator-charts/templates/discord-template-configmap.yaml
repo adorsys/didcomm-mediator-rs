@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alertmanager-discord-template
+  namespace: {{ .Release.Namespace }}
+data:
+  discord.tmpl: |
+    {{ define "discord.default.message" }}
+    {
+      "content": "{{ range .Alerts }}{{ .Annotations.summary | default "No summary available" }}\n{{ .Annotations.description | default "No description available" }}{{ end }}"
+    }
+    {{ end }}

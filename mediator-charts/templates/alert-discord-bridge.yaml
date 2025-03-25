@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alertmanager-discord-bridge
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: alertmanager-discord-bridge
+  template:
+    metadata:
+      labels:
+        app: alertmanager-discord-bridge
+    spec:
+      containers:
+      - name: alertmanager-discord-bridge
+        image: rogerrum/alertmanager-discord:latest
+        ports:
+        - containerPort: 9094
+        env:
+        - name: DISCORD_WEBHOOK
+          valueFrom:
+            secretKeyRef:
+              name: mediator-eks-secret
+              key: discord-webhook-secret
+        - name: DISCORD_USERNAME
+          value: "did-bot"
