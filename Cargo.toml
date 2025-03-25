@@ -1,6 +1,6 @@
 [package]
 name = "didcomm-mediator" 
-version = "0.1.0" 
+version = "0.1.1" 
 authors = ["adorsys GmbH Co. KG"] 
 license = "Apache-2.0"
 description = "A Rust Mediator for DIDComm messaging, supporting secure and decentralized communication."
