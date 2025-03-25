@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: alertmanager-mediator-kube-prometheus-alertmanager
+  namespace: {{ .Release.Namespace }}
+type: Opaque
+stringData:
+  alertmanager.yaml: |
+    global:
+      resolve_timeout: 5m
+    route:
+      receiver: 'discord'
+      group_by: ['alertname']
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 4h
+    receivers:
+      - name: 'discord'
+        webhook_configs:
+          - url: 'http://alertmanager-discord-bridge:9094/'
+            send_resolved: true
+    templates:
+      - '/etc/alertmanager/configmaps/alertmanager-discord-template/*.tmpl'

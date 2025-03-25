@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alertmanager-discord-template
+  namespace: didcomm-mediator
+data:
+  discord.tmpl: |
+    {{ define "__subject" }}[{{ .Status }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] {{ range .GroupLabels.SortedPairs }}{{ .Value }} {{ end }}{{ if gt (len .CommonLabels) (len .GroupLabels) }}({{ with .CommonLabels.Remove .GroupLabels.Names }}{{ range .SortedPairs }}{{ .Value }} {{ end }}{{ end }}){{ end }}{{ end }}
+
+    {{ define "__description" }}{{ range .Alerts }}
+    **Alert:** {{ .Labels.alertname }}{{ if .Labels.severity }} - {{ .Labels.severity }}{{ end }}
+    **Description:** {{ .Annotations.description }}
+    **Details:**
+    {{ range .Labels.SortedPairs }}{{ if ne .Name "alertname" }}  • {{ .Name }}: {{ .Value }}
+    {{ end }}{{ end }}
+    {{ end }}{{ end }}
+
+    {{ define "discord.default.message" }}
+    {
+      "content": "{{ template "__subject" . }}\n{{ template "__description" . }}"
+    }
+    {{ end }} 

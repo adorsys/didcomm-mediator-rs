@@ -5,6 +5,10 @@ metadata:
   namespace: {{ .Release.Namespace }}
   annotations:
     external-dns.alpha.kubernetes.io/hostname: {{ .Values.externalDnsHostname }}
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      rewrite ^/prometheus$ /prometheus/ break;
+      rewrite ^/prometheus/(.*) /$1 break;
+      rewrite ^/alertmanager/(.*) /$1 break;
     {{- toYaml .Values.mediator.ingress.annotations | nindent 4 }}
 spec:
   ingressClassName: nginx
@@ -19,10 +23,30 @@ spec:
             name: {{ .Release.Name }}-service
             port:
               number: 8080
+      - path: /prometheus
+        pathType: Prefix
+        backend:
+          service:
+            name: mediator-kube-prometheus-prometheus
+            port:
+              number: 9090
+      - path: /grafana
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: mediator-grafana
+            port:
+              number: 3000
+      - path: /alertmanager
+        pathType: Prefix
+        backend:
+          service:
+            name: mediator-kube-prometheus-alertmanager
+            port:
+              number: 9093
   tls:
   - hosts:
    {{- range .Values.mediator.ingress.tls.hosts }}
       - {{ . | quote }}
    {{- end }}
     secretName: {{ .Values.mediator.ingress.secretName }}
-   
