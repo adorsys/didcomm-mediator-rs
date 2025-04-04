@@ -1,3 +1,4 @@
+#![allow(clippy::doc_overindented_list_items)]
 use super::*;
 
 use std::sync::atomic::{AtomicUsize, Ordering};
