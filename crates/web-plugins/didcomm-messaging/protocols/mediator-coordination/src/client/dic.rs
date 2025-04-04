@@ -410,10 +410,7 @@ mod tests {
 
         let encoded_payload = parts[1];
         let payload = match Base64Url.decode(encoded_payload) {
-            Ok(bytes) => match String::from_utf8(bytes) {
-                Ok(content) => Some(content),
-                Err(_) => None,
-            },
+            Ok(bytes) => String::from_utf8(bytes).ok(),
             Err(_) => None,
         }?;
 
