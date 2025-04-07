@@ -18,10 +18,10 @@ use tokio::time::Sleep;
 /// This struct implements a circuit breaker pattern, which helps prevent cascading failures when interacting with unreliable services.
 /// It monitors the success and failure of operations and transitions between three states:
 ///
-/// * **Closed:** The circuit is operating normally, and operations are allowed to proceed.
-/// * **Open:** Operations are immediately rejected without being executed. This prevents overloading the failing service.
-/// * **Half-Open:** After a timeout period, the circuit enters a half-open state, allowing a limited number of operations to be executed.
-///     If the probe succeeds, the circuit closes; otherwise, it returns to the open state.
+/// *   **Closed:** The circuit is operating normally, and operations are allowed to proceed.
+/// *   **Open:** Operations are immediately rejected without being executed. This prevents overloading the failing service.
+/// *   **Half-Open:** After a timeout period, the circuit enters a half-open state, allowing a limited number of operations to be executed.
+///       If the probe succeeds, the circuit closes; otherwise, it returns to the open state.
 ///
 /// By default, the circuit breaker is configured with the following:
 ///
