@@ -10,7 +10,7 @@ spec:
     rules:
       - alert: InstanceDown
         expr: up{job="mediator-service"} == 0
-        for: 10s
+        for: 5s
         labels:
           severity: critical
         annotations:
@@ -18,7 +18,7 @@ spec:
           description: "The instance {{`{{ $labels.instance }}`}} is not responding."
       - alert: HighCPUUsage
         expr: (100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[2m])) * 100)) > 80
-        for: 30s
+        for: 5s
         labels:
           severity: warning
         annotations:
@@ -27,7 +27,7 @@ spec:
 
       - alert: HighMemoryUsage
         expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
-        for: 1m
+        for: 5s
         labels:
           severity: warning
         annotations:
@@ -36,7 +36,7 @@ spec:
 
       - alert: SlowAPIResponse
         expr: histogram_quantile(0.95, rate(api_response_time_seconds_bucket[5m])) > 1
-        for: 2m
+        for: 5s
         labels:
           severity: warning
         annotations:
@@ -45,7 +45,7 @@ spec:
 
       - alert: MediatorPodNotRunning
         expr: absent(kube_pod_status_phase{phase="Running", namespace="didcomm-mediator", pod=~"mediator-deployment-.*"}) == 1
-        for: 2m
+        for: 5s
         labels:
           severity: critical
         annotations:
@@ -54,7 +54,7 @@ spec:
 
       - alert: MediatorPodsPending
         expr: kube_pod_status_phase{phase="Pending", namespace="didcomm-mediator", pod=~"mediator-deployment-.*"} == 1
-        for: 10m
+        for: 5s
         labels:
           severity: warning
         annotations:
@@ -66,7 +66,7 @@ spec:
     rules:
       - alert: MongoDBDown
         expr: mongodb_up == 0
-        for: 1m
+        for: 5s
         labels:
           severity: critical
         annotations:
@@ -75,7 +75,7 @@ spec:
 
       - alert: MongoDBHighConnections
         expr: mongodb_connections{state="current"} > 80
-        for: 2m
+        for: 5s
         labels:
           severity: warning
         annotations:
@@ -84,7 +84,7 @@ spec:
 
       - alert: MongoDBHighLatency
         expr: rate(mongodb_op_latencies_latency_total[5m]) / rate(mongodb_op_latencies_ops_total[5m]) > 100
-        for: 2m
+        for: 5s
         labels:
           severity: warning
         annotations:
@@ -93,7 +93,7 @@ spec:
 
       - alert: MongoDBLowMemory
         expr: (mongodb_memory{type="resident"} / mongodb_memory{type="mapped"}) * 100 > 90
-        for: 5m
+        for: 5s
         labels:
           severity: warning
         annotations:
@@ -102,7 +102,7 @@ spec:
 
       - alert: MediatorPodNotRunning
         expr: absent(kube_pod_status_phase{phase="Running", namespace="didcomm-mediator", pod=~"mediator-mongodb-.*"}) == 1
-        for: 2m
+        for: 5s
         labels:
           severity: critical
         annotations:
@@ -111,7 +111,7 @@ spec:
 
       - alert: MediatorPodsPending
         expr: kube_pod_status_phase{phase="Pending", namespace="didcomm-mediator", pod=~"mediator-mongodb-.*"} == 1
-        for: 10m
+        for: 5s
         labels:
           severity: warning
         annotations:
