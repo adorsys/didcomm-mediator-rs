@@ -1,3 +1,4 @@
+#[allow(unused_imports)]
 use crate::{plugin::DidEndPointState, util};
 use axum::{
     extract::{Query, State},
