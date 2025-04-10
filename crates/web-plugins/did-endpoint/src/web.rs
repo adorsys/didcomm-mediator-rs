@@ -14,7 +14,6 @@ use did_utils::{
 };
 
 #[allow(unused_imports)]
-
 use hyper::StatusCode;
 use mongodb::bson::doc;
 use multibase::Base;
