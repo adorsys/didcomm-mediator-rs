@@ -83,7 +83,7 @@ jobs:
           draft: false
           prerelease: ${{ contains(github.ref_name, 'rc') }}
           files: |
-            release-assets/didcomm-mediator-rs
+            release-assets/didcomm-mediator
           body: |
             ## Release ${{ github.ref_name }}
 
