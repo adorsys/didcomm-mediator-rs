@@ -15,7 +15,6 @@ use did_utils::{
 
 #[allow(unused_imports)]
 use hyper::StatusCode;
-use mongodb::bson::doc;
 use multibase::Base;
 use serde_json::{json, Value};
 use std::{collections::HashMap, path::Path, sync::Arc};
