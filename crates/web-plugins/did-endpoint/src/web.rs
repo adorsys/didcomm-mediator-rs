@@ -1,4 +1,3 @@
-#[allow(unused_imports)]
 use crate::{plugin::DidEndPointState, util};
 use axum::{
     extract::{Query, State},
@@ -13,6 +12,9 @@ use did_utils::{
     proof::{CryptoProof, EdDsaJcs2022, Proof, PROOF_TYPE_DATA_INTEGRITY_PROOF},
     vc::{VerifiableCredential, VerifiablePresentation},
 };
+
+#[allow(unused_imports)]
+
 use hyper::StatusCode;
 use mongodb::bson::doc;
 use multibase::Base;
