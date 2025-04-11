@@ -19,6 +19,9 @@ on:
         required: true
         default: 'false'
 
+permissions:
+  contents: write
+
 env:
   CARGO_TERM_COLOR: always
 
@@ -77,6 +80,8 @@ jobs:
           path: release-assets
 
       - name: Create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         uses: softprops/action-gh-release@v2.1.0
         with:
           name: Release ${{ github.ref_name }}
