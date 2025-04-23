@@ -1,6 +1,6 @@
 # Release Guide
 
-This document provides a step-by-step guide to creating a new release for the **didcomm-mediator-rs** project.
+This document provides a step-by-step guide to creating a new release for the **didcomm-mediator-rs** by triggering the workflow.
 
 ---
 
