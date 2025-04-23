@@ -1,6 +1,6 @@
 # Release Guide
 
-This document provides a step-by-step guide to creating a new release for the **didcomm-mediator-rs** by triggering the workflow.
+This document provides a step-by-step guide to creating a new release for the **mediator** by triggering the workflow.
 
 ---
 
@@ -25,11 +25,11 @@ Before proceeding, ensure you have the following:
    git pull origin main
    ```
 
-2. Create a new branch for the release:
+2. Create a new release branch:
     ```bash
     git checkout -b release/vX.Y.Z
     ```
-     Replace `vX.Y.Z` with the new version you are releasing, e.g., `v0.1.2`.  
+     Replace `vX.Y.Z` with the version you plan to release, e.g., `v0.1.2`.  
 
 ### Step 2: Determine the Next Tag Version
 
@@ -60,7 +60,7 @@ Before proceeding, ensure you have the following:
 
 ### Step 4: Trigger the Release Workflow
 
-* The GitHub Actions workflow is configured to trigger automatically on a tag push (e.g., `v0.1.2`).
+* The GitHub Actions workflow is automatically triggered when a tag like `v0.1.2` is pushed.
 
 * Monitor the progress of the workflow in the Actions tab on GitHub to ensure the release completes successfully.
 
