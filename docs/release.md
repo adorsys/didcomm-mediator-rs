@@ -27,7 +27,7 @@ Before proceeding, ensure you have the following:
 
 2. Create a new release branch:
     ```bash
-    git checkout -b release/vX.Y.Z
+    git checkout -b vX.Y.Z
     ```
      Replace `vX.Y.Z` with the version you plan to release, e.g., `v0.1.2`.  
 
