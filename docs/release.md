@@ -65,3 +65,16 @@ Before proceeding, ensure you have the following:
 * Monitor the progress of the workflow in the Actions tab on GitHub to ensure the release completes successfully.
 
 
+### Notes on the Workflow
+
+The workflow performs the following tasks automatically:
+
+* Build and Test: The codebase is built and tested to ensure stability.
+
+* Binary Artifact Creation: The release binary is saved as an artifact.
+
+* GitHub Release Creation: A release is created in the repository, including:
+
+    * The release binary as an artifact.
+
+    * A release note template.
