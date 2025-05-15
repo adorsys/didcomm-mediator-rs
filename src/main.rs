@@ -1,7 +1,7 @@
 use axum::routing::get;
 use didcomm_mediator::{app, health, metrics};
 use eyre::{Result, WrapErr};
-use std::net::SocketAddr;
+use std::net::{Ipv4Addr, SocketAddr};
 use tokio::net::TcpListener;
 
 #[tokio::main]
@@ -13,12 +13,14 @@ async fn main() -> Result<()> {
     config_tracing();
 
     // Configure server
+    let host = std::env::var("SERVER_HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
     let port = std::env::var("SERVER_LOCAL_PORT").unwrap();
-    let port = port.parse().context("failed to parse port")?;
-    let addr = SocketAddr::from(([0, 0, 0, 0], port));
+    let port: u16 = port.parse().context("failed to parse port")?;
+    let host: Ipv4Addr = host.parse().context("failed to parse host")?;
+    let addr = SocketAddr::from((host, port));
     let listener = TcpListener::bind(addr)
         .await
-        .context("failed to parse address")?;
+        .context("failed to bind address")?;
 
     tracing::debug!("listening on {addr}");
 

@@ -25,13 +25,16 @@ spec:
                 configMapKeyRef:
                   key: SERVER_LOCAL_PORT
                   name: {{ .Values.mediator.configmap.name }}
-
+            - name: SERVER_HOST
+              valueFrom:
+                configMapKeyRef:
+                  key: SERVER_HOST
+                  name: {{ .Values.mediator.configmap.name }}
             - name: MONGO_DBN
               valueFrom:
                 configMapKeyRef:
                   key: MONGO_DBN
                   name: {{ .Values.mediator.configmap.name }}
-
 
             - name: STORAGE_DIRPATH
               valueFrom:
