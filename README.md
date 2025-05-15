@@ -70,6 +70,8 @@ You need to create a **`.env`** file in the root directory of the project and ad
 
 ```sh
 SERVER_PUBLIC_DOMAIN="http://localhost:8080"
+SERVER_HOST="127.0.0.1"  # The host address to bind to (default: 0.0.0.0)
+SERVER_LOCAL_PORT="8080" # The port to listen on
 STORAGE_DIRPATH="./storage"
 MONGO_DBN="DIDComm_DB"
 MONGO_URI="mongodb://localhost:27017"

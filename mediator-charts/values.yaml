@@ -63,8 +63,6 @@ kube-prometheus:
     ruleSelector:
       matchLabels:
         app: mediator
-    scrapeInterval: 15s
-    evaluationInterval: 15s
     secrets: ["alertmanager-mediator-kube-prometheus-alertmanager", "mediator-eks-secret"]
 
     service:
