@@ -15,5 +15,4 @@ chrono.workspace = true
 [dev-dependencies]
 did-utils.workspace = true
 keystore.workspace = true
-dashmap.workspace = true
 shared = { workspace = true, features = ["test-utils"] }
