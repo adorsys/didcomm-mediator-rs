@@ -1,4 +1,4 @@
-use crate::{constants::MEDIATE_FORWARD_2_0, error::ForwardError};
+use crate::error::ForwardError;
 use database::Repository;
 use didcomm::{AttachmentData, Message};
 use futures::future::try_join_all;
@@ -19,10 +19,10 @@ pub(crate) async fn mediator_forward_process(
 ) -> Result<Option<Message>, ForwardError> {
     // Check if the circuit breaker is open
     state
-        .circuit_breaker
-        .get(MEDIATE_FORWARD_2_0)
-        .filter(|cb| !cb.should_allow_call())
-        .map_or(Ok(()), |_| Err(ForwardError::ServiceUnavailable))?;
+        .db_circuit_breaker
+        .should_allow_call()
+        .then_some(())
+        .ok_or(ForwardError::ServiceUnavailable)?;
 
     let repository = state
         .repository
@@ -32,7 +32,7 @@ pub(crate) async fn mediator_forward_process(
     let next = checks(
         &message,
         &repository.connection_repository,
-        state.circuit_breaker.get(MEDIATE_FORWARD_2_0).as_deref(),
+        &state.db_circuit_breaker,
     )
     .await
     .map_err(|_| ForwardError::InternalServerError)?;
@@ -53,24 +53,18 @@ pub(crate) async fn mediator_forward_process(
                 recipient_did: next.clone(),
             };
 
-            match state.circuit_breaker.get(MEDIATE_FORWARD_2_0) {
-                Some(cb) => cb
-                    .call(|| {
-                        repository
-                            .message_repository
-                            .store(routed_message.to_owned())
-                    })
-                    .await
-                    .map_err(|err| match err {
-                        BreakerError::CircuitOpen => ForwardError::ServiceUnavailable,
-                        _ => ForwardError::InternalServerError,
-                    }),
-                None => repository
-                    .message_repository
-                    .store(routed_message)
-                    .await
-                    .map_err(|_| ForwardError::InternalServerError),
-            }
+            state
+                .db_circuit_breaker
+                .call(|| {
+                    repository
+                        .message_repository
+                        .store(routed_message.to_owned())
+                })
+                .await
+                .map_err(|err| match err {
+                    BreakerError::CircuitOpen => ForwardError::ServiceUnavailable,
+                    _ => ForwardError::InternalServerError,
+                })
         })
         .collect();
 
@@ -81,7 +75,7 @@ pub(crate) async fn mediator_forward_process(
 async fn checks(
     message: &Message,
     connection_repository: &Arc<dyn Repository<Connection>>,
-    circuit_breaker: Option<&CircuitBreaker>,
+    circuit_breaker: &CircuitBreaker,
 ) -> Result<String, ForwardError> {
     let next = match message.body.get("next") {
         Some(Value::String(next)) => next.clone(),
@@ -89,34 +83,22 @@ async fn checks(
     };
 
     // Check if the client's did is in mediator's keylist
-    match circuit_breaker {
-        Some(cb) => cb
-            .call(|| {
-                connection_repository
-                    .find_one_by(doc! {"keylist": doc!{ "$elemMatch": { "$eq": &next}}})
-            })
-            .await
-            .map_err(|err| match err {
-                BreakerError::CircuitOpen => ForwardError::ServiceUnavailable,
-                BreakerError::Inner(err) => {
-                    tracing::error!("Failed to find connection: {err:?}");
-                    ForwardError::InternalServerError
-                }
-            })?
-            .is_some()
-            .then_some(())
-            .ok_or(ForwardError::UncoordinatedSender)?,
-        None => connection_repository
-            .find_one_by(doc! {"keylist": doc!{ "$elemMatch": { "$eq": &next}}})
-            .await
-            .map_err(|err| {
+    circuit_breaker
+        .call(|| {
+            connection_repository
+                .find_one_by(doc! {"keylist": doc!{ "$elemMatch": { "$eq": &next}}})
+        })
+        .await
+        .map_err(|err| match err {
+            BreakerError::CircuitOpen => ForwardError::ServiceUnavailable,
+            BreakerError::Inner(err) => {
                 tracing::error!("Failed to find connection: {err:?}");
                 ForwardError::InternalServerError
-            })?
-            .is_some()
-            .then_some(())
-            .ok_or(ForwardError::UncoordinatedSender)?,
-    }
+            }
+        })?
+        .is_some()
+        .then_some(())
+        .ok_or(ForwardError::UncoordinatedSender)?;
 
     Ok(next)
 }

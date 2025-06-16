@@ -1,4 +1,3 @@
-use dashmap::DashMap;
 use database::Repository;
 use did_utils::didcore::Document;
 use keystore::Keystore;
@@ -22,7 +21,7 @@ pub struct AppState {
     // Persistence layer
     pub repository: Option<AppStateRepository>,
     // Circuit breaker
-    pub circuit_breaker: DashMap<String, CircuitBreaker>,
+    pub db_circuit_breaker: CircuitBreaker,
     // disclosed protocols
     pub disclose_protocols: Option<Vec<String>>,
 }
@@ -40,7 +39,7 @@ impl AppState {
         diddoc: Document,
         disclose_protocols: Option<Vec<String>>,
         repository: Option<AppStateRepository>,
-        circuit_breaker: DashMap<String, CircuitBreaker>,
+        db_circuit_breaker: CircuitBreaker,
     ) -> eyre::Result<Self> {
         let did_resolver = LocalDIDResolver::new(&diddoc);
         let keystore = repository
@@ -57,7 +56,7 @@ impl AppState {
             did_resolver,
             secrets_resolver,
             repository,
-            circuit_breaker,
+            db_circuit_breaker,
             disclose_protocols,
         })
     }
