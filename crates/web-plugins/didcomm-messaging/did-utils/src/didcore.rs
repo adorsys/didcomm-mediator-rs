@@ -167,7 +167,7 @@ pub struct VerificationMethod {
 pub enum KeyFormat {
     Base58(String),
     Multibase(String),
-    Jwk(Jwk),
+    Jwk(Box<Jwk>),
 }
 
 /// Represents a method in a DID Document (authentication, assertion, key agreement, etc.).
@@ -253,7 +253,7 @@ impl VerificationMethod {
         }
 
         if s.public_key_jwk.is_some() {
-            return Ok(Some(KeyFormat::Jwk(s.public_key_jwk.unwrap())));
+            return Ok(Some(KeyFormat::Jwk(Box::new(s.public_key_jwk.unwrap()))));
         }
 
         Ok(None)
@@ -283,7 +283,7 @@ impl VerificationMethod {
         }
 
         if s.private_key_jwk.is_some() {
-            return Ok(Some(KeyFormat::Jwk(s.private_key_jwk.unwrap())));
+            return Ok(Some(KeyFormat::Jwk(Box::new(s.private_key_jwk.unwrap()))));
         }
 
         Ok(None)

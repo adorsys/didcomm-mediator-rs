@@ -218,10 +218,10 @@ impl DidKey {
             controller: format!("did:key:{multibase_value}"),
             public_key: Some(match self.key_format {
                 PublicKeyFormat::Multikey => KeyFormat::Multibase(String::from(multibase_value)),
-                PublicKeyFormat::Jwk => KeyFormat::Jwk(
+                PublicKeyFormat::Jwk => KeyFormat::Jwk(Box::new(
                     alg.build_jwk(raw_public_key_bytes) //
                         .map_err(|_| DIDResolutionError::InternalError)?,
-                ),
+                )),
             }),
             ..Default::default()
         })
@@ -255,10 +255,10 @@ impl DidKey {
             controller: format!("did:key:{multibase_value}"),
             public_key: Some(match self.key_format {
                 PublicKeyFormat::Multikey => KeyFormat::Multibase(encryption_multibase_value),
-                PublicKeyFormat::Jwk => KeyFormat::Jwk(
+                PublicKeyFormat::Jwk => KeyFormat::Jwk(Box::new(
                     alg.build_jwk(encryption_raw_public_key_bytes)
                         .map_err(|_| DIDResolutionError::InternalError)?,
-                ),
+                )),
             }),
             ..Default::default()
         })
