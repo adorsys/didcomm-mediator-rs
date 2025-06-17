@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   prometheus: 
     image: prom/prometheus
@@ -73,6 +71,21 @@ services:
     networks:
       - mediator-network
 
+  localstack:
+    container_name: localstack
+    image: localstack/localstack
+    ports:
+      - 4566:4566
+    environment:
+      - SERVICES=secretsmanager
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:4566/"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mediator-network
+
   mediator:
     build:
       context: .
@@ -82,7 +95,8 @@ services:
     env_file:
       - .env  
     depends_on:
-      - mongodb
+      mongodb:
+        condition: service_healthy
     networks:
       - mediator-network
 
