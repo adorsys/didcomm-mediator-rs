@@ -10,6 +10,7 @@ mod repository;
 #[cfg(any(test, feature = "test-utils"))]
 mod tests;
 
+use aws_config::SdkConfig;
 // Public re-exports
 pub use encryptor::KeyEncryption;
 pub use error::{Error, ErrorKind};
@@ -17,7 +18,7 @@ pub use repository::SecretRepository;
 
 use aws_sdk_kms::Client as KmsClient;
 use encryptor::{aws_kms::AwsKmsEncryptor, plaintext::NoEncryption};
-use repository::{mongodb::MongoSecretRepository, no_repo::NoRepository};
+use repository::{aws::AwsSecretsManager, mongodb::MongoSecretRepository, no_repo::NoRepository};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -91,6 +92,25 @@ impl Keystore {
     /// ```
     pub fn with_mongodb() -> Self {
         let repository = MongoSecretRepository::new();
+        let encryptor = NoEncryption;
+        Self {
+            repository: Arc::new(repository),
+            encryptor: Arc::new(encryptor),
+        }
+    }
+
+    /// Create a new key store with AWS Secrets Manager as storage backend.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use keystore::Keystore;
+    ///
+    /// let config = aws_config::load_from_env().await;
+    /// let keystore = Keystore::with_aws_secrets_manager(&config);
+    /// ```
+    pub async fn with_aws_secrets_manager(config: &SdkConfig) -> Self {
+        let repository = AwsSecretsManager::new(config).await;
         let encryptor = NoEncryption;
         Self {
             repository: Arc::new(repository),

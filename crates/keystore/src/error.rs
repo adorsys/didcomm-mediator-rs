@@ -2,6 +2,10 @@ use core::fmt::{Debug, Display};
 use std::error::Error as StdError;
 
 use aws_sdk_kms::operation::{decrypt::DecryptError, encrypt::EncryptError};
+use aws_sdk_secretsmanager::operation::{
+    create_secret::CreateSecretError, delete_secret::DeleteSecretError,
+    describe_secret::DescribeSecretError, get_secret_value::GetSecretValueError,
+};
 use serde_json::error::Category;
 
 /// Kind of error that can occur during key store operations.
@@ -103,6 +107,30 @@ impl From<aws_sdk_kms::error::SdkError<EncryptError>> for Error {
 impl From<aws_sdk_kms::error::SdkError<DecryptError>> for Error {
     fn from(err: aws_sdk_kms::error::SdkError<DecryptError>) -> Self {
         Error::new(ErrorKind::DecryptionFailure, err)
+    }
+}
+
+impl From<aws_sdk_secretsmanager::error::SdkError<DescribeSecretError>> for Error {
+    fn from(err: aws_sdk_secretsmanager::error::SdkError<DescribeSecretError>) -> Self {
+        Error::new(ErrorKind::RepositoryFailure, err)
+    }
+}
+
+impl From<aws_sdk_secretsmanager::error::SdkError<CreateSecretError>> for Error {
+    fn from(err: aws_sdk_secretsmanager::error::SdkError<CreateSecretError>) -> Self {
+        Error::new(ErrorKind::RepositoryFailure, err)
+    }
+}
+
+impl From<aws_sdk_secretsmanager::error::SdkError<GetSecretValueError>> for Error {
+    fn from(err: aws_sdk_secretsmanager::error::SdkError<GetSecretValueError>) -> Self {
+        Error::new(ErrorKind::RepositoryFailure, err)
+    }
+}
+
+impl From<aws_sdk_secretsmanager::error::SdkError<DeleteSecretError>> for Error {
+    fn from(err: aws_sdk_secretsmanager::error::SdkError<DeleteSecretError>) -> Self {
+        Error::new(ErrorKind::RepositoryFailure, err)
     }
 }
 

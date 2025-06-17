@@ -1,11 +1,17 @@
 [package]
 name = "keystore"
-version = "0.1.0" 
-authors = ["adorsys GmbH Co. KG"] 
+version = "0.1.0"
+authors = ["adorsys GmbH Co. KG"]
 license = "Apache-2.0"
 description = "The `keystore` is a core component of the DIDComm Mediator system, designed to facilitate secure, decentralized communication within the Self-Sovereign Identity (SSI) ecosystem."
 repository = "https://github.com/adorsys/didcomm-mediator-rs/tree/main/crates/web-plugins/keystore"
-keywords = ["keystore", "didcomm", "didcomm mediator", "didcomm messaging", "rust mediator"]
+keywords = [
+    "keystore",
+    "didcomm",
+    "didcomm mediator",
+    "didcomm messaging",
+    "rust mediator",
+]
 categories = ["cryptography"]
 edition = "2021"
 
@@ -19,9 +25,13 @@ mongodb.workspace = true
 database.workspace = true
 serde.workspace = true
 eyre.workspace = true
+tracing.workspace = true
 thiserror.workspace = true
 serde_json.workspace = true
+aws-config.workspace = true
 aws-sdk-kms.workspace = true
+aws-sdk-secretsmanager.workspace = true
+aws_secretsmanager_caching.workspace = true
 tokio = { workspace = true, features = ["full"] }
 
 [features]

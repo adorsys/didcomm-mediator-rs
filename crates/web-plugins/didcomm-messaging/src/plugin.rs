@@ -2,6 +2,7 @@ use crate::{manager::MessagePluginContainer, web};
 use axum::Router;
 use dashmap::DashMap;
 use filesystem::StdFileSystem;
+use keystore::Keystore;
 use mongodb::Database;
 use once_cell::sync::OnceCell;
 use plugin_api::{Plugin, PluginError};
@@ -20,6 +21,7 @@ pub struct DidcommMessaging {
     env: Option<DidcommMessagingPluginEnv>,
     db: Option<Database>,
     msg_types: Option<Vec<String>>,
+    keystore: Option<Keystore>,
 }
 
 struct DidcommMessagingPluginEnv {
@@ -52,10 +54,18 @@ impl Plugin for DidcommMessaging {
     }
 
     fn mount(&mut self) -> Result<(), PluginError> {
+        use aws_config::BehaviorVersion;
+        use tokio::{runtime::Handle, task};
+
         let env = load_plugin_env()?;
 
         let mut filesystem = filesystem::StdFileSystem;
-        let keystore = keystore::Keystore::with_mongodb();
+        let keystore = task::block_in_place(move || {
+            Handle::current().block_on(async move {
+                let aws_config = aws_config::load_defaults(BehaviorVersion::latest()).await;
+                Keystore::with_aws_secrets_manager(&aws_config).await
+            })
+        });
 
         // Expect DID document from file system
         if let Err(err) =
@@ -100,6 +110,7 @@ impl Plugin for DidcommMessaging {
         self.env = Some(env);
         self.db = Some(db);
         self.msg_types = Some(msg_types);
+        self.keystore = Some(keystore);
 
         Ok(())
     }
@@ -119,6 +130,9 @@ impl Plugin for DidcommMessaging {
         let msg_types = self.msg_types.as_ref().ok_or(PluginError::Other(
             "Failed to get message types. Check if the plugin is mounted".to_owned(),
         ))?;
+        let keystore = self.keystore.as_ref().ok_or(PluginError::Other(
+            "Failed to get keystore. Check if the plugin is mounted".to_owned(),
+        ))?;
 
         // Load crypto identity
         let fs = StdFileSystem;
@@ -128,12 +142,10 @@ impl Plugin for DidcommMessaging {
                 err
             ))
         })?;
-        let keystore = keystore::Keystore::with_mongodb();
-
         // Load persistence layer
         let repository = AppStateRepository {
             connection_repository: Arc::new(MongoConnectionRepository::from_db(db)),
-            keystore,
+            keystore: keystore.clone(),
             message_repository: Arc::new(MongoMessagesRepository::from_db(db)),
         };
 

@@ -24,6 +24,7 @@ dotenv-flow.workspace = true
 multibase.workspace = true
 tracing.workspace = true
 http-body-util.workspace = true
+aws-config.workspace = true
 uuid = { workspace = true, features = ["v4"] }
 hyper = { workspace = true, features = ["full"] }
 tokio = { workspace = true, features = ["full"] }
