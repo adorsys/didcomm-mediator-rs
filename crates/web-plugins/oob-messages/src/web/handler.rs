@@ -5,20 +5,13 @@ use axum::{
     http::{header, StatusCode},
     response::{Html, IntoResponse, Response},
 };
-use std::{error::Error, sync::Arc};
+use std::sync::Arc;
 
 pub(crate) async fn handler_oob_inv(State(state): State<Arc<OOBMessagesState>>) -> Response {
-    let mut fs = state.filesystem.lock().unwrap();
-    let (server_public_domain, storage_dirpath) = match get_environment_variables() {
-        Ok(result) => result,
-        Err(err) => {
-            tracing::error!("Error: {err:?}");
-            return (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error").into_response();
-        }
-    };
-
+    let mut store = state.store.lock().unwrap();
     let content =
-        match retrieve_or_generate_oob_inv(&mut *fs, &server_public_domain, &storage_dirpath) {
+        match retrieve_or_generate_oob_inv(&mut *store, &state.diddoc, &state.server_public_domain)
+        {
             Ok(oob_inv) => oob_inv,
             Err(err) => {
                 tracing::error!("Failed to retrieve or generate oob invitation: {err:?}");
@@ -34,17 +27,10 @@ pub(crate) async fn handler_oob_inv(State(state): State<Arc<OOBMessagesState>>) 
 }
 
 pub(crate) async fn handler_oob_qr(State(state): State<Arc<OOBMessagesState>>) -> Response {
-    let mut fs = state.filesystem.lock().unwrap();
-    let (server_public_domain, storage_dirpath) = match get_environment_variables() {
-        Ok(result) => result,
-        Err(err) => {
-            tracing::error!("Error: {err:?}");
-            return (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error").into_response();
-        }
-    };
-
+    let mut store = state.store.lock().unwrap();
     let oob_inv =
-        match retrieve_or_generate_oob_inv(&mut *fs, &server_public_domain, &storage_dirpath) {
+        match retrieve_or_generate_oob_inv(&mut *store, &state.diddoc, &state.server_public_domain)
+        {
             Ok(oob_inv) => oob_inv,
             Err(err) => {
                 tracing::error!("Failed to retrieve or generate oob invitation: {err:?}");
@@ -56,7 +42,7 @@ pub(crate) async fn handler_oob_qr(State(state): State<Arc<OOBMessagesState>>) -
             }
         };
 
-    let image_data = match retrieve_or_generate_qr_image(&mut *fs, &storage_dirpath, &oob_inv) {
+    let image_data = match retrieve_or_generate_qr_image(&mut *store, &oob_inv) {
         Ok(data) => data,
         Err(err) => {
             tracing::error!("Failed to retrieve or generate QR code image: {err:?}");
@@ -93,17 +79,10 @@ pub(crate) async fn handler_oob_qr(State(state): State<Arc<OOBMessagesState>>) -
 pub(crate) async fn handler_landing_page_oob(
     State(state): State<Arc<OOBMessagesState>>,
 ) -> Response {
-    let mut fs = state.filesystem.lock().unwrap();
-    let (server_public_domain, storage_dirpath) = match get_environment_variables() {
-        Ok(result) => result,
-        Err(err) => {
-            tracing::error!("Error: {err:?}");
-            return (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error").into_response();
-        }
-    };
-
+    let mut store = state.store.lock().unwrap();
     let oob_inv =
-        match retrieve_or_generate_oob_inv(&mut *fs, &server_public_domain, &storage_dirpath) {
+        match retrieve_or_generate_oob_inv(&mut *store, &state.diddoc, &state.server_public_domain)
+        {
             Ok(oob_inv) => oob_inv,
             Err(err) => {
                 tracing::error!("Failed to retrieve or generate oob invitation: {err:?}");
@@ -115,7 +94,7 @@ pub(crate) async fn handler_landing_page_oob(
             }
         };
 
-    let image_data = match retrieve_or_generate_qr_image(&mut *fs, &storage_dirpath, &oob_inv) {
+    let image_data = match retrieve_or_generate_qr_image(&mut *store, &oob_inv) {
         Ok(data) => data,
         Err(err) => {
             tracing::error!("Failed to retrieve or generate QR code image: {err:?}");
@@ -160,14 +139,4 @@ pub(crate) async fn handler_landing_page_oob(
         Html(html_content),
     )
         .into_response()
-}
-
-fn get_environment_variables() -> Result<(String, String), Box<dyn Error>> {
-    let server_public_domain = std::env::var("SERVER_PUBLIC_DOMAIN")
-        .map_err(|_| "SERVER_PUBLIC_DOMAIN env variable required")?;
-
-    let storage_dirpath =
-        std::env::var("STORAGE_DIRPATH").map_err(|_| "STORAGE_DIRPATH env variable required")?;
-
-    Ok((server_public_domain, storage_dirpath))
 }

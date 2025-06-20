@@ -1,12 +1,10 @@
-version: '3.8'
-
 services:
   mediator:
     build:
       context: .
     container_name: didcomm-mediator
     ports:
-      - "8080:8080"
+      - "3000:3000"
     env_file:
       - .env  
     depends_on:
@@ -17,6 +15,8 @@ services:
   mongodb:
     image: mongo:latest
     container_name: mongodb
+    ports:
+      - "27017:27017"
     volumes:
       - mongo-data:/data/db
     networks:

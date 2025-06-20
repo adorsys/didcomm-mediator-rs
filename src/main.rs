@@ -2,7 +2,13 @@ use axum::routing::get;
 use didcomm_mediator::{app, health, metrics};
 use eyre::{Result, WrapErr};
 use std::net::SocketAddr;
+#[cfg(not(target_env = "msvc"))]
+use tikv_jemallocator::Jemalloc;
 use tokio::net::TcpListener;
+
+#[cfg(not(target_env = "msvc"))]
+#[global_allocator]
+static GLOBAL: Jemalloc = Jemalloc;
 
 #[tokio::main]
 async fn main() -> Result<()> {
