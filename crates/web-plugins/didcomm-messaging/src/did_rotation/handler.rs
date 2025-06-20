@@ -85,13 +85,13 @@ pub async fn did_rotation(
 mod test {
     use std::{sync::Arc, vec};
 
-    use dashmap::DashMap;
     use did_utils::{didcore::Document, jwk::Jwk};
     use didcomm::secrets::SecretsResolver;
     use mongodb::bson::doc;
 
     use keystore::Keystore;
     use shared::{
+        breaker::CircuitBreaker,
         repository::{
             entity::Connection,
             tests::{MockConnectionRepository, MockMessagesRepository},
@@ -147,7 +147,7 @@ mod test {
                 diddoc,
                 None,
                 Some(repository),
-                DashMap::new(),
+                CircuitBreaker::new(),
             )
             .unwrap(),
         )

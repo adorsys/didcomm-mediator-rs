@@ -457,7 +457,7 @@ impl DidPeer {
             controller: did.to_string(),
             public_key: Some(match self.key_format {
                 PublicKeyFormat::Multikey => KeyFormat::Multibase(String::from(multikey)),
-                PublicKeyFormat::Jwk => KeyFormat::Jwk(alg.build_jwk(key).map_err(|_| DIDResolutionError::InternalError)?),
+                PublicKeyFormat::Jwk => KeyFormat::Jwk(Box::new(alg.build_jwk(key).map_err(|_| DIDResolutionError::InternalError)?)),
             }),
             ..Default::default()
         })
@@ -548,7 +548,7 @@ impl DidPeer {
                     PublicKeyFormat::Multikey => KeyFormat::Multibase(multikey.to_string()),
                     PublicKeyFormat::Jwk => {
                         let (alg, key) = decode_multikey(multikey).map_err(|_| DIDPeerMethodError::MalformedPeerDID)?;
-                        KeyFormat::Jwk(alg.build_jwk(&key).map_err(|_| DIDResolutionError::InternalError)?)
+                        KeyFormat::Jwk(Box::new(alg.build_jwk(&key).map_err(|_| DIDResolutionError::InternalError)?))
                     }
                 }),
                 ..Default::default()

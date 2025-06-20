@@ -1,8 +1,5 @@
 use crate::{
-    constants::{
-        KEYLIST_2_0, KEYLIST_QUERY_2_0, KEYLIST_UPDATE_2_0, KEYLIST_UPDATE_RESPONSE_2_0,
-        MEDIATE_DENY_2_0, MEDIATE_GRANT_2_0, MEDIATE_REQUEST_2_0,
-    },
+    constants::{KEYLIST_2_0, KEYLIST_UPDATE_RESPONSE_2_0, MEDIATE_DENY_2_0, MEDIATE_GRANT_2_0},
     errors::MediationError,
     handler::midlw::ensure_jwm_type_is_mediation_request,
     model::stateful::coord::{
@@ -39,7 +36,7 @@ pub(crate) async fn process_mediate_request(
     plain_message: Message,
 ) -> Result<Option<Message>, MediationError> {
     // Check if the circuit breaker is open
-    check_circuit_breaker(&state, MEDIATE_REQUEST_2_0)?;
+    check_circuit_breaker(&state)?;
 
     // Validate message type and return route
     ensure_jwm_type_is_mediation_request(&plain_message)?;
@@ -55,24 +52,18 @@ pub(crate) async fn process_mediate_request(
         .ok_or(MediationError::InternalServerError)?;
 
     // Check existing mediation
-    let existing_connection = match state.circuit_breaker.get(MEDIATE_REQUEST_2_0) {
-        Some(cb) => cb
-            .call(|| {
-                repository
-                    .connection_repository
-                    .find_one_by(doc! { "client_did": sender_did})
-            })
-            .await
-            .map_err(|err| match err {
-                BreakerError::CircuitOpen => MediationError::ServiceUnavailable,
-                _ => MediationError::InternalServerError,
-            })?,
-        None => repository
-            .connection_repository
-            .find_one_by(doc! { "client_did": sender_did})
-            .await
-            .map_err(|_| MediationError::InternalServerError)?,
-    };
+    let existing_connection = state
+        .db_circuit_breaker
+        .call(|| {
+            repository
+                .connection_repository
+                .find_one_by(doc! { "client_did": sender_did})
+        })
+        .await
+        .map_err(|err| match err {
+            BreakerError::CircuitOpen => MediationError::ServiceUnavailable,
+            _ => MediationError::InternalServerError,
+        })?;
 
     if existing_connection.is_some() {
         tracing::info!("Sending mediate deny.");
@@ -129,30 +120,21 @@ async fn process_mediation_grant(
     };
 
     // Store connection
-    match state.circuit_breaker.get(MEDIATE_REQUEST_2_0) {
-        Some(cb) => cb
-            .call(|| {
-                repository
-                    .connection_repository
-                    .store(new_connection.to_owned())
-            })
-            .await
-            .map_err(|err| match err {
-                BreakerError::CircuitOpen => MediationError::ServiceUnavailable,
-                BreakerError::Inner(err) => {
-                    tracing::error!("Failed to store connection: {err:?}");
-                    MediationError::InternalServerError
-                }
-            })?,
-        None => repository
-            .connection_repository
-            .store(new_connection)
-            .await
-            .map_err(|err| {
+    state
+        .db_circuit_breaker
+        .call(|| {
+            repository
+                .connection_repository
+                .store(new_connection.to_owned())
+        })
+        .await
+        .map_err(|err| match err {
+            BreakerError::CircuitOpen => MediationError::ServiceUnavailable,
+            BreakerError::Inner(err) => {
                 tracing::error!("Failed to store connection: {err:?}");
                 MediationError::InternalServerError
-            })?,
-    };
+            }
+        })?;
 
     Ok(Some(
         Message::build(
@@ -176,50 +158,32 @@ async fn store_keys(
     let agreem_id = diddoc.key_agreement.first().unwrap();
     let agreem_keys_jwk: Jwk = agreem_keys.try_into().unwrap();
 
-    match state.circuit_breaker.get(MEDIATE_REQUEST_2_0) {
-        Some(cb) => cb
-            .call(|| repository.keystore.store(agreem_id, &agreem_keys_jwk))
-            .await
-            .map_err(|err| match err {
-                BreakerError::CircuitOpen => MediationError::ServiceUnavailable,
-                BreakerError::Inner(err) => {
-                    tracing::error!("Failed to store agreem keys: {err:?}");
-                    MediationError::InternalServerError
-                }
-            })?,
-        None => repository
-            .keystore
-            .store(agreem_id, &agreem_keys_jwk)
-            .await
-            .map_err(|err| {
+    state
+        .db_circuit_breaker
+        .call(|| repository.keystore.store(agreem_id, &agreem_keys_jwk))
+        .await
+        .map_err(|err| match err {
+            BreakerError::CircuitOpen => MediationError::ServiceUnavailable,
+            BreakerError::Inner(err) => {
                 tracing::error!("Failed to store agreem keys: {err:?}");
                 MediationError::InternalServerError
-            })?,
-    };
+            }
+        })?;
 
     let auth_id = diddoc.authentication.first().unwrap();
     let auth_keys_jwk: Jwk = auth_keys.try_into().unwrap();
 
-    match state.circuit_breaker.get(MEDIATE_REQUEST_2_0) {
-        Some(cb) => cb
-            .call(|| repository.keystore.store(auth_id, &auth_keys_jwk))
-            .await
-            .map_err(|err| match err {
-                BreakerError::CircuitOpen => MediationError::ServiceUnavailable,
-                BreakerError::Inner(err) => {
-                    tracing::error!("Failed to store auth keys: {err:?}");
-                    MediationError::InternalServerError
-                }
-            })?,
-        None => repository
-            .keystore
-            .store(auth_id, &auth_keys_jwk)
-            .await
-            .map_err(|err| {
+    state
+        .db_circuit_breaker
+        .call(|| repository.keystore.store(auth_id, &auth_keys_jwk))
+        .await
+        .map_err(|err| match err {
+            BreakerError::CircuitOpen => MediationError::ServiceUnavailable,
+            BreakerError::Inner(err) => {
                 tracing::error!("Failed to store auth keys: {err:?}");
                 MediationError::InternalServerError
-            })?,
-    };
+            }
+        })?;
 
     Ok(())
 }
@@ -271,7 +235,7 @@ pub(crate) async fn process_plain_keylist_update_message(
     message: Message,
 ) -> Result<Option<Message>, MediationError> {
     // Circuit breaker check
-    check_circuit_breaker(&state, KEYLIST_UPDATE_2_0)?;
+    check_circuit_breaker(&state)?;
 
     let sender_did = sender_did(&message)?;
 
@@ -284,31 +248,22 @@ pub(crate) async fn process_plain_keylist_update_message(
         .ok_or(MediationError::InternalServerError)?;
 
     // Find connection
-    let connection = match state.circuit_breaker.get(KEYLIST_UPDATE_2_0) {
-        Some(cb) => cb
-            .call(|| {
-                repository
-                    .connection_repository
-                    .find_one_by(doc! { "client_did": sender_did })
-            })
-            .await
-            .map_err(|err| match err {
-                BreakerError::CircuitOpen => MediationError::ServiceUnavailable,
-                BreakerError::Inner(err) => {
-                    tracing::error!("Failed to find connection: {err:?}");
-                    MediationError::InternalServerError
-                }
-            })?,
-        None => repository
-            .connection_repository
-            .find_one_by(doc! { "client_did": sender_did })
-            .await
-            .map_err(|err| {
+    let connection = state
+        .db_circuit_breaker
+        .call(|| {
+            repository
+                .connection_repository
+                .find_one_by(doc! { "client_did": sender_did })
+        })
+        .await
+        .map_err(|err| match err {
+            BreakerError::CircuitOpen => MediationError::ServiceUnavailable,
+            BreakerError::Inner(err) => {
                 tracing::error!("Failed to find connection: {err:?}");
                 MediationError::InternalServerError
-            })?,
-    }
-    .ok_or(MediationError::UncoordinatedSender)?;
+            }
+        })?
+        .ok_or(MediationError::UncoordinatedSender)?;
 
     let mut updated_keylist = connection.keylist.clone();
     let updates = keylist_update_body.updates;
@@ -360,53 +315,41 @@ pub(crate) async fn process_plain_keylist_update_message(
         .collect();
 
     // Update connection
-    let confirmations = match state.circuit_breaker.get(KEYLIST_UPDATE_2_0) {
-        Some(cb) => cb
-            .call(|| {
-                repository.connection_repository.update(Connection {
-                    keylist: updated_keylist.clone(),
-                    ..connection.clone()
-                })
+    let confirmations = state
+        .db_circuit_breaker
+        .call(|| {
+            repository.connection_repository.update(Connection {
+                keylist: updated_keylist.clone(),
+                ..connection.clone()
             })
-            .await
-            .map_err(|err| match err {
-                BreakerError::CircuitOpen => MediationError::ServiceUnavailable,
-                BreakerError::Inner(err) => {
-                    tracing::error!("Failed to update connection: {err:?}");
-                    MediationError::InternalServerError
-                }
-            }),
-        None => repository
-            .connection_repository
-            .update(Connection {
-                keylist: updated_keylist,
-                ..connection
-            })
-            .await
-            .map_err(|err| {
+        })
+        .await
+        .map_err(|err| match err {
+            BreakerError::CircuitOpen => MediationError::ServiceUnavailable,
+            BreakerError::Inner(err) => {
                 tracing::error!("Failed to update connection: {err:?}");
                 MediationError::InternalServerError
-            }),
-    }
-    .map_or_else(
-        |_| {
-            confirmations
-                .iter()
-                .map(|confirmation| {
-                    if confirmation.result != KeylistUpdateResult::ClientError {
-                        KeylistUpdateConfirmation {
-                            recipient_did: confirmation.recipient_did.clone(),
-                            action: confirmation.action.clone(),
-                            result: KeylistUpdateResult::ServerError,
+            }
+        })
+        .map_or_else(
+            |_| {
+                confirmations
+                    .iter()
+                    .map(|confirmation| {
+                        if confirmation.result != KeylistUpdateResult::ClientError {
+                            KeylistUpdateConfirmation {
+                                recipient_did: confirmation.recipient_did.clone(),
+                                action: confirmation.action.clone(),
+                                result: KeylistUpdateResult::ServerError,
+                            }
+                        } else {
+                            confirmation.clone()
                         }
-                    } else {
-                        confirmation.clone()
-                    }
-                })
-                .collect()
-        },
-        |_| confirmations.clone(),
-    );
+                    })
+                    .collect()
+            },
+            |_| confirmations.clone(),
+        );
 
     let mediator_did = &state.diddoc.id;
 
@@ -429,7 +372,7 @@ pub(crate) async fn process_plain_keylist_query_message(
     message: Message,
 ) -> Result<Option<Message>, MediationError> {
     // Circuit breaker check
-    check_circuit_breaker(&state, KEYLIST_QUERY_2_0)?;
+    check_circuit_breaker(&state)?;
 
     let sender_did = sender_did(&message)?;
 
@@ -439,31 +382,22 @@ pub(crate) async fn process_plain_keylist_query_message(
         .ok_or(MediationError::InternalServerError)?;
 
     // Find connection
-    let connection = match state.circuit_breaker.get(KEYLIST_QUERY_2_0) {
-        Some(cb) => cb
-            .call(|| {
-                repository
-                    .connection_repository
-                    .find_one_by(doc! { "client_did": sender_did })
-            })
-            .await
-            .map_err(|err| match err {
-                BreakerError::CircuitOpen => MediationError::ServiceUnavailable,
-                BreakerError::Inner(err) => {
-                    tracing::error!("Failed to find connection: {err:?}");
-                    MediationError::InternalServerError
-                }
-            })?,
-        None => repository
-            .connection_repository
-            .find_one_by(doc! { "client_did": sender_did })
-            .await
-            .map_err(|err| {
+    let connection = state
+        .db_circuit_breaker
+        .call(|| {
+            repository
+                .connection_repository
+                .find_one_by(doc! { "client_did": sender_did })
+        })
+        .await
+        .map_err(|err| match err {
+            BreakerError::CircuitOpen => MediationError::ServiceUnavailable,
+            BreakerError::Inner(err) => {
                 tracing::error!("Failed to find connection: {err:?}");
                 MediationError::InternalServerError
-            })?,
-    }
-    .ok_or(MediationError::UncoordinatedSender)?;
+            }
+        })?
+        .ok_or(MediationError::UncoordinatedSender)?;
 
     let keylist_entries = connection
         .keylist
@@ -493,12 +427,12 @@ pub(crate) async fn process_plain_keylist_query_message(
 }
 
 #[inline]
-fn check_circuit_breaker(state: &Arc<AppState>, msg_type: &str) -> Result<(), MediationError> {
+fn check_circuit_breaker(state: &Arc<AppState>) -> Result<(), MediationError> {
     state
-        .circuit_breaker
-        .get(msg_type)
-        .filter(|cb| !cb.should_allow_call())
-        .map_or(Ok(()), |_| Err(MediationError::ServiceUnavailable))
+        .db_circuit_breaker
+        .should_allow_call()
+        .then_some(())
+        .ok_or(MediationError::ServiceUnavailable)
 }
 
 #[inline]

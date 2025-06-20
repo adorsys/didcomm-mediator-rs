@@ -1,0 +1,104 @@
+name: Release Workflow
+
+on:
+  push:
+    tags:
+      - 'v*'  # Trigger on tag push like v0.1.0
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (true/false)'
+        required: true
+        default: 'true'
+      skip_tests:
+        description: 'Skip tests (true/false)'
+        required: true
+        default: 'false'
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build_and_test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Set up Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Cache Cargo
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/index
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build Project
+        run: cargo build --release --verbose
+
+      - name: Run Tests
+        if: ${{ github.event.inputs.skip_tests != 'true' }}
+        run: cargo test --verbose
+
+      - name: Save Release Binary
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          mkdir -p release-artifacts
+          cp target/release/didcomm-mediator release-artifacts/
+          chmod +x release-artifacts/didcomm-mediator
+
+      - name: Upload Binary Artifact
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/upload-artifact@v4
+        with:
+          name: didcomm-mediator-binary
+          path: release-artifacts/
+
+  create_release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    needs: build_and_test
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Download Binary Artifact
+        uses: actions/download-artifact@v4.1.8
+        with:
+          name: didcomm-mediator-binary
+          path: release-assets
+
+      - name: Create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@v2.1.0
+        with:
+          name: Release ${{ github.ref_name }}
+          draft: false
+          prerelease: ${{ contains(github.ref_name, 'rc') }}
+          files: |
+            release-assets/didcomm-mediator
+          body: |
+            ## Release ${{ github.ref_name }}
+
+            This is the release of **didcomm-mediator-rs**, a Rust implementation of a mediator for the DIDComm v2 protocol.
+
+            ### Key Features
+            -  Basic Mediation Support for DIDComm v2
+            -  Routing and Keylist Management
+            -  Interoperability with existing SSI infrastructure
+            -  Modular and extensible architecture
+            -  Advanced error handling and transport-layer compliance development
+
+            ### Getting Started
+            See the [README](https://github.com/adorsys/didcomm-mediator-rs#readme) for setup and usage instructions.
+
+            _This release was automatically generated from tag `${{ github.ref_name }}`._

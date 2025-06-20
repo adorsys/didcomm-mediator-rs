@@ -12,8 +12,9 @@ use did_utils::{
     proof::{CryptoProof, EdDsaJcs2022, Proof, PROOF_TYPE_DATA_INTEGRITY_PROOF},
     vc::{VerifiableCredential, VerifiablePresentation},
 };
+
+#[allow(unused_imports)]
 use hyper::StatusCode;
-use mongodb::bson::doc;
 use multibase::Base;
 use serde_json::{json, Value};
 use std::{collections::HashMap, path::Path, sync::Arc};
@@ -323,7 +324,7 @@ mod tests {
                 let KeyFormat::Jwk(jwk) = key else {
                     return None;
                 };
-                Some(jwk.clone())
+                Some(*jwk.clone())
             }
         }
     }
