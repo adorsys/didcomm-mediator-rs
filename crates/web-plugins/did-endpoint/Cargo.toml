@@ -18,7 +18,6 @@ async-trait.workspace = true
 bson.workspace = true
 
 cfg-if.workspace = true
-mongodb.workspace = true
 chrono.workspace = true
 thiserror.workspace = true
 serde = { workspace = true, features = ["derive"] }

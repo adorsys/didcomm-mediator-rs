@@ -91,6 +91,7 @@ pub async fn unpack_didcomm_message(
 }
 
 /// Check if `content_type` match `application/didcomm-encrypted+json` or `didcomm-encrypted+json`
+#[allow(clippy::result_large_err)]
 fn content_type_is_didcomm_encrypted(content_type: Option<&str>) -> Result<(), Response> {
     if content_type.is_none()
         || ![

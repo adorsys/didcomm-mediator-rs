@@ -72,7 +72,7 @@ pub fn extract_agreement_key(diddoc: &Document) -> Option<(String, Jwk)> {
 /// Return verification method ID and JWK if present, else Option::None.
 fn extract_public_jwk_from_vm(vm: &VerificationMethod) -> Option<(String, Jwk)> {
     vm.public_key.as_ref().and_then(|key| match key {
-        KeyFormat::Jwk(jwk) => Some((vm.id.clone(), jwk.clone())),
+        KeyFormat::Jwk(jwk) => Some((vm.id.clone(), *jwk.clone())),
         _ => None,
     })
 }
