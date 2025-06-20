@@ -19,11 +19,11 @@ mod tests {
     use super::*;
     use axum::http::StatusCode;
     use chrono::Utc;
-    use dashmap::DashMap;
     use did_utils::didcore::Document;
     use keystore::Keystore;
     use serde_json::json;
     use shared::{
+        breaker::CircuitBreaker,
         repository::tests::{MockConnectionRepository, MockMessagesRepository},
         state::AppStateRepository,
     };
@@ -99,7 +99,7 @@ mod tests {
                 diddoc,
                 None,
                 Some(repository),
-                DashMap::new(),
+                CircuitBreaker::new(),
             )
             .unwrap(),
         );

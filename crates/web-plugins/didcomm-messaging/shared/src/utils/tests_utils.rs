@@ -1,11 +1,11 @@
 #[cfg(any(test, feature = "test-utils"))]
 pub mod tests {
     use crate::{
+        breaker::CircuitBreaker,
         repository::tests::{MockConnectionRepository, MockMessagesRepository},
         state::{AppState, AppStateRepository},
         utils::resolvers::LocalSecretsResolver,
     };
-    use dashmap::DashMap;
     use did_utils::{didcore::Document, jwk::Jwk};
     use didcomm::{
         error::Error as DidcommError, secrets::SecretsResolver, Message, PackEncryptedOptions,
@@ -98,7 +98,7 @@ pub mod tests {
                 diddoc,
                 None,
                 Some(repository),
-                DashMap::new(),
+                CircuitBreaker::new(),
             )
             .unwrap(),
         )

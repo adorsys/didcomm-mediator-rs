@@ -9,6 +9,7 @@ use crate::model::stateless::coord::MediationRequest as StatelessMediationReques
 use super::stateful::coord::MediationRequest as StatefulMediationRequest;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[allow(clippy::large_enum_variant)]
 #[serde(untagged)]
 pub enum MediationRequest {
     /// Format for stateful standard mode
