@@ -1,3 +1,4 @@
+pub(crate) mod aws;
 pub(crate) mod mongodb;
 pub(crate) mod no_repo;
 

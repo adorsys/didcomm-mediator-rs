@@ -1,9 +1,11 @@
 use super::{didgen, web};
+use aws_config::BehaviorVersion;
 use axum::Router;
 use filesystem::FileSystem;
 use keystore::Keystore;
 use plugin_api::{Plugin, PluginError};
 use std::sync::{Arc, Mutex};
+use tokio::{runtime::Handle, task};
 
 #[derive(Default)]
 pub struct DidEndpoint {
@@ -44,7 +46,12 @@ impl Plugin for DidEndpoint {
     fn mount(&mut self) -> Result<(), PluginError> {
         let env = get_env()?;
         let mut filesystem = filesystem::StdFileSystem;
-        let keystore = Keystore::with_mongodb();
+        let keystore = task::block_in_place(move || {
+            Handle::current().block_on(async move {
+                let aws_config = aws_config::load_defaults(BehaviorVersion::latest()).await;
+                Keystore::with_aws_secrets_manager(&aws_config).await
+            })
+        });
 
         if didgen::validate_diddoc(env.storage_dirpath.as_ref(), &keystore, &mut filesystem)
             .is_err()
