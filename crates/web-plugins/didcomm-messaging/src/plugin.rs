@@ -1,8 +1,12 @@
 use crate::{manager::MessagePluginContainer, web};
 use axum::Router;
 use dashmap::DashMap;
-use filesystem::StdFileSystem;
-use mongodb::Database;
+use database::get_or_init_database;
+use database::Repository;
+use did_endpoint::persistence::DidDocumentRepository;
+use did_utils::didcore::Document as DidDocument;
+use keystore::Keystore;
+use mongodb::{bson::doc, Database};
 use once_cell::sync::OnceCell;
 use plugin_api::{Plugin, PluginError};
 use shared::{
@@ -11,7 +15,9 @@ use shared::{
     state::{AppState, AppStateRepository},
 };
 use std::{sync::Arc, time::Duration};
+use tokio::runtime::Handle;
 use tokio::sync::RwLock;
+use tokio::task;
 
 pub(crate) static MESSAGE_CONTAINER: OnceCell<RwLock<MessagePluginContainer>> = OnceCell::new();
 
@@ -19,12 +25,12 @@ pub(crate) static MESSAGE_CONTAINER: OnceCell<RwLock<MessagePluginContainer>> = 
 pub struct DidcommMessaging {
     env: Option<DidcommMessagingPluginEnv>,
     db: Option<Database>,
+    diddoc: Option<DidDocument>,
     msg_types: Option<Vec<String>>,
 }
 
 struct DidcommMessagingPluginEnv {
     public_domain: String,
-    storage_dirpath: String,
 }
 
 /// Loads environment variables required for this plugin
@@ -36,14 +42,7 @@ fn load_plugin_env() -> Result<DidcommMessagingPluginEnv, PluginError> {
         ))
     })?;
 
-    let storage_dirpath = std::env::var("STORAGE_DIRPATH").map_err(|err| {
-        PluginError::InitError(format!("STORAGE_DIRPATH env variable required: {:?}", err))
-    })?;
-
-    Ok(DidcommMessagingPluginEnv {
-        public_domain,
-        storage_dirpath,
-    })
+    Ok(DidcommMessagingPluginEnv { public_domain })
 }
 
 impl Plugin for DidcommMessaging {
@@ -54,18 +53,30 @@ impl Plugin for DidcommMessaging {
     fn mount(&mut self) -> Result<(), PluginError> {
         let env = load_plugin_env()?;
 
-        let mut filesystem = filesystem::StdFileSystem;
-        let keystore = keystore::Keystore::with_mongodb();
+        let db = get_or_init_database();
+        let repository = DidDocumentRepository::from_db(&db);
+        let keystore = Keystore::with_mongodb();
 
-        // Expect DID document from file system
-        if let Err(err) =
-            did_endpoint::validate_diddoc(env.storage_dirpath.as_ref(), &keystore, &mut filesystem)
-        {
+        // Expect DID document from the repository
+        if let Err(err) = did_endpoint::validate_diddoc(&keystore, &repository) {
             return Err(PluginError::InitError(format!(
                 "DID document validation failed: {:?}",
                 err
             )));
         }
+
+        let diddoc = task::block_in_place(move || {
+            Handle::current().block_on(async move {
+                repository
+                    .find_one_by(doc! {})
+                    .await
+                    .map_err(|e| PluginError::Other(e.to_string()))?
+                    .ok_or_else(|| {
+                        PluginError::Other("Missing did.json from repository".to_string())
+                    })
+            })
+        })?;
+        let diddoc = diddoc.diddoc;
 
         // Load message container
         let mut container = MessagePluginContainer::new();
@@ -87,18 +98,10 @@ impl Plugin for DidcommMessaging {
             .set(RwLock::new(container))
             .map_err(|_| PluginError::InitError("Container already initialized".to_owned()))?;
 
-        // Check connectivity to database
-        let db = tokio::task::block_in_place(|| {
-            let rt = tokio::runtime::Handle::current();
-            rt.block_on(async {
-                let db_instance = database::get_or_init_database();
-                db_instance.clone()
-            })
-        });
-
         // Save the environment,MongoDB connection and didcomm message types in the struct
         self.env = Some(env);
         self.db = Some(db);
+        self.diddoc = Some(diddoc);
         self.msg_types = Some(msg_types);
 
         Ok(())
@@ -119,15 +122,10 @@ impl Plugin for DidcommMessaging {
         let msg_types = self.msg_types.as_ref().ok_or(PluginError::Other(
             "Failed to get message types. Check if the plugin is mounted".to_owned(),
         ))?;
+        let diddoc = self.diddoc.as_ref().ok_or(PluginError::Other(
+            "Failed to get diddoc. Check if the plugin is mounted".to_owned(),
+        ))?;
 
-        // Load crypto identity
-        let fs = StdFileSystem;
-        let diddoc = shared::utils::read_diddoc(&fs, &env.storage_dirpath).map_err(|err| {
-            PluginError::Other(format!(
-                "This should not occur following successful mounting: {:?}",
-                err
-            ))
-        })?;
         let keystore = keystore::Keystore::with_mongodb();
 
         // Load persistence layer
@@ -154,7 +152,7 @@ impl Plugin for DidcommMessaging {
         // Compile state
         let state = AppState::from(
             env.public_domain.clone(),
-            diddoc,
+            diddoc.clone(),
             Some(msg_types.clone()),
             Some(repository),
             breaker_acc,

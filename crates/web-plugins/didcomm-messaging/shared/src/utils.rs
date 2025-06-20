@@ -5,7 +5,6 @@ use did_utils::{
     didcore::{Document, KeyFormat, VerificationMethod, VerificationMethodType},
     jwk::Jwk,
 };
-use filesystem::FileSystem;
 use serde_json::Error as SerdeError;
 use std::io;
 
@@ -28,13 +27,6 @@ impl From<SerdeError> for DidDocError {
     fn from(err: SerdeError) -> DidDocError {
         DidDocError::ParseError(err)
     }
-}
-
-/// Parse DID document expected to exist on filesystem.
-pub fn read_diddoc(fs: &dyn FileSystem, storage_dirpath: &str) -> Result<Document, DidDocError> {
-    let didpath = format!("{storage_dirpath}/did.json");
-    let content = fs.read_to_string(didpath.as_ref())?;
-    serde_json::from_str(&content).map_err(Into::into)
 }
 
 /// Generic macro function to look for a key in a DID document.
