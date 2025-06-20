@@ -6,7 +6,6 @@ edition = "2021"
 [dependencies]
 did-utils.workspace = true
 database.workspace = true
-filesystem = { workspace = true, features = ["test-utils"] }
 keystore = { workspace = true, features = ["test-utils"] }
 
 json-canon.workspace = true
