@@ -23,6 +23,5 @@ mongodb.workspace = true
 
 [dev-dependencies]
 tower = "0.5"
-mockall = "0.13.1"
 tokio = { version = "1.42.0", features = ["full"] }
 did-endpoint = { workspace = true, features = ["test-utils"] }
