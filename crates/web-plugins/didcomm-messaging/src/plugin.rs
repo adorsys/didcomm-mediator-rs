@@ -1,6 +1,5 @@
 use crate::{manager::MessagePluginContainer, web};
 use axum::Router;
-use dashmap::DashMap;
 use database::get_or_init_database;
 use database::Repository;
 use did_endpoint::persistence::DidDocumentRepository;
