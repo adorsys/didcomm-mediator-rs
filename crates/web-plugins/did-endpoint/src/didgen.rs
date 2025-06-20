@@ -255,10 +255,7 @@ pub(crate) mod tests {
         )
         .unwrap();
         repository
-            .store(MediatorDidDocument {
-                id: None,
-                diddoc,
-            })
+            .store(MediatorDidDocument { id: None, diddoc })
             .await
             .unwrap();
 

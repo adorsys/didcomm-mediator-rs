@@ -58,21 +58,19 @@ impl Plugin for OOBMessages {
                     .find_one_by(doc! {})
                     .await
                     .map_err(|e| PluginError::Other(e.to_string()))?
-                    .ok_or_else(|| PluginError::Other("Missing did.json from repository".to_string()))
+                    .ok_or_else(|| {
+                        PluginError::Other("Missing did.json from repository".to_string())
+                    })
             })
         })?;
         let diddoc = diddoc.diddoc;
 
-        let oob_inv = retrieve_or_generate_oob_inv(
-            &mut store,
-            &diddoc,
-            &env.server_public_domain,
-        )
-        .map_err(|err| {
-            PluginError::InitError(format!(
-                "Error retrieving or generating OOB invitation: {err}"
-            ))
-        })?;
+        let oob_inv = retrieve_or_generate_oob_inv(&mut store, &diddoc, &env.server_public_domain)
+            .map_err(|err| {
+                PluginError::InitError(format!(
+                    "Error retrieving or generating OOB invitation: {err}"
+                ))
+            })?;
 
         tracing::debug!("Out Of Band Invitation: {}", oob_inv);
 

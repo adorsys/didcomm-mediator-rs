@@ -9,42 +9,38 @@ use std::sync::Arc;
 
 pub(crate) async fn handler_oob_inv(State(state): State<Arc<OOBMessagesState>>) -> Response {
     let mut store = state.store.lock().unwrap();
-    let content = match retrieve_or_generate_oob_inv(
-        &mut *store,
-        &state.diddoc,
-        &state.server_public_domain,
-    ) {
-        Ok(oob_inv) => oob_inv,
-        Err(err) => {
-            tracing::error!("Failed to retrieve or generate oob invitation: {err:?}");
-            return (
-                StatusCode::SERVICE_UNAVAILABLE,
-                "Could not process request at this time. Please try again later",
-            )
-                .into_response();
-        }
-    };
+    let content =
+        match retrieve_or_generate_oob_inv(&mut *store, &state.diddoc, &state.server_public_domain)
+        {
+            Ok(oob_inv) => oob_inv,
+            Err(err) => {
+                tracing::error!("Failed to retrieve or generate oob invitation: {err:?}");
+                return (
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "Could not process request at this time. Please try again later",
+                )
+                    .into_response();
+            }
+        };
 
     content.into_response()
 }
 
 pub(crate) async fn handler_oob_qr(State(state): State<Arc<OOBMessagesState>>) -> Response {
     let mut store = state.store.lock().unwrap();
-    let oob_inv = match retrieve_or_generate_oob_inv(
-        &mut *store,
-        &state.diddoc,
-        &state.server_public_domain,
-    ) {
-        Ok(oob_inv) => oob_inv,
-        Err(err) => {
-            tracing::error!("Failed to retrieve or generate oob invitation: {err:?}");
-            return (
-                StatusCode::SERVICE_UNAVAILABLE,
-                "Could not process request at this time. Please try again later",
-            )
-                .into_response();
-        }
-    };
+    let oob_inv =
+        match retrieve_or_generate_oob_inv(&mut *store, &state.diddoc, &state.server_public_domain)
+        {
+            Ok(oob_inv) => oob_inv,
+            Err(err) => {
+                tracing::error!("Failed to retrieve or generate oob invitation: {err:?}");
+                return (
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "Could not process request at this time. Please try again later",
+                )
+                    .into_response();
+            }
+        };
 
     let image_data = match retrieve_or_generate_qr_image(&mut *store, &oob_inv) {
         Ok(data) => data,
@@ -84,21 +80,19 @@ pub(crate) async fn handler_landing_page_oob(
     State(state): State<Arc<OOBMessagesState>>,
 ) -> Response {
     let mut store = state.store.lock().unwrap();
-    let oob_inv = match retrieve_or_generate_oob_inv(
-        &mut *store,
-        &state.diddoc,
-        &state.server_public_domain,
-    ) {
-        Ok(oob_inv) => oob_inv,
-        Err(err) => {
-            tracing::error!("Failed to retrieve or generate oob invitation: {err:?}");
-            return (
-                StatusCode::SERVICE_UNAVAILABLE,
-                "Could not process request at this time. Please try again later",
-            )
-                .into_response();
-        }
-    };
+    let oob_inv =
+        match retrieve_or_generate_oob_inv(&mut *store, &state.diddoc, &state.server_public_domain)
+        {
+            Ok(oob_inv) => oob_inv,
+            Err(err) => {
+                tracing::error!("Failed to retrieve or generate oob invitation: {err:?}");
+                return (
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "Could not process request at this time. Please try again later",
+                )
+                    .into_response();
+            }
+        };
 
     let image_data = match retrieve_or_generate_qr_image(&mut *store, &oob_inv) {
         Ok(data) => data,

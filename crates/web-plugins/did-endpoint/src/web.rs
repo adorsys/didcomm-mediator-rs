@@ -53,8 +53,8 @@ async fn didpop(
         .ok_or(StatusCode::NOT_FOUND)?;
 
     let diddoc_value = diddoc_entity.diddoc;
-    let diddoc: Document =
-        serde_json::from_value(json!(diddoc_value)).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let diddoc: Document = serde_json::from_value(json!(diddoc_value))
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     let did_address = diddoc.id.clone();
     let methods = diddoc.verification_method.clone().unwrap_or_default();
@@ -183,7 +183,10 @@ fn inspect_vm_relationship(diddoc: &Document, vm_id: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{didgen::tests::*, persistence::{tests::MockDidDocumentRepository, MediatorDidDocument}};
+    use crate::{
+        didgen::tests::*,
+        persistence::{tests::MockDidDocumentRepository, MediatorDidDocument},
+    };
 
     use axum::{
         body::Body,
@@ -230,12 +233,13 @@ mod tests {
         let repository = MockDidDocumentRepository::new();
         let mock_keystore = Keystore::with_mock_configs(vec![(kid, setup())]);
 
-        repository.store(MediatorDidDocument {
-            id: None,
-            diddoc: expected_diddoc.clone(),
-        })
-        .await
-        .unwrap();
+        repository
+            .store(MediatorDidDocument {
+                id: None,
+                diddoc: expected_diddoc.clone(),
+            })
+            .await
+            .unwrap();
 
         // Setup state with mocks
         let state = DidEndPointState {
