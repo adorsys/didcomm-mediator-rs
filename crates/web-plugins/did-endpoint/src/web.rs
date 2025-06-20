@@ -324,7 +324,7 @@ mod tests {
                 let KeyFormat::Jwk(jwk) = key else {
                     return None;
                 };
-                Some(jwk.clone())
+                Some(*jwk.clone())
             }
         }
     }

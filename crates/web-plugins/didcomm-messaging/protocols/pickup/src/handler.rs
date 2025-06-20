@@ -1,8 +1,5 @@
 use crate::{
-    constants::{
-        DELIVERY_REQUEST_3_0, MESSAGE_DELIVERY_3_0, MESSAGE_RECEIVED_3_0, PROBLEM_REPORT_2_0,
-        STATUS_REQUEST_3_0, STATUS_RESPONSE_3_0,
-    },
+    constants::{MESSAGE_DELIVERY_3_0, PROBLEM_REPORT_2_0, STATUS_RESPONSE_3_0},
     error::PickupError,
     model::{
         BodyDeliveryResponse, BodyLiveDeliveryChange, BodyStatusResponse, DeliveryResponse,
@@ -27,7 +24,7 @@ pub(crate) async fn handle_status_request(
     message: Message,
 ) -> Result<Option<Message>, PickupError> {
     // Circuit breaker check
-    check_circuit_breaker(&state, STATUS_REQUEST_3_0)?;
+    check_circuit_breaker(&state)?;
 
     // Validate the return_route header
     ensure_transport_return_route_is_decorated_all(&message)
@@ -40,12 +37,11 @@ pub(crate) async fn handle_status_request(
         .and_then(|val| val.as_str());
     let sender_did = sender_did(&message)?;
 
-    let breaker = state.circuit_breaker.get(STATUS_REQUEST_3_0);
-    let cb = breaker.as_deref();
+    let breaker = &state.db_circuit_breaker;
     let repository = repository(state.clone())?;
-    let connection = client_connection(cb, &repository, sender_did).await?;
+    let connection = client_connection(breaker, &repository, sender_did).await?;
 
-    let message_count = count_messages(cb, repository, recipient_did, connection).await?;
+    let message_count = count_messages(breaker, repository, recipient_did, connection).await?;
 
     let id = Uuid::new_v4().urn().to_string();
     let response_builder: MessageBuilder = StatusResponse {
@@ -74,7 +70,7 @@ pub(crate) async fn handle_delivery_request(
     message: Message,
 ) -> Result<Option<Message>, PickupError> {
     // Circuit breaker check
-    check_circuit_breaker(&state, DELIVERY_REQUEST_3_0)?;
+    check_circuit_breaker(&state)?;
 
     // Validate the return_route header
     ensure_transport_return_route_is_decorated_all(&message)
@@ -94,8 +90,7 @@ pub(crate) async fn handle_delivery_request(
         .and_then(Value::as_u64)
         .ok_or_else(|| PickupError::MalformedRequest("Invalid \"limit\" specifier".to_owned()))?;
 
-    let cb = state.circuit_breaker.get(DELIVERY_REQUEST_3_0);
-    let cb = cb.as_deref();
+    let cb = &state.db_circuit_breaker;
     let repository = repository(state.clone())?;
     let connection = client_connection(cb, &repository, sender_did).await?;
 
@@ -153,14 +148,13 @@ pub(crate) async fn handle_message_acknowledgement(
     message: Message,
 ) -> Result<Option<Message>, PickupError> {
     // Circuit breaker check
-    check_circuit_breaker(&state, MESSAGE_RECEIVED_3_0)?;
+    check_circuit_breaker(&state)?;
 
     // Validate the return_route header
     ensure_transport_return_route_is_decorated_all(&message)
         .map_err(|_| PickupError::MalformedRequest("Missing return_route header".to_owned()))?;
 
-    let cb = state.circuit_breaker.get(MESSAGE_RECEIVED_3_0);
-    let cb = cb.as_deref();
+    let cb = &state.db_circuit_breaker;
     let mediator_did = &state.diddoc.id;
     let repository = repository(state.clone())?;
     let sender_did = sender_did(&message)?;
@@ -184,30 +178,17 @@ pub(crate) async fn handle_message_acknowledgement(
             )));
         }
         let msg_id = msg_id.unwrap();
-        match cb {
-            Some(cb) => cb
-                .call(|| repository.message_repository.delete_one(msg_id))
-                .await
-                .map_err(|err| match err {
-                    BreakerError::CircuitOpen => PickupError::ServiceUnavailable,
-                    BreakerError::Inner(err) => {
-                        tracing::error!("Failed to delete message: {err:?}");
-                        PickupError::InternalError(
-                            "Failed to process the request. Please try again later.".to_owned(),
-                        )
-                    }
-                })?,
-            None => repository
-                .message_repository
-                .delete_one(msg_id)
-                .await
-                .map_err(|err| {
+        cb.call(|| repository.message_repository.delete_one(msg_id))
+            .await
+            .map_err(|err| match err {
+                BreakerError::CircuitOpen => PickupError::ServiceUnavailable,
+                BreakerError::Inner(err) => {
                     tracing::error!("Failed to delete message: {err:?}");
                     PickupError::InternalError(
                         "Failed to process the request. Please try again later.".to_owned(),
                     )
-                })?,
-        };
+                }
+            })?;
     }
 
     let message_count = count_messages(cb, repository, None, connection).await?;
@@ -274,47 +255,35 @@ pub(crate) async fn handle_live_delivery_change(
 }
 
 async fn count_messages(
-    cb: Option<&CircuitBreaker>,
+    cb: &CircuitBreaker,
     repository: AppStateRepository,
     recipient_did: Option<&str>,
     connection: Connection,
 ) -> Result<usize, PickupError> {
     let recipients = recipients(recipient_did, &connection);
 
-    let count = match cb {
-        Some(cb) => cb
-            .call(|| {
-                repository
-                    .message_repository
-                    .count_by(doc! { "recipient_did": { "$in": recipients.to_owned() } })
-            })
-            .await
-            .map_err(|err| match err {
-                BreakerError::CircuitOpen => PickupError::ServiceUnavailable,
-                BreakerError::Inner(err) => {
-                    tracing::error!("Failed to count messages: {err:?}");
-                    PickupError::InternalError(
-                        "Failed to process the request. Please try again later.".to_owned(),
-                    )
-                }
-            })?,
-        None => repository
-            .message_repository
-            .count_by(doc! { "recipient_did": { "$in": recipients } })
-            .await
-            .map_err(|err| {
+    let count = cb
+        .call(|| {
+            repository
+                .message_repository
+                .count_by(doc! { "recipient_did": { "$in": recipients.to_owned() } })
+        })
+        .await
+        .map_err(|err| match err {
+            BreakerError::CircuitOpen => PickupError::ServiceUnavailable,
+            BreakerError::Inner(err) => {
                 tracing::error!("Failed to count messages: {err:?}");
                 PickupError::InternalError(
                     "Failed to process the request. Please try again later.".to_owned(),
                 )
-            })?,
-    };
+            }
+        })?;
 
     Ok(count)
 }
 
 async fn messages(
-    cb: Option<&CircuitBreaker>,
+    cb: &CircuitBreaker,
     repository: AppStateRepository,
     recipient_did: Option<&str>,
     connection: Connection,
@@ -322,38 +291,23 @@ async fn messages(
 ) -> Result<Vec<RoutedMessage>, PickupError> {
     let recipients = recipients(recipient_did, &connection);
 
-    let routed_messages = match cb {
-        Some(cb) => cb
-            .call(|| {
-                repository.message_repository.find_all_by(
-                    doc! { "recipient_did": { "$in": recipients.to_owned() } },
-                    Some(limit as i64),
-                )
-            })
-            .await
-            .map_err(|err| match err {
-                BreakerError::CircuitOpen => PickupError::ServiceUnavailable,
-                BreakerError::Inner(err) => {
-                    tracing::error!("Failed to fetch messages: {err:?}");
-                    PickupError::InternalError(
-                        "Failed to process the request. Please try again later.".to_owned(),
-                    )
-                }
-            })?,
-        None => repository
-            .message_repository
-            .find_all_by(
-                doc! { "recipient_did": { "$in": recipients } },
+    let routed_messages = cb
+        .call(|| {
+            repository.message_repository.find_all_by(
+                doc! { "recipient_did": { "$in": recipients.to_owned() } },
                 Some(limit as i64),
             )
-            .await
-            .map_err(|err| {
+        })
+        .await
+        .map_err(|err| match err {
+            BreakerError::CircuitOpen => PickupError::ServiceUnavailable,
+            BreakerError::Inner(err) => {
                 tracing::error!("Failed to fetch messages: {err:?}");
                 PickupError::InternalError(
                     "Failed to process the request. Please try again later.".to_owned(),
                 )
-            })?,
-    };
+            }
+        })?;
 
     Ok(routed_messages)
 }
@@ -385,48 +339,36 @@ fn repository(state: Arc<AppState>) -> Result<AppStateRepository, PickupError> {
 
 #[inline]
 async fn client_connection(
-    cb: Option<&CircuitBreaker>,
+    cb: &CircuitBreaker,
     repository: &AppStateRepository,
     client_did: &str,
 ) -> Result<Connection, PickupError> {
-    let connection = match cb {
-        Some(cb) => cb
-            .call(|| {
-                repository
-                    .connection_repository
-                    .find_one_by(doc! { "client_did": client_did })
-            })
-            .await
-            .map_err(|err| match err {
-                BreakerError::CircuitOpen => PickupError::ServiceUnavailable,
-                BreakerError::Inner(err) => {
-                    tracing::error!("Failed to fetch connection: {err:?}");
-                    PickupError::InternalError(
-                        "Failed to process the request. Please try again later.".to_owned(),
-                    )
-                }
-            })?,
-        None => repository
-            .connection_repository
-            .find_one_by(doc! { "client_did": client_did })
-            .await
-            .map_err(|err| {
+    let connection = cb
+        .call(|| {
+            repository
+                .connection_repository
+                .find_one_by(doc! { "client_did": client_did })
+        })
+        .await
+        .map_err(|err| match err {
+            BreakerError::CircuitOpen => PickupError::ServiceUnavailable,
+            BreakerError::Inner(err) => {
                 tracing::error!("Failed to fetch connection: {err:?}");
                 PickupError::InternalError(
                     "Failed to process the request. Please try again later.".to_owned(),
                 )
-            })?,
-    };
+            }
+        })?;
 
     connection.ok_or(PickupError::MissingClientConnection)
 }
 
-fn check_circuit_breaker(state: &Arc<AppState>, msg_type: &str) -> Result<(), PickupError> {
+fn check_circuit_breaker(state: &Arc<AppState>) -> Result<(), PickupError> {
     state
-        .circuit_breaker
-        .get(msg_type)
-        .filter(|cb| !cb.should_allow_call())
-        .map_or(Ok(()), |_| Err(PickupError::ServiceUnavailable))
+        .db_circuit_breaker
+        .should_allow_call()
+        .then_some(())
+        .ok_or(PickupError::ServiceUnavailable)
 }
 
 #[cfg(test)]

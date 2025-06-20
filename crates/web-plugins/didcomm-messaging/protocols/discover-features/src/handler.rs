@@ -116,12 +116,12 @@ fn build_response(disclosed_protocols: HashSet<String>) -> Message {
 mod test {
 
     use crate::{constants::QUERY_FEATURE, model::Queries};
-    use dashmap::DashMap;
     use did_utils::didcore::Document;
     use didcomm::Message;
     use keystore::Keystore;
     use serde_json::json;
     use shared::{
+        breaker::CircuitBreaker,
         repository::tests::{MockConnectionRepository, MockMessagesRepository},
         state::{AppState, AppStateRepository},
     };
@@ -151,7 +151,7 @@ mod test {
                     "https://didcomm.org/coordinate-mediation/2.0/mediate-request".to_string(),
                 ]),
                 Some(repository),
-                DashMap::new(),
+                CircuitBreaker::new(),
             )
             .unwrap(),
         )

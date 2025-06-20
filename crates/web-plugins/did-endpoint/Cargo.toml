@@ -16,7 +16,6 @@ did-utils.workspace = true
 filesystem.workspace = true
 
 cfg-if.workspace = true
-mongodb.workspace = true
 chrono.workspace = true
 thiserror.workspace = true
 serde_json.workspace = true

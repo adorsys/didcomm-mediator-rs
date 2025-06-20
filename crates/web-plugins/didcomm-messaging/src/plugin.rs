@@ -1,6 +1,5 @@
 use crate::{manager::MessagePluginContainer, web};
 use axum::Router;
-use dashmap::DashMap;
 use filesystem::StdFileSystem;
 use mongodb::Database;
 use once_cell::sync::OnceCell;
@@ -138,18 +137,11 @@ impl Plugin for DidcommMessaging {
         };
 
         // Initialize circuit breakers
-        let breaker_acc =
-            msg_types
-                .iter()
-                .fold(DashMap::with_capacity(msg_types.len()), |acc, msg| {
-                    let breaker_config = CircuitBreaker::new()
-                        .retries(5)
-                        .half_open_max_failures(3)
-                        .reset_timeout(Duration::from_secs(60))
-                        .exponential_backoff(Duration::from_millis(100));
-                    acc.insert(msg.to_string(), breaker_config);
-                    acc
-                });
+        let db_breaker = CircuitBreaker::new()
+            .retries(3)
+            .half_open_max_failures(3)
+            .reset_timeout(Duration::from_secs(30))
+            .exponential_backoff(Duration::from_millis(50));
 
         // Compile state
         let state = AppState::from(
@@ -157,7 +149,7 @@ impl Plugin for DidcommMessaging {
             diddoc,
             Some(msg_types.clone()),
             Some(repository),
-            breaker_acc,
+            db_breaker,
         )
         .map_err(|err| PluginError::Other(format!("Failed to load app state: {:?}", err)))?;
 
