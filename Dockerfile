@@ -1,50 +1,33 @@
-# syntax=docker/dockerfile:1.4
+ARG APP_NAME=didcomm-mediator
 
-# Stage 1: Build
-FROM rust:1.85-alpine AS builder
+# Use buildx's automatic platform detection
+FROM --platform=$BUILDPLATFORM blackdex/rust-musl:x86_64-musl AS builder-amd64
+FROM --platform=$BUILDPLATFORM blackdex/rust-musl:aarch64-musl AS builder-arm64
 
+# Select the appropriate builder based on target platform
+FROM builder-${TARGETARCH} AS builder
+ARG APP_NAME
+ARG TARGETPLATFORM
+ARG TARGETARCH
 WORKDIR /app
 
-# Install required build dependencies, including OpenSSL development files
-RUN apk add --no-cache \
-    build-base \
-    pkgconf \
-    openssl-dev \
-    musl-dev \
-    ca-certificates \
-    postgresql-dev \
-    musl-utils \
-    llvm-libunwind-dev
+# Set the Rust target and build the application
+RUN --mount=type=bind,source=src,target=src \
+    --mount=type=bind,source=crates,target=crates \
+    --mount=type=bind,source=Cargo.toml,target=Cargo.toml \
+    --mount=type=bind,source=Cargo.lock,target=Cargo.lock \
+    --mount=type=cache,target=/app/target,id=target-cache-${TARGETPLATFORM} \
+    --mount=type=cache,target=/root/.cargo/registry,id=registry-cache-${TARGETPLATFORM} \
+    case "$TARGETARCH" in \
+        amd64) RUST_TARGET="x86_64-unknown-linux-musl" ;; \
+        arm64) RUST_TARGET="aarch64-unknown-linux-musl" ;; \
+        *) echo "Unsupported architecture: $TARGETARCH" && exit 1 ;; \
+    esac; \
+    cargo build --locked --release --target=${RUST_TARGET}; \
+    mv target/${RUST_TARGET}/release/${APP_NAME} .
 
-# Set environment variables (disable static linking for OpenSSL)
-ENV OPENSSL_STATIC=0
-ENV OPENSSL_DIR=/usr
-
-# Copy Cargo files separately to optimize caching
-COPY Cargo.toml Cargo.lock ./
-COPY crates ./crates
-
-# Dummy build to cache dependencies
-RUN mkdir src && echo "fn main() {}" > src/main.rs && \
-    cargo build --release
-
-# Copy the actual source code
-COPY src ./src
-
-# Build the project (using the host's default target)
-RUN cargo build --release && \
-    strip target/release/didcomm-mediator
-
-# Stage 2: Runtime using a distroless image
-FROM gcr.io/distroless/static-debian12:latest
-
-WORKDIR /app
-
-# Copy the built binary from the builder stage
-COPY --from=builder /app/target/release/didcomm-mediator /usr/local/bin/didcomm-mediator
-
-# Expose the port
+FROM gcr.io/distroless/static-debian12 AS runtime
+ARG APP_NAME
+COPY --from=builder --chown=nonroot:nonroot /app/${APP_NAME} /app/${APP_NAME}
 EXPOSE 3000
-
-# Set the entrypoint
-ENTRYPOINT ["/usr/local/bin/didcomm-mediator"]
+ENTRYPOINT ["/app/didcomm-mediator"]
