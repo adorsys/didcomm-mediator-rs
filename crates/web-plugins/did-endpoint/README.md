@@ -12,24 +12,22 @@ The `did-endpoint` plugin crate provides a set of tools for generating and valid
 Here’s a simple example of how you can generate and validate a DID document:
 
 ```rust
-use did_endpoint::{didgen, validate_diddoc};
-use filesystem::{FileSystem, StdFileSystem};
-use keystore::KeyStore;
+use did_endpoint::{
+    didgen,
+    persistence::DidDocumentRepository,
+};
+use database::get_or_init_database;
+use keystore::Keystore;
 
-let storage_dirpath = std::env::var("STORAGE_DIRPATH").unwrap(),
+// This requires MONGODB_URI and MONGODB_DATABASE environment variables to be set.
+let db = get_or_init_database();
+let repository = DidDocumentRepository::from_db(&db);
+let keystore = Keystore::with_mongodb();
 let server_public_domain = std::env::var("SERVER_PUBLIC_DOMAIN").unwrap();
 
-let mut filesystem = filesystem::StdFileSystem;
-let keystore = keystore::KeyStore::with_mongodb();
-
 // Generate and persist a new DID document
-didgen::didgen(
-    storage_dirpath,
-    server_public_domain,
-    &keystore,
-    &mut filesystem,
-)?;
+didgen::didgen(&server_public_domain, &keystore, &repository)?;
 
 // Validate the integrity of the persisted DID document
-didgen::validate_diddoc(storage_dirpath, &keystore, &mut filesystem)?;
+didgen::validate_diddoc(&keystore, &repository)?;
 ```

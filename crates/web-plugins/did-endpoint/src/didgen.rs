@@ -1,16 +1,15 @@
+use crate::persistence::MediatorDidDocument;
+use database::{Repository, RepositoryError};
 use did_utils::{
     crypto::{Ed25519KeyPair, Generate, PublicKeyFormat, ToMultikey, X25519KeyPair},
     didcore::{Document, KeyFormat, Service, VerificationMethodType},
     jwk::Jwk,
     methods::{DidPeer, Purpose, PurposedKey},
 };
-use filesystem::FileSystem;
 use keystore::Keystore;
+use mongodb::bson::doc;
 use serde_json::json;
-use std::path::Path;
 use tokio::{runtime::Handle, task};
-
-use crate::util;
 
 #[allow(dead_code)]
 #[derive(Debug, thiserror::Error)]
@@ -27,17 +26,18 @@ pub enum Error {
     PersistenceError,
     #[error("Generic: {0}")]
     Generic(String),
+    #[error(transparent)]
+    Repository(#[from] RepositoryError),
 }
 
 /// Generates keys and forward them for DID generation
-pub fn didgen<F>(
-    storage_dirpath: &Path,
+pub fn didgen<R>(
     server_public_domain: &str,
     keystore: &Keystore,
-    filesystem: &mut F,
+    repository: &R,
 ) -> Result<Document, Error>
 where
-    F: FileSystem,
+    R: Repository<MediatorDidDocument> + ?Sized,
 {
     // Generate keys for did:peer generation
     let (auth_keys, agreem_keys) = generate_keys()?;
@@ -79,8 +79,8 @@ where
     store_key(auth_keys_jwk, &diddoc, &diddoc.authentication, keystore)?;
     store_key(agreem_keys_jwk, &diddoc, &diddoc.key_agreement, keystore)?;
 
-    // Serialize DID document and persist to filesystem
-    persist_did_document(storage_dirpath, &diddoc, filesystem)?;
+    // Persist the diddoc
+    persist_did_document(&diddoc, repository)?;
 
     tracing::info!("DID generation and persistence successful");
     Ok(diddoc)
@@ -113,7 +113,7 @@ fn store_key(
         VerificationMethodType::Reference(kid) => kid,
         VerificationMethodType::Embedded(method) => method.id,
     };
-    let kid = util::handle_vm_id(&kid, diddoc);
+    let kid = crate::util::handle_vm_id(&kid, diddoc);
 
     // Store the secret in the keystore
     task::block_in_place(move || {
@@ -128,63 +128,46 @@ fn store_key(
     Ok(())
 }
 
-fn persist_did_document<F>(
-    storage_dirpath: &Path,
-    diddoc: &Document,
-    filesystem: &mut F,
-) -> Result<(), Error>
+fn persist_did_document<R>(diddoc: &Document, repository: &R) -> Result<(), Error>
 where
-    F: FileSystem,
+    R: Repository<MediatorDidDocument> + ?Sized,
 {
-    // Serialize DID document
-    let pretty_diddoc = serde_json::to_string_pretty(&diddoc).unwrap();
-
-    // Create directory and write the DID document
-    filesystem
-        .create_dir_all(storage_dirpath)
-        .map_err(|_| Error::PersistenceError)?;
-    filesystem
-        .write(&storage_dirpath.join("did.json"), &pretty_diddoc)
-        .map_err(|_| Error::PersistenceError)?;
-
+    let doc = MediatorDidDocument {
+        id: None,
+        diddoc: diddoc.clone(),
+    };
+    task::block_in_place(move || {
+        Handle::current().block_on(async move { repository.store(doc).await })
+    })?;
     Ok(())
 }
 
 /// Validates the integrity of the persisted diddoc
-pub fn validate_diddoc<F>(
-    storage_dirpath: &Path,
-    keystore: &Keystore,
-    filesystem: &mut F,
-) -> Result<(), String>
+pub fn validate_diddoc<R>(keystore: &Keystore, repository: &R) -> Result<(), String>
 where
-    F: FileSystem,
+    R: Repository<MediatorDidDocument> + ?Sized,
 {
-    cfg_if::cfg_if! {
-        if #[cfg(not(test))] {
-            // Validate that did.json exists
-            let didpath = storage_dirpath.join("did.json");
-            if !didpath.exists() {
-                return Err(String::from("Missing did.json"));
-            };
-        }
-    }
+    // Find from repository
+    let result = task::block_in_place(move || {
+        Handle::current().block_on(async move { repository.find_one_by(doc! {}).await })
+    });
 
-    // Load the DID document
-    let diddoc: Document = filesystem
-        .read_to_string(&storage_dirpath.join("did.json"))
-        .map_err(|_| String::from("Unreadable did.json"))
-        .and_then(|content| {
-            serde_json::from_str(&content).map_err(|_| String::from("Unparseable did.json"))
-        })?;
+    let diddoc_entity = result
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "Missing did.json from repository".to_string())?;
 
-    // Validate the keys in the DID document
+    let diddoc: Document = serde_json::from_value(json!(diddoc_entity.diddoc))
+        .map_err(|e| format!("Failed to deserialize DID document: {e}"))?;
+
+    // Validate that verification methods are present
     if let Some(verification_methods) = &diddoc.verification_method {
+        // Validate that each key is present in the keystore
         for method in verification_methods {
             let pubkey = method
                 .public_key
                 .as_ref()
                 .ok_or(String::from("Missing key"))?;
-            let kid = util::handle_vm_id(&method.id, &diddoc);
+            let kid = crate::util::handle_vm_id(&method.id, &diddoc);
             match pubkey {
                 KeyFormat::Jwk(_) => validate_key(&kid, keystore)?,
                 _ => return Err(String::from("Unsupported key format")),
@@ -209,24 +192,7 @@ fn validate_key(kid: &str, keystore: &Keystore) -> Result<(), String> {
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
-    use filesystem::FileSystem;
-    use mockall::{
-        mock,
-        predicate::{self, *},
-    };
-    use std::io::Result as IoResult;
-
-    // Mock the FileSystem trait
-    mock! {
-        pub FileSystem {}
-        impl FileSystem for FileSystem {
-            fn read_to_string(&self, path: &Path) -> IoResult<String>;
-            fn write(&mut self, path: &Path, content: &str) -> IoResult<()>;
-            fn read_dir_files(&self, path: &Path) -> IoResult<Vec<String>>;
-            fn create_dir_all(&mut self, path: &Path) -> IoResult<()>;
-            fn write_with_lock(&self, path: &Path, content: &str) -> IoResult<()>;
-        }
-    }
+    use crate::persistence::tests::MockDidDocumentRepository;
 
     pub(crate) fn setup() -> Jwk {
         serde_json::from_str(
@@ -245,57 +211,58 @@ pub(crate) mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn test_did_generation() {
         let kid = "did:peer:123#key-1".to_string();
-        let mut mock_fs = MockFileSystem::new();
+        let repository = MockDidDocumentRepository::new();
         let mock_keystore = Keystore::with_mock_configs(vec![(kid, setup())]);
-        let path = Path::new("/mock/dir");
 
-        // Mock the file system write call
-        mock_fs
-            .expect_create_dir_all()
-            .with(predicate::eq(path))
-            .times(1)
-            .returning(|_| Ok(()));
-
-        mock_fs.expect_write().times(1).returning(|_, _| Ok(()));
-
-        let result = didgen(path, "https://example.com", &mock_keystore, &mut mock_fs);
+        let result = didgen("https://example.com", &mock_keystore, &repository);
 
         assert!(result.is_ok());
+        let stored_diddoc = repository
+            .find_one_by(doc! {})
+            .await
+            .unwrap()
+            .expect("diddoc should be stored");
+
+        let result_diddoc: Document = serde_json::from_value(json!(result.unwrap())).unwrap();
+        let stored_diddoc: Document = serde_json::from_value(json!(stored_diddoc.diddoc)).unwrap();
+        assert_eq!(result_diddoc.id, stored_diddoc.id);
     }
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_did_validation() {
         let kid = "did:peer:123#key-1".to_string();
-        let mut mock_fs = MockFileSystem::new();
-        let mock_keystore = Keystore::with_mock_configs(vec![(kid, setup())]);
-        let path = Path::new("/mock/dir");
+        let repository = MockDidDocumentRepository::new();
+        let mock_keystore = Keystore::with_mock_configs(vec![(kid.clone(), setup())]);
 
-        // Mock read from filesystem
-        mock_fs
-            .expect_read_to_string()
-            .withf(|path| path.ends_with("did.json"))
-            .times(1)
-            .returning(|_| {
-                Ok(r##"{
-                        "@context": ["https://www.w3.org/ns/did/v1"],
-                        "id": "did:peer:123",
-                        "verificationMethod": [
-                            {
-                                "id": "#key-1",
-                                "type": "JsonWebKey2020",
-                                "controller": "did:peer:123",
-                                "publicKeyJwk": {
-                                    "kty": "OKP",
-                                    "crv": "Ed25519",
-                                    "x": "PuG2L5um-tAnHlvT29gTm9Wj9fZca16vfBCPKsHB5cA"
-                                }
-                            }
-                        ]
-                    }"##
-                .to_string())
-            });
+        // Mock read from store
+        let diddoc: Document = serde_json::from_str(
+            r##"{
+                "@context": ["https://www.w3.org/ns/did/v1"],
+                "id": "did:peer:123",
+                "verificationMethod": [
+                    {
+                        "id": "#key-1",
+                        "type": "JsonWebKey2020",
+                        "controller": "did:peer:123",
+                        "publicKeyJwk": {
+                            "kty": "OKP",
+                            "crv": "Ed25519",
+                            "x": "PuG2L5um-tAnHlvT29gTm9Wj9fZca16vfBCPKsHB5cA"
+                        }
+                    }
+                ]
+            }"##,
+        )
+        .unwrap();
+        repository
+            .store(MediatorDidDocument {
+                id: None,
+                diddoc,
+            })
+            .await
+            .unwrap();
 
-        let result = validate_diddoc(path, &mock_keystore, &mut mock_fs);
+        let result = validate_diddoc(&mock_keystore, &repository);
 
         assert!(result.is_ok());
     }
