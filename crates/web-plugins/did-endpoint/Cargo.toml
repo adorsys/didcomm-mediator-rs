@@ -25,6 +25,7 @@ multibase.workspace = true
 tracing.workspace = true
 mongodb.workspace = true
 http-body-util.workspace = true
+aws-config.workspace = true
 uuid = { workspace = true, features = ["v4"] }
 tokio = { workspace = true, features = ["full"] }
 axum = { workspace = true, features = ["macros"] }

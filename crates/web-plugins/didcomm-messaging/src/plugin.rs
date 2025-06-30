@@ -14,10 +14,7 @@ use shared::{
     state::{AppState, AppStateRepository},
 };
 use std::{sync::Arc, time::Duration};
-use tokio::runtime::Handle;
 use tokio::sync::RwLock;
-use tokio::task;
-
 pub(crate) static MESSAGE_CONTAINER: OnceCell<RwLock<MessagePluginContainer>> = OnceCell::new();
 
 #[derive(Default)]
@@ -26,6 +23,7 @@ pub struct DidcommMessaging {
     db: Option<Database>,
     diddoc: Option<DidDocument>,
     msg_types: Option<Vec<String>>,
+    keystore: Option<Keystore>,
 }
 
 struct DidcommMessagingPluginEnv {
@@ -50,11 +48,19 @@ impl Plugin for DidcommMessaging {
     }
 
     fn mount(&mut self) -> Result<(), PluginError> {
+        use aws_config::BehaviorVersion;
+        use tokio::{runtime::Handle, task};
+
         let env = load_plugin_env()?;
 
         let db = get_or_init_database();
         let repository = DidDocumentRepository::from_db(&db);
-        let keystore = Keystore::with_mongodb();
+        let keystore = task::block_in_place(move || {
+            Handle::current().block_on(async move {
+                let aws_config = aws_config::load_defaults(BehaviorVersion::latest()).await;
+                Keystore::with_aws_secrets_manager(&aws_config).await
+            })
+        });
 
         // Expect DID document from the repository
         if let Err(err) = did_endpoint::validate_diddoc(&keystore, &repository) {
@@ -102,6 +108,7 @@ impl Plugin for DidcommMessaging {
         self.db = Some(db);
         self.diddoc = Some(diddoc);
         self.msg_types = Some(msg_types);
+        self.keystore = Some(keystore);
 
         Ok(())
     }
@@ -124,17 +131,18 @@ impl Plugin for DidcommMessaging {
         let diddoc = self.diddoc.as_ref().ok_or(PluginError::Other(
             "Failed to get diddoc. Check if the plugin is mounted".to_owned(),
         ))?;
-
-        let keystore = keystore::Keystore::with_mongodb();
+        let keystore = self.keystore.as_ref().ok_or(PluginError::Other(
+            "Failed to get keystore. Check if the plugin is mounted".to_owned(),
+        ))?;
 
         // Load persistence layer
         let repository = AppStateRepository {
             connection_repository: Arc::new(MongoConnectionRepository::from_db(db)),
-            keystore,
+            keystore: keystore.clone(),
             message_repository: Arc::new(MongoMessagesRepository::from_db(db)),
         };
 
-        // Initialize circuit breakers
+        // Initialize circuit breaker
         let db_breaker = CircuitBreaker::new()
             .retries(3)
             .half_open_max_failures(3)

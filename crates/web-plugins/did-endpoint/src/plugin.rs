@@ -1,10 +1,12 @@
 use super::{didgen, persistence::*, web};
+use aws_config::BehaviorVersion;
 use axum::Router;
 use database::{get_or_init_database, Repository};
 use keystore::Keystore;
 use mongodb::Database;
 use plugin_api::{Plugin, PluginError};
 use std::sync::Arc;
+use tokio::{runtime::Handle, task};
 
 #[derive(Default)]
 pub struct DidEndpoint {
@@ -44,7 +46,12 @@ impl Plugin for DidEndpoint {
         self.db = Some(get_or_init_database());
 
         let repository = DidDocumentRepository::from_db(self.db.as_ref().unwrap());
-        let keystore = Keystore::with_mongodb();
+        let keystore = task::block_in_place(move || {
+            Handle::current().block_on(async move {
+                let aws_config = aws_config::load_defaults(BehaviorVersion::latest()).await;
+                Keystore::with_aws_secrets_manager(&aws_config).await
+            })
+        });
 
         if didgen::validate_diddoc(&keystore, &repository).is_err() {
             tracing::debug!("diddoc validation failed, will generate one");

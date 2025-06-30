@@ -66,15 +66,7 @@ docker run --name mongodb -d mongo
 
 ### Environmental variables
 
-You need to create a **`.env`** file in the root directory of the project and add the following variables:
-
-```sh
-SERVER_PUBLIC_DOMAIN="http://localhost:8080"
-MONGO_DBN="DIDComm_DB"
-MONGO_URI="mongodb://localhost:27017"
-```
-
-> The values can be changed according to your needs.  
+You need to create a **`.env`** file in the root directory of the project. Take a look at the [example](.env.example) file for more information about the needed variables.
 
 You can now start the mediator server:
 
