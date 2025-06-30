@@ -111,7 +111,7 @@ fn parse_did_web_url(did: &str) -> Result<(String, String), DidWebError> {
         None => ".well-known".to_string(),
     };
 
-    path = format!("/{}/did.json", path);
+    path = format!("/{path}/did.json");
 
     Ok((path, domain_name))
 }
@@ -215,7 +215,7 @@ mod tests {
         let port = 3000;
         let host = create_mock_server(port).await;
 
-        let formatted_string = format!("did:web:{}%3A{}", host, port);
+        let formatted_string = format!("did:web:{host}%3A{port}");
 
         let did: &str = &formatted_string;
 
@@ -259,21 +259,21 @@ mod tests {
     fn test_parse_did_web_url() {
         let input_1 = "did:web:w3c-ccg.github.io";
         let result_1 = resolver::parse_did_web_url(input_1);
-        assert!(result_1.is_ok(), "Expected Ok, got {:?}", result_1);
+        assert!(result_1.is_ok(), "Expected Ok, got {result_1:?}");
         let (path_1, domain_name_1) = result_1.unwrap();
         assert_eq!(domain_name_1, "w3c-ccg.github.io");
         assert_eq!(path_1, "/.well-known/did.json");
 
         let input_2 = "did:web:w3c-ccg.github.io:user:alice";
         let result_2 = resolver::parse_did_web_url(input_2);
-        assert!(result_2.is_ok(), "Expected Ok, got {:?}", result_2);
+        assert!(result_2.is_ok(), "Expected Ok, got {result_2:?}");
         let (path_2, domain_name_2) = result_2.unwrap();
         assert_eq!(domain_name_2, "w3c-ccg.github.io");
         assert_eq!(path_2, "/user/alice/did.json");
 
         let input_3 = "did:web:example.com%3A3000:user:alice";
         let result_3 = resolver::parse_did_web_url(input_3);
-        assert!(result_3.is_ok(), "Expected Ok, got {:?}", result_3);
+        assert!(result_3.is_ok(), "Expected Ok, got {result_3:?}");
         let (path_3, domain_name_3) = result_3.unwrap();
         assert_eq!(domain_name_3, "example.com:3000");
         assert_eq!(path_3, "/user/alice/did.json");

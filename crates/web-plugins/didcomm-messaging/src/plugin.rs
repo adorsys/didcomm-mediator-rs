@@ -34,8 +34,7 @@ struct DidcommMessagingPluginEnv {
 fn load_plugin_env() -> Result<DidcommMessagingPluginEnv, PluginError> {
     let public_domain = std::env::var("SERVER_PUBLIC_DOMAIN").map_err(|err| {
         PluginError::InitError(format!(
-            "SERVER_PUBLIC_DOMAIN env variable required: {:?}",
-            err
+            "SERVER_PUBLIC_DOMAIN env variable required: {err:?}"
         ))
     })?;
 
@@ -65,8 +64,7 @@ impl Plugin for DidcommMessaging {
         // Expect DID document from the repository
         if let Err(err) = did_endpoint::validate_diddoc(&keystore, &repository) {
             return Err(PluginError::InitError(format!(
-                "DID document validation failed: {:?}",
-                err
+                "DID document validation failed: {err:?}"
             )));
         }
 
@@ -87,8 +85,7 @@ impl Plugin for DidcommMessaging {
         let mut container = MessagePluginContainer::new();
         if let Err(err) = container.load() {
             return Err(PluginError::InitError(format!(
-                "Error loading didcomm messages container: {:?}",
-                err
+                "Error loading didcomm messages container: {err:?}"
             )));
         }
 
@@ -157,7 +154,7 @@ impl Plugin for DidcommMessaging {
             Some(repository),
             db_breaker,
         )
-        .map_err(|err| PluginError::Other(format!("Failed to load app state: {:?}", err)))?;
+        .map_err(|err| PluginError::Other(format!("Failed to load app state: {err:?}")))?;
 
         // Build router
         Ok(web::routes(Arc::new(state)))

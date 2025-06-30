@@ -81,7 +81,7 @@ impl DidKey {
             [&Algorithm::Ed25519.muticodec_prefix(), keypair.public_key_bytes()?.as_slice()].concat(),
         );
 
-        Ok(format!("did:key:{}", multibase_value))
+        Ok(format!("did:key:{multibase_value}"))
     }
 
     /// Converts a raw public key into a DID key.
@@ -113,7 +113,7 @@ impl DidKey {
 
         let multibase_value = multibase::encode(Base58Btc, [&alg.muticodec_prefix(), bytes].concat());
 
-        Ok(format!("did:key:{}", multibase_value))
+        Ok(format!("did:key:{multibase_value}"))
     }
 
     /// Expands `did:key` address into DID document

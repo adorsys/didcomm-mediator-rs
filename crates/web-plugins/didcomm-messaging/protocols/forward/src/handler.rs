@@ -201,7 +201,7 @@ mod test {
             .await
             .unwrap();
 
-        println!("Mediator1 is forwarding message \n{:?}\n", msg);
+        println!("Mediator1 is forwarding message \n{msg:?}\n");
     }
 
     pub fn _sender_did() -> String {

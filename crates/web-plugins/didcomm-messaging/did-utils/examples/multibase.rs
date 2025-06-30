@@ -9,9 +9,9 @@ fn main() {
 
     let base58_public_key = Base::Base58Btc.encode(public_key);
 
-    println!("The base58 public key is: {}", base58_public_key);
+    println!("The base58 public key is: {base58_public_key}");
 
     let base58_multi_public_key = multibase::encode(Base::Base58Btc, public_key);
 
-    println!("The base58 multi public key is: {}", base58_multi_public_key);
+    println!("The base58 multi public key is: {base58_multi_public_key}");
 }

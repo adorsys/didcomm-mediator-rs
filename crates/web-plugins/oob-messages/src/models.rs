@@ -71,11 +71,10 @@ impl OobMessage {
     }
 
     fn serialize_oob_message(oob_message: &OobMessage, url: &str) -> Result<String, String> {
-        let plaintext =
-            to_string(oob_message).map_err(|e| format!("Serialization error: {}", e))?;
+        let plaintext = to_string(oob_message).map_err(|e| format!("Serialization error: {e}"))?;
         let encoded_jwm = Base64Url.encode(plaintext.as_bytes());
 
-        Ok(format!("{}?_oob={}", url, encoded_jwm))
+        Ok(format!("{url}?_oob={encoded_jwm}"))
     }
 }
 
@@ -156,15 +155,15 @@ mod tests {
         let server_public_domain = "https://example.com";
         let server_local_port = "8080";
 
-        let url = format!("{}:{}", server_public_domain, server_local_port);
+        let url = format!("{server_public_domain}:{server_local_port}");
 
         let oob_message = OobMessage::new(did);
 
         let oob_url = OobMessage::serialize_oob_message(&oob_message, &url)
-            .unwrap_or_else(|err| panic!("Failed to serialize oob message: {}", err));
+            .unwrap_or_else(|err| panic!("Failed to serialize oob message: {err}"));
 
         assert!(!oob_url.is_empty());
-        assert!(oob_url.starts_with(&format!("{}?_oob=", url)));
+        assert!(oob_url.starts_with(&format!("{url}?_oob=")));
         assert!(oob_url.contains("_oob="));
     }
 

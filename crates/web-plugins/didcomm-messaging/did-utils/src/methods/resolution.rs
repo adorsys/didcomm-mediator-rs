@@ -214,7 +214,7 @@ pub(super) fn dereference_did_document(
         let entries = diddoc.service.clone().unwrap_or_default();
         let found: Vec<_> = entries
             .iter()
-            .filter(|entry| entry.id.ends_with(&format!("#{}", service)))
+            .filter(|entry| entry.id.ends_with(&format!("#{service}")))
             .map(|entry| entry.service_endpoint.clone())
             .collect();
 

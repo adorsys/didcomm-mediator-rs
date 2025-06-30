@@ -88,8 +88,7 @@ impl PluginContainer<'_> {
                     self.mounted_plugins.push(plugin_clone);
                     self.collected_routes.push(plugin.routes().map_err(|err| {
                         PluginContainerError::ContainerError(format!(
-                            "Error collecting routes for plugin {plugin_name}\n{:?}",
-                            err
+                            "Error collecting routes for plugin {plugin_name}\n{err:?}"
                         ))
                     })?);
                 }

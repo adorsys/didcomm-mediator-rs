@@ -350,7 +350,7 @@ mod tests {
         let key_pair = issuer_key_pair();
         let public_key = &key_pair.public_key.clone();
         let public_key_multibase = multibase::encode(Base::Base58Btc, public_key.as_bytes());
-        let issuer_vm = format!("did:key#{}", public_key_multibase);
+        let issuer_vm = format!("did:key#{public_key_multibase}");
         let ed_dsa_jcs_2022_prover = EdDsaJcs2022 {
             proof: make_proof(&issuer_vm),
             key_pair,
@@ -405,7 +405,7 @@ mod tests {
         let secured_vc: VerifiableCredential = from_str(SECURED_VC).unwrap();
         let vp = make_vp(secured_vc);
         let vp_canon = json_canon::to_string(&vp).unwrap();
-        println!("{}", vp_canon);
+        println!("{vp_canon}");
     }
 
     const CONTEXTS: &[&str] = &["https://www.w3.org/ns/credentials/v2", "https://www.w3.org/ns/credentials/examples/v2"];
@@ -425,7 +425,7 @@ mod tests {
         // Prepare the alumni credential to be added as dynamic property.
         let mut alumni_of_map = HashMap::new();
         alumni_of_map.insert("name".to_string(), Value::String("Example University".to_string()));
-        let did = format!("did:key#{}", subject_public_key_multibase);
+        let did = format!("did:key#{subject_public_key_multibase}");
         alumni_of_map.insert("id".to_string(), Value::String(did.to_string()));
         let alumni_of_json_value = json!(alumni_of_map);
         let mut additional_properties: HashMap<String, Value> = HashMap::new();
@@ -434,7 +434,7 @@ mod tests {
             context: make_context(),
             id: Some("http://university.example/credentials/3732".to_string()),
             cred_type: vec!["VerifiableCredential".to_string(), "AlumniCredential".to_string()],
-            issuer: Issuers::Single(Box::new(Issuer::SingleString(format!("did:key#{}", issuer_pub_key_multibase)))),
+            issuer: Issuers::Single(Box::new(Issuer::SingleString(format!("did:key#{issuer_pub_key_multibase}")))),
             valid_from: Some(Utc.with_ymd_and_hms(2023, 3, 5, 19, 23, 24).unwrap()),
             valid_until: Some(Utc.with_ymd_and_hms(2023, 12, 31, 19, 23, 24).unwrap()),
             credential_subject: CredentialSubject {
