@@ -1,18 +1,21 @@
+use base64::prelude::{Engine as _, BASE64_STANDARD};
 use did_utils::didcore::Document;
-use std::borrow::Cow;
 
 // This function is a hack to bypass certain constraints of the did:peer method specification.
 // Its purpose is to uniquely identify the keys used to generate a Peer DID address in the store.
-pub(crate) fn handle_vm_id<'a>(vm_id: &'a str, diddoc: &Document) -> Cow<'a, str> {
-    if vm_id.starts_with('#') {
-        Cow::Owned(diddoc.id.to_owned() + vm_id)
+pub(crate) fn handle_vm_id(vm_id: &str, diddoc: &Document) -> String {
+    let kid = if vm_id.starts_with('#') {
+        diddoc.id.to_owned() + vm_id
     } else {
-        Cow::Borrowed(vm_id)
-    }
+        vm_id.to_owned()
+    };
+
+    BASE64_STANDARD.encode(kid)
 }
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use did_utils::didcore::Document;
 
     use super::handle_vm_id;
@@ -23,11 +26,19 @@ mod tests {
             id: "did:example:123".to_owned(),
             ..Default::default()
         };
-        assert_eq!(handle_vm_id("#key-1", &diddoc), "did:example:123#key-1");
-        assert_eq!(handle_vm_id("did:key:123#456", &diddoc), "did:key:123#456");
+        let expected_kid = BASE64_STANDARD.encode("did:example:123#key-1");
+        assert_eq!(handle_vm_id("#key-1", &diddoc), expected_kid);
+        let expected_kid = BASE64_STANDARD.encode("did:key:123#456");
+        assert_eq!(handle_vm_id("did:key:123#456", &diddoc), expected_kid);
 
         let diddoc = Document::default();
-        assert_eq!(handle_vm_id("#key-1", &diddoc), "#key-1");
-        assert_eq!(handle_vm_id("key-1", &diddoc), "key-1");
+        assert_eq!(
+            handle_vm_id("#key-1", &diddoc),
+            BASE64_STANDARD.encode("#key-1")
+        );
+        assert_eq!(
+            handle_vm_id("key-1", &diddoc),
+            BASE64_STANDARD.encode("key-1")
+        );
     }
 }

@@ -26,6 +26,7 @@ tracing.workspace = true
 mongodb.workspace = true
 http-body-util.workspace = true
 aws-config.workspace = true
+base64.workspace = true
 uuid = { workspace = true, features = ["v4"] }
 tokio = { workspace = true, features = ["full"] }
 axum = { workspace = true, features = ["macros"] }

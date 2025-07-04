@@ -192,6 +192,7 @@ mod tests {
         body::Body,
         http::{Request, StatusCode},
     };
+    use base64::prelude::{Engine as _, BASE64_STANDARD};
     use database::Repository;
     use did_utils::{
         didcore::{Document, KeyFormat, Proofs},
@@ -229,7 +230,7 @@ mod tests {
         )
         .unwrap();
 
-        let kid = "did:peer:123#key-1".to_string();
+        let kid = BASE64_STANDARD.encode("did:peer:123#key-1");
         let repository = MockDidDocumentRepository::new();
         let mock_keystore = Keystore::with_mock_configs(vec![(kid, setup())]);
 

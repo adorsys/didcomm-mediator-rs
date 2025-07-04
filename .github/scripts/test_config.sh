@@ -4,10 +4,8 @@
 cat <<EOL > .env.example
 SERVER_PUBLIC_DOMAIN=https://example.com
 SERVER_LOCAL_PORT=3000
-STORAGE_DIRPATH=test/storage
 MONGO_URI=mongodb://localhost:27017/
 MONGO_DBN=didcomm-mediator
-MASTER_KEY=1234567890qwertyuiopasdfghjklxzc
 EOL
 
 echo ".env.example file created successfully!"
