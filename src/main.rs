@@ -13,7 +13,7 @@ static GLOBAL: Jemalloc = Jemalloc;
 #[tokio::main]
 async fn main() -> Result<()> {
     // Load dotenv-flow variables
-    dotenv_flow::dotenv_flow()?;
+    dotenv_flow::dotenv_flow().ok();
 
     // Enable logging
     config_tracing();
