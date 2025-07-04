@@ -1691,7 +1691,6 @@ dependencies = [
  "async-trait",
  "aws-config",
  "axum 0.7.9",
- "base64 0.22.1",
  "chrono",
  "database",
  "did-utils",
@@ -1799,7 +1798,6 @@ dependencies = [
  "async-trait",
  "aws-config",
  "axum 0.7.9",
- "base64 0.22.1",
  "database",
  "did-endpoint",
  "did-utils",
@@ -2163,7 +2161,6 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "axum 0.7.9",
- "base64 0.22.1",
  "database",
  "did-utils",
  "didcomm",
@@ -4679,7 +4676,6 @@ name = "shared"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "base64 0.22.1",
  "database",
  "did-utils",
  "didcomm",
