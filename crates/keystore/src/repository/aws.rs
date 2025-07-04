@@ -44,7 +44,8 @@ impl SecretRepository for AwsSecretsManager {
         use aws_sdk_secretsmanager::error::SdkError;
 
         // Store a secret only if it does not already exist
-        match self.client.describe_secret().secret_id(name).send().await {
+        let name = sanitize_secret_name(name);
+        match self.client.describe_secret().secret_id(&name).send().await {
             Ok(_) => {
                 warn!("Secret {name} already exists. Skipping...");
                 Ok(())
@@ -67,7 +68,8 @@ impl SecretRepository for AwsSecretsManager {
     async fn find(&self, name: &str) -> Result<Option<Vec<u8>>, Error> {
         use aws_sdk_secretsmanager::error::SdkError;
 
-        match self.cache.get_secret_value(name, None, None, false).await {
+        let name = sanitize_secret_name(name);
+        match self.cache.get_secret_value(&name, None, None, false).await {
             Ok(value) => Ok(value.secret_string.map(|s| s.into_bytes())),
             Err(err) => {
                 // Check for ResourceNotFoundException
@@ -84,10 +86,49 @@ impl SecretRepository for AwsSecretsManager {
     }
 
     async fn delete(&self, name: &str) -> Result<(), Error> {
-        self.client.delete_secret().secret_id(name).send().await?;
+        let name = sanitize_secret_name(name);
+        self.client.delete_secret().secret_id(&name).send().await?;
 
         // Invalidate cache by refreshing the secret
-        let _ = self.cache.get_secret_value(name, None, None, true).await;
+        let _ = self.cache.get_secret_value(&name, None, None, true).await;
         Ok(())
+    }
+}
+
+// Replaces characters in a secret ID that are not supported by AWS Secrets Manager.
+//
+// This function replaces the following characters:
+// - `:` is replaced with `_colon_`
+// - `#` is replaced with `_hash_`
+fn sanitize_secret_name(id: &str) -> String {
+    id.replace(':', "_colon_").replace('#', "_hash_")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn decode_secret_name(id: &str) -> String {
+        id.replace("_hash_", "#").replace("_colon_", ":")
+    }
+
+    #[test]
+    fn test_sanitize_secret_name_no_special_chars() {
+        let original_id = "example_good/secret@name.+=";
+        let encoded_id = sanitize_secret_name(original_id);
+        let decoded_id = decode_secret_name(&encoded_id);
+
+        assert_eq!(encoded_id, "example_good/secret@name.+=");
+        assert_eq!(decoded_id, original_id);
+    }
+
+    #[test]
+    fn test_sanitize_secret_name_with_special_chars() {
+        let original_id = "example:bad:secret#name.+=";
+        let encoded_id = sanitize_secret_name(original_id);
+        let decoded_id = decode_secret_name(&encoded_id);
+
+        assert_eq!(encoded_id, "example_colon_bad_colon_secret_hash_name.+=");
+        assert_eq!(decoded_id, original_id);
     }
 }
