@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use base64::prelude::{Engine as _, BASE64_STANDARD};
 use did_utils::{
     crypto::PublicKeyFormat,
     didcore::{Document, VerificationMethodType},
@@ -32,7 +33,7 @@ impl DIDResolver for LocalDIDResolver {
     async fn resolve(&self, did: &str) -> Result<Option<DIDDoc>> {
         if did == self.diddoc.id {
             let mut diddoc = self.diddoc.clone();
-            prepend_doc_id_to_vm_ids(&mut diddoc);
+            sanitize_vm_ids(&mut diddoc);
             return Ok(Some(serde_json::from_value(json!(diddoc))?));
         }
 
@@ -49,7 +50,7 @@ impl DIDResolver for LocalDIDResolver {
             let mut diddoc = DidPeer::with_format(PublicKeyFormat::Jwk)
                 .expand(did)
                 .map_err(|e| Error::new(ErrorKind::DIDNotResolved, e))?;
-            prepend_doc_id_to_vm_ids(&mut diddoc);
+            sanitize_vm_ids(&mut diddoc);
             let diddoc = serde_json::from_value(json!(diddoc))?;
             Ok(Some(diddoc))
         } else {
@@ -61,25 +62,27 @@ impl DIDResolver for LocalDIDResolver {
     }
 }
 
-fn prepend_doc_id_to_vm_ids(diddoc: &mut Document) {
-    if let Some(verification_methods) = diddoc.verification_method.as_mut() {
-        for vm in verification_methods.iter_mut() {
-            vm.id = diddoc.id.to_owned() + &vm.id;
-        }
-    }
-
-    let rel_prepend = |rel: &mut Option<Vec<VerificationMethodType>>| {
-        if let Some(rel) = rel {
-            for vm in rel.iter_mut() {
-                if let VerificationMethodType::Reference(ref mut id) = vm {
-                    *id = diddoc.id.to_owned() + id;
-                }
+fn sanitize_vm_ids(diddoc: &mut Document) {
+    if diddoc.id.starts_with("did:peer") {
+        if let Some(verification_methods) = diddoc.verification_method.as_mut() {
+            for vm in verification_methods.iter_mut() {
+                vm.id = BASE64_STANDARD.encode(diddoc.id.to_owned() + &vm.id);
             }
         }
-    };
 
-    rel_prepend(&mut diddoc.authentication);
-    rel_prepend(&mut diddoc.key_agreement);
+        let rel_prepend = |rel: &mut Option<Vec<VerificationMethodType>>| {
+            if let Some(rel) = rel {
+                for vm in rel.iter_mut() {
+                    if let VerificationMethodType::Reference(ref mut id) = vm {
+                        *id = BASE64_STANDARD.encode(diddoc.id.to_owned() + id);
+                    }
+                }
+            }
+        };
+
+        rel_prepend(&mut diddoc.authentication);
+        rel_prepend(&mut diddoc.key_agreement);
+    }
 }
 
 #[derive(Clone)]
@@ -140,7 +143,6 @@ mod tests {
 
     use super::*;
     use did_utils::jwk::Jwk;
-    use serde_json::Value;
 
     fn setup() -> Document {
         tests::setup().clone().diddoc.clone()
@@ -153,53 +155,52 @@ mod tests {
 
         let did = "did:peer:2.Ez6LSteycMr6tTki5aAEjNAVDsp1vrx9DuDWHDnky9qxyFNUF.Vz6MkigiwfSzv66VSTAeGZLsTHa8ixK1agNFvry2KjYXmg1G3.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0";
         let resolved = resolver.resolve(did).await.unwrap().unwrap();
-        let expected = serde_json::from_str::<Value>(
-            r##"{
-                "id": "did:peer:2.Ez6LSteycMr6tTki5aAEjNAVDsp1vrx9DuDWHDnky9qxyFNUF.Vz6MkigiwfSzv66VSTAeGZLsTHa8ixK1agNFvry2KjYXmg1G3.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0",
-                "verificationMethod": [
-                    {
-                        "id": "did:peer:2.Ez6LSteycMr6tTki5aAEjNAVDsp1vrx9DuDWHDnky9qxyFNUF.Vz6MkigiwfSzv66VSTAeGZLsTHa8ixK1agNFvry2KjYXmg1G3.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0#key-1",
-                        "type": "JsonWebKey2020",
-                        "controller": "did:peer:2.Ez6LSteycMr6tTki5aAEjNAVDsp1vrx9DuDWHDnky9qxyFNUF.Vz6MkigiwfSzv66VSTAeGZLsTHa8ixK1agNFvry2KjYXmg1G3.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0",
-                        "publicKeyJwk": {
-                            "kty": "OKP",
-                            "crv": "X25519",
-                            "x": "_EgIPSRgbPPw5-nUsJ6xqMvw5rXn3BViGADeUrjAMzA"
-                        }
-                    },
-                    {
-                        "id": "did:peer:2.Ez6LSteycMr6tTki5aAEjNAVDsp1vrx9DuDWHDnky9qxyFNUF.Vz6MkigiwfSzv66VSTAeGZLsTHa8ixK1agNFvry2KjYXmg1G3.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0#key-2",
-                        "type": "JsonWebKey2020",
-                        "controller": "did:peer:2.Ez6LSteycMr6tTki5aAEjNAVDsp1vrx9DuDWHDnky9qxyFNUF.Vz6MkigiwfSzv66VSTAeGZLsTHa8ixK1agNFvry2KjYXmg1G3.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0",
-                        "publicKeyJwk": {
-                            "kty": "OKP",
-                            "crv": "Ed25519",
-                            "x": "PuG2L5um-tAnHlvT29gTm9Wj9fZca16vfBCPKsHB5cA"
-                        }
+        let agreem_kid = BASE64_STANDARD.encode(did.to_owned() + "#key-1");
+        let auth_kid = BASE64_STANDARD.encode(did.to_owned() + "#key-2");
+        let expected = json!({
+            "id": "did:peer:2.Ez6LSteycMr6tTki5aAEjNAVDsp1vrx9DuDWHDnky9qxyFNUF.Vz6MkigiwfSzv66VSTAeGZLsTHa8ixK1agNFvry2KjYXmg1G3.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0",
+            "verificationMethod": [
+                {
+                    "id": agreem_kid,
+                    "type": "JsonWebKey2020",
+                    "controller": "did:peer:2.Ez6LSteycMr6tTki5aAEjNAVDsp1vrx9DuDWHDnky9qxyFNUF.Vz6MkigiwfSzv66VSTAeGZLsTHa8ixK1agNFvry2KjYXmg1G3.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0",
+                    "publicKeyJwk": {
+                        "kty": "OKP",
+                        "crv": "X25519",
+                        "x": "_EgIPSRgbPPw5-nUsJ6xqMvw5rXn3BViGADeUrjAMzA"
                     }
-                ],
-                "authentication": [
-                    "did:peer:2.Ez6LSteycMr6tTki5aAEjNAVDsp1vrx9DuDWHDnky9qxyFNUF.Vz6MkigiwfSzv66VSTAeGZLsTHa8ixK1agNFvry2KjYXmg1G3.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0#key-2"
-                ],
-                "keyAgreement": [
-                    "did:peer:2.Ez6LSteycMr6tTki5aAEjNAVDsp1vrx9DuDWHDnky9qxyFNUF.Vz6MkigiwfSzv66VSTAeGZLsTHa8ixK1agNFvry2KjYXmg1G3.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0#key-1"
-                ],
-                "service": [
-                    {
-                        "id": "#didcomm",
-                        "type": "DIDCommMessaging",
-                        "serviceEndpoint": {
-                            "accept": [
-                                "didcomm/v2"
-                            ],
-                            "routingKeys": [],
-                            "uri": "http://alice-mediator.com/"
-                        }
+                },
+                {
+                    "id": auth_kid,
+                    "type": "JsonWebKey2020",
+                    "controller": "did:peer:2.Ez6LSteycMr6tTki5aAEjNAVDsp1vrx9DuDWHDnky9qxyFNUF.Vz6MkigiwfSzv66VSTAeGZLsTHa8ixK1agNFvry2KjYXmg1G3.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0",
+                    "publicKeyJwk": {
+                        "kty": "OKP",
+                        "crv": "Ed25519",
+                        "x": "PuG2L5um-tAnHlvT29gTm9Wj9fZca16vfBCPKsHB5cA"
                     }
-                ]
-            }"##
-        )
-        .unwrap();
+                }
+            ],
+            "authentication": [
+                auth_kid
+            ],
+            "keyAgreement": [
+                agreem_kid
+            ],
+            "service": [
+                {
+                    "id": "#didcomm",
+                    "type": "DIDCommMessaging",
+                    "serviceEndpoint": {
+                        "accept": [
+                            "didcomm/v2"
+                        ],
+                        "routingKeys": [],
+                        "uri": "http://alice-mediator.com/"
+                    }
+                }
+            ]
+        });
 
         assert_eq!(
             json_canon::to_string(&resolved).unwrap(),
@@ -207,19 +208,20 @@ mod tests {
         );
 
         let did = "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7";
+        let auth_kid = did.to_owned() + "#z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7";
+        let agreem_kid = did.to_owned() + "#z6LSbuUXWSgPfpiDBjUK6E7yiCKMN2eKJsXn5b55ZgqGz6Mr";
         let resolved = resolver.resolve(did).await.unwrap().unwrap();
-        let expected = serde_json::from_str::<Value>(
-            r#"{
+        let expected = json!({
                 "id": "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7",
                 "keyAgreement": [
-                    "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7#z6LSbuUXWSgPfpiDBjUK6E7yiCKMN2eKJsXn5b55ZgqGz6Mr"
+                    agreem_kid
                 ],
                 "authentication": [
-                    "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7#z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7"
+                    auth_kid
                 ],
                 "verificationMethod": [
                     {
-                        "id": "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7#z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7",
+                        "id": auth_kid,
                         "type": "JsonWebKey2020",
                         "controller": "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7",
                         "publicKeyJwk": {
@@ -229,7 +231,7 @@ mod tests {
                         }
                     },
                     {
-                        "id": "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7#z6LSbuUXWSgPfpiDBjUK6E7yiCKMN2eKJsXn5b55ZgqGz6Mr",
+                        "id": agreem_kid,
                         "type": "JsonWebKey2020",
                         "controller": "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7",
                         "publicKeyJwk": {
@@ -240,9 +242,7 @@ mod tests {
                     }
                 ],
                 "service": []
-            }"#,
-        )
-        .unwrap();
+        });
 
         assert_eq!(
             json_canon::to_string(&resolved).unwrap(),
@@ -279,7 +279,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_local_secrets_resolver_works() {
-        std::env::set_var("MASTER_KEY", "1234567890qwertyuiopasdfghjklxzc");
         let secret_id = "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7#z6LSbuUXWSgPfpiDBjUK6E7yiCKMN2eKJsXn5b55ZgqGz6Mr";
         let secret: Jwk = serde_json::from_str(
             r#"{
@@ -294,20 +293,17 @@ mod tests {
         let keystore = Keystore::with_mock_configs(vec![(secret_id.to_string(), secret)]);
 
         let resolver = LocalSecretsResolver::new(keystore);
-        let resolved = resolver.get_secret(secret_id).await.unwrap().unwrap();
-        let expected = serde_json::from_str::<Value>(
-            r#"{
-                "id": "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7#z6LSbuUXWSgPfpiDBjUK6E7yiCKMN2eKJsXn5b55ZgqGz6Mr",
-                "type": "JsonWebKey2020",
-                "privateKeyJwk": {
-                    "crv": "X25519",
-                    "d": "oItI6Jx-anGyhiDJIXtVAhzugOha05s-7_a5_CTs_V4",
-                    "kty": "OKP",
-                    "x": "A2gufB762KKDkbTX0usDbekRJ-_PPBeVhc2gNgjpswU"
-                }
-            }"#,
-        )
-        .unwrap();
+        let resolved = resolver.get_secret(&secret_id).await.unwrap().unwrap();
+        let expected = json!({
+            "id": secret_id,
+            "type": "JsonWebKey2020",
+            "privateKeyJwk": {
+                "crv": "X25519",
+                "d": "oItI6Jx-anGyhiDJIXtVAhzugOha05s-7_a5_CTs_V4",
+                "kty": "OKP",
+                "x": "A2gufB762KKDkbTX0usDbekRJ-_PPBeVhc2gNgjpswU"
+            }
+        });
 
         assert_eq!(
             json_canon::to_string(&resolved).unwrap(),
@@ -375,61 +371,61 @@ mod tests {
             }"##
         ).unwrap();
 
-        prepend_doc_id_to_vm_ids(&mut diddoc);
+        sanitize_vm_ids(&mut diddoc);
 
-        let expected = serde_json::from_str::<Value>(
-            r##"{
-                "@context": [
-                    "https://www.w3.org/ns/did/v1",
-                    "https://w3id.org/security/suites/jws-2020/v1"
-                ],
-                "id": "did:peer:2.Ez6LSbhKnZ7tsrvScZBR5mRSnVDa7S7km1aCpkHoWS1pkLhkj.Vz6MktvegL6Tx3fPrNhhYbtxmzq6nsjnQKoecKLARJVZ7catQ.Az6MktvegL6Tx3fPrNhhYbtxmzq6nsjnQKoecKLARJVZ7catQ.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0",
-                "alsoKnownAs": [
-                    "did:peer:3zQmSBPjNZR15mNMUBKpTqk8Z4icxkv91zAG5GsnsGqZj6yY"
-                ],
-                "verificationMethod": [
-                    {
-                        "id": "did:peer:2.Ez6LSbhKnZ7tsrvScZBR5mRSnVDa7S7km1aCpkHoWS1pkLhkj.Vz6MktvegL6Tx3fPrNhhYbtxmzq6nsjnQKoecKLARJVZ7catQ.Az6MktvegL6Tx3fPrNhhYbtxmzq6nsjnQKoecKLARJVZ7catQ.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0#key-1",
-                        "type": "JsonWebKey2020",
-                        "controller": "did:peer:2.Ez6LSbhKnZ7tsrvScZBR5mRSnVDa7S7km1aCpkHoWS1pkLhkj.Vz6MktvegL6Tx3fPrNhhYbtxmzq6nsjnQKoecKLARJVZ7catQ.Az6MktvegL6Tx3fPrNhhYbtxmzq6nsjnQKoecKLARJVZ7catQ.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0",
-                        "publicKeyJwk": {
-                            "kty": "OKP",
-                            "crv": "X25519",
-                            "x": "AEtUMFyAEQte9YlqvsqiKK9uD_PFe1lXNZ_CiMRpahA"
-                        }
-                    },
-                    {
-                        "id": "did:peer:2.Ez6LSbhKnZ7tsrvScZBR5mRSnVDa7S7km1aCpkHoWS1pkLhkj.Vz6MktvegL6Tx3fPrNhhYbtxmzq6nsjnQKoecKLARJVZ7catQ.Az6MktvegL6Tx3fPrNhhYbtxmzq6nsjnQKoecKLARJVZ7catQ.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0#key-2",
-                        "type": "JsonWebKey2020",
-                        "controller": "did:peer:2.Ez6LSbhKnZ7tsrvScZBR5mRSnVDa7S7km1aCpkHoWS1pkLhkj.Vz6MktvegL6Tx3fPrNhhYbtxmzq6nsjnQKoecKLARJVZ7catQ.Az6MktvegL6Tx3fPrNhhYbtxmzq6nsjnQKoecKLARJVZ7catQ.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0",
-                        "publicKeyJwk": {
-                            "kty": "OKP",
-                            "crv": "Ed25519",
-                            "x": "1wfj-I-3zHB86RPIje5i6_jb0TeC67KF_mz8kdcyYqE"
-                        }
+        let agreem_id = BASE64_STANDARD.encode(diddoc.id.to_owned() + "#key-1");
+        let auth_id = BASE64_STANDARD.encode(diddoc.id.to_owned() + "#key-2");
+        let expected = json!({
+            "@context": [
+                "https://www.w3.org/ns/did/v1",
+                "https://w3id.org/security/suites/jws-2020/v1"
+            ],
+            "id": "did:peer:2.Ez6LSbhKnZ7tsrvScZBR5mRSnVDa7S7km1aCpkHoWS1pkLhkj.Vz6MktvegL6Tx3fPrNhhYbtxmzq6nsjnQKoecKLARJVZ7catQ.Az6MktvegL6Tx3fPrNhhYbtxmzq6nsjnQKoecKLARJVZ7catQ.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0",
+            "alsoKnownAs": [
+                "did:peer:3zQmSBPjNZR15mNMUBKpTqk8Z4icxkv91zAG5GsnsGqZj6yY"
+            ],
+            "verificationMethod": [
+                {
+                    "id": agreem_id,
+                    "type": "JsonWebKey2020",
+                    "controller": "did:peer:2.Ez6LSbhKnZ7tsrvScZBR5mRSnVDa7S7km1aCpkHoWS1pkLhkj.Vz6MktvegL6Tx3fPrNhhYbtxmzq6nsjnQKoecKLARJVZ7catQ.Az6MktvegL6Tx3fPrNhhYbtxmzq6nsjnQKoecKLARJVZ7catQ.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0",
+                    "publicKeyJwk": {
+                        "kty": "OKP",
+                        "crv": "X25519",
+                        "x": "AEtUMFyAEQte9YlqvsqiKK9uD_PFe1lXNZ_CiMRpahA"
                     }
-                ],
-                "authentication": [
-                    "did:peer:2.Ez6LSbhKnZ7tsrvScZBR5mRSnVDa7S7km1aCpkHoWS1pkLhkj.Vz6MktvegL6Tx3fPrNhhYbtxmzq6nsjnQKoecKLARJVZ7catQ.Az6MktvegL6Tx3fPrNhhYbtxmzq6nsjnQKoecKLARJVZ7catQ.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0#key-2"
-                ],
-                "keyAgreement": [
-                    "did:peer:2.Ez6LSbhKnZ7tsrvScZBR5mRSnVDa7S7km1aCpkHoWS1pkLhkj.Vz6MktvegL6Tx3fPrNhhYbtxmzq6nsjnQKoecKLARJVZ7catQ.Az6MktvegL6Tx3fPrNhhYbtxmzq6nsjnQKoecKLARJVZ7catQ.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0#key-1"
-                ],
-                "service": [
-                    {
-                        "id": "#didcomm",
-                        "type": "DIDCommMessaging",
-                        "serviceEndpoint": {
-                            "accept": [
-                                "didcomm/v2"
-                            ],
-                            "routingKeys": [],
-                            "uri": "http://alice-mediator.com"
-                        }
+                },
+                {
+                    "id": auth_id,
+                    "type": "JsonWebKey2020",
+                    "controller": "did:peer:2.Ez6LSbhKnZ7tsrvScZBR5mRSnVDa7S7km1aCpkHoWS1pkLhkj.Vz6MktvegL6Tx3fPrNhhYbtxmzq6nsjnQKoecKLARJVZ7catQ.Az6MktvegL6Tx3fPrNhhYbtxmzq6nsjnQKoecKLARJVZ7catQ.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0",
+                    "publicKeyJwk": {
+                        "kty": "OKP",
+                        "crv": "Ed25519",
+                        "x": "1wfj-I-3zHB86RPIje5i6_jb0TeC67KF_mz8kdcyYqE"
                     }
-                ]
-            }"##
-        ).unwrap();
+                }
+            ],
+            "authentication": [
+                auth_id
+            ],
+            "keyAgreement": [
+                agreem_id
+            ],
+            "service": [
+                {
+                    "id": "#didcomm",
+                    "type": "DIDCommMessaging",
+                    "serviceEndpoint": {
+                        "accept": [
+                            "didcomm/v2"
+                        ],
+                        "routingKeys": [],
+                        "uri": "http://alice-mediator.com"
+                    }
+                }
+            ]
+        });
 
         assert_eq!(
             json_canon::to_string(&diddoc).unwrap(),

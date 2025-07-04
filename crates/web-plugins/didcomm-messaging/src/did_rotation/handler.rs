@@ -99,6 +99,7 @@ mod test {
         state::{AppState, AppStateRepository},
         utils::resolvers::{LocalDIDResolver, LocalSecretsResolver},
     };
+    use base64::{prelude::BASE64_STANDARD, Engine};
 
     pub fn prev_did() -> String {
         "did:key:z6MkrQT3VKYGkbPaYuJeBv31gNgpmVtRWP5yTocLDBgPpayM".to_string()
@@ -109,8 +110,11 @@ mod test {
     pub fn setup() -> Arc<AppState> {
         let public_domain = String::from("http://alice-mediator.com");
 
+        let did = "did:peer:2.Vz6Mkf6r1uMJwoRAbzkuyj2RwPusdZhWSPeEknnTcKv2C2EN7.Ez6LSgbP4b3y8HVWG6C73WF2zLbzjDAPXjc33P2VfnVVHE347.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0#key-1";
+        let auth_id = BASE64_STANDARD.encode(did.to_owned() + "#key-1");
+        let agreem_id = BASE64_STANDARD.encode(did.to_owned() + "#key-2");
         let keys: Vec<(String, Jwk)> = vec![(
-                String::from("did:peer:2.Vz6Mkf6r1uMJwoRAbzkuyj2RwPusdZhWSPeEknnTcKv2C2EN7.Ez6LSgbP4b3y8HVWG6C73WF2zLbzjDAPXjc33P2VfnVVHE347.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0#key-1"),
+                auth_id,
                 serde_json::from_str(
                     r#"{
                         "kty": "OKP",
@@ -121,7 +125,7 @@ mod test {
                 )
                 .unwrap(),
             ),(
-                String::from("did:peer:2.Vz6Mkf6r1uMJwoRAbzkuyj2RwPusdZhWSPeEknnTcKv2C2EN7.Ez6LSgbP4b3y8HVWG6C73WF2zLbzjDAPXjc33P2VfnVVHE347.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0#key-2"),
+                agreem_id,
                 serde_json::from_str(
                     r#"{
                         "kty": "OKP",

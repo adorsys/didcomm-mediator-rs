@@ -29,7 +29,6 @@ mod tests {
     #[tokio::test]
     async fn test_routes() {
         std::env::set_var("SERVER_PUBLIC_DOMAIN", "example.com");
-        std::env::remove_var("STORAGE_DIRPATH");
 
         let state = Arc::new(OOBMessagesState {
             store: Arc::new(Mutex::new(InMemoryStore::default())),

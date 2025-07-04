@@ -6,73 +6,74 @@ pub mod tests {
         state::{AppState, AppStateRepository},
         utils::resolvers::LocalSecretsResolver,
     };
+    use base64::{prelude::BASE64_STANDARD, Engine};
     use did_utils::{didcore::Document, jwk::Jwk};
     use didcomm::{
         error::Error as DidcommError, secrets::SecretsResolver, Message, PackEncryptedOptions,
         UnpackOptions,
     };
     use keystore::Keystore;
-    use std::{env, sync::Arc};
+    use serde_json::json;
+    use std::sync::Arc;
 
     pub fn setup() -> Arc<AppState> {
-        env::set_var("MASTER_KEY", "1234567890qwertyuiopasdfghjklxzc");
         let public_domain = String::from("http://alice-mediator.com");
 
-        let diddoc: Document = serde_json::from_str(
-            r##"{
-                "@context": [
-                    "https://www.w3.org/ns/did/v1",
-                    "https://w3id.org/security/suites/jws-2020/v1"
-                ],
-                "id": "did:peer:2.Ez6LSteycMr6tTki5aAEjNAVDsp1vrx9DuDWHDnky9qxyFNUF.Vz6MkigiwfSzv66VSTAeGZLsTHa8ixK1agNFvry2KjYXmg1G3.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0",
-                "alsoKnownAs": [
-                    "did:peer:3zQmZo9aYaBjv2XtjRcTfP7X7QwyU1VVnrcEWVtcBhiAtPFa"
-                ],
-                "verificationMethod": [
-                    {
-                        "id": "#key-1",
-                        "type": "JsonWebKey2020",
-                        "controller": "did:peer:2.Ez6LSteycMr6tTki5aAEjNAVDsp1vrx9DuDWHDnky9qxyFNUF.Vz6MkigiwfSzv66VSTAeGZLsTHa8ixK1agNFvry2KjYXmg1G3.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0",
-                        "publicKeyJwk": {
-                            "kty": "OKP",
-                            "crv": "X25519",
-                            "x": "_EgIPSRgbPPw5-nUsJ6xqMvw5rXn3BViGADeUrjAMzA"
-                        }
-                    },
-                    {
-                        "id": "#key-2",
-                        "type": "JsonWebKey2020",
-                        "controller": "did:peer:2.Ez6LSteycMr6tTki5aAEjNAVDsp1vrx9DuDWHDnky9qxyFNUF.Vz6MkigiwfSzv66VSTAeGZLsTHa8ixK1agNFvry2KjYXmg1G3.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0",
-                        "publicKeyJwk": {
-                            "kty": "OKP",
-                            "crv": "Ed25519",
-                            "x": "PuG2L5um-tAnHlvT29gTm9Wj9fZca16vfBCPKsHB5cA"
-                        }
+        let did = "did:peer:2.Ez6LSteycMr6tTki5aAEjNAVDsp1vrx9DuDWHDnky9qxyFNUF.Vz6MkigiwfSzv66VSTAeGZLsTHa8ixK1agNFvry2KjYXmg1G3.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0";
+        let diddoc: Document = serde_json::from_value(json!({
+            "@context": [
+                "https://www.w3.org/ns/did/v1",
+                "https://w3id.org/security/suites/jws-2020/v1"
+            ],
+            "id": did,
+            "alsoKnownAs": [
+                "did:peer:3zQmZo9aYaBjv2XtjRcTfP7X7QwyU1VVnrcEWVtcBhiAtPFa"
+            ],
+            "verificationMethod": [
+                {
+                    "id": "#key-1",
+                    "type": "JsonWebKey2020",
+                    "controller": did,
+                    "publicKeyJwk": {
+                        "kty": "OKP",
+                        "crv": "X25519",
+                        "x": "_EgIPSRgbPPw5-nUsJ6xqMvw5rXn3BViGADeUrjAMzA"
                     }
-                ],
-                "authentication": [
-                    "#key-2"
-                ],
-                "keyAgreement": [
-                    "#key-1"
-                ],
-                "service": [
-                    {
-                        "id": "#didcomm",
-                        "type": "DIDCommMessaging",
-                        "serviceEndpoint": {
-                            "accept": [
-                                "didcomm/v2"
-                            ],
-                            "routingKeys": [],
-                            "uri": "http://alice-mediator.com/"
-                        }
+                },
+                {
+                    "id": "#key-2",
+                    "type": "JsonWebKey2020",
+                    "controller": did,
+                    "publicKeyJwk": {
+                        "kty": "OKP",
+                        "crv": "Ed25519",
+                        "x": "PuG2L5um-tAnHlvT29gTm9Wj9fZca16vfBCPKsHB5cA"
                     }
-                ]
-            }"##
-        ).unwrap();
+                }
+            ],
+            "authentication": [
+                "#key-2"
+            ],
+            "keyAgreement": [
+                "#key-1"
+            ],
+            "service": [
+                {
+                    "id": "#didcomm",
+                    "type": "DIDCommMessaging",
+                    "serviceEndpoint": {
+                        "accept": [
+                            "didcomm/v2"
+                        ],
+                        "routingKeys": [],
+                        "uri": "http://alice-mediator.com/"
+                    }
+                }
+            ]
+        }))
+        .unwrap();
 
-        let secret_id = "did:peer:2.Ez6LSteycMr6tTki5aAEjNAVDsp1vrx9DuDWHDnky9qxyFNUF.Vz6MkigiwfSzv66VSTAeGZLsTHa8ixK1agNFvry2KjYXmg1G3.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0#key-1";
+        let secret_id = BASE64_STANDARD.encode(did.to_owned() + "#key-1");
         let secret: Jwk = serde_json::from_str(
             r#"{
                 "kty": "OKP",
@@ -83,7 +84,7 @@ pub mod tests {
         )
         .unwrap();
 
-        let mediator_secret = (secret_id.to_string(), secret);
+        let mediator_secret = (secret_id, secret);
         let keystore = Keystore::with_mock_configs(vec![mediator_secret]);
 
         let repository = AppStateRepository {
