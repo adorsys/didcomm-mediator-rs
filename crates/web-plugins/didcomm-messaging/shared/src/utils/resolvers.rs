@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-use base64::prelude::{Engine as _, BASE64_STANDARD};
 use did_utils::{
     crypto::PublicKeyFormat,
     didcore::{Document, VerificationMethodType},
@@ -33,7 +32,7 @@ impl DIDResolver for LocalDIDResolver {
     async fn resolve(&self, did: &str) -> Result<Option<DIDDoc>> {
         if did == self.diddoc.id {
             let mut diddoc = self.diddoc.clone();
-            sanitize_vm_ids(&mut diddoc);
+            prepend_did_to_vm_ids(&mut diddoc);
             return Ok(Some(serde_json::from_value(json!(diddoc))?));
         }
 
@@ -50,7 +49,7 @@ impl DIDResolver for LocalDIDResolver {
             let mut diddoc = DidPeer::with_format(PublicKeyFormat::Jwk)
                 .expand(did)
                 .map_err(|e| Error::new(ErrorKind::DIDNotResolved, e))?;
-            sanitize_vm_ids(&mut diddoc);
+            prepend_did_to_vm_ids(&mut diddoc);
             let diddoc = serde_json::from_value(json!(diddoc))?;
             Ok(Some(diddoc))
         } else {
@@ -62,11 +61,11 @@ impl DIDResolver for LocalDIDResolver {
     }
 }
 
-fn sanitize_vm_ids(diddoc: &mut Document) {
+fn prepend_did_to_vm_ids(diddoc: &mut Document) {
     if diddoc.id.starts_with("did:peer") {
         if let Some(verification_methods) = diddoc.verification_method.as_mut() {
             for vm in verification_methods.iter_mut() {
-                vm.id = BASE64_STANDARD.encode(diddoc.id.to_owned() + &vm.id);
+                vm.id = diddoc.id.to_owned() + &vm.id;
             }
         }
 
@@ -74,7 +73,7 @@ fn sanitize_vm_ids(diddoc: &mut Document) {
             if let Some(rel) = rel {
                 for vm in rel.iter_mut() {
                     if let VerificationMethodType::Reference(ref mut id) = vm {
-                        *id = BASE64_STANDARD.encode(diddoc.id.to_owned() + id);
+                        *id = diddoc.id.to_owned() + id;
                     }
                 }
             }
@@ -155,15 +154,15 @@ mod tests {
 
         let did = "did:peer:2.Ez6LSteycMr6tTki5aAEjNAVDsp1vrx9DuDWHDnky9qxyFNUF.Vz6MkigiwfSzv66VSTAeGZLsTHa8ixK1agNFvry2KjYXmg1G3.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0";
         let resolved = resolver.resolve(did).await.unwrap().unwrap();
-        let agreem_kid = BASE64_STANDARD.encode(did.to_owned() + "#key-1");
-        let auth_kid = BASE64_STANDARD.encode(did.to_owned() + "#key-2");
+        let agreem_kid = did.to_owned() + "#key-1";
+        let auth_kid = did.to_owned() + "#key-2";
         let expected = json!({
-            "id": "did:peer:2.Ez6LSteycMr6tTki5aAEjNAVDsp1vrx9DuDWHDnky9qxyFNUF.Vz6MkigiwfSzv66VSTAeGZLsTHa8ixK1agNFvry2KjYXmg1G3.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0",
+            "id": did,
             "verificationMethod": [
                 {
                     "id": agreem_kid,
                     "type": "JsonWebKey2020",
-                    "controller": "did:peer:2.Ez6LSteycMr6tTki5aAEjNAVDsp1vrx9DuDWHDnky9qxyFNUF.Vz6MkigiwfSzv66VSTAeGZLsTHa8ixK1agNFvry2KjYXmg1G3.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0",
+                    "controller": did,
                     "publicKeyJwk": {
                         "kty": "OKP",
                         "crv": "X25519",
@@ -173,7 +172,7 @@ mod tests {
                 {
                     "id": auth_kid,
                     "type": "JsonWebKey2020",
-                    "controller": "did:peer:2.Ez6LSteycMr6tTki5aAEjNAVDsp1vrx9DuDWHDnky9qxyFNUF.Vz6MkigiwfSzv66VSTAeGZLsTHa8ixK1agNFvry2KjYXmg1G3.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0",
+                    "controller": did,
                     "publicKeyJwk": {
                         "kty": "OKP",
                         "crv": "Ed25519",
@@ -212,7 +211,7 @@ mod tests {
         let agreem_kid = did.to_owned() + "#z6LSbuUXWSgPfpiDBjUK6E7yiCKMN2eKJsXn5b55ZgqGz6Mr";
         let resolved = resolver.resolve(did).await.unwrap().unwrap();
         let expected = json!({
-                "id": "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7",
+                "id": did,
                 "keyAgreement": [
                     agreem_kid
                 ],
@@ -223,7 +222,7 @@ mod tests {
                     {
                         "id": auth_kid,
                         "type": "JsonWebKey2020",
-                        "controller": "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7",
+                        "controller": did,
                         "publicKeyJwk": {
                             "crv": "Ed25519",
                             "kty": "OKP",
@@ -233,7 +232,7 @@ mod tests {
                     {
                         "id": agreem_kid,
                         "type": "JsonWebKey2020",
-                        "controller": "did:key:z6MkfyTREjTxQ8hUwSwBPeDHf3uPL3qCjSSuNPwsyMpWUGH7",
+                        "controller": did,
                         "publicKeyJwk": {
                             "crv": "X25519",
                             "kty": "OKP",
@@ -293,7 +292,7 @@ mod tests {
         let keystore = Keystore::with_mock_configs(vec![(secret_id.to_string(), secret)]);
 
         let resolver = LocalSecretsResolver::new(keystore);
-        let resolved = resolver.get_secret(&secret_id).await.unwrap().unwrap();
+        let resolved = resolver.get_secret(secret_id).await.unwrap().unwrap();
         let expected = json!({
             "id": secret_id,
             "type": "JsonWebKey2020",
@@ -371,10 +370,10 @@ mod tests {
             }"##
         ).unwrap();
 
-        sanitize_vm_ids(&mut diddoc);
+        prepend_did_to_vm_ids(&mut diddoc);
 
-        let agreem_id = BASE64_STANDARD.encode(diddoc.id.to_owned() + "#key-1");
-        let auth_id = BASE64_STANDARD.encode(diddoc.id.to_owned() + "#key-2");
+        let agreem_id = diddoc.id.to_owned() + "#key-1";
+        let auth_id = diddoc.id.to_owned() + "#key-2";
         let expected = json!({
             "@context": [
                 "https://www.w3.org/ns/did/v1",

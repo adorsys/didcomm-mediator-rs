@@ -193,7 +193,6 @@ fn validate_key(kid: &str, keystore: &Keystore) -> Result<(), String> {
 pub(crate) mod tests {
     use super::*;
     use crate::persistence::tests::MockDidDocumentRepository;
-    use base64::prelude::{Engine as _, BASE64_STANDARD};
 
     pub(crate) fn setup() -> Jwk {
         serde_json::from_str(
@@ -231,9 +230,9 @@ pub(crate) mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_did_validation() {
-        let kid = BASE64_STANDARD.encode("did:peer:123#key-1");
+        let kid = "did:peer:123#key-1";
         let repository = MockDidDocumentRepository::new();
-        let mock_keystore = Keystore::with_mock_configs(vec![(kid.clone(), setup())]);
+        let mock_keystore = Keystore::with_mock_configs(vec![(kid.to_string(), setup())]);
 
         // Mock read from store
         let diddoc: Document = serde_json::from_str(

@@ -87,10 +87,8 @@ mod test {
 
     use did_utils::{didcore::Document, jwk::Jwk};
     use didcomm::secrets::SecretsResolver;
-    use mongodb::bson::doc;
-
-    use base64::{prelude::BASE64_STANDARD, Engine};
     use keystore::Keystore;
+    use mongodb::bson::doc;
     use shared::{
         breaker::CircuitBreaker,
         repository::{
@@ -111,8 +109,8 @@ mod test {
         let public_domain = String::from("http://alice-mediator.com");
 
         let did = "did:peer:2.Vz6Mkf6r1uMJwoRAbzkuyj2RwPusdZhWSPeEknnTcKv2C2EN7.Ez6LSgbP4b3y8HVWG6C73WF2zLbzjDAPXjc33P2VfnVVHE347.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0#key-1";
-        let auth_id = BASE64_STANDARD.encode(did.to_owned() + "#key-1");
-        let agreem_id = BASE64_STANDARD.encode(did.to_owned() + "#key-2");
+        let auth_id = did.to_owned() + "#key-1";
+        let agreem_id = did.to_owned() + "#key-2";
         let keys: Vec<(String, Jwk)> = vec![
             (
                 auth_id,

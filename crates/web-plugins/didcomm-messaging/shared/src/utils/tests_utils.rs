@@ -6,7 +6,6 @@ pub mod tests {
         state::{AppState, AppStateRepository},
         utils::resolvers::LocalSecretsResolver,
     };
-    use base64::{prelude::BASE64_STANDARD, Engine};
     use did_utils::{didcore::Document, jwk::Jwk};
     use didcomm::{
         error::Error as DidcommError, secrets::SecretsResolver, Message, PackEncryptedOptions,
@@ -73,7 +72,7 @@ pub mod tests {
         }))
         .unwrap();
 
-        let secret_id = BASE64_STANDARD.encode(did.to_owned() + "#key-1");
+        let secret_id = did.to_owned() + "#key-1";
         let secret: Jwk = serde_json::from_str(
             r#"{
                 "kty": "OKP",
