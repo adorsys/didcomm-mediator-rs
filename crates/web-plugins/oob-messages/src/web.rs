@@ -17,23 +17,23 @@ pub(crate) fn routes(state: Arc<OOBMessagesState>) -> Router {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::store::InMemoryStore;
     use axum::{
         body::Body,
         http::{Request, StatusCode},
     };
-    use filesystem::MockFileSystem;
+    use did_utils::didcore::Document;
     use std::sync::Mutex;
     use tower::util::ServiceExt;
 
     #[tokio::test]
     async fn test_routes() {
-        std::env::set_var("STORAGE_DIRPATH", "tmp");
         std::env::set_var("SERVER_PUBLIC_DOMAIN", "example.com");
-        std::env::set_var("SERVER_LOCAL_PORT", "8080");
 
-        let fs = MockFileSystem;
         let state = Arc::new(OOBMessagesState {
-            filesystem: Arc::new(Mutex::new(fs)),
+            store: Arc::new(Mutex::new(InMemoryStore::default())),
+            diddoc: Document::default(),
+            server_public_domain: "example.com".to_string(),
         });
         let app = routes(state.clone());
 

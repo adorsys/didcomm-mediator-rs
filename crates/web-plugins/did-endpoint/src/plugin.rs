@@ -1,39 +1,36 @@
-use super::{didgen, web};
+use super::{didgen, persistence::*, web};
 use aws_config::BehaviorVersion;
 use axum::Router;
-use filesystem::FileSystem;
+use database::{get_or_init_database, Repository};
 use keystore::Keystore;
+use mongodb::Database;
 use plugin_api::{Plugin, PluginError};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use tokio::{runtime::Handle, task};
 
 #[derive(Default)]
 pub struct DidEndpoint {
     env: Option<DidEndpointEnv>,
     state: Option<DidEndPointState>,
+    db: Option<Database>,
 }
 
 struct DidEndpointEnv {
-    storage_dirpath: String,
     server_public_domain: String,
 }
 
 #[derive(Clone)]
 pub(crate) struct DidEndPointState {
     pub(crate) keystore: Keystore,
-    pub(crate) filesystem: Arc<Mutex<dyn FileSystem>>,
+    pub(crate) repository: Arc<dyn Repository<MediatorDidDocument>>,
 }
 
 fn get_env() -> Result<DidEndpointEnv, PluginError> {
-    let storage_dirpath = std::env::var("STORAGE_DIRPATH")
-        .map_err(|_| PluginError::InitError("STORAGE_DIRPATH env variable required".to_owned()))?;
-
     let server_public_domain = std::env::var("SERVER_PUBLIC_DOMAIN").map_err(|_| {
         PluginError::InitError("SERVER_PUBLIC_DOMAIN env variable required".to_owned())
     })?;
 
     Ok(DidEndpointEnv {
-        storage_dirpath,
         server_public_domain,
     })
 }
@@ -45,7 +42,10 @@ impl Plugin for DidEndpoint {
 
     fn mount(&mut self) -> Result<(), PluginError> {
         let env = get_env()?;
-        let mut filesystem = filesystem::StdFileSystem;
+
+        self.db = Some(get_or_init_database());
+
+        let repository = DidDocumentRepository::from_db(self.db.as_ref().unwrap());
         let keystore = task::block_in_place(move || {
             Handle::current().block_on(async move {
                 let aws_config = aws_config::load_defaults(BehaviorVersion::latest()).await;
@@ -53,18 +53,10 @@ impl Plugin for DidEndpoint {
             })
         });
 
-        if didgen::validate_diddoc(env.storage_dirpath.as_ref(), &keystore, &mut filesystem)
-            .is_err()
-        {
+        if didgen::validate_diddoc(&keystore, &repository).is_err() {
             tracing::debug!("diddoc validation failed, will generate one");
 
-            didgen::didgen(
-                env.storage_dirpath.as_ref(),
-                &env.server_public_domain,
-                &keystore,
-                &mut filesystem,
-            )
-            .map_err(|_| {
+            didgen::didgen(&env.server_public_domain, &keystore, &repository).map_err(|_| {
                 PluginError::InitError(
                     "failed to generate an initial keystore and its DID document".to_owned(),
                 )
@@ -74,7 +66,7 @@ impl Plugin for DidEndpoint {
         self.env = Some(env);
         self.state = Some(DidEndPointState {
             keystore,
-            filesystem: Arc::new(Mutex::new(filesystem)),
+            repository: Arc::new(repository),
         });
 
         Ok(())

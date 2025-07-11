@@ -32,13 +32,6 @@ spec:
                   key: MONGO_DBN
                   name: {{ .Values.mediator.configmap.name }}
 
-
-            - name: STORAGE_DIRPATH
-              valueFrom:
-                configMapKeyRef:
-                  key: STORAGE_DIRPATH
-                  name: {{ .Values.mediator.configmap.name }}
-
             - name: MONGO_INITDB_ROOT_PASSWORD
               valueFrom:
                 secretKeyRef:

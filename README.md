@@ -1,9 +1,9 @@
+# DIDComm-Mediator
+
 [![CI](https://github.com/adorsys/didcomm-mediator-rs/actions/workflows/rust.yml/badge.svg)](https://github.com/adorsys/didcomm-mediator-rs/actions/workflows/rust.yml)
 [![DIDComm Messaging Clients Utilities](https://img.shields.io/badge/DIDComm%20Messaging%20Clients%20Utilities-repo-blue.svg)](https://github.com/adorsys/didcomm-messaging-clients-utilities)
 [![DIDComm Messaging Spec](https://img.shields.io/badge/DIDComm%20Messaging-Specification-blue.svg)](https://identity.foundation/didcomm-messaging/spec/)
 [![License](https://img.shields.io/badge/license-Apache%202.0-brightgreen.svg)](https://github.com/adorsys/didcomm-mediator-rs/blob/main/LICENSE)
-
-# DIDComm-Mediator
 
 A DIDComm mediator is a cloud agent that facilitates secure, decentralized communication between mobile agents in the self-sovereign identity (SSI) ecosystem. This mediator acts as a cloud-based intermediary, enabling mobile agents to communicate without reliance on centralized infrastructures like Facebook, Signal, or Telegram.
 
@@ -19,7 +19,7 @@ For further understanding checkout the [docs](docs/mediator-doc.md)
 |[Cross-Domain Messaging/ Routing Protocol](https://identity.foundation/didcomm-messaging/spec/#routing-protocol-20) | ADOPTED | ✅|
 |[Trust Ping Ptotocol](https://identity.foundation/didcomm-messaging/spec/#trust-ping-protocol-20) | ADOPTED|✅|
 |[Discover Features Protocol](https://didcomm.org/discover-features/2.0/) | ADOPTED | ✅ |
-|[Out of band Messaging](https://identity.foundation/didcomm-messaging/spec/#out-of-band-messages) | ADOPTED | ✅
+|[Out of band Messaging](https://identity.foundation/didcomm-messaging/spec/#out-of-band-messages) | ADOPTED | ✅|
 |[Basic Message Protocol](https://didcomm.org/basicmessage/2.0/#:~:text=The%20BasicMessage%20protocol%20describes%20a,message%20type%20used%20to%20communicate.) | ADOPTED|⚪|
 |[Acks](https://github.com/hyperledger/aries-rfcs/tree/main/features/0015-acks)| ADOPTED |❌ |
 |[Present Proof Protocol](https://didcomm.org/present-proof/3.0/)| ADOPTED | ❌|
@@ -53,7 +53,25 @@ git clone git@github.com:adorsys/didcomm-mediator-rs.git
 
 ## Running the Project
 
-### Mongo DB
+### Environmental variables
+
+You need to create a **`.env`** file in the root directory of the project. Take a look at the [.env.example](.env.example) file for more information about the needed variables.
+
+### Running with Docker Compose
+
+The easiest way to run the project is with [Docker Compose](https://docs.docker.com/compose/).
+
+Run the following command:
+
+```sh
+docker-compose up --build
+```
+
+This will build the docker image of the mediator server with all its prerequisites and run it.
+
+### Running with Cargo
+
+#### MongoDB
 
 This project uses MongoDB as the database. You need to have [MongoDB](https://www.mongodb.com) installed and running on your system.
 
@@ -64,29 +82,17 @@ docker pull mongo
 docker run --name mongodb -d mongo
 ```
 
-### Environmental variables
+#### AWS Secrets Manager
 
-You need to create a **`.env`** file in the root directory of the project. Take a look at the [example](.env.example) file for more information about the needed variables.
+The server uses AWS Secrets Manager for storing the mediator secrets. You need to configure AWS credentials in your environment. For tests you can use [LocalStack](https://localstack.cloud/) as a local AWS service.
+
+> check the `.env.example` file for needed variables
 
 You can now start the mediator server:
 
 ```sh
 cargo run
 ```
-
-### Running with Docker Compose
-
-You can run the project with Docker Compose.
-
-* First change the `MONGO_URI` variable in the `.env` file to `mongodb://mongodb:27017`
-
-* Then run the following command:
-
-```sh
-docker-compose up
-```
-
-This will build the docker image of the mediator server with all its prerequisites and run it.
 
 The output should look like this:
 

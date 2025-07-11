@@ -13,25 +13,27 @@ edition = "2021"
 keystore.workspace = true
 plugin-api.workspace = true
 did-utils.workspace = true
-filesystem.workspace = true
+database.workspace = true
+async-trait.workspace = true
 
-cfg-if.workspace = true
 chrono.workspace = true
 thiserror.workspace = true
+serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 dotenv-flow.workspace = true
 multibase.workspace = true
 tracing.workspace = true
+mongodb.workspace = true
 http-body-util.workspace = true
 aws-config.workspace = true
 uuid = { workspace = true, features = ["v4"] }
-hyper = { workspace = true, features = ["full"] }
 tokio = { workspace = true, features = ["full"] }
 axum = { workspace = true, features = ["macros"] }
 
 [dev-dependencies]
-mockall = "0.13.1"
 json-canon = "0.1.3"
-filesystem = { workspace = true, features = ["test-utils"] }
 keystore = { workspace = true, features = ["test-utils"] }
 tower = { version = "0.5.2", features = ["util"] }
+
+[features]
+test-utils = []

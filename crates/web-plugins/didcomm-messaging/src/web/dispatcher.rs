@@ -136,7 +136,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_keylist_update_via_didcomm() {
-        std::env::set_var("MASTER_KEY", "1234567890qwertyuiopasdfghjklxzc");
         let mut container = MessagePluginContainer {
             loaded: false,
             collected_routes: vec![],

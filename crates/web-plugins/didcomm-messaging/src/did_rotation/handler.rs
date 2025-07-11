@@ -87,9 +87,8 @@ mod test {
 
     use did_utils::{didcore::Document, jwk::Jwk};
     use didcomm::secrets::SecretsResolver;
-    use mongodb::bson::doc;
-
     use keystore::Keystore;
+    use mongodb::bson::doc;
     use shared::{
         breaker::CircuitBreaker,
         repository::{
@@ -109,8 +108,12 @@ mod test {
     pub fn setup() -> Arc<AppState> {
         let public_domain = String::from("http://alice-mediator.com");
 
-        let keys: Vec<(String, Jwk)> = vec![(
-                String::from("did:peer:2.Vz6Mkf6r1uMJwoRAbzkuyj2RwPusdZhWSPeEknnTcKv2C2EN7.Ez6LSgbP4b3y8HVWG6C73WF2zLbzjDAPXjc33P2VfnVVHE347.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0#key-1"),
+        let did = "did:peer:2.Vz6Mkf6r1uMJwoRAbzkuyj2RwPusdZhWSPeEknnTcKv2C2EN7.Ez6LSgbP4b3y8HVWG6C73WF2zLbzjDAPXjc33P2VfnVVHE347.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0#key-1";
+        let auth_id = did.to_owned() + "#key-1";
+        let agreem_id = did.to_owned() + "#key-2";
+        let keys: Vec<(String, Jwk)> = vec![
+            (
+                auth_id,
                 serde_json::from_str(
                     r#"{
                         "kty": "OKP",
@@ -120,8 +123,9 @@ mod test {
                     }"#,
                 )
                 .unwrap(),
-            ),(
-                String::from("did:peer:2.Vz6Mkf6r1uMJwoRAbzkuyj2RwPusdZhWSPeEknnTcKv2C2EN7.Ez6LSgbP4b3y8HVWG6C73WF2zLbzjDAPXjc33P2VfnVVHE347.SeyJpZCI6IiNkaWRjb21tIiwicyI6eyJhIjpbImRpZGNvbW0vdjIiXSwiciI6W10sInVyaSI6Imh0dHA6Ly9hbGljZS1tZWRpYXRvci5jb20ifSwidCI6ImRtIn0#key-2"),
+            ),
+            (
+                agreem_id,
                 serde_json::from_str(
                     r#"{
                         "kty": "OKP",

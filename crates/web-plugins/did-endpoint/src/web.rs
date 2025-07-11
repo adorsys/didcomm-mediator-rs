@@ -1,48 +1,39 @@
-use crate::{plugin::DidEndPointState, util};
+use super::plugin::DidEndPointState;
 use axum::{
     extract::{Query, State},
-    response::Json,
+    http::StatusCode,
+    response::{IntoResponse, Json},
     routing::get,
     Router,
 };
 use chrono::Utc;
+
 use did_utils::{
     didcore::{Document, KeyFormat, Proofs},
     jwk::Jwk,
     proof::{CryptoProof, EdDsaJcs2022, Proof, PROOF_TYPE_DATA_INTEGRITY_PROOF},
     vc::{VerifiableCredential, VerifiablePresentation},
 };
-
-#[allow(unused_imports)]
-use hyper::StatusCode;
+use mongodb::bson::doc;
 use multibase::Base;
 use serde_json::{json, Value};
-use std::{collections::HashMap, path::Path, sync::Arc};
+use std::{collections::HashMap, convert::TryInto, sync::Arc};
 use tokio::{runtime::Handle, task};
 
 const DEFAULT_CONTEXT_V2: &str = "https://www.w3.org/ns/credentials/v2";
 
 pub(crate) fn routes(state: Arc<DidEndPointState>) -> Router {
-    Router::new() //
+    Router::new()
         .route("/.well-known/did.json", get(diddoc))
         .route("/.well-known/did/pop.json", get(didpop))
         .with_state(state)
 }
 
-async fn diddoc(State(state): State<Arc<DidEndPointState>>) -> Result<Json<Value>, StatusCode> {
-    let storage_dirpath = std::env::var("STORAGE_DIRPATH").map_err(|_| {
-        tracing::error!("STORAGE_DIRPATH env variable required");
-        StatusCode::NOT_FOUND
-    })?;
-    let filesystem = state.filesystem.lock().unwrap();
-    let did_path = Path::new(&storage_dirpath).join("did.json");
-
-    match filesystem.read_to_string(&did_path).as_ref() {
-        Ok(content) => Ok(Json(serde_json::from_str(content).map_err(|_| {
-            tracing::error!("Unparseable did.json");
-            StatusCode::NOT_FOUND
-        })?)),
-        Err(_) => Err(StatusCode::NOT_FOUND),
+pub(crate) async fn diddoc(State(state): State<Arc<DidEndPointState>>) -> impl IntoResponse {
+    match state.repository.find_one_by(doc! {}).await {
+        Ok(Some(diddoc_entity)) => (StatusCode::OK, Json(diddoc_entity.diddoc)).into_response(),
+        Ok(None) => (StatusCode::NOT_FOUND, "DIDDoc not found").into_response(),
+        Err(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error").into_response(),
     }
 }
 
@@ -53,9 +44,17 @@ async fn didpop(
 ) -> Result<Json<Value>, StatusCode> {
     let challenge = params.get("challenge").ok_or(StatusCode::BAD_REQUEST)?;
 
-    // Load DID document and its verification methods
-    let diddoc_value = diddoc(State(state.clone())).await?.0;
-    let diddoc: Document = serde_json::from_value(diddoc_value.clone()).unwrap();
+    // Retrieve the DID document from the repository
+    let diddoc_entity = state
+        .repository
+        .find_one_by(doc! {})
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .ok_or(StatusCode::NOT_FOUND)?;
+
+    let diddoc_value = diddoc_entity.diddoc;
+    let diddoc: Document = serde_json::from_value(json!(diddoc_value))
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     let did_address = diddoc.id.clone();
     let methods = diddoc.verification_method.clone().unwrap_or_default();
@@ -68,7 +67,7 @@ async fn didpop(
         "validFrom": Utc::now(),
         "credentialSubject": diddoc_value,
     }))
-    .unwrap();
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     // Embed VC into a verifiable presentation (VP)
     let mut vp: VerifiablePresentation = serde_json::from_value(json!({
@@ -78,7 +77,7 @@ async fn didpop(
         "holder": &did_address,
         "verifiableCredential": [vc],
     }))
-    .unwrap();
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     // Generate proofs of possession
     let mut vec_proof: Vec<Proof> = vec![];
@@ -89,7 +88,7 @@ async fn didpop(
         "proofPurpose": "",
         "verificationMethod": "",
     }))
-    .unwrap();
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     let keystore = state.keystore.clone();
 
@@ -100,7 +99,7 @@ async fn didpop(
             .as_ref()
             .expect("Verification methods should embed public keys.");
 
-        let kid = util::handle_vm_id(&method.id, &diddoc);
+        let kid = crate::util::handle_vm_id(&method.id, &diddoc);
 
         let jwk: Jwk = match pubkey {
             KeyFormat::Jwk(_) => task::block_in_place(|| {
@@ -109,10 +108,10 @@ async fn didpop(
                         .retrieve(&kid)
                         .await
                         .expect("Error fetching secret")
-                        .expect("Missing key")
+                        .expect("Secret not found")
                 })
             }),
-            _ => panic!("Unexpected key format"),
+            _ => panic!("Unsupported key format"),
         };
 
         // Amend options for linked data proof with method-specific attributes
@@ -183,15 +182,17 @@ fn inspect_vm_relationship(diddoc: &Document, vm_id: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use std::{sync::Mutex, vec};
-
     use super::*;
-    use crate::didgen::tests::*;
+    use crate::{
+        didgen::tests::*,
+        persistence::{tests::MockDidDocumentRepository, MediatorDidDocument},
+    };
 
     use axum::{
         body::Body,
         http::{Request, StatusCode},
     };
+    use database::Repository;
     use did_utils::{
         didcore::{Document, KeyFormat, Proofs},
         jwk::Jwk,
@@ -228,39 +229,22 @@ mod tests {
         )
         .unwrap();
 
-        let kid = "did:peer:123#key-1".to_string();
-        let mut mock_fs = MockFileSystem::new();
-        let mock_keystore = Keystore::with_mock_configs(vec![(kid, setup())]);
+        let kid = "did:peer:123#key-1";
+        let repository = MockDidDocumentRepository::new();
+        let mock_keystore = Keystore::with_mock_configs(vec![(kid.to_string(), setup())]);
 
-        // Simulate reading the did.json file
-        mock_fs
-            .expect_read_to_string()
-            .withf(|path| path.to_str().unwrap().ends_with("did.json"))
-            .returning(|_| {
-                Ok(r##"{
-                        "@context": ["https://www.w3.org/ns/did/v1"],
-                        "id": "did:peer:123",
-                        "verificationMethod": [
-                            {
-                                "id": "#key-1",
-                                "type": "JsonWebKey2020",
-                                "controller": "did:peer:123",
-                                "publicKeyJwk": {
-                                    "kty": "OKP",
-                                    "crv": "Ed25519",
-                                    "x": "PuG2L5um-tAnHlvT29gTm9Wj9fZca16vfBCPKsHB5cA"
-                                }
-                            }
-                        ],
-                        "authentication": ["#key-1"]
-                    }"##
-                .to_string())
-            });
+        repository
+            .store(MediatorDidDocument {
+                id: None,
+                diddoc: expected_diddoc.clone(),
+            })
+            .await
+            .unwrap();
 
         // Setup state with mocks
         let state = DidEndPointState {
-            filesystem: Arc::new(Mutex::new(mock_fs)),
             keystore: mock_keystore,
+            repository: Arc::new(repository),
         };
 
         let app = routes(Arc::new(state));

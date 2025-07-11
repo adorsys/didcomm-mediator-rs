@@ -209,7 +209,7 @@ mod test {
                 assert_eq!(id, MEDIATION.to_string());
             }
             Err(e) => {
-                panic!("This should not occur {:?}", e)
+                panic!("This should not occur {e:?}")
             }
         }
     }
@@ -266,7 +266,7 @@ mod test {
                 assert_eq!(id, MEDIATION.to_string());
             }
             Err(e) => {
-                panic!("This should not occur {:?}", e)
+                panic!("This should not occur {e:?}")
             }
         }
     }

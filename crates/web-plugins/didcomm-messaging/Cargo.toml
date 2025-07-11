@@ -17,7 +17,6 @@ did-endpoint.workspace = true
 keystore.workspace = true
 shared.workspace = true
 plugin-api.workspace = true
-filesystem.workspace = true
 message-api.workspace = true
 
 # optional dependencies

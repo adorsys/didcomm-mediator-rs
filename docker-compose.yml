@@ -4,27 +4,47 @@ services:
       context: .
     container_name: didcomm-mediator
     ports:
-      - "8080:8080"
+      - 3000:3000
     env_file:
       - .env  
     depends_on:
       mongodb:
         condition: service_healthy
+      localstack:
+        condition: service_healthy
     networks:
       - mediator-network
 
   mongodb:
-    image: mongo:latest
+    image: mongo:8
     container_name: mongodb
+    restart: always
+    ports:
+      - 27017:27017
     volumes:
       - mongo-data:/data/db
     networks:
       - mediator-network
     healthcheck:
-      test: ["CMD", "mongo", "--eval", "db.adminCommand('ping')"]
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 10s
       timeout: 5s
       retries: 5
+
+  localstack:
+    container_name: localstack
+    image: localstack/localstack
+    ports:
+      - 4566:4566
+    environment:
+      - SERVICES=secretsmanager
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:4566/"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mediator-network
 
 volumes:
   mongo-data:

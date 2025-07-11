@@ -43,7 +43,7 @@ pub fn make_compact_jwt_presentation(
     let header = JwsHeader {
         alg: JwsAlg::EdDSA,
         kid: holder_kid.map(String::from),
-        typ: Some(format!("{}+jwt", kind)),
+        typ: Some(format!("{kind}+jwt")),
         ..Default::default()
     };
 

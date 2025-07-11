@@ -1,17 +1,12 @@
 [package]
-name = "oob-messages" 
-version = "0.1.0" 
-authors = ["adorsys GmbH Co. KG"] 
-license = "Apache-2.0"
-description = "A Rust library for implementing out of band messages for DID-based applications."
-repository = "https://github.com/adorsys/didcomm-mediator-rs/tree/main/crates/web-plugins/oob-messages"
-keywords = ["out-of-band", "oob", "obb-message",  "didcomm", "Mediator"]
-categories = ["cryptography"]
+name = "oob-messages"
+version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+database.workspace = true
 did-utils.workspace = true
-filesystem.workspace = true
+did-endpoint.workspace = true
 plugin-api.workspace = true
 
 multibase.workspace = true
@@ -21,12 +16,12 @@ tracing.workspace = true
 qrcode.workspace = true
 image.workspace = true
 base64.workspace = true
-lazy_static.workspace = true
 serde = { workspace = true, features = ["derive"] }
 uuid = { workspace = true, features = ["fast-rng", "v4"] }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+mongodb.workspace = true
 
 [dev-dependencies]
-filesystem = { workspace = true, features = ["test-utils"] }
-mockall = "0.13.1"
-tokio = { version = "1.42.0", features = ["full"] }
 tower = "0.5"
+tokio = { version = "1.42.0", features = ["full"] }
+did-endpoint = { workspace = true, features = ["test-utils"] }

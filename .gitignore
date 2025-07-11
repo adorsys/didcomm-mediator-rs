@@ -33,7 +33,6 @@ test/
 
 # Environment variables files 
 .env
-.env.example
 
 
 # Reference crate
