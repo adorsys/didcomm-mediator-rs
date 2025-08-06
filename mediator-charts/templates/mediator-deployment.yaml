@@ -58,8 +58,14 @@ spec:
           volumeMounts:
             - name: invitation-storage
               mountPath: /didcomm-mediator/storage
+            - name: aws-credentials-volume
+              mountPath: /root/.aws
+              readOnly: true
 
       volumes:
         - name: invitation-storage
           persistentVolumeClaim:
             claimName: {{ .Release.Name }}-deployment-pvc
+        - name: aws-credentials-volume
+          secret:
+            secretName: aws-credentials-secret
