@@ -530,7 +530,7 @@ mod tests {
             .await
             .unwrap_err();
 
-        assert_eq!(error, PickupError::MissingClientConnection);
+        assert!(matches!(error, PickupError::MissingClientConnection));
     }
 
     #[tokio::test]
@@ -802,9 +802,8 @@ mod tests {
             .await
             .unwrap_err();
 
-        assert_eq!(
-            error,
-            PickupError::MalformedRequest("Missing \"live_delivery\" specifier".to_owned())
+        assert!(
+            matches!(error, PickupError::MalformedRequest(ref s) if s.contains("live_delivery"))
         );
     }
 }

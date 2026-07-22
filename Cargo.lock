@@ -3699,6 +3699,7 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "axum 0.7.9",
+ "database",
  "didcomm",
  "message-api",
  "mongodb",
